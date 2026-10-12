@@ -329,3 +329,15 @@ test('custom categories: AI schema and results use the person\'s own categories'
   const out = await ai.analyze({ ...goodPayload(), categories: ['Housing', 'Gas', 'Other', 'Income'] });
   assert.deepStrictEqual(out.merchants.map((m) => m.category), ['Gas', 'Other']);       // unknown names fall back to Other
 });
+
+test('widget: sanitize keeps only the plain shape and trims everything else', () => {
+  const { sanitize } = require('../widget');
+  assert.strictEqual(sanitize(null), null); assert.strictEqual(sanitize('x'), null);
+  const s = sanitize({ asOf: '2026-10-12', month: 'October 2026', daysLeft: 20.4, sample: 1, evil: '<img onerror=x>', net: { net: 5, assets: 'NaN', debts: Infinity, extra: 1 },
+    spend: { income: 1, spent: 2.555, budgeted: 3, budgetSpent: 4, left: 5, perDay: 6, junk: 7 },
+    over: [1, 2, 3, 4, 5].map((i) => ({ cat: 'C'.repeat(60), spent: i, budget: 1, extra: 1 })), bills: new Array(9).fill({ name: 'N\u0000x', amount: 3, days: 2.4 }), goal: { name: 'G', pct: 900 } });
+  assert.ok(!('evil' in s) && !('junk' in s.spend) && !('extra' in s.net));
+  assert.strictEqual(s.net.assets, 0); assert.strictEqual(s.net.debts, 0); assert.strictEqual(s.spend.spent, 2.56);
+  assert.strictEqual(s.over.length, 3); assert.strictEqual(s.over[0].cat.length, 24); assert.strictEqual(s.bills.length, 4);
+  assert.strictEqual(s.bills[0].name, 'N x'); assert.strictEqual(s.bills[0].days, 2); assert.strictEqual(s.goal.pct, 100); assert.strictEqual(s.daysLeft, 20);
+});

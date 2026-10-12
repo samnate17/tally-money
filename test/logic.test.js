@@ -560,3 +560,24 @@ test('accounts: password rules', () => {
   assert.ok(s.passwordProblem('contains-samuel-here', 'samuel@x.com')); assert.ok(s.passwordProblem('password1234', 'a@x.com'));
   assert.strictEqual(s.passwordProblem('correct horse battery', 'a@x.com'), '');
 });
+
+// ---- desktop widget summary ----
+test('widget summary: only plain totals, budgets, bills, goal', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const code = src.slice(src.indexOf('/*WIDGET-START*/'), src.indexOf('/*WIDGET-END*/'));
+  const TODAY = new Date(2026, 9, 12);
+  const S = { sample: false, accounts: [{ name: 'Secret Bank 1234' }], budgets: { Dining: 100, Groceries: 300 }, goals: [{ name: 'Trip', target: 1000, saved: 250 }, { name: 'Done', target: 10, saved: 10 }, { name: 'Car', target: 2000, saved: 1000 }],
+    subs: [{ name: 'Netflix', amount: 15 }, { name: 'Far', amount: 9 }] };
+  const f = new Function('S,TODAY,NOWKEY,CATS,spendBy,incomeOf,activeSubs,nextDate,dayDiff,iso,monthLabel,netWorth',
+    code + '\nreturn widgetSummary;')(S, TODAY, '2026-10', ['Dining', 'Groceries', 'Other', 'Income'],
+    () => ({ by: { Dining: 160, Groceries: 120, Other: 40 }, total: 320 }), () => 2400,
+    () => S.subs, (x) => (x.name === 'Netflix' ? new Date(2026, 9, 14) : new Date(2026, 10, 20)),
+    (a, b) => Math.round((b - a) / 864e5), (d) => '2026-10-12', () => 'October 2026', () => ({ net: 5000, assets: 7000, debts: 2000 }));
+  const w = f();
+  assert.deepStrictEqual(w.spend, { income: 2400, spent: 320, budgeted: 400, budgetSpent: 280, left: 120, perDay: 120 / 20 });
+  assert.deepStrictEqual(w.over, [{ cat: 'Dining', spent: 160, budget: 100 }]);
+  assert.deepStrictEqual(w.bills, [{ name: 'Netflix', amount: 15, days: 2 }]);
+  assert.deepStrictEqual(w.goal, { name: 'Car', pct: 50 });
+  assert.strictEqual(w.daysLeft, 20);
+  assert.ok(!/Secret|1234/.test(JSON.stringify(w)));
+});

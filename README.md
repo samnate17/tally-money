@@ -51,6 +51,15 @@ Every push to `main` redeploys. `npm run build:web` copies only the site files (
 
 Pages project, Settings, General, Access policy, Enable. Then in Zero Trust, edit the policy created for the project: action Allow, include rule Emails with your address, login method One-time PIN. Cloudflare Access is free for up to 50 users. The manifest link uses `crossorigin="use-credentials"` so the login cookie is sent when Safari fetches it.
 
+## Desktop widget (Mac app)
+
+Transactions tab, Desktop widget, Show the widget (or the Widget menu). A small frameless window you can drag anywhere shows net worth, how much of your budgets you have used and a rough per-day allowance, categories over budget, bills due in the next 7 days and your nearest goal. It updates whenever you change something in Tally and remembers its position and the last numbers it saw.
+
+- **Blur amounts** hides the figures for when others can see your screen. **Keep on top** floats it over other windows; off, it sits like a normal window.
+- The Widget menu also has **Open Tally when I log in**. When the app starts that way and the widget is on, only the widget appears; click the Dock icon or the widget's arrow to open the main window.
+- Only totals, category names, bill names and one goal name are sent to the widget. No transactions or account names. It reads nothing itself.
+- This is a floating window, not a native macOS widget in Notification Center or the desktop widget gallery. A native widget needs a Swift app extension built in Xcode and a signed build, which this project does not have. `xvfb-run -a node_modules/.bin/electron --no-sandbox test/widget.smoke.js` checks the window, the data path and the buttons on Linux; it has not been run on macOS.
+
 ## Accounts for other people (hosted version)
 
 Two ways to let other people use Tally:

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, shell, ipcMain, safeStorage } = require('electron');
+const { app, BrowserWindow, Menu, shell, ipcMain, safeStorage, screen } = require('electron');
 const path = require('path');
 const http = require('http');
 const { createSecretStore } = require('./secrets');
@@ -6,8 +6,9 @@ const { createPlaid } = require('./plaid');
 const { createAI } = require('./ai');
 const { parsePdf, maskText } = require('./statement');
 const { createMarket, SYMBOL } = require('./market');
+const { createWidget } = require('./widget');
 
-let store, plaid, ai, market, mainWin = null, linkState = null;
+let store, plaid, ai, market, widget, mainWin = null, linkState = null;
 const statementText = new Map();
 const statementBytes = new Map(); // PDFs with no text layer, kept briefly so they can be sent to Claude if the user chooses
 let textSeq = 0;
@@ -77,6 +78,30 @@ function wireIpc() {
   ipcMain.handle('link:success', (e, r) => { if (fromLink(e)) linkState.finish({ publicToken: String(r.publicToken || ''), institution: String(r.institution || '') }); });
   ipcMain.handle('link:exit', (e, msg) => { if (fromLink(e)) linkState.finish(msg ? { error: String(msg) } : { cancelled: true }); });
 
+  // Desktop widget. The app window pushes a small summary; the widget window can only ask for it and send a few named actions.
+  const fromMain = (e) => mainWin && !mainWin.isDestroyed() && e.sender === mainWin.webContents;
+  ipcMain.handle('widget:push', (e, summary) => ({ ok: !!(fromMain(e) && widget && widget.update(summary)) }));
+  ipcMain.handle('widget:status', (e) => (fromMain(e) && widget ? { ok: true, data: widget.status() } : { ok: false }));
+  ipcMain.handle('widget:set', (e, what, value) => {
+    if (!fromMain(e) || !widget) return { ok: false };
+    if (what === 'visible') { value ? widget.show() : widget.hide(); }
+    else if (what === 'onTop') widget.setOnTop(!!value);
+    else if (what === 'hideAmounts') widget.setHideAmounts(!!value);
+    else return { ok: false };
+    buildMenu();
+    return { ok: true, data: widget.status() };
+  });
+  ipcMain.handle('widget:get', (e) => (widget && widget.isWidgetContents(e.sender) ? widget.get() : null));
+  ipcMain.handle('widget:action', (e, name) => {
+    if (!widget || !widget.isWidgetContents(e.sender)) return false;
+    if (name === 'toggle-hide') widget.setHideAmounts(!widget.get().hideAmounts);
+    else if (name === 'toggle-top') widget.setOnTop(!widget.get().onTop);
+    else if (name === 'close') { widget.hide(); buildMenu(); }
+    else if (name === 'open') showMain();
+    else return false;
+    return true;
+  });
+
   handle('plaid:status', () => plaid.status());
   handle('plaid:saveKeys', (k) => plaid.saveKeys(k));
   handle('plaid:clearKeys', () => plaid.clearKeys());
@@ -139,8 +164,9 @@ function wireIpc() {
   });
 }
 
-function createWindow() {
+function createWindow(quiet) {
   mainWin = new BrowserWindow({
+    show: !quiet,
     width: 1240, height: 860, minWidth: 420, minHeight: 600, title: 'Tally Money', backgroundColor: '#eceff5',
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true },
   });
@@ -159,25 +185,47 @@ function createWindow() {
   });
 }
 
+function showMain() {
+  if (!mainWin || mainWin.isDestroyed()) createWindow();
+  if (mainWin.isMinimized()) mainWin.restore();
+  mainWin.show();
+  mainWin.focus();
+}
+
+function buildMenu() {
+  const st = widget ? widget.status() : { visible: false, onTop: false };
+  Menu.setApplicationMenu(Menu.buildFromTemplate([
+    { role: 'appMenu' },
+    { role: 'editMenu' },
+    { role: 'viewMenu' },
+    {
+      label: 'Widget',
+      submenu: [
+        { label: 'Show desktop widget', type: 'checkbox', checked: st.visible, click: (i) => { i.checked ? widget.show() : widget.hide(); buildMenu(); } },
+        { label: 'Keep widget on top of other windows', type: 'checkbox', checked: st.onTop, click: (i) => { widget.setOnTop(i.checked); buildMenu(); } },
+        { type: 'separator' },
+        { label: 'Open Tally when I log in', type: 'checkbox', checked: app.getLoginItemSettings().openAtLogin, click: (i) => app.setLoginItemSettings({ openAtLogin: i.checked }) },
+      ],
+    },
+    { role: 'windowMenu' },
+  ]));
+}
+
 app.whenReady().then(() => {
   store = createSecretStore({ file: path.join(app.getPath('userData'), 'secrets.bin'), safeStorage });
   plaid = createPlaid({ store });
   ai = createAI({ store });
   market = createMarket();
   wireIpc();
-  Menu.setApplicationMenu(Menu.buildFromTemplate([
-    { role: 'appMenu' },
-    { role: 'editMenu' },
-    { role: 'viewMenu' },
-    { role: 'windowMenu' },
-  ]));
+  widget = createWidget({ BrowserWindow, screen, file: path.join(app.getPath('userData'), 'widget.json'), preload: path.join(__dirname, 'widget-preload.js'), html: path.join(__dirname, 'widget.html') });
+  buildMenu();
   if (process.platform === 'darwin' && app.dock && !app.isPackaged) {
     try { app.dock.setIcon(path.join(__dirname, 'build', 'icon.png')); } catch (e) { /* dev-only nicety */ }
   }
-  createWindow();
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
-  });
+  const atLogin = process.platform === 'darwin' && app.getLoginItemSettings().wasOpenedAtLogin && widget.wantsOpen();
+  createWindow(atLogin);
+  if (widget.wantsOpen()) widget.show();
+  app.on('activate', () => showMain());
 });
 
 app.on('window-all-closed', () => {

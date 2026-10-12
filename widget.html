@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Tally widget</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+<style>
+:root{--bg:rgba(255,255,255,.94);--ink:#141b34;--muted:#5d6682;--line:#dde2ee;--accent:#3b4cf0;--good:#0b8f63;--bad:#d3302f;--warn:#b86a00;--track:#e6e9ff;color-scheme:light dark}
+@media (prefers-color-scheme:dark){:root{--bg:rgba(23,28,51,.94);--ink:#eef0fa;--muted:#98a1c4;--line:#2b3254;--accent:#7c8bff;--good:#3fd09c;--bad:#ff7a76;--warn:#f0b04c;--track:#252d5c}}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:transparent;font:13px/1.35 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",system-ui,sans-serif;color:var(--ink);-webkit-user-select:none;user-select:none}
+.card{height:100%;background:var(--bg);border:1px solid var(--line);border-radius:18px;padding:12px 14px 12px;display:flex;flex-direction:column;gap:9px;-webkit-app-region:drag;overflow:hidden}
+.top{display:flex;align-items:center;justify-content:space-between}
+.top b{font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.btns{display:flex;gap:2px;-webkit-app-region:no-drag}
+.btns button{border:0;background:none;color:var(--muted);width:26px;height:24px;border-radius:7px;font-size:14px;cursor:pointer}
+.btns button:hover{background:var(--track);color:var(--ink)}
+.btns button[aria-pressed=true]{color:var(--accent)}
+.big{font-size:28px;font-weight:700;letter-spacing:-.02em;line-height:1.1}
+.sub{color:var(--muted);font-size:12px}
+.bar{height:7px;border-radius:5px;background:var(--track);overflow:hidden;margin:5px 0 3px}
+.bar i{display:block;height:100%;background:var(--accent);border-radius:5px}
+.bar i.warn{background:var(--warn)}.bar i.bad{background:var(--bad)}
+.sec{border-top:1px solid var(--line);padding-top:8px}
+.sec h3{margin:0 0 4px;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.row{display:flex;justify-content:space-between;gap:8px}
+.row span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bad{color:var(--bad)}.good{color:var(--good)}
+.hide .amt{filter:blur(6px)}
+.empty{color:var(--muted);text-align:center;margin:auto;padding:20px 6px}
+a{color:var(--accent);cursor:pointer;-webkit-app-region:no-drag}
+.body{display:flex;flex-direction:column;gap:9px;cursor:default;min-height:0}
+</style></head>
+<body><div class="card" id="card">
+<div class="top"><b id="ttl">Tally</b><div class="btns">
+<button id="eye" title="Hide amounts" aria-label="Hide amounts" aria-pressed="false">◐</button>
+<button id="pin" title="Keep on top" aria-label="Keep on top" aria-pressed="false">⌃</button>
+<button id="open" title="Open Tally" aria-label="Open Tally">↗</button>
+<button id="x" title="Close widget" aria-label="Close widget">×</button></div></div>
+<div class="body" id="body"><div class="empty">Open Tally once to fill this in.</div></div>
+</div>
+<script>
+var $=function(i){return document.getElementById(i)};
+function esc(s){return String(s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function m0(n){var a=Math.abs(Math.round(n)).toLocaleString('en-US');return (n<0?'-':'')+'$'+a}
+function draw(d){
+  var s=d&&d.summary;
+  $('card').className='card'+(d&&d.hideAmounts?' hide':'');
+  $('eye').setAttribute('aria-pressed',d&&d.hideAmounts?'true':'false');
+  $('pin').setAttribute('aria-pressed',d&&d.onTop?'true':'false');
+  if(!s){$('body').innerHTML='<div class="empty">Open Tally once to fill this in.</div>';return}
+  $('ttl').textContent=s.sample?'Tally · example data':'Tally · '+s.month;
+  var h='';
+  if(s.net){h+='<div><div class="sub">Net worth</div><div class="big amt '+(s.net.net<0?'bad':'')+'">'+m0(s.net.net)+'</div><div class="sub amt">'+m0(s.net.assets)+' assets · '+m0(s.net.debts)+' debts</div></div>'}
+  var sp=s.spend;
+  if(sp.budgeted>0){
+    var p=Math.min(100,sp.budgetSpent/sp.budgeted*100),cls=sp.budgetSpent>sp.budgeted?'bad':(p>85?'warn':'');
+    h+='<div class="sec"><h3>Budgets</h3><div class="row"><span class="amt">'+m0(sp.budgetSpent)+' of '+m0(sp.budgeted)+'</span><span class="'+(sp.left<0?'bad':'good')+' amt">'+(sp.left<0?m0(-sp.left)+' over':m0(sp.left)+' left')+'</span></div><div class="bar"><i class="'+cls+'" style="width:'+p+'%"></i></div><div class="sub amt">'+(sp.left>0&&s.daysLeft>0?'About '+m0(sp.perDay)+' a day for '+s.daysLeft+' more days':(sp.left<0?'Over budget for the month':''))+'</div></div>';
+  }else{
+    h+='<div class="sec"><h3>This month</h3><div class="row"><span>Spent</span><span class="amt">'+m0(sp.spent)+'</span></div><div class="row"><span>Income</span><span class="amt">'+m0(sp.income)+'</span></div></div>';
+  }
+  if(s.over.length)h+='<div class="sec"><h3>Over budget</h3>'+s.over.map(function(o){return '<div class="row"><span>'+esc(o.cat)+'</span><span class="bad amt">'+m0(o.spent-o.budget)+' over</span></div>'}).join('')+'</div>';
+  if(s.bills.length)h+='<div class="sec"><h3>Due soon</h3>'+s.bills.map(function(b){return '<div class="row"><span>'+esc(b.name)+' <span class="sub">'+(b.days<=0?'today':b.days===1?'tomorrow':'in '+b.days+' days')+'</span></span><span class="amt">'+m0(b.amount)+'</span></div>'}).join('')+'</div>';
+  if(s.goal)h+='<div class="sec"><h3>Goal</h3><div class="row"><span>'+esc(s.goal.name)+'</span><span>'+s.goal.pct+'%</span></div><div class="bar"><i style="width:'+s.goal.pct+'%"></i></div></div>';
+  $('body').innerHTML=h;
+}
+widget.onData(draw);widget.get().then(draw);
+$('eye').onclick=function(){widget.action('toggle-hide')};
+$('pin').onclick=function(){widget.action('toggle-top')};
+$('open').onclick=function(){widget.action('open')};
+$('x').onclick=function(){widget.action('close')};
+$('body').ondblclick=function(){widget.action('open')};
+</script></body></html>
