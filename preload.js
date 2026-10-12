@@ -2,6 +2,14 @@ const { contextBridge, ipcRenderer } = require('electron');
 const inv = (ch) => (...args) => ipcRenderer.invoke(ch, ...args);
 
 contextBridge.exposeInMainWorld('tally', {
+  glassActive: process.argv.some((a) => a === '--tally-glass=1'),
+  glass: {
+    status: inv('glass:status'),
+    set: inv('glass:set'),
+  },
+  theme: {
+    mode: inv('theme:mode'),
+  },
   plaid: {
     status: inv('plaid:status'),
     saveKeys: inv('plaid:saveKeys'),

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, shell, ipcMain, safeStorage, screen } = require('electron');
+const { app, BrowserWindow, Menu, shell, ipcMain, safeStorage, screen, nativeTheme } = require('electron');
 const path = require('path');
 const http = require('http');
 const { createSecretStore } = require('./secrets');
@@ -7,8 +7,10 @@ const { createAI } = require('./ai');
 const { parsePdf, maskText } = require('./statement');
 const { createMarket, SYMBOL } = require('./market');
 const { createWidget } = require('./widget');
+const glassLib = require('./glass');
 
 let store, plaid, ai, market, widget, mainWin = null, linkState = null;
+let glassAddon = null, glassState = { available: false, active: false, reason: '' }, glassId = -1, glassPrefsFile = '';
 const statementText = new Map();
 const statementBytes = new Map(); // PDFs with no text layer, kept briefly so they can be sent to Claude if the user chooses
 let textSeq = 0;
@@ -102,6 +104,21 @@ function wireIpc() {
     return true;
   });
 
+  // Native Liquid Glass preference and the app's light/dark choice (so the glass matches the in-app mode).
+  const fromMain2 = (e) => mainWin && !mainWin.isDestroyed() && e.sender === mainWin.webContents;
+  ipcMain.handle('glass:status', (e) => (fromMain2(e) ? { ok: true, data: { ...glassState, pref: glassLib.readPrefs(glassPrefsFile).native } } : { ok: false }));
+  ipcMain.handle('glass:set', (e, on) => {
+    if (!fromMain2(e)) return { ok: false };
+    glassLib.writePrefs(glassPrefsFile, { native: !!on });
+    setTimeout(() => { app.relaunch(); app.exit(0); }, 150);     // the window type is fixed at creation, so restart to switch
+    return { ok: true };
+  });
+  ipcMain.handle('theme:mode', (e, mode) => {
+    if (!fromMain2(e)) return { ok: false };
+    nativeTheme.themeSource = mode === 'light' || mode === 'dark' ? mode : 'system';
+    return { ok: true };
+  });
+
   handle('plaid:status', () => plaid.status());
   handle('plaid:saveKeys', (k) => plaid.saveKeys(k));
   handle('plaid:clearKeys', () => plaid.clearKeys());
@@ -165,11 +182,20 @@ function wireIpc() {
 }
 
 function createWindow(quiet) {
+  const glass = glassState.active;
   mainWin = new BrowserWindow({
     show: !quiet,
-    width: 1240, height: 860, minWidth: 420, minHeight: 600, title: 'Tally Money', backgroundColor: '#eceff5',
-    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true },
+    width: 1240, height: 860, minWidth: 420, minHeight: 600, title: 'Tally Money',
+    // With native glass the window must be transparent from the start and the title bar hidden so the glass reaches the top edge.
+    ...(glass ? { transparent: true, backgroundColor: '#00000000', vibrancy: undefined, titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 20, y: 18 } } : { backgroundColor: '#eceff5' }),
+    webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true, additionalArguments: glass ? ['--tally-glass=1'] : [] },
   });
+  if (glass) {
+    mainWin.webContents.once('did-finish-load', () => {
+      try { glassId = glassLib.applyGlass(glassAddon, mainWin, { cornerRadius: 0, style: 'regular' }); } catch (e) { glassId = -1; }
+      if (glassId < 0) mainWin.webContents.executeJavaScript("document.documentElement.removeAttribute('data-native')").catch(() => {});
+    });
+  }
   mainWin.loadFile(path.join(__dirname, 'index.html'));
   mainWin.on('closed', () => { mainWin = null; });
   // The app never needs to leave its own page. Send any link to the default browser.
@@ -221,6 +247,9 @@ app.whenReady().then(() => {
   plaid = createPlaid({ store });
   ai = createAI({ store });
   market = createMarket();
+  glassPrefsFile = path.join(app.getPath('userData'), 'appearance.json');
+  glassAddon = glassLib.loadAddon({ resourcesPath: process.resourcesPath, devDir: path.join(__dirname, 'native-glass') });
+  glassState = glassLib.decide({ platform: process.platform, osVersion: process.getSystemVersion && process.getSystemVersion(), prefs: glassLib.readPrefs(glassPrefsFile), addon: glassAddon });
   wireIpc();
   widget = createWidget({ BrowserWindow, screen, file: path.join(app.getPath('userData'), 'widget.json'), preload: path.join(__dirname, 'widget-preload.js'), html: path.join(__dirname, 'widget.html'), nativeFile: path.join(app.getPath('userData'), 'native-widget.json') });
   buildMenu();

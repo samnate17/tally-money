@@ -225,10 +225,26 @@ canvas.confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:non
   .toast{bottom:calc(96px + env(safe-area-inset-bottom,0px))}
   .rail{max-height:none}
 }
+
+/* ---------- Native Liquid Glass (Mac app on macOS 26+): the window itself is Apple's glass, the page is transparent over it ---------- */
+:root[data-native="glass"],:root[data-native="glass"] body{background:transparent}
+:root[data-native="glass"] #aurora{display:none}
+:root[data-native="glass"] body{padding-block-start:48px}
+:root[data-native="glass"] .rail{top:48px;max-height:calc(100vh - 64px)}
+#dragbar{display:none}
+:root[data-native="glass"] #dragbar{display:block;position:fixed;top:0;left:0;right:0;height:40px;z-index:30;-webkit-app-region:drag}
+:root[data-native="glass"] .panel,:root[data-native="glass"] .tile,:root[data-native="glass"] .rail,:root[data-native="glass"] .tabbar,:root[data-native="glass"] .banner,:root[data-native="glass"] .btn{
+  -webkit-backdrop-filter:none;backdrop-filter:none}
+:root[data-native="glass"] .panel,:root[data-native="glass"] .tile,:root[data-native="glass"] .rail{
+  background:radial-gradient(240px circle at var(--mx,50%) var(--my,0%),rgba(255,255,255,calc(.22*var(--sh,0))),transparent 62%),
+    color-mix(in srgb,var(--surface) calc(var(--glass-pct) * .62),transparent);
+  box-shadow:inset 0 1px 0 var(--edge),0 10px 28px -18px var(--shade)}
+:root[data-native="glass"] .nav,:root[data-native="glass"] .row,:root[data-native="glass"] input,:root[data-native="glass"] select{-webkit-app-region:no-drag}
 </style>
 
 </head>
 <body>
+<div id="dragbar" aria-hidden="true"></div>
 <div id="aurora" aria-hidden="true"><i></i><i></i><i></i></div>
 <div class="app">
   <aside class="rail" id="rail"></aside>
@@ -1845,6 +1861,7 @@ document.addEventListener('click',function(e){
   else if(a==='cat-del'){budDel=b.dataset.c}
   else if(a==='cat-cancel'){budDel=''}
   else if(a==='cat-del-yes'){var dc=b.dataset.c;S.txns.forEach(function(x){if(x.cat===dc)x.cat='Other'});delete S.budgets[dc];S.customCats=S.customCats.filter(function(c){return c.name!==dc});syncCats();budDel='';budSel=''}
+  else if(a==='gl-on'||a==='gl-off'){window.tally.glass.set(a==='gl-on');toast('Restarting…');return}
   else if(a.indexOf('th-')===0){thClick(a,b);return}
   else if(a==='wg-vis'){widgetSet('visible',!(WS&&WS.visible));return}
   else if(a==='wg-top'){widgetSet('onTop',b.checked);return}
@@ -1864,23 +1881,33 @@ document.addEventListener('click',function(e){
 
 
 /* ---------- Appearance (theme, motion) ---------- */
-var TH=cleanTheme(null),lastView='';
+var TH=cleanTheme(null),lastView='',GS=null;
 try{TH=cleanTheme(JSON.parse(localStorage.getItem('tally-theme-v1')||'null'))}catch(e){}
 var mqDark=window.matchMedia?window.matchMedia('(prefers-color-scheme: dark)'):null,mqRM=window.matchMedia?window.matchMedia('(prefers-reduced-motion: reduce)'):null;
 function applyTheme(){
+  if(window.tally&&window.tally.glassActive)document.documentElement.setAttribute('data-native','glass');
   var dark=TH.mode==='dark'||(TH.mode==='auto'&&!!(mqDark&&mqDark.matches)),v=themeVars(TH,dark),r=document.documentElement,k;
   for(k in v)r.style.setProperty(k,v[k]);
   r.setAttribute('data-theme',dark?'dark':'light');r.setAttribute('data-bg',TH.bg);
   r.setAttribute('data-motion',TH.motion==='reduced'||(mqRM&&mqRM.matches)?'reduced':'full');
+  if(window.tally&&window.tally.theme){try{window.tally.theme.mode(TH.mode==='auto'?'system':TH.mode).catch(function(){})}catch(e){}}
 }
 function saveTheme(){try{localStorage.setItem('tally-theme-v1',JSON.stringify(TH))}catch(e){}}
 if(mqDark&&mqDark.addEventListener)mqDark.addEventListener('change',applyTheme);
 applyTheme();
 function seg(act,cur,opts){return '<div class="seg" role="group">'+opts.map(function(o){return '<button type="button" class="'+(o[0]===cur?'on':'')+'" data-act="'+act+'" data-v="'+o[0]+'" aria-pressed="'+(o[0]===cur)+'">'+o[1]+'</button>'}).join('')+'</div>'}
+function glassPanel(){
+  if(!window.tally||!window.tally.glass)return '';
+  var g=GS;
+  if(!g)return '';
+  var body=g.active?'<p class="sub" style="margin:0 0 10px"><b>Native Liquid Glass is on.</b> The window itself is Apple\'s glass material, so it picks up your wallpaper and windows behind it. Panels sit on top as tinted glass.</p><div class="actions" style="justify-content:flex-start"><button class="btn" data-act="gl-off">Turn off and restart</button></div>'
+    :g.available?'<p class="sub" style="margin:0 0 10px">Native Liquid Glass is off. The CSS glass look is used.</p><div class="actions" style="justify-content:flex-start"><button class="btn primary" data-act="gl-on">Turn on and restart</button></div>'
+    :'<p class="sub muted" style="margin:0">'+esc(g.reason||'Not available.')+' The CSS glass look is used instead.</p>';
+  return '<section class="panel"><h2>Window material<small>real Liquid Glass on macOS 26</small></h2>'+body+'<p class="sub muted" style="margin:10px 0 0;font-size:12px">With native glass the Aurora background is replaced by your desktop. If text is hard to read, raise Frost below. Switching restarts the app.</p></section>'}
 function vLook(){
   var sw=PRESETS.map(function(p){return '<button type="button" class="sw'+(TH.preset===p.id?' on':'')+'" data-act="th-preset" data-v="'+p.id+'" style="--sw:'+p.accent+'" aria-pressed="'+(TH.preset===p.id)+'">'+p.name+'</button>'}).join('');
   return '<div class="top"><h1>Appearance</h1><button class="btn small" data-act="th-reset">Reset to default</button></div>'+
-  '<section class="panel"><h2>Colour<small>pick a preset or make your own</small></h2><div class="swatches">'+sw+'</div>'+
+  glassPanel()+'<section class="panel"><h2>Colour<small>pick a preset or make your own</small></h2><div class="swatches">'+sw+'</div>'+
     '<div class="lookrow" style="margin-top:12px"><span class="lbl">Custom accent<small>Buttons, bars, highlights and the background glow follow it.</small></span><span class="ctl"><input id="th-accent" type="color" value="'+TH.accent+'" aria-label="Custom accent colour"><span class="muted num">'+TH.accent.toUpperCase()+'</span></span></div></section>'+
   '<section class="panel"><h2>Glass and light</h2>'+
     '<div class="lookrow"><span class="lbl">Mode</span><span class="ctl">'+seg('th-mode',TH.mode,[['auto','Auto'],['light','Light'],['dark','Dark']])+'</span></div>'+
@@ -1939,6 +1966,7 @@ function widgetPush(){
   clearTimeout(wT);wT=setTimeout(function(){try{window.tally.widget.push((function(){var w=widgetSummary();w.accent=TH.accent;return w})()).catch(function(){})}catch(e){}},500);
 }
 function widgetInit(){
+  if(window.tally&&window.tally.glass)window.tally.glass.status().then(function(r){if(r&&r.ok){GS=r.data;if(view==='look')render()}},function(){});
   if(!window.tally||!window.tally.widget)return;
   window.tally.widget.status().then(function(r){if(r&&r.ok){WS=r.data;if(view==='transactions')render()}},function(){});
   widgetPush();

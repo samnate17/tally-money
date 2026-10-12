@@ -14,6 +14,15 @@ exports.default = async function afterPack(context) {
   try {
     fs.mkdirSync(work, { recursive: true });
     execFileSync(path.join(__dirname, '..', 'native-widget', 'build.sh'), [arch, work, context.packager.appInfo.version], { stdio: 'inherit' });
+    // Native Liquid Glass addon for the main window (macOS 26+). Optional: without it the app uses the CSS glass look.
+    try {
+      const gout = path.join(context.appOutDir, '..', 'glass-build-' + arch);
+      execFileSync(path.join(__dirname, '..', 'native-glass', 'build.sh'), [arch, gout], { stdio: 'inherit' });
+      execFileSync('ditto', [path.join(gout, 'glass.node'), path.join(app, 'Contents', 'Resources', 'glass.node')], { stdio: 'inherit' });
+      console.log('[glass] embedded glass.node');
+    } catch (e) {
+      console.error('\n[glass] WARNING: native Liquid Glass module was NOT added:', e.message, '\n');
+    }
     const plugins = path.join(app, 'Contents', 'PlugIns');
     fs.mkdirSync(plugins, { recursive: true });
     fs.rmSync(path.join(plugins, 'TallyWidget.appex'), { recursive: true, force: true });

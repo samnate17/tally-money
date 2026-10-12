@@ -1,0 +1,40 @@
+name: Check native glass
+
+on:
+  workflow_dispatch:
+  push:
+    paths: ['native-glass/**', 'glass.js', 'test/glass.smoke.js', '.github/workflows/glass-check.yml']
+
+jobs:
+  compile:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - name: Compile for both architectures
+        run: |
+          native-glass/build.sh arm64 out/arm64
+          native-glass/build.sh x86_64 out/x86_64
+          file out/arm64/glass.node out/x86_64/glass.node
+      - name: Run it in Electron (this runner's macOS version decides whether glass exists)
+        run: |
+          sw_vers
+          timeout 120 node_modules/.bin/electron test/glass.smoke.js out/arm64/glass.node 2>&1 | grep GLASS
+
+  macos26:
+    runs-on: macos-26
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: native-glass/build.sh arm64 out/arm64
+      - name: Add real glass to a window on macOS 26
+        run: |
+          sw_vers
+          timeout 120 node_modules/.bin/electron test/glass.smoke.js out/arm64/glass.node 2>&1 | tee run.log | grep GLASS
+          grep -q '"supported":true' run.log
+          grep -q '"ok":true' run.log

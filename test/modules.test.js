@@ -341,3 +341,35 @@ test('widget: sanitize keeps only the plain shape and trims everything else', ()
   assert.strictEqual(s.over.length, 3); assert.strictEqual(s.over[0].cat.length, 24); assert.strictEqual(s.bills.length, 4);
   assert.strictEqual(s.bills[0].name, 'N x'); assert.strictEqual(s.bills[0].days, 2); assert.strictEqual(s.goal.pct, 100); assert.strictEqual(s.daysLeft, 20);
 });
+
+test('glass: macOS version parsing and the decision of when native glass is used', () => {
+  const g = require('../glass');
+  assert.strictEqual(g.macMajor('26.0.1'), 26); assert.strictEqual(g.macMajor('15.6'), 15); assert.strictEqual(g.macMajor(''), 0); assert.strictEqual(g.macMajor(undefined), 0);
+  const ok = { isSupported: () => true };
+  const yes = g.decide({ platform: 'darwin', osVersion: '26.0', prefs: { native: true }, addon: ok });
+  assert.deepStrictEqual([yes.available, yes.active], [true, true]);
+  assert.deepStrictEqual(g.decide({ platform: 'darwin', osVersion: '26.1', prefs: { native: false }, addon: ok }).active, false);
+  assert.strictEqual(g.decide({ platform: 'darwin', osVersion: '26.1', prefs: { native: false }, addon: ok }).available, true);
+  assert.match(g.decide({ platform: 'darwin', osVersion: '15.6', prefs: { native: true }, addon: ok }).reason, /macOS 26/);
+  assert.match(g.decide({ platform: 'linux', osVersion: '6', prefs: { native: true }, addon: ok }).reason, /only available on macOS/);
+  assert.match(g.decide({ platform: 'darwin', osVersion: '26.0', prefs: { native: true }, addon: null }).reason, /does not include/);
+  assert.match(g.decide({ platform: 'darwin', osVersion: '26.0', prefs: { native: true }, addon: { isSupported: () => false } }).reason, /did not provide/);
+  assert.strictEqual(g.decide({ platform: 'darwin', osVersion: '26.0', prefs: { native: true }, addon: { isSupported: () => { throw new Error('x'); } } }).active, false);
+});
+
+test('glass: preferences default on, survive junk, and the addon loader tolerates missing or broken modules', () => {
+  const g = require('../glass'); const fs = require('fs'); const os = require('os'); const path = require('path');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'glass-')); const f = path.join(dir, 'a.json');
+  assert.deepStrictEqual(g.readPrefs(f), { native: true });
+  fs.writeFileSync(f, 'not json'); assert.deepStrictEqual(g.readPrefs(f), { native: true });
+  g.writePrefs(f, { native: false }); assert.deepStrictEqual(g.readPrefs(f), { native: false });
+  g.writePrefs(f, { native: true }); assert.deepStrictEqual(g.readPrefs(f), { native: true });
+  assert.strictEqual(g.loadAddon({ resourcesPath: dir, devDir: dir }), null);
+  fs.writeFileSync(path.join(dir, 'glass.node'), 'x');
+  assert.strictEqual(g.loadAddon({ resourcesPath: dir, dlopen: () => { throw new Error('bad binary'); } }), null);
+  assert.strictEqual(g.loadAddon({ resourcesPath: dir, dlopen: (m) => { m.exports = { nothing: 1 }; } }), null);
+  const mod = g.loadAddon({ resourcesPath: dir, dlopen: (m) => { m.exports = { isSupported: () => true }; } });
+  assert.strictEqual(typeof mod.isSupported, 'function');
+  assert.strictEqual(g.applyGlass({ addGlass: () => 3 }, { getNativeWindowHandle: () => Buffer.alloc(8) }, {}), 3);
+  assert.strictEqual(g.applyGlass({ addGlass: () => -1 }, { getNativeWindowHandle: () => Buffer.alloc(8) }, {}), -1);
+});
