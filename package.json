@@ -8,6 +8,7 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
+    "build:web": "rm -rf dist-web && mkdir dist-web && cp -R index.html manifest.webmanifest icons dist-web/",
     "dist:mac": "electron-builder --mac --publish never"
   },
   "build": {

@@ -30,6 +30,17 @@ When the page is hosted over https (GitHub Pages, Netlify, Cloudflare Pages), Sa
 
 GitHub Pages is free only for public repos. A web app installed this way keeps its own data, separate from Safari tabs and the Mac app, so use Backup and Restore to move data.
 
+## Deploy to Cloudflare Pages
+
+Dashboard, Workers & Pages, Create, Pages, Connect to Git, pick this repo (private is fine). Settings:
+
+- Framework preset: None
+- Build command: `npm run build:web`
+- Build output directory: `dist-web`
+- Environment variable: `ELECTRON_SKIP_BINARY_DOWNLOAD` = `1` (stops the install step downloading Electron, which the website doesn't need)
+
+Every push to `main` redeploys. `npm run build:web` copies only the site files (`index.html`, `manifest.webmanifest`, `icons/`) so the Electron and build files are not published.
+
 ## Data and privacy
 
 Everything is stored in the browser's `localStorage` (key `tally-money-v1`). Nothing is uploaded. Clearing site data erases it, and it does not sync between devices.
