@@ -1,0 +1,22 @@
+name: Check native widget
+
+on:
+  workflow_dispatch:
+  push:
+    paths: ['native-widget/**', '.github/workflows/widget-check.yml']
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the widget for both Mac architectures
+        run: |
+          xcodebuild -version
+          mkdir -p out/arm64 out/x86_64
+          native-widget/build.sh arm64 out/arm64 0.0.0
+          native-widget/build.sh x86_64 out/x86_64 0.0.0
+      - name: Inspect
+        run: |
+          file out/arm64/TallyWidget.appex/Contents/MacOS/TallyWidget out/x86_64/TallyWidget.appex/Contents/MacOS/TallyWidget
+          codesign -d --entitlements - out/arm64/TallyWidget.appex 2>&1 | head -20
