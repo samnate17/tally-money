@@ -51,6 +51,41 @@ Every push to `main` redeploys. `npm run build:web` copies only the site files (
 
 Pages project, Settings, General, Access policy, Enable. Then in Zero Trust, edit the policy created for the project: action Allow, include rule Emails with your address, login method One-time PIN. Cloudflare Access is free for up to 50 users. The manifest link uses `crossorigin="use-credentials"` so the login cookie is sent when Safari fetches it.
 
+## Accounts for other people (hosted version)
+
+Two ways to let other people use Tally:
+
+1. **They install the Mac app themselves.** Each person's data stays on their own Mac and you hold nothing. This needs no accounts and no server.
+2. **You host it with logins.** The same site, deployed to Cloudflare Pages with a D1 database, gains a sign-in screen. Nobody can create an account without a single-use **invite code** that you generate. The hosted version is the web app only: Plaid bank sync, AI analysis, PDF import and live prices stay in the Mac app, because they need keys that must not be shared.
+
+### How the hosted version protects data
+
+- The browser turns the password into two separate keys (PBKDF2, 600,000 rounds). One proves who you are and only a salted hash of it is stored. The other encrypts your data with AES-256-GCM and never leaves the browser. The server stores ciphertext only, so you, as the host, cannot read anyone's finances, and neither could someone who stole the database.
+- The cost of that: **a forgotten password cannot be recovered.** The sign-up screen says so and requires a tick box. Tell people to download a backup.
+- Invite codes are 80-bit, single use, expire (7 days by default), can be revoked, and are stored hashed. Sign-in is rate limited (8 failures per email and 40 per address per 15 minutes). Sessions are 30-day HttpOnly, SameSite=Strict cookies, and writes need a custom header against cross-site requests. Changing a password signs out other devices. Users can delete their own account and data.
+- `_headers` adds a strict Content Security Policy and other browser protections.
+
+### Set it up
+
+1. Cloudflare dashboard, Storage & Databases, D1, create a database named `tally-money`. Open its Console and paste in the contents of `migrations/0001_init.sql`.
+2. Pages project (see above), Settings, Bindings, add a D1 database binding named `DB` pointing at it. Add an `ADMIN_TOKEN` secret under Variables and Secrets: a random string of 24+ characters (for example the output of `openssl rand -base64 32`). Redeploy.
+3. Remove the Cloudflare Access policy if you set one earlier, or add everyone's email to it. Otherwise invited people cannot reach the sign-up page. Access in front of the site is a second lock you may prefer to keep.
+4. Make an invite and send it privately:
+
+   ```
+   export TALLY_URL=https://your-project.pages.dev
+   export TALLY_ADMIN_TOKEN=the-secret-from-step-2
+   node scripts/admin.mjs invite 7 "for Alex"
+   ```
+
+   Other commands: `invites`, `revoke <id>`, `users`, `disable <id>`, `enable <id>`, `remove <id>`. The admin list shows emails and sync times, never data.
+
+### What you are taking on
+
+Even with encryption you hold other people's account emails and encrypted records. You are the contact when someone loses a password or asks for deletion (`remove`). Anyone with your `ADMIN_TOKEN` or Cloudflare login can create accounts or delete data, so protect both. Encryption does not protect a user whose own browser is compromised, and the code was tested locally with a SQLite stand-in for D1, not against a live Cloudflare deployment. Try the whole flow once yourself before inviting anyone. Tally is not a bank and offers no financial advice; keep that in mind if you invite people outside your circle.
+
+`npm test` covers the API (invites, sign-in limits, versions, password change, deletion, admin) and the browser-side encryption. `node test/devserver.mjs` runs the site and the real API locally on port 8799 with an in-memory database.
+
 ## Can I afford it?
 
 Enter what it is, whether it is a one-time, monthly or yearly cost, its category and the price. The tab checks it against your real numbers: cash in checking, savings and cash accounts, subscriptions due in the next 30 days, your average income and spending over the last three full months, the category budget, and any debt above 10% APR. It answers Yes, Tight or Not right now, explains each reason with the amounts, and says how long saving would take if you should wait. It is rule-based, runs locally and works in the web version too. The rules: one-time costs should leave at least three months of spending in cash (under one month is a No), and monthly costs should leave at least 10% of income. These are rules of thumb, not financial advice.

@@ -1,6 +1,6 @@
 {
   "name": "tally-money",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "Personal money app: spending, subscriptions, budgets and goals.",
   "author": "samnate17",
   "license": "UNLICENSED",
@@ -8,7 +8,7 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "build:web": "rm -rf dist-web && mkdir dist-web && cp -R index.html manifest.webmanifest icons dist-web/",
+    "build:web": "rm -rf dist-web && mkdir dist-web && cp -R index.html manifest.webmanifest icons _headers dist-web/",
     "dist:mac": "electron-builder --mac --publish never",
     "test": "node --test test/*.test.js"
   },

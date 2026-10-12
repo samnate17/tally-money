@@ -61,6 +61,15 @@ main{min-width:0;display:flex;flex-direction:column;gap:16px}
 .btn.danger{color:var(--bad)}
 .monthnav{display:flex;align-items:center;gap:6px}
 .monthnav b{min-width:128px;text-align:center;font-family:var(--font-display)}
+.gate{position:fixed;inset:0;z-index:50;background:var(--bg);display:flex;align-items:flex-start;justify-content:center;padding:24px 16px;overflow:auto}
+.gate .card{width:100%;max-width:420px;margin-top:6vh;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:24px}
+.gate h1{font-size:26px;margin:0 0 4px}
+.gate label{display:block;font-size:13px;color:var(--muted);margin:12px 0 4px}
+.gate input[type=email],.gate input[type=password],.gate input[type=text]{width:100%}
+.gate .err{background:var(--bad-soft);color:var(--bad);border-radius:10px;padding:9px 12px;margin-top:12px;font-size:14px}
+.gate .ack{display:flex;gap:8px;align-items:flex-start;margin-top:14px;font-size:13px;color:var(--muted)}
+.gate .row2{display:flex;justify-content:space-between;gap:8px;margin-top:16px;flex-wrap:wrap}
+.linkbtn{background:none;border:0;color:var(--accent);padding:0;font:inherit;cursor:pointer;text-decoration:underline}
 .banner{background:var(--accent-soft);border-radius:12px;padding:12px 14px;display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
 .banner span{min-width:0;flex:1 1 260px}
 .grid{display:grid;gap:16px}
@@ -208,7 +217,7 @@ var S,month=NOWKEY,view='overview',filter={q:'',cat:''},editBudgets=false;
 function load(){try{var j=localStorage.getItem('tally-money-v1');if(j){S=JSON.parse(j);migrate();syncCats();return}}catch(e){}S=sample();migrate();syncCats()}
 function defCredit(){return {scores:[],profile:{late:'unknown',inq:'unknown',oldest:'',derog:'unknown'}}}
 function migrate(){if(!Array.isArray(S.customCats))S.customCats=[];if(!Array.isArray(S.holdings))S.holdings=S.sample?sampleHoldings():[];if(!S.credit||!Array.isArray(S.credit.scores))S.credit=S.sample?sampleCredit():defCredit();if(!Array.isArray(S.plaidIgnored))S.plaidIgnored=[];if(!Array.isArray(S.accounts))S.accounts=S.sample?sampleAccounts():[];if(typeof S.extraPay!=='number')S.extraPay=S.sample?100:0}
-function save(){try{localStorage.setItem('tally-money-v1',JSON.stringify(S))}catch(e){}}
+function save(){try{localStorage.setItem('tally-money-v1',JSON.stringify(S))}catch(e){}if(HOSTED)schedulePush()}
 
 /* ---------- derived ---------- */
 function spendBy(mk){var o={},t=0;S.txns.forEach(function(x){if(monthKey(x.date)===mk&&x.cat!=='Income'&&x.amount<0){o[x.cat]=(o[x.cat]||0)-x.amount;t-=x.amount}});return {by:o,total:t}}
@@ -253,13 +262,14 @@ var TABS=[['overview','Overview'],['accounts','Accounts'],['subscriptions','Subs
 function nav(){
   function items(short){return TABS.map(function(t){return '<button class="nav" data-view="'+t[0]+'"'+(view===t[0]?' aria-current="page"':'')+'>'+ICON[t[0]]+'<span>'+(short&&t[2]||t[1])+'</span></button>'}).join('')}
   var h=items(false);
-  $('#rail').innerHTML='<div class="brand"><svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="tl-bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1B2470"/><stop offset="1" stop-color="#05061A"/></linearGradient><linearGradient id="tl-bar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#8FA2FF"/></linearGradient></defs><rect width="24" height="24" fill="url(#tl-bg)"/><g fill="url(#tl-bar)"><rect x="5.2" y="5.4" width="2.1" height="13.2" rx="1.05"/><rect x="8.9" y="5.4" width="2.1" height="13.2" rx="1.05"/><rect x="12.6" y="5.4" width="2.1" height="13.2" rx="1.05"/><rect x="16.3" y="5.4" width="2.1" height="13.2" rx="1.05"/></g><path d="M4.6 17.2 19.4 7.4" stroke="#FFB45A" stroke-width="1.9" stroke-linecap="round" fill="none"/></svg>Tally</div>'+h+'<div class="railfoot"><span>'+(window.tally?'Your data stays on this Mac. Bank sync and AI analysis send data only when you use them.':'Your data stays in this browser. Nothing is uploaded.')+'</span></div>';
+  $('#rail').innerHTML='<div class="brand"><svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="tl-bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1B2470"/><stop offset="1" stop-color="#05061A"/></linearGradient><linearGradient id="tl-bar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#8FA2FF"/></linearGradient></defs><rect width="24" height="24" fill="url(#tl-bg)"/><g fill="url(#tl-bar)"><rect x="5.2" y="5.4" width="2.1" height="13.2" rx="1.05"/><rect x="8.9" y="5.4" width="2.1" height="13.2" rx="1.05"/><rect x="12.6" y="5.4" width="2.1" height="13.2" rx="1.05"/><rect x="16.3" y="5.4" width="2.1" height="13.2" rx="1.05"/></g><path d="M4.6 17.2 19.4 7.4" stroke="#FFB45A" stroke-width="1.9" stroke-linecap="round" fill="none"/></svg>Tally</div>'+h+'<div class="railfoot"><span>'+(window.tally?'Your data stays on this Mac. Bank sync and AI analysis send data only when you use them.':HOSTED?'Signed in as '+esc(AUTH.email)+'. Your data is encrypted before it leaves this browser.':'Your data stays in this browser. Nothing is uploaded.')+'</span></div>';
   $('#tabbar').innerHTML=items(true);
 }
 function render(){
   nav();
   var f={overview:vOverview,accounts:vAccounts,afford:vAfford,credit:vCredit,invest:vInvest,report:vReport,subscriptions:vSubs,budgets:vBudgets,transactions:vTx,goals:vGoals}[view];
-  var banner=S.sample?'<div class="banner"><span><b>Example data.</b> These accounts and transactions are made up so you can try everything. Clear them to start with your own, or import a CSV from your bank.</span><button class="btn primary small" data-act="clear">Start fresh</button></div>':'';
+  var cb=HOSTED&&AUTH.conflict?'<div class="banner" id="conflict"><span><b>This account changed on another device.</b> Choose which version to keep.</span><span style="flex:0 0 auto;display:flex;gap:8px"><button class="btn small" data-act="cf-remote">Use the other version</button><button class="btn small primary" data-act="cf-local">Keep this device\'s version</button></span></div>':'';
+  var banner=cb+(S.sample?'<div class="banner"><span><b>Example data.</b> These accounts and transactions are made up so you can try everything. Clear them to start with your own, or import a CSV from your bank.</span><button class="btn primary small" data-act="clear">Start fresh</button></div>':'');
   $('#main').innerHTML=banner+f();
   bindView();
 }
@@ -399,7 +409,7 @@ function vTx(){
   }).join('');
   return '<div class="top"><h1>Transactions</h1></div>'+
    '<section class="panel"><form class="form" id="txform"><label>Date<input id="tf-date" type="date" required value="'+iso(TODAY)+'"></label><label>Description<input id="tf-name" required placeholder="e.g. Trader Joe\'s"></label><label>Amount<input id="tf-amt" type="number" step="0.01" required placeholder="-24.50"></label><label>Category<select id="tf-cat"><option value="">Auto</option>'+CATS.map(function(c){return '<option>'+c+'</option>'}).join('')+'</select></label><button class="btn primary">Add</button></form><p class="sub muted" style="margin:10px 0 0;font-size:13px">Spending is negative, income is positive. CSV needs columns for date, description and amount.</p></section>'+pdfShell()+aiShell()+
-   '<section class="panel"><div class="form" style="margin-bottom:8px"><input id="q" class="search" type="search" placeholder="Search transactions" value="'+esc(filter.q)+'" aria-label="Search"><select id="fcat" aria-label="Filter by category"><option value="">All categories</option>'+CATS.map(function(c){return '<option'+(c===filter.cat?' selected':'')+'>'+c+'</option>'}).join('')+'</select></div>'+(rows||'<div class="empty">No transactions match.</div>')+(list.length>150?'<div class="empty">Showing the latest 150 of '+list.length+'.</div>':'')+'</section>'+backupPanel();
+   '<section class="panel"><div class="form" style="margin-bottom:8px"><input id="q" class="search" type="search" placeholder="Search transactions" value="'+esc(filter.q)+'" aria-label="Search"><select id="fcat" aria-label="Filter by category"><option value="">All categories</option>'+CATS.map(function(c){return '<option'+(c===filter.cat?' selected':'')+'>'+c+'</option>'}).join('')+'</select></div>'+(rows||'<div class="empty">No transactions match.</div>')+(list.length>150?'<div class="empty">Showing the latest 150 of '+list.length+'.</div>':'')+'</section>'+backupPanel()+accountPanel();
 }
 /* ---------- Accounts and debts ---------- */
 var ASSET_TYPES={checking:'Checking',savings:'Savings',cash:'Cash',investment:'Investments',property:'Property or other asset'};
@@ -775,6 +785,37 @@ function pdfReviewRows(files){
 
 /* ---------- Can I afford it ---------- */
 
+/*SYNC-START*/
+var KDF_ITER=600000;
+function toB64u(buf){var b=new Uint8Array(buf),t='';for(var i=0;i<b.length;i++)t+=String.fromCharCode(b[i]);return btoa(t).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
+function fromB64u(s){s=String(s).replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';var t=atob(s),b=new Uint8Array(t.length);for(var i=0;i<t.length;i++)b[i]=t.charCodeAt(i);return b}
+// One slow derivation gives two independent halves: `auth` proves who you are to the server, `key` encrypts your data and never leaves this device.
+function deriveKeys(email,password,iter){
+  var enc=new TextEncoder(),subtle=CRYPTO.subtle;
+  return subtle.importKey('raw',enc.encode(password),'PBKDF2',false,['deriveBits']).then(function(base){
+    return subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',iterations:iter||KDF_ITER,salt:enc.encode('tally-money:v1:'+String(email).trim().toLowerCase())},base,512)
+  }).then(function(bits){
+    var b=new Uint8Array(bits);
+    return subtle.importKey('raw',b.slice(32),{name:'AES-GCM'},false,['encrypt','decrypt']).then(function(key){return {auth:toB64u(b.slice(0,32)),key:key}})
+  });
+}
+function sealJson(key,obj){
+  var iv=CRYPTO.getRandomValues(new Uint8Array(12));
+  return CRYPTO.subtle.encrypt({name:'AES-GCM',iv:iv},key,new TextEncoder().encode(JSON.stringify(obj))).then(function(ct){return JSON.stringify({v:1,iv:toB64u(iv),ct:toB64u(ct)})});
+}
+function openJson(key,text){
+  var j;try{j=JSON.parse(text)}catch(e){return Promise.reject(new Error('Unreadable data.'))}
+  if(!j||j.v!==1)return Promise.reject(new Error('Unreadable data.'));
+  return CRYPTO.subtle.decrypt({name:'AES-GCM',iv:fromB64u(j.iv)},key,fromB64u(j.ct)).then(function(pt){return JSON.parse(new TextDecoder().decode(pt))},function(){throw new Error('Could not decrypt. The password does not match this data.')});
+}
+function passwordProblem(p,email){
+  if(!p||p.length<10)return 'Use at least 10 characters.';
+  if(/^(.)\1+$/.test(p))return 'That password is too repetitive.';
+  var e=String(email||'').split('@')[0].toLowerCase();if(e.length>=4&&p.toLowerCase().indexOf(e)>=0)return 'Do not put your email name in your password.';
+  if(/^(password|12345678|qwertyuiop)/i.test(p))return 'That password is too common.';
+  return '';
+}
+/*SYNC-END*/
 /*CREDIT-START*/
 function creditBand(sc){
   if(sc>=800)return {label:'Exceptional',k:'good'};
@@ -1637,12 +1678,152 @@ document.addEventListener('click',function(e){
   else if(a==='cat-del'){budDel=b.dataset.c}
   else if(a==='cat-cancel'){budDel=''}
   else if(a==='cat-del-yes'){var dc=b.dataset.c;S.txns.forEach(function(x){if(x.cat===dc)x.cat='Other'});delete S.budgets[dc];S.customCats=S.customCats.filter(function(c){return c.name!==dc});syncCats();budDel='';budSel=''}
+  else if(a==='acct-out'){signOut();return}
+  else if(a==='acct-pw'){acctMode='pw';acctMsg=''}
+  else if(a==='acct-del'){acctMode='del';acctMsg=''}
+  else if(a==='acct-cancel'){acctMode='';acctMsg=''}
+  else if(a==='cf-remote'){resolveConflict(true);return}
+  else if(a==='cf-local'){resolveConflict(false);return}
   else if(a==='score-del'){S.credit.scores.splice(+b.dataset.i,1)}
   else if(a==='acct-del'){var da=S.accounts.filter(function(x){return x.id===id})[0];if(da&&da.plaid&&S.plaidIgnored.indexOf(da.plaid.accountId)<0)S.plaidIgnored.push(da.plaid.accountId);S.accounts=S.accounts.filter(function(x){return x.id!==id})}
   else if(a==='goal-del'){S.goals=S.goals.filter(function(x){return x.id!==id})}
   save();render();
 });
-load();render();
+
+/* ---------- Hosted accounts (web build only) ---------- */
+var CRYPTO=window.crypto;
+var HOSTED=false,AUTH={email:'',key:null,version:0,status:'',dirty:false,busy:false,conflict:null,t:0},gate=null,acctMode='',acctMsg='';
+function api(method,path,body){
+  return fetch(path,{method:method,credentials:'same-origin',headers:{'content-type':'application/json','x-tally':'1'},body:body===undefined?undefined:JSON.stringify(body)}).then(function(r){return r.json().catch(function(){return {ok:false,error:'Unexpected reply.'}}).then(function(j){j.status=r.status;return j})});
+}
+function wipeLocal(){try{['tally-money-v1','tally-plaid-v1','tally-quotes-v1','tally-owner'].forEach(function(k){localStorage.removeItem(k)})}catch(e){}}
+function ownerGet(){try{return localStorage.getItem('tally-owner')||''}catch(e){return ''}}
+function ownerSet(v){try{localStorage.setItem('tally-owner',v)}catch(e){}}
+function adopt(obj){S=obj;migrate();syncCats();try{localStorage.setItem('tally-money-v1',JSON.stringify(S))}catch(e){}}
+function showGate(mode,msg){gate={mode:mode,msg:msg||'',busy:false};drawGate()}
+function drawGate(){
+  var el=$('#gate');if(!gate){if(el)el.remove();return}
+  if(!el){el=document.createElement('div');el.id='gate';el.className='gate';document.body.appendChild(el)}
+  var g=gate,m=g.mode,h='<div class="card"><h1>Tally Money</h1>';
+  var err=g.msg?'<div class="err" role="alert">'+esc(g.msg)+'</div>':'';
+  if(m==='unlock'){
+    h+='<p class="sub muted">Signed in as <b>'+esc(AUTH.email)+'</b>. Enter your password to unlock your data.</p><form id="gf" data-m="unlock"><label for="g-pw">Password</label><input id="g-pw" type="password" autocomplete="current-password" required autofocus>'+err+'<div class="row2"><button class="btn primary" type="submit"'+(g.busy?' disabled':'')+'>'+(g.busy?'Unlocking…':'Unlock')+'</button><button class="linkbtn" type="button" data-g="out">Sign out</button></div></form>';
+  }else if(m==='register'){
+    h+='<p class="sub muted">Creating an account needs an invite code from the person who runs this site.</p><form id="gf" data-m="register"><label for="g-em">Email</label><input id="g-em" type="email" autocomplete="username" required><label for="g-inv">Invite code</label><input id="g-inv" type="text" autocomplete="off" placeholder="XXXX-XXXX-XXXX-XXXX" required><label for="g-pw">Password (10+ characters)</label><input id="g-pw" type="password" autocomplete="new-password" required><label for="g-pw2">Repeat password</label><input id="g-pw2" type="password" autocomplete="new-password" required><label class="ack"><input id="g-ack" type="checkbox"><span>I understand that my data is encrypted with my password. If I forget it, nobody can recover it. I will download backups.</span></label>'+err+'<div class="row2"><button class="btn primary" type="submit"'+(g.busy?' disabled':'')+'>'+(g.busy?'Creating…':'Create account')+'</button><button class="linkbtn" type="button" data-g="signin">I already have an account</button></div></form>';
+  }else{
+    h+='<p class="sub muted">Sign in to open your data.</p><form id="gf" data-m="signin"><label for="g-em">Email</label><input id="g-em" type="email" autocomplete="username" required autofocus><label for="g-pw">Password</label><input id="g-pw" type="password" autocomplete="current-password" required>'+err+'<div class="row2"><button class="btn primary" type="submit"'+(g.busy?' disabled':'')+'>'+(g.busy?'Signing in…':'Sign in')+'</button><button class="linkbtn" type="button" data-g="register">Have an invite code?</button></div></form>';
+  }
+  el.innerHTML=h+'</div>';
+  var f=$('#gf',el);if(f)f.onsubmit=function(e){e.preventDefault();gateSubmit(f.dataset.m)};
+  el.querySelectorAll('[data-g]').forEach(function(b){b.onclick=function(){var a=b.dataset.g;if(a==='out')signOut();else showGate(a)}});
+  var first=$('input',el);if(first&&!g.busy)first.focus();
+}
+function gateFail(msg){gate.busy=false;gate.msg=msg;var v=function(id){var x=$(id);return x?x.value:''};var keep={em:v('#g-em'),inv:v('#g-inv'),ack:!!($('#g-ack')&&$('#g-ack').checked)};drawGate();if(keep.em&&$('#g-em'))$('#g-em').value=keep.em;if(keep.inv&&$('#g-inv'))$('#g-inv').value=keep.inv;if(keep.ack&&$('#g-ack'))$('#g-ack').checked=true}
+function gateSubmit(mode){
+  var em=mode==='unlock'?AUTH.email:($('#g-em').value||'').trim().toLowerCase(),pw=$('#g-pw').value;
+  if(mode==='register'){
+    var inv=$('#g-inv').value,bad=passwordProblem(pw,em);
+    if(bad)return gateFail(bad);
+    if(pw!==$('#g-pw2').value)return gateFail('The two passwords do not match.');
+    if(!$('#g-ack').checked)return gateFail('Please tick the box to confirm you understand.');
+  }
+  gate.busy=true;gate.msg='';var eb=$('#gf button[type=submit]'),ee=$('#gate .err');if(eb){eb.disabled=true;eb.textContent='Working…'}if(ee)ee.remove();
+  deriveKeys(em,pw).then(function(k){
+    if(mode==='unlock')return afterAuth(em,k.key);
+    var body=mode==='register'?{email:em,auth:k.auth,invite:inv}:{email:em,auth:k.auth};
+    return api('POST',mode==='register'?'/api/register':'/api/login',body).then(function(r){
+      if(!r.ok)return gateFail(r.error||'Something went wrong.');
+      return afterAuth(r.email,k.key,mode==='register');
+    });
+  }).catch(function(er){gateFail(er&&er.message?er.message:'Something went wrong.')});
+}
+function afterAuth(email,key,isNew){
+  AUTH.email=email;AUTH.key=key;
+  return api('GET','/api/data').then(function(r){
+    if(!r.ok){if(r.signedOut){AUTH.key=null;return showGate('signin','Your session ended. Please sign in again.')}return gateFail(r.error||'Could not load your data.')}
+    AUTH.version=r.version;
+    if(r.data){
+      return openJson(key,r.data).then(function(obj){adopt(obj);ownerSet(email);finishGate()},function(er){AUTH.key=null;gateFail(er.message)});
+    }
+    // Nothing stored yet for this account.
+    var own=ownerGet(),local=null;try{local=JSON.parse(localStorage.getItem('tally-money-v1')||'null')}catch(e){}
+    if(local&&own===email){S=local;migrate();syncCats()}
+    else if(local&&!own&&!local.sample&&window.confirm('This browser already has Tally data that was saved before accounts. Add it to your new account?\n\nOK adds it. Cancel starts the account empty.')){S=local;migrate();syncCats()}
+    else{wipeLocal();S=sample();migrate();syncCats()}
+    ownerSet(email);
+    finishGate();AUTH.dirty=true;push();
+  }).catch(function(er){gateFail(er&&er.message?er.message:'Could not reach the server.')});
+}
+function finishGate(){gate=null;drawGate();AUTH.status='Synced';render()}
+function signOut(){api('POST','/api/logout',{}).then(function(){wipeLocal();location.reload()},function(){wipeLocal();location.reload()})}
+var pushT=0;
+function schedulePush(){if(!HOSTED||!AUTH.key)return;AUTH.dirty=true;AUTH.status='Saving…';clearTimeout(pushT);pushT=setTimeout(push,1500)}
+function push(){
+  if(!HOSTED||!AUTH.key||!AUTH.dirty||AUTH.busy||AUTH.conflict)return;
+  AUTH.busy=true;AUTH.dirty=false;
+  var snap=S;
+  return sealJson(AUTH.key,snap).then(function(data){return api('PUT','/api/data',{baseVersion:AUTH.version,data:data})}).then(function(r){
+    AUTH.busy=false;
+    if(r.ok){AUTH.version=r.version;AUTH.status='Synced '+new Date().toLocaleTimeString([], {hour:'numeric',minute:'2-digit'})}
+    else if(r.conflict){AUTH.conflict=true;AUTH.status='Changed on another device'}
+    else if(r.signedOut){AUTH.key=null;showGate('unlock','Your session ended. Enter your password to continue.')}
+    else{AUTH.dirty=true;AUTH.status='Not saved: '+(r.error||'error')+'. Will retry.';clearTimeout(pushT);pushT=setTimeout(push,30000)}
+    if(AUTH.dirty&&!AUTH.conflict&&r.ok)push();
+    syncUi();
+  },function(){AUTH.busy=false;AUTH.dirty=true;AUTH.status='Offline. Will retry.';clearTimeout(pushT);pushT=setTimeout(push,30000);syncUi()});
+}
+function syncUi(){var el=$('#syncstat');if(el)el.textContent=AUTH.status;var b=$('#conflict');if(b)b.hidden=!AUTH.conflict;else if(AUTH.conflict)render()}
+function pullIfNewer(){
+  if(!HOSTED||!AUTH.key||AUTH.busy)return;
+  api('GET','/api/data').then(function(r){
+    if(!r.ok||r.version<=AUTH.version||!r.data)return;
+    if(AUTH.dirty||AUTH.conflict){AUTH.conflict=true;AUTH.remote=r;syncUi();return}
+    openJson(AUTH.key,r.data).then(function(obj){AUTH.version=r.version;adopt(obj);AUTH.status='Updated from another device';render()},function(){});
+  },function(){});
+}
+function resolveConflict(useRemote){
+  api('GET','/api/data').then(function(r){
+    if(!r.ok)return;
+    if(useRemote&&r.data){openJson(AUTH.key,r.data).then(function(obj){AUTH.version=r.version;AUTH.conflict=false;AUTH.dirty=false;adopt(obj);AUTH.status='Loaded the other version';render()})}
+    else{AUTH.version=r.version;AUTH.conflict=false;AUTH.dirty=true;push()}
+  });
+}
+function accountPanel(){
+  if(!HOSTED)return '';
+  var f=acctMode==='pw'?'<form data-acct="pw" class="form" style="margin-top:12px;flex-wrap:wrap"><input id="ac-old" type="password" placeholder="Current password" autocomplete="current-password" required><input id="ac-new" type="password" placeholder="New password (10+)" autocomplete="new-password" required><input id="ac-new2" type="password" placeholder="Repeat new password" autocomplete="new-password" required><button class="btn primary">Change password</button><button class="btn" type="button" data-act="acct-cancel">Cancel</button></form>'
+   :acctMode==='del'?'<form data-acct="del" class="form" style="margin-top:12px;flex-wrap:wrap"><input id="ac-old" type="password" placeholder="Password to confirm" autocomplete="current-password" required><button class="btn danger">Delete my account and data</button><button class="btn" type="button" data-act="acct-cancel">Cancel</button></form><p class="sub muted" style="font-size:13px">This permanently removes your account and everything stored for it. It cannot be undone.</p>':'';
+  return '<section class="panel"><h2>Account<small>'+esc(AUTH.email)+'</small></h2><p class="sub muted" style="margin:0 0 10px;font-size:13px">Your data is encrypted in this browser before it is saved to your account, so the site owner cannot read it. If you forget your password it cannot be recovered, so keep a backup. <span id="syncstat">'+esc(AUTH.status)+'</span></p><div class="actions" style="justify-content:flex-start"><button class="btn" data-act="acct-pw">Change password</button><button class="btn" data-act="acct-out">Sign out</button><button class="btn danger" data-act="acct-del">Delete account</button></div>'+(acctMsg?'<p class="sub" style="margin:10px 0 0">'+esc(acctMsg)+'</p>':'')+f+'</section>';
+}
+document.addEventListener('submit',function(e){
+  var fm=e.target.closest&&e.target.closest('form[data-acct]');if(!fm)return;e.preventDefault();
+  var kind=fm.dataset.acct,old=$('#ac-old').value;
+  deriveKeys(AUTH.email,old).then(function(cur){
+    if(kind==='del')return api('DELETE','/api/account',{auth:cur.auth}).then(function(r){if(!r.ok){acctMsg=r.error;render();return}wipeLocal();location.reload()});
+    var np=$('#ac-new').value,bad=passwordProblem(np,AUTH.email);
+    if(bad){acctMsg=bad;render();return}
+    if(np!==$('#ac-new2').value){acctMsg='The new passwords do not match.';render();return}
+    return deriveKeys(AUTH.email,np).then(function(nw){
+      return sealJson(nw.key,S).then(function(data){return api('POST','/api/password',{auth:cur.auth,newAuth:nw.auth,baseVersion:AUTH.version,data:data})}).then(function(r){
+        if(r.ok){AUTH.key=nw.key;AUTH.version=r.version;AUTH.dirty=false;acctMode='';acctMsg='Password changed. Other devices were signed out.'}
+        else acctMsg=r.conflict?'Your data changed on another device. Resolve that first, then try again.':r.error;
+        render();
+      });
+    });
+  }).catch(function(){acctMsg='Something went wrong.';render()});
+});
+document.addEventListener('visibilitychange',function(){if(!document.hidden)pullIfNewer()});
+function bootHosted(){
+  var done=false;
+  function local(){if(done)return;done=true;load();render()}
+  if(window.tally||!/^https?:$/.test(location.protocol))return local();
+  fetch('/api/health',{credentials:'same-origin'}).then(function(r){return r.ok?r.json():null}).then(function(j){
+    if(!j||!j.hosted)return local();
+    done=true;HOSTED=true;
+    S=sample();migrate();syncCats();            // placeholder behind the sign-in screen; real data is loaded after sign-in
+    api('GET','/api/session').then(function(r){if(r.ok){AUTH.email=r.email;showGate('unlock')}else showGate('signin')},function(){showGate('signin','Cannot reach the server.')});
+  }).catch(local);
+}
+bootHosted();
 })();
 </script>
 </body>

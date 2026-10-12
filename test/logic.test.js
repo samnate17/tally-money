@@ -523,3 +523,40 @@ test('50/30/20 and the monthly stack', () => {
   assert.deepStrictEqual(st.map((m) => m.k), ['2026-07', '2026-08', '2026-09']);
   assert.strictEqual(st[2].by.Gas, 100); assert.strictEqual(st[2].income, 4000);
 });
+
+// ---- hosted accounts: the browser-side crypto ----
+function syncBlock() {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const code = src.slice(src.indexOf('/*SYNC-START*/'), src.indexOf('/*SYNC-END*/'));
+  return new Function('CRYPTO', code + '\nreturn {deriveKeys, sealJson, openJson, passwordProblem, toB64u, fromB64u};')(globalThis.crypto);
+}
+
+test('accounts: auth proof is stable, 43 chars, and different per password and per email', async () => {
+  const s = syncBlock();
+  const a = await s.deriveKeys('A@x.com ', 'correct horse battery', 1000), b = await s.deriveKeys('a@x.com', 'correct horse battery', 1000);
+  assert.strictEqual(a.auth, b.auth); assert.match(a.auth, /^[A-Za-z0-9_-]{43}$/);
+  assert.notStrictEqual(a.auth, (await s.deriveKeys('a@x.com', 'correct horse batterz', 1000)).auth);
+  assert.notStrictEqual(a.auth, (await s.deriveKeys('b@x.com', 'correct horse battery', 1000)).auth);
+});
+
+test('accounts: data round-trips, the wrong password cannot open it, tampering is detected, nothing is readable', async () => {
+  const s = syncBlock();
+  const k = await s.deriveKeys('a@x.com', 'correct horse battery', 1000), bad = await s.deriveKeys('a@x.com', 'wrong wrong wrong', 1000);
+  const obj = { txns: [{ name: 'Secret Merchant', amount: -12.5 }], n: 1 };
+  const sealed = await s.sealJson(k.key, obj);
+  assert.ok(!/Secret Merchant/.test(sealed));
+  assert.deepStrictEqual(await s.openJson(k.key, sealed), obj);
+  await assert.rejects(s.openJson(bad.key, sealed), /does not match/);
+  const j = JSON.parse(sealed); const ct = Buffer.from(j.ct, 'base64url'); ct[0] ^= 1; j.ct = ct.toString('base64url');
+  await assert.rejects(s.openJson(k.key, JSON.stringify(j)));
+  assert.notStrictEqual(sealed, await s.sealJson(k.key, obj));          // fresh IV each time
+  assert.ok(k.key.extractable === false);
+  await assert.rejects(s.openJson(k.key, 'not json'), /Unreadable/);
+});
+
+test('accounts: password rules', () => {
+  const s = syncBlock();
+  assert.ok(s.passwordProblem('short', 'a@x.com')); assert.ok(s.passwordProblem('aaaaaaaaaaaa', 'a@x.com'));
+  assert.ok(s.passwordProblem('contains-samuel-here', 'samuel@x.com')); assert.ok(s.passwordProblem('password1234', 'a@x.com'));
+  assert.strictEqual(s.passwordProblem('correct horse battery', 'a@x.com'), '');
+});
