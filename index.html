@@ -110,6 +110,8 @@ input[type=number]{width:110px}
   .top h1{font-size:25px}
   .hide-s{display:none}
 }
+.pdfscroll{max-height:440px;overflow:auto;border:1px solid var(--line);border-radius:12px;padding:2px 12px}
+.pdfrow{gap:8px}.pdfrow input[type=text]{min-width:0}.pdfrow select{max-width:130px}
 .balform{display:flex;gap:6px;align-items:center}
 .balform input{width:120px}
 .row.wrap{flex-wrap:wrap}
@@ -345,7 +347,7 @@ function vTx(){
     return '<div class="row">'+logo(x.name)+'<div class="grow"><div class="nm">'+esc(x.name)+'</div><div class="sub">'+shortDate(x.date)+'</div></div><select data-cat="'+x.id+'" aria-label="Category for '+esc(x.name)+'" class="hide-s">'+CATS.map(function(c){return '<option'+(c===x.cat?' selected':'')+'>'+c+'</option>'}).join('')+'</select><div class="amt num '+(x.amount>0?'good':'')+'">'+(x.amount>0?'+':'')+money(x.amount)+'</div><button class="btn small" data-act="tx-del" data-id="'+x.id+'" aria-label="Delete">&times;</button></div>';
   }).join('');
   return '<div class="top"><h1>Transactions</h1><label class="btn small" style="cursor:pointer">Import CSV<input id="csv" type="file" accept=".csv,text/csv" hidden></label></div>'+
-   '<section class="panel"><form class="form" id="txform"><label>Date<input id="tf-date" type="date" required value="'+iso(TODAY)+'"></label><label>Description<input id="tf-name" required placeholder="e.g. Trader Joe\'s"></label><label>Amount<input id="tf-amt" type="number" step="0.01" required placeholder="-24.50"></label><label>Category<select id="tf-cat"><option value="">Auto</option>'+CATS.map(function(c){return '<option>'+c+'</option>'}).join('')+'</select></label><button class="btn primary">Add</button></form><p class="sub muted" style="margin:10px 0 0;font-size:13px">Spending is negative, income is positive. CSV needs columns for date, description and amount.</p></section>'+aiShell()+
+   '<section class="panel"><form class="form" id="txform"><label>Date<input id="tf-date" type="date" required value="'+iso(TODAY)+'"></label><label>Description<input id="tf-name" required placeholder="e.g. Trader Joe\'s"></label><label>Amount<input id="tf-amt" type="number" step="0.01" required placeholder="-24.50"></label><label>Category<select id="tf-cat"><option value="">Auto</option>'+CATS.map(function(c){return '<option>'+c+'</option>'}).join('')+'</select></label><button class="btn primary">Add</button></form><p class="sub muted" style="margin:10px 0 0;font-size:13px">Spending is negative, income is positive. CSV needs columns for date, description and amount.</p></section>'+pdfShell()+aiShell()+
    '<section class="panel"><div class="form" style="margin-bottom:8px"><input id="q" class="search" type="search" placeholder="Search transactions" value="'+esc(filter.q)+'" aria-label="Search"><select id="fcat" aria-label="Filter by category"><option value="">All categories</option>'+CATS.map(function(c){return '<option'+(c===filter.cat?' selected':'')+'>'+c+'</option>'}).join('')+'</select></div>'+(rows||'<div class="empty">No transactions match.</div>')+(list.length>150?'<div class="empty">Showing the latest 150 of '+list.length+'.</div>':'')+'</section>'+backupPanel();
 }
 function parseCSV(t){
@@ -575,6 +577,21 @@ function aiProposals(res){
   subs.sort(function(a,b){return rank[a.confidence]-rank[b.confidence]||(b.cycle==='yearly'?b.amount/12:b.amount)-(a.cycle==='yearly'?a.amount/12:a.amount)});
   return {changes:changes,merchantsChanged:Object.keys(touched).length,subs:subs,ended:ended,insights:res.insights};
 }
+function pdfCategory(name,amount){
+  if(amount>0)return /refund|return/i.test(name)?'Other':'Income';
+  var g=guessCat(name);return g==='Income'?'Other':g;
+}
+function pdfReviewRows(files){
+  var have={},seen={},out=[];
+  if(!S.sample)S.txns.forEach(function(x){var k=x.date+'|'+x.amount.toFixed(2)+'|'+aiKey(x.name);have[k]=(have[k]||0)+1}); // example data is replaced on import, so it is never a duplicate
+  files.forEach(function(f,fi){(f.rows||[]).forEach(function(r){
+    var k=r.date+'|'+r.amount.toFixed(2)+'|'+aiKey(r.name),dup=false;
+    if(have[k]>0){have[k]--;dup=true}else if(seen[k]!==undefined&&seen[k]!==fi)dup=true;
+    if(seen[k]===undefined)seen[k]=fi;
+    out.push({fi:fi,date:r.date,name:r.name,amount:r.amount,cat:pdfCategory(r.name,r.amount),uncertain:!!r.uncertain,dup:dup,on:!dup});
+  })});
+  return out;
+}
 /*LOGIC-END*/
 
 /* ---------- Can I afford it ---------- */
@@ -723,6 +740,67 @@ function plClick(b){
   if(a==='keys-yes'){plRun(function(){return tcall(T.plaid.clearKeys()).then(function(){PL.items={};S.accounts.forEach(function(x){delete x.plaid});save();savePL();plSt=null;plMsg={t:'ok',m:'Keys and links removed from this Mac.'};return tcall(T.plaid.status())}).then(function(st){plSt=st})}).then(function(){render()});return}
 }
 
+/* ---------- PDF statements (Mac app) ---------- */
+var pdf={stage:'idle',type:'auto',files:[],rows:[],msg:'',busy:'',aiConfirm:-1,showAll:false};
+function pdfShell(){return '<section class="panel" id="pdfpanel">'+pdfInner()+'</section>'}
+function pdfEst(chars){var st=aiSt||{priceIn:4,priceOut:20};return (Math.ceil(chars/3.2)+700)*st.priceIn/1e6+4000*st.priceOut/1e6}
+function pdfInner(){
+  var h='<h2>PDF statements<small>bank and credit card</small></h2>';
+  if(!T)return h+'<p class="sub muted" style="margin:0">Reading PDF statements is available in the Mac app. This page can import a CSV instead.</p>';
+  var note=pdf.msg?'<div class="banner" style="margin-bottom:12px"><span>'+esc(pdf.msg)+'</span></div>':'';
+  var pick='<div class="form" style="margin-bottom:10px"><label>Statement type<select id="pdf-type"><option value="auto"'+(pdf.type==='auto'?' selected':'')+'>Detect automatically</option><option value="checking"'+(pdf.type==='checking'?' selected':'')+'>Checking or savings</option><option value="credit"'+(pdf.type==='credit'?' selected':'')+'>Credit card</option></select></label><label class="btn primary" style="cursor:pointer">Choose PDF statements<input id="pdf-in" type="file" accept="application/pdf,.pdf" multiple hidden></label></div>';
+  if(pdf.busy)return h+note+'<div class="empty">'+esc(pdf.busy)+'</div>';
+  if(pdf.stage==='idle'||!pdf.files.length)return h+note+'<p class="sub muted" style="margin:0 0 12px">Pick one or several statements (for example twelve months at once). The text is read on this Mac, you review every transaction, and nothing is added until you press Import. Works with text PDFs from your bank. Scanned paper statements have no text to read.</p>'+pick;
+  var files=pdf.files.map(function(f,i){
+    var st=f.error?'<span class="pill bad">Could not open</span>':f.meta&&f.meta.noText?'<span class="pill bad">No text</span>':f.rows.length?'<span class="pill good">'+f.rows.length+' found</span>':'<span class="pill warn">Nothing found</span>';
+    var why=f.error?esc(f.error):f.meta&&f.meta.noText?'Looks like a scanned image. Use your bank\u2019s downloadable statement or a CSV export.':f.ai?'Read with AI'+(f.notes?': '+esc(f.notes):''):f.rows.length?'Read '+(f.meta.type==='credit'?'as a credit card statement':'as a checking statement')+' ('+f.meta.pages+' page'+(f.meta.pages===1?'':'s')+')':'No transaction lines were recognised.';
+    var canAi=f.textId&&f.chars>0&&!f.ai&&f.rows.length<3;
+    var ai=canAi?(pdf.aiConfirm===i?'<div class="banner" style="margin-top:8px"><span>This sends the text of this statement to Anthropic with account numbers masked (about '+f.chars.toLocaleString()+' characters, roughly $'+pdfEst(f.chars).toFixed(2)+').</span><span class="actions"><button class="btn small primary" data-pdf="ai-go" data-i="'+i+'">Send</button><button class="btn small" data-pdf="ai-no">Cancel</button></span></div>':'<button class="btn small" style="margin-top:6px" data-pdf="ai" data-i="'+i+'"'+(aiSt&&aiSt.hasKey?'':' disabled title="Add an Anthropic API key in the AI analysis panel first"')+'>Read with AI instead</button>'):'';
+    return '<div class="row wrap" style="align-items:flex-start"><div class="grow" style="flex-basis:220px"><div class="nm">'+esc(f.name)+'</div><div class="sub" style="white-space:normal">'+why+'</div>'+ai+'</div>'+st+'</div>';
+  }).join('');
+  var on=pdf.rows.filter(function(r){return r.on}).length,dups=pdf.rows.filter(function(r){return r.dup}).length,unc=pdf.rows.filter(function(r){return r.uncertain&&r.on}).length;
+  var list=pdf.showAll?pdf.rows:pdf.rows.slice(0,300);
+  var cats=CATS;
+  var rows=list.map(function(r){var i=pdf.rows.indexOf(r);return '<div class="row wrap pdfrow"><input type="checkbox" data-pc="on" data-i="'+i+'"'+(r.on?' checked':'')+' aria-label="Include"><input type="date" data-pc="date" data-i="'+i+'" value="'+r.date+'" aria-label="Date"><input type="text" class="grow" style="flex-basis:140px" data-pc="name" data-i="'+i+'" value="'+esc(r.name)+'" aria-label="Description"><select data-pc="cat" data-i="'+i+'" aria-label="Category">'+cats.map(function(c){return '<option'+(c===r.cat?' selected':'')+'>'+c+'</option>'}).join('')+'</select><button class="btn small" data-pdf="flip" data-i="'+i+'" title="Switch between money in and money out" aria-label="Flip sign">'+(r.uncertain?'\u26a0 ':'')+'<span class="num '+(r.amount>0?'good':'')+'">'+(r.amount>0?'+':'-')+money(Math.abs(r.amount))+'</span></button>'+(r.dup?'<span class="pill mute">Already have</span>':'')+'</div>'}).join('');
+  return h+note+pick+files+(pdf.rows.length?'<p style="margin:14px 0 8px"><b>'+pdf.rows.length+'</b> transaction'+(pdf.rows.length===1?'':'s')+' found'+(dups?', '+dups+' already in the app (unchecked)':'')+'. '+(unc?'<b class="warn">'+unc+' have a guessed sign</b> (marked \u26a0). Check them, and use the amount button to flip money in and out.':'Check the amounts and signs before importing.')+'</p><div class="pdfscroll">'+rows+'</div>'+(pdf.rows.length>300&&!pdf.showAll?'<div class="empty"><button class="btn small" data-pdf="all">Show all '+pdf.rows.length+'</button></div>':'')+'<div class="actions" style="justify-content:flex-start;margin-top:12px"><button class="btn primary" data-pdf="import"'+(on?'':' disabled')+'>Import '+on+' transaction'+(on===1?'':'s')+'</button><button class="btn" data-pdf="cancel">Cancel</button></div>':'<div class="actions" style="justify-content:flex-start;margin-top:12px"><button class="btn" data-pdf="cancel">Done</button></div>');
+}
+function renderPdf(){
+  var el=$('#pdfpanel');if(!el)return;el.innerHTML=pdfInner();
+  var inp=$('#pdf-in',el);if(inp)inp.onchange=function(){var fl=Array.prototype.slice.call(inp.files);if(fl.length)pdfRead(fl)};
+  var ty=$('#pdf-type',el);if(ty)ty.onchange=function(){pdf.type=ty.value;if(pdf.files.length&&pdf.files[0].file)pdfRead(pdf.files.map(function(f){return f.file}).filter(Boolean))};
+  el.onchange=function(e){var t=e.target,k=t.dataset&&t.dataset.pc;if(!k)return;var r=pdf.rows[+t.dataset.i];if(!r)return;if(k==='on')r.on=t.checked;else if(k==='date'){if(/^\d{4}-\d{2}-\d{2}$/.test(t.value))r.date=t.value}else if(k==='name')r.name=t.value.trim()||r.name;else if(k==='cat')r.cat=t.value;renderPdf()};
+}
+function pdfRead(fileList){
+  pdf.msg='';pdf.aiConfirm=-1;pdf.files=[];pdf.rows=[];pdf.showAll=false;
+  var chain=Promise.resolve();
+  fileList.forEach(function(file,i){chain=chain.then(function(){
+    pdf.busy='Reading '+(i+1)+' of '+fileList.length+': '+file.name;renderPdf();
+    return file.arrayBuffer().then(function(buf){return tcall(T.pdf.parse(buf,pdf.type==='auto'?null:pdf.type))}).then(function(r){pdf.files.push({name:file.name,file:file,rows:r.rows,meta:r.meta,textId:r.textId,chars:r.chars})}).catch(function(e){pdf.files.push({name:file.name,file:file,rows:[],error:e.message})});
+  })});
+  return chain.then(function(){pdf.busy='';pdf.stage='review';pdf.rows=pdfReviewRows(pdf.files);var n=pdf.rows.length;pdf.msg=n?'':'No transactions were recognised. Try the other statement type, or read a file with AI.';renderPdf()});
+}
+function pdfClick(b){
+  var a=b.dataset.pdf,i=+b.dataset.i;
+  if(a==='cancel'){pdf={stage:'idle',type:pdf.type,files:[],rows:[],msg:'',busy:'',aiConfirm:-1,showAll:false};renderPdf();return}
+  if(a==='all'){pdf.showAll=true;renderPdf();return}
+  if(a==='flip'){var r=pdf.rows[i];if(r){r.amount=-r.amount;r.cat=pdfCategory(r.name,r.amount);r.uncertain=false}renderPdf();return}
+  if(a==='ai'){pdf.aiConfirm=i;renderPdf();return}
+  if(a==='ai-no'){pdf.aiConfirm=-1;renderPdf();return}
+  if(a==='ai-go'){
+    var f=pdf.files[i];pdf.aiConfirm=-1;pdf.busy='Claude is reading '+f.name+'\u2026';renderPdf();
+    tcall(T.ai.statement(f.textId,f.meta&&f.meta.type)).then(function(r){f.rows=r.rows;f.ai=true;f.notes=r.notes;pdf.rows=pdfReviewRows(pdf.files);pdf.msg=r.rows.length?'':'Claude did not find any transactions in this file.'}).catch(function(e){pdf.msg=e.message}).then(function(){pdf.busy='';renderPdf()});
+    return;
+  }
+  if(a==='import'){
+    var take=pdf.rows.filter(function(r){return r.on});if(!take.length)return;
+    if(S.sample){S.txns=[];S.subs=[];S.goals=[];S.accounts=[];S.budgets={};S.extraPay=0;S.sample=false}
+    take.forEach(function(r){S.txns.push({id:uid(),date:r.date,name:r.name,amount:Math.round(r.amount*100)/100,cat:r.cat})});
+    S.txns.sort(function(x,y){return x.date<y.date?1:-1});save();
+    var n=take.length;pdf={stage:'idle',type:pdf.type,files:[],rows:[],msg:n+' transaction'+(n===1?'':'s')+' imported from PDF.',busy:'',aiConfirm:-1,showAll:false};
+    toast(pdf.msg);render();
+  }
+}
+
 /* ---------- AI analysis (Mac app) ---------- */
 var aiSt=null,aiStage='idle',aiPrep=null,aiRes=null,aiProp=null,aiErr='',aiMsg='',aiConfirm=false;
 function aiShell(){return '<section class="panel" id="aipanel">'+aiInner()+'</section>'}
@@ -754,14 +832,14 @@ function aiInner(){
   var n=S.txns.length;
   return h+note+'<p class="sub muted" style="margin:0 0 12px">Reads your last 12 months of transactions, fixes categories, finds recurring charges and writes a few observations. You review the results before anything changes.</p><button class="btn primary" data-ai="review"'+(n?'':' disabled')+'>Analyze my last 12 months</button>'+(n?'':' <span class="sub muted">Import or add transactions first.</span>')+foot;
 }
-function renderAi(){var el=$('#aipanel');if(!el)return;el.innerHTML=aiInner();var f=$('#aikeyform',el);if(f)f.onsubmit=function(e){e.preventDefault();tcall(T.ai.saveKey($('#ai-key').value)).then(function(){return tcall(T.ai.status())}).then(function(st){aiSt=st;aiMsg='API key saved.';renderAi()}).catch(function(er){aiMsg=er.message;renderAi()})}}
-function loadAi(){if(!T||aiSt)return;tcall(T.ai.status()).then(function(st){aiSt=st;renderAi()}).catch(function(e){aiSt={hasKey:false,secureStorage:false};aiMsg=e.message;renderAi()})}
+function renderAi(){var el=$('#aipanel');if(!el)return;el.innerHTML=aiInner();var f=$('#aikeyform',el);if(f)f.onsubmit=function(e){e.preventDefault();tcall(T.ai.saveKey($('#ai-key').value)).then(function(){return tcall(T.ai.status())}).then(function(st){aiSt=st;aiMsg='API key saved.';renderAi();renderPdf()}).catch(function(er){aiMsg=er.message;renderAi()})}}
+function loadAi(){if(!T||aiSt)return;tcall(T.ai.status()).then(function(st){aiSt=st;renderAi();if(pdf.stage==='review')renderPdf()}).catch(function(e){aiSt={hasKey:false,secureStorage:false};aiMsg=e.message;renderAi()})}
 function aiClick(b){
   var a=b.dataset.ai;aiMsg='';
   if(a==='cancel'){aiStage='idle';aiConfirm=false;renderAi();return}
   if(a==='reset'){aiStage='idle';aiRes=null;aiProp=null;aiConfirm=false;renderAi();return}
   if(a==='key'){aiConfirm=true;renderAi();return}
-  if(a==='key-yes'){tcall(T.ai.clearKey()).then(function(){return tcall(T.ai.status())}).then(function(st){aiSt=st;aiConfirm=false;aiStage='idle';aiMsg='API key removed.';renderAi()}).catch(function(e){aiMsg=e.message;renderAi()});return}
+  if(a==='key-yes'){tcall(T.ai.clearKey()).then(function(){return tcall(T.ai.status())}).then(function(st){aiSt=st;aiConfirm=false;aiStage='idle';aiMsg='API key removed.';renderAi();renderPdf()}).catch(function(e){aiMsg=e.message;renderAi()});return}
   if(a==='review'){aiPrep=buildAiPayload();if(!aiPrep.payload.merchants.length){aiMsg='No transactions in the last 12 months.';renderAi();return}aiStage='confirm';renderAi();return}
   if(a==='send'){
     aiStage='running';renderAi();
@@ -779,6 +857,7 @@ function aiClick(b){
 }
 document.addEventListener('click',function(e){
   var b=e.target.closest('[data-pl]');if(b){plClick(b);return}
+  b=e.target.closest('[data-pdf]');if(b){pdfClick(b);return}
   b=e.target.closest('[data-ai]');if(b){aiClick(b)}
 });
 
@@ -831,6 +910,7 @@ function bindView(){
   var aff2=$('#afform',m);
   if(aff2)aff2.onsubmit=function(e){e.preventDefault();aff.type=$('#af-kind').value;aff.cat=$('#af-cat').value;aff.name=$('#af-name').value.trim();aff.amount=$('#af-amt').value;var amt=parseFloat(aff.amount);if(!(amt>0))return;aff.ctx=afCtx(aff.cat);aff.res=assessAfford({type:aff.type,cat:aff.cat,amount:amt,name:aff.name},aff.ctx);render()};
   if($('#plaidpanel',m)){if(plSt)renderPl();else loadPl()}
+  if($('#pdfpanel',m)){renderPdf();if(!aiSt)loadAi()}
   if($('#aipanel',m)){if(aiSt)renderAi();else loadAi()}
   var af=$('#acctform',m);
   if(af){var tp=$('#af-type',af),sync=function(){var d=!!DEBT_TYPES[tp.value];af.querySelectorAll('.debtonly').forEach(function(x){x.hidden=!d})};tp.onchange=sync;sync();

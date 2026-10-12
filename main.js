@@ -4,8 +4,11 @@ const http = require('http');
 const { createSecretStore } = require('./secrets');
 const { createPlaid } = require('./plaid');
 const { createAI } = require('./ai');
+const { parsePdf, maskText } = require('./statement');
 
 let store, plaid, ai, mainWin = null, linkState = null, splash = null;
+const statementText = new Map();
+let textSeq = 0;
 const SPLASH_MIN_MS = 1800;   // keep the splash up at least this long so it never just flashes
 const SPLASH_MAX_MS = 8000;   // and never longer than this if the main window is slow
 
@@ -92,6 +95,26 @@ function wireIpc() {
   handle('ai:saveKey', (k) => ai.saveKey(k));
   handle('ai:clearKey', () => ai.clearKey());
   handle('ai:analyze', (payload) => ai.analyze(payload));
+
+  // PDF statements: parsed locally; the masked text is kept in memory so the AI fallback can reuse it without resending the file.
+  handle('pdf:parse', async (bytes, type) => {
+    const buf = Buffer.from(bytes instanceof ArrayBuffer ? new Uint8Array(bytes) : bytes);
+    if (!buf.length || buf.length > 25 * 1024 * 1024) throw new Error('Choose a PDF under 25 MB.');
+    if (buf.subarray(0, 5).toString('latin1') !== '%PDF-') throw new Error('That file is not a PDF.');
+    let r;
+    try { r = await parsePdf(buf, { type: type === 'credit' || type === 'checking' ? type : undefined }); }
+    catch (e) { throw new Error('Could not open this PDF. It may be damaged or password protected.'); }
+    const masked = maskText(r.text || '');
+    const textId = 't' + (++textSeq);
+    statementText.set(textId, masked);
+    while (statementText.size > 12) statementText.delete(statementText.keys().next().value);
+    return { rows: r.rows, meta: { type: r.meta.type, mode: r.meta.mode, pages: r.meta.pages, noText: !!r.meta.noText, rows: r.rows.length }, textId, chars: masked.length };
+  });
+  handle('ai:statement', (textId, type) => {
+    const text = statementText.get(String(textId));
+    if (!text) throw new Error('That statement is no longer in memory. Choose the file again.');
+    return ai.statement(text, type);
+  });
 }
 
 function createSplash() {

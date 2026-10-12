@@ -30,7 +30,7 @@ function world(overrides = {}) {
   const deps = { S, TODAY, iso, parseD, addDays, dayDiff, monthKey, shiftMonth, normName, guessCat, uid, NOWKEY, spendBy, incomeOf, isDebt, activeSubs, nextDate, money0 };
   const names = Object.keys(deps);
   const mk = (blk, ret) => new Function(...names, block(blk) + ';return {' + ret + '}')(...names.map((n) => deps[n]));
-  return { S, deps, logic: mk('LOGIC', 'applySync,buildAiPayload,aiProposals,aiEstimate,aiKey'), afford: mk('AFFORD', 'afCtx,assessAfford') };
+  return { S, deps, logic: mk('LOGIC', 'applySync,buildAiPayload,aiProposals,aiEstimate,aiKey,pdfReviewRows,pdfCategory'), afford: mk('AFFORD', 'afCtx,assessAfford') };
 }
 
 // ---------- bank sync ----------
@@ -206,4 +206,25 @@ test('afford: budget, high-interest debt and missing data', () => {
   const na = assess(noAcct, { type: 'once', cat: 'Other', amount: 500 });
   assert.ok(na.reasons.some((x) => /Add your checking and savings/.test(x.t)));
   assert.strictEqual(na.level, 'good'); // 500 <= 1,000 monthly surplus
+});
+
+// ---------- PDF review rows ----------
+test('pdfReviewRows: categories, duplicates against existing data and across overlapping statements', () => {
+  const { S, logic } = world();
+  S.txns.push({ id: 'e1', date: '2026-09-03', name: 'Whole Foods Market 1234', amount: -86.42, cat: 'Groceries' });
+  const files = [
+    { rows: [
+      { date: '2026-09-03', name: 'WHOLE FOODS MARKET', amount: -86.42, uncertain: false },   // already have (digits ignored in the key)
+      { date: '2026-09-05', name: 'NETFLIX.COM', amount: -15.49, uncertain: false },
+      { date: '2026-09-05', name: 'NETFLIX.COM', amount: -15.49, uncertain: false },          // a genuine second identical charge stays
+      { date: '2026-09-01', name: 'ACME CORP PAYROLL', amount: 2400, uncertain: true },
+      { date: '2026-09-08', name: 'AMAZON REFUND', amount: 23.99, uncertain: false } ] },
+    { rows: [ { date: '2026-09-01', name: 'ACME CORP PAYROLL', amount: 2400, uncertain: false } ] },   // overlap with the first file
+  ];
+  const r = logic.pdfReviewRows(files);
+  assert.deepStrictEqual(r.map((x) => x.dup), [true, false, false, false, false, true]);
+  assert.deepStrictEqual(r.map((x) => x.on), [false, true, true, true, true, false]);
+  assert.deepStrictEqual(r.map((x) => x.cat), ['Groceries', 'Subscriptions', 'Subscriptions', 'Income', 'Other', 'Income']);
+  assert.strictEqual(r[3].uncertain, true);
+  assert.strictEqual(logic.pdfCategory('Mystery', -5), 'Other');
 });

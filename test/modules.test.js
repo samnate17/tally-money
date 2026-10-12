@@ -223,3 +223,31 @@ test('ai: refusals, truncation, bad JSON, and API errors are readable', async ()
   await assert.rejects(() => aiWith(() => final({})).analyze(many), /Too many/);
   assert.ok(/Could not reach/.test(friendlyError(new Error('fetch failed'))));
 });
+
+test('ai: statement parsing request, cleaning and errors', async () => {
+  let seen;
+  const ai = aiWith((req) => {
+    seen = req;
+    return final({ stop_reason: 'end_turn', content: [{ type: 'text', text: JSON.stringify({ transactions: [
+      { date: '2026-09-03', description: '  WHOLE   FOODS ', amount: -86.419 },
+      { date: '09/04/2026', description: 'bad date', amount: -1 },
+      { date: '2026-09-05', description: '', amount: -1 },
+      { date: '2026-09-06', description: 'zero', amount: 0 },
+      { date: '2026-09-07', description: 'huge', amount: 1e9 },
+      { date: '2026-09-08', description: 'Payroll', amount: 2400 },
+    ], notes: 'signs inferred' }) }] });
+  });
+  const r = await ai.statement('Statement text 09/03 WHOLE FOODS 86.42', 'checking');
+  assert.deepStrictEqual(r.rows.map((x) => [x.date, x.name, x.amount]), [['2026-09-03', 'WHOLE FOODS', -86.42], ['2026-09-08', 'Payroll', 2400]]);
+  assert.ok(r.rows.every((x) => x.uncertain === true));
+  assert.strictEqual(r.notes, 'signs inferred');
+  assert.strictEqual(seen.model, 'claude-opus-5-5');
+  assert.strictEqual(seen.output_config.format.type, 'json_schema');
+  assert.ok(/untrusted/.test(seen.system));
+  assert.deepStrictEqual(JSON.parse(seen.messages[0].content), { statementType: 'checking', text: 'Statement text 09/03 WHOLE FOODS 86.42' });
+  await assert.rejects(() => ai.statement('', 'checking'), /no text/);
+  await assert.rejects(() => ai.statement('x'.repeat(120001), 'checking'), /too long/);
+  await assert.rejects(() => aiWith(() => final({ stop_reason: 'refusal', content: [] })).statement('abc', 'credit'), /declined/);
+  await assert.rejects(() => aiWith(() => final({ stop_reason: 'max_tokens', content: [] })).statement('abc', 'credit'), /too many/);
+  await assert.rejects(() => aiWith(() => final({}), null).statement('abc', 'credit'), /Add your Anthropic API key/);
+});
