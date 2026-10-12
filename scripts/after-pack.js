@@ -18,8 +18,14 @@ exports.default = async function afterPack(context) {
     fs.mkdirSync(plugins, { recursive: true });
     fs.rmSync(path.join(plugins, 'TallyWidget.appex'), { recursive: true, force: true });
     execFileSync('ditto', [path.join(work, 'TallyWidget.appex'), path.join(plugins, 'TallyWidget.appex')], { stdio: 'inherit' });
-    // The app's signature seal covers its contents, so seal it again (ad hoc, not --deep, so the widget keeps its own entitlements).
-    execFileSync('codesign', ['--force', '--sign', process.env.WIDGET_SIGN_IDENTITY || '-', app], { stdio: 'inherit' });
+    // Sealing order matters. Intel builds of Electron ship some helper frameworks unsigned, so the app is first signed
+    // --deep (which would strip the widget's entitlements), then the widget is signed again with its entitlements, then the
+    // app is sealed once more without --deep so the seal covers the final widget and the nested signatures stay as they are.
+    const id = process.env.WIDGET_SIGN_IDENTITY || '-';
+    const sign = (target, extra) => execFileSync('codesign', ['--force', '--sign', id, ...extra, target], { stdio: 'inherit' });
+    sign(app, ['--deep']);
+    sign(path.join(plugins, 'TallyWidget.appex'), ['--entitlements', path.join(__dirname, '..', 'native-widget', 'widget.entitlements')]);
+    sign(app, []);
     execFileSync('codesign', ['--verify', '--strict', app], { stdio: 'inherit' });
     console.log('[widget] embedded in', app);
   } catch (e) {
