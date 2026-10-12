@@ -17,6 +17,8 @@
     "productName": "Tally Money",
     "files": [
       "index.html",
+      "splash.html",
+      "assets/**/*",
       "main.js",
       "preload.js",
       "link-preload.js",

@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Tally Money</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; -webkit-user-select: none; user-select: none; cursor: default; }
+  .stage { position: relative; width: 100%; height: 100%; animation: fade-in .45s ease-out both; }
+  .stage img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  /* Loading line: sits where the artwork's progress line would be (y = 602 of 800, 360 of 1280 wide). */
+  .track { position: absolute; left: 50%; top: 75.25%; width: 28.125%; height: 2px; transform: translateX(-50%); background: rgba(255,255,255,.14); border-radius: 1px; overflow: hidden; }
+  .track i { position: absolute; top: 0; left: 0; height: 100%; width: 36%; border-radius: 1px; background: linear-gradient(90deg, #6C7BFF, #fff); box-shadow: 0 0 10px rgba(143,162,255,.9); animation: slide 1.5s cubic-bezier(.6, 0, .3, 1) infinite; }
+  @keyframes slide { 0% { transform: translateX(-100%); } 100% { transform: translateX(280%); } }
+  @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .track i { animation: none; left: 32%; } .stage { animation: none; } }
+</style>
+</head>
+<body>
+<div class="stage"><img src="assets/splash.jpg" alt=""><div class="track"><i></i></div></div>
+</body>
+</html>

@@ -45,8 +45,7 @@ button{cursor:pointer}
 .app{max-width:1120px;margin:0 auto;display:grid;grid-template-columns:200px minmax(0,1fr);gap:24px}
 .rail{position:sticky;top:env(safe-area-inset-top,0px);align-self:start;display:flex;flex-direction:column;gap:4px;padding-top:8px}
 .brand{font-family:var(--font-display);font-weight:700;font-size:22px;padding:4px 12px 16px;display:flex;align-items:center;gap:8px}
-.brand i{width:22px;height:22px;border-radius:6px;background:var(--accent);display:inline-block;position:relative}
-.brand i::after{content:"";position:absolute;left:5px;right:5px;bottom:5px;height:3px;background:var(--accent-ink);border-radius:2px;box-shadow:0 -6px 0 var(--accent-ink),0 -12px 0 -1px var(--accent-ink)}
+.brand svg{width:24px;height:24px;flex:none;border-radius:7px;box-shadow:0 0 12px rgba(59,76,240,.45)}
 .nav{display:flex;align-items:center;gap:10px;border:0;background:none;text-align:left;padding:10px 12px;border-radius:10px;color:var(--muted);font-weight:500}
 .nav:hover{background:var(--surface)}
 .nav[aria-current="page"]{background:var(--surface);color:var(--ink);font-weight:700;box-shadow:0 0 0 1px var(--line)}
@@ -240,7 +239,7 @@ var TABS=[['overview','Overview'],['accounts','Accounts'],['subscriptions','Subs
 function nav(){
   function items(short){return TABS.map(function(t){return '<button class="nav" data-view="'+t[0]+'"'+(view===t[0]?' aria-current="page"':'')+'>'+ICON[t[0]]+'<span>'+(short&&t[2]||t[1])+'</span></button>'}).join('')}
   var h=items(false);
-  $('#rail').innerHTML='<div class="brand"><i></i>Tally</div>'+h+'<div class="railfoot"><span>'+(window.tally?'Your data stays on this Mac. Bank sync and AI analysis send data only when you use them.':'Your data stays in this browser. Nothing is uploaded.')+'</span></div>';
+  $('#rail').innerHTML='<div class="brand"><svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="tl-bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1B2470"/><stop offset="1" stop-color="#05061A"/></linearGradient><linearGradient id="tl-bar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#8FA2FF"/></linearGradient></defs><rect width="24" height="24" fill="url(#tl-bg)"/><g fill="url(#tl-bar)"><rect x="5.2" y="5.4" width="2.1" height="13.2" rx="1.05"/><rect x="8.9" y="5.4" width="2.1" height="13.2" rx="1.05"/><rect x="12.6" y="5.4" width="2.1" height="13.2" rx="1.05"/><rect x="16.3" y="5.4" width="2.1" height="13.2" rx="1.05"/></g><path d="M4.6 17.2 19.4 7.4" stroke="#FFB45A" stroke-width="1.9" stroke-linecap="round" fill="none"/></svg>Tally</div>'+h+'<div class="railfoot"><span>'+(window.tally?'Your data stays on this Mac. Bank sync and AI analysis send data only when you use them.':'Your data stays in this browser. Nothing is uploaded.')+'</span></div>';
   $('#tabbar').innerHTML=items(true);
 }
 function render(){

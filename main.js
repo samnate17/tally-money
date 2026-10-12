@@ -5,7 +5,9 @@ const { createSecretStore } = require('./secrets');
 const { createPlaid } = require('./plaid');
 const { createAI } = require('./ai');
 
-let store, plaid, ai, mainWin = null, linkState = null;
+let store, plaid, ai, mainWin = null, linkState = null, splash = null;
+const SPLASH_MIN_MS = 1800;   // keep the splash up at least this long so it never just flashes
+const SPLASH_MAX_MS = 8000;   // and never longer than this if the main window is slow
 
 let LINK_HTML = `<!doctype html><html><head><meta charset="utf-8"><title>Link a bank</title>
 <meta name="viewport" content="width=device-width,initial-scale=1"></head>
@@ -92,13 +94,48 @@ function wireIpc() {
   handle('ai:analyze', (payload) => ai.analyze(payload));
 }
 
-function createWindow() {
+function createSplash() {
+  splash = new BrowserWindow({
+    width: 960, height: 600, frame: false, resizable: false, movable: false, minimizable: false, maximizable: false,
+    fullscreenable: false, show: false, center: true, skipTaskbar: true, backgroundColor: '#000000', hasShadow: true,
+    webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
+  });
+  splash.loadFile(path.join(__dirname, 'splash.html'));
+  splash.once('ready-to-show', () => { if (splash && !splash.isDestroyed()) splash.show(); });
+  splash.on('closed', () => { splash = null; });
+  return Date.now();
+}
+
+function closeSplash() {
+  const w = splash;
+  if (!w || w.isDestroyed()) return;
+  let o = 1;
+  const t = setInterval(() => {
+    o -= 0.1;
+    if (w.isDestroyed()) return clearInterval(t);
+    if (o <= 0) { clearInterval(t); w.close(); } else w.setOpacity(o);
+  }, 22);
+}
+
+function createWindow(splashStart) {
   mainWin = new BrowserWindow({
+    show: !splashStart,
     width: 1240, height: 860, minWidth: 420, minHeight: 600, title: 'Tally Money', backgroundColor: '#eceff5',
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true },
   });
   mainWin.loadFile(path.join(__dirname, 'index.html'));
   mainWin.on('closed', () => { mainWin = null; });
+  if (splashStart) {
+    let shown = false;
+    const reveal = () => {
+      if (shown || !mainWin || mainWin.isDestroyed()) return;
+      shown = true;
+      mainWin.show();
+      closeSplash();
+    };
+    mainWin.once('ready-to-show', () => setTimeout(reveal, Math.max(0, SPLASH_MIN_MS - (Date.now() - splashStart))));
+    setTimeout(reveal, SPLASH_MAX_MS);
+  }
 
   // The app never needs to leave its own page. Send any link to the default browser.
   mainWin.webContents.setWindowOpenHandler(({ url }) => {
@@ -124,9 +161,12 @@ app.whenReady().then(() => {
     { role: 'viewMenu' },
     { role: 'windowMenu' },
   ]));
-  createWindow();
+  if (process.platform === 'darwin' && app.dock && !app.isPackaged) {
+    try { app.dock.setIcon(path.join(__dirname, 'build', 'icon.png')); } catch (e) { /* dev-only nicety */ }
+  }
+  createWindow(process.env.TALLY_NO_SPLASH ? 0 : createSplash());
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    if (BrowserWindow.getAllWindows().length === 0) createWindow(0);
   });
 });
 

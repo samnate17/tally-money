@@ -74,6 +74,12 @@ Transactions tab, AI analysis panel. Needs an Anthropic API key from console.ant
 
 `npm test` runs the logic and module tests (payoff math, affordability rules, sync application, AI request and result handling, Plaid request handling) with no network. `xvfb-run -a npx electron --no-sandbox test/link-window.smoke.js` exercises the bank link window.
 
+## Icon and splash
+
+The app icon (`build/icon.png`, 1024 px; electron-builder turns it into the macOS icon), the web and Dock icons in `icons/`, the in-app logo and the splash artwork (`assets/splash.jpg`) come from the cinematic design in Figma (https://www.figma.com/design/MVx3v4oNaE6JfCgOC8x1J0). The PNG and JPEG files were rendered locally from the same layer specification rather than exported from Figma, so they can differ from the Figma file in fine detail.
+
+On launch the Mac app shows `splash.html` in a frameless window for at least 1.8 seconds (at most 8) with an animated loading line, then reveals the main window and fades the splash out. Set `TALLY_NO_SPLASH=1` to skip it. `xvfb-run -a npx electron --no-sandbox test/splash.smoke.js` checks the sequence.
+
 ## Data and privacy
 
 Everything is stored in the browser's `localStorage` (key `tally-money-v1`). Nothing is uploaded unless you use the Mac app's bank sync (data goes to and from Plaid) or AI analysis (summaries go to Anthropic). Clearing site data erases it, and it does not sync between devices.
