@@ -52,7 +52,7 @@ static Napi::Value AddGlass(const Napi::CallbackInfo &info) {
   __block int result = -1;
   unsigned char *data = buf.Data();
   OnMain(^{
-    NSView *root = *reinterpret_cast<NSView **>(data);
+    NSView *root = (__bridge NSView *)(*reinterpret_cast<void **>(data));
     if (!root) return;
     NSView *glass = [[cls alloc] initWithFrame:root.bounds];
     glass.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
@@ -90,7 +90,7 @@ static Napi::Value Describe(const Napi::CallbackInfo &info) {
   unsigned char *data = info[0].As<Napi::Buffer<unsigned char>>().Data();
   __block std::vector<std::string> names;
   OnMain(^{
-    NSView *root = *reinterpret_cast<NSView **>(data);
+    NSView *root = (__bridge NSView *)(*reinterpret_cast<void **>(data));
     if (!root) return;
     for (NSView *v in root.subviews) names.push_back(std::string([NSStringFromClass([v class]) UTF8String]));
   });
