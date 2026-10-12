@@ -28,11 +28,13 @@ function world(overrides = {}) {
   const nextDate = (s) => { let d = parseD(s.next); while (d < TODAY) d = new Date(d.getFullYear(), d.getMonth() + 1, d.getDate()); return d; };
   const money0 = (n) => '$' + Math.round(n).toLocaleString('en-US');
   const CATS = ['Housing','Groceries','Dining','Transport','Subscriptions','Shopping','Health','Entertainment','Other','Income'];
-  const deps = { CATS, S, TODAY, iso, parseD, addDays, dayDiff, monthKey, shiftMonth, normName, guessCat, uid, NOWKEY, spendBy, incomeOf, isDebt, activeSubs, nextDate, money0 };
+  const aiKey = (n) => normName(n) || '(blank)';
+  const DEBT_TYPES = { credit: 1, student: 1, auto: 1, mortgage: 1, loan: 1 };
+  const deps = { aiKey, DEBT_TYPES, CATS, S, TODAY, iso, parseD, addDays, dayDiff, monthKey, shiftMonth, normName, guessCat, uid, NOWKEY, spendBy, incomeOf, isDebt, activeSubs, nextDate, money0 };
   const names = Object.keys(deps);
   const mk = (blk, ret) => new Function(...names, block(blk) + ';return {' + ret + '}')(...names.map((n) => deps[n]));
   return { S, deps,
-    logic: { ...mk('CREDIT', 'creditBand,creditUtil,creditWhatIf,creditAdvice'), ...mk('INVEST', 'logReturns,annVol,maxDrawdown,volLabel,rangeSeries,holdingStats,portfolioStats,portfolioSeries,volRows,seededCloses'), ...mk('LOGIC', 'applySync,buildAiPayload,aiProposals,aiEstimate,aiKey,pdfReviewRows,pdfCategory,csvDetect,csvBuild,csvDate,csvAmount,csvDelim,csvScan,csvOrder') },
+    logic: { ...mk('CREDIT', 'creditBand,creditUtil,creditWhatIf,creditAdvice'), ...mk('BUDGET', 'catSpendByMonth,pastMonths,catForecast,monthPace,monthReport,fiftyThirtyTwenty,savingsIdeas,monthlyStack,percentile,ceil5'), ...mk('INVEST', 'logReturns,annVol,maxDrawdown,volLabel,rangeSeries,holdingStats,portfolioStats,portfolioSeries,volRows,seededCloses'), ...mk('LOGIC', 'applySync,buildAiPayload,aiProposals,aiEstimate,aiKey,pdfReviewRows,pdfCategory,csvDetect,csvBuild,csvDate,csvAmount,csvDelim,csvScan,csvOrder') },
     afford: mk('AFFORD', 'afCtx,assessAfford') };
 }
 
@@ -412,4 +414,112 @@ test('invest: volatility watch ranks and flags, and example prices behave', () =
   assert.ok(rows[0].label.rank >= 3 && rows[1].label.rank <= 2 && rows[2].vol === null);
   assert.ok(rows[0].dd < rows[1].dd);
   assert.ok(Math.abs(rows[0].share + rows[1].share - 100) < 1e-6);
+});
+
+// ---------- budgets, forecasts and the monthly report ----------
+function gasWorld(vals, extra = {}) {            // vals: gas spend for Jun..Sep 2026 (and so on), one entry per full month before October
+  const w = world(extra);
+  const months = ['2026-05', '2026-06', '2026-07', '2026-08', '2026-09'].slice(-vals.length);
+  months.forEach((m, i) => {
+    w.S.txns.push({ id: 'g' + i, date: m + '-10', name: 'SHELL OIL', amount: -vals[i], cat: 'Gas' });
+    w.S.txns.push({ id: 'f' + i, date: m + '-01', name: 'Maple Rent', amount: -1000, cat: 'Housing' });   // every month has data
+  });
+  return w;
+}
+test('forecast: averages, recent weighting, suggested budget and how many past months it covers', () => {
+  const w = gasWorld([100, 120, 140, 160, 180]);
+  const f = w.logic.catForecast(w.S.txns, 'Gas', '2026-10');
+  assert.strictEqual(f.n, 5); assert.strictEqual(f.avg, 140); assert.strictEqual(f.median, 140); assert.strictEqual(f.max, 180);
+  assert.ok(Math.abs(f.recent - (140 * 1 + 160 * 2 + 180 * 3) / 6) < 1e-9);          // weights favour the latest month
+  assert.strictEqual(f.suggested, 185);                                              // 10% above the recent weighted average, rounded up to $5
+  assert.strictEqual(f.covered, 5); assert.strictEqual(f.conf, 'ok');
+  assert.strictEqual(f.sameLastYear, null);
+  assert.strictEqual(w.logic.catForecast(w.S.txns, 'Dining', '2026-10').avg, 0);     // a category with no spending forecasts zero, not an error
+  assert.strictEqual(world().logic.catForecast([], 'Gas', '2026-10').n, 0);
+});
+
+test('forecast: ignores the current month and a late-starting first month, rounds to $5', () => {
+  const w = gasWorld([100, 100, 100]);
+  w.S.txns.push({ id: 'cur', date: '2026-10-03', name: 'SHELL', amount: -999, cat: 'Gas' });        // this month is not a full month
+  assert.strictEqual(w.logic.catForecast(w.S.txns, 'Gas', '2026-10').avg, 100);
+  const late = world(); [['2026-07-25', -50], ['2026-08-05', -100], ['2026-09-05', -100]].forEach(([d, a], i) => late.S.txns.push({ id: 'l' + i, date: d, name: 'SHELL', amount: a, cat: 'Gas' }));
+  const f = late.logic.catForecast(late.S.txns, 'Gas', '2026-10');
+  assert.deepStrictEqual(f.months, ['2026-08', '2026-09']);                             // July started on the 25th, so it is left out
+  assert.strictEqual(f.suggested, 110);
+  assert.deepStrictEqual([0.1, 5, 5.01, 99.99].map(late.logic.ceil5), [5, 5, 10, 100]);
+});
+
+test('forecast: same month last year and month pace', () => {
+  const w = world();
+  for (let m = 1; m <= 12; m++) { const k = '2025-' + String(m).padStart(2, '0'); w.S.txns.push({ id: 'a' + m, date: k + '-05', name: 'SHELL', amount: m === 10 ? -210 : -100, cat: 'Gas' }); }
+  ['2026-01', '2026-02', '2026-03', '2026-04', '2026-05', '2026-06', '2026-07', '2026-08', '2026-09'].forEach((k, i) => w.S.txns.push({ id: 'b' + i, date: k + '-05', name: 'SHELL', amount: -100, cat: 'Gas' }));
+  const f = w.logic.catForecast(w.S.txns, 'Gas', '2026-10');
+  assert.strictEqual(f.n, 12); assert.strictEqual(f.sameLastYear, 210); assert.strictEqual(f.conf, 'good');
+  w.S.txns.push({ id: 'now', date: '2026-10-08', name: 'SHELL', amount: -60, cat: 'Gas' });
+  const pace = w.logic.monthPace(w.S.txns, 'Gas', new Date(2026, 9, 12));            // 12 days in, 31 in the month
+  assert.deepStrictEqual([pace.spent, pace.dom, pace.dim], [60, 12, 31]); assert.ok(Math.abs(pace.projected - 155) < 1e-9);
+  assert.strictEqual(w.logic.monthPace(w.S.txns, 'Gas', new Date(2026, 9, 5)).projected, null);   // too early in the month to project
+});
+
+test('report: totals, comparison with the usual, budgets, merchants and the previous month', () => {
+  const w = gasWorld([100, 100, 100]);
+  w.S.txns.push({ id: 'p', date: '2026-09-28', name: 'Payroll', amount: 3000, cat: 'Income' });
+  w.S.txns.push({ id: 'g9', date: '2026-09-20', name: 'SHELL OIL', amount: -180, cat: 'Gas' });
+  const rep = w.logic.monthReport(w.S.txns, '2026-09', { Gas: 150 }, new Date(2026, 9, 12));
+  const gas = rep.rows.find((r) => r.cat === 'Gas');
+  assert.strictEqual(rep.income, 3000); assert.strictEqual(rep.spend, 1000 + 100 + 180);
+  assert.strictEqual(gas.amount, 280); assert.strictEqual(gas.avg3, 100); assert.strictEqual(gas.delta, 180); assert.strictEqual(gas.over, 130);
+  assert.deepStrictEqual(rep.merchants.map((m) => m.name), ['Maple Rent', 'SHELL OIL']); assert.strictEqual(rep.merchants[1].count, 2);
+  assert.strictEqual(rep.big[0].amount, 1000); assert.strictEqual(rep.prev.spend, 1100);
+  assert.ok(Math.abs(rep.rate - (3000 - 1280) / 3000 * 100) < 1e-9);
+  const noIncome = w.logic.monthReport(w.S.txns, '2026-07', {}, new Date(2026, 9, 12));
+  assert.strictEqual(noIncome.rate, null);
+  assert.strictEqual(w.logic.fiftyThirtyTwenty(noIncome), null);
+});
+
+test('report: the current month is judged on pace, and fixed bills are not extrapolated', () => {
+  const w = gasWorld([100, 100, 100]);
+  w.S.txns.push({ id: 'c', date: '2026-10-06', name: 'SHELL OIL', amount: -90, cat: 'Gas' });
+  const early = w.logic.monthReport(w.S.txns, '2026-10', {}, new Date(2026, 9, 6));              // early: spent so far plus a typical remainder
+  assert.ok(Math.abs(early.rows.find((r) => r.cat === 'Gas').projected - (90 + 100 * 25 / 31)) < 1e-9);
+  w.S.txns.push({ id: 'c2', date: '2026-10-14', name: 'SHELL OIL', amount: -60, cat: 'Gas' });
+  const rep = w.logic.monthReport(w.S.txns, '2026-10', {}, new Date(2026, 9, 15));
+  const g = rep.rows.find((r) => r.cat === 'Gas');
+  assert.ok(Math.abs(g.projected - (150 + 100 * 16 / 31)) < 1e-9);
+  assert.strictEqual(rep.current, true);
+  w.S.txns.push({ id: 'rent', date: '2026-10-01', name: 'Landlord', amount: -1500, cat: 'Housing' }, { id: 'rent2', date: '2026-09-01', name: 'Landlord', amount: -1500, cat: 'Housing' });
+  const h = w.logic.monthReport(w.S.txns, '2026-10', {}, new Date(2026, 9, 12)).rows.find((r) => r.cat === 'Housing');
+  assert.strictEqual(h.projected, 1500);
+});
+
+test('savings ideas: concrete, ranked by money, and honest when there is nothing to find', () => {
+  const w = gasWorld([100, 100, 100]);
+  ['2026-07', '2026-08', '2026-09'].forEach((k, i) => w.S.txns.push({ id: 'd' + i, date: k + '-12', name: 'Pizza Place', amount: -100, cat: 'Dining' }));
+  w.S.txns.push({ id: 'dn', date: '2026-09-18', name: 'Fancy Dinner', amount: -300, cat: 'Dining' });
+  w.S.txns.push({ id: 'pay', date: '2026-09-01', name: 'Payroll', amount: 2000, cat: 'Income' });
+  const rep = w.logic.monthReport(w.S.txns, '2026-09', { Dining: 250 }, new Date(2026, 9, 12));
+  const ideas = w.logic.savingsIdeas(rep, { subs: [{ name: 'Gym', amount: 50, cycle: 'monthly', status: 'flagged' }, { name: 'Cloud', amount: 120, cycle: 'yearly', status: 'active' }], fees: 35,
+    accounts: [{ name: 'Visa', type: 'credit', balance: 2400, apr: 24 }, { name: 'Checking', type: 'checking', balance: 500, apr: 0 }] });
+  const titles = ideas.map((i) => i.title).join(' | ');
+  assert.match(titles, /Over your Dining budget by \$150/); assert.ok(!/Dining is .* above your usual/.test(titles)); assert.match(titles, /1 subscription marked To review/);
+  assert.match(titles, /Fees and interest cost \$35/); assert.match(titles, /interest on Visa/);
+  assert.ok(!/Checking/.test(titles));
+  for (let i = 1; i < ideas.length; i++) assert.ok((ideas[i - 1].monthly === null ? -1 : ideas[i - 1].monthly) >= (ideas[i].monthly === null ? -1 : ideas[i].monthly));
+  const tight = gasWorld([100, 100, 100]); tight.S.txns.push({ id: 'p8', date: '2026-09-01', name: 'Payroll', amount: 1100, cat: 'Income' });
+  const tl = tight.logic.savingsIdeas(tight.logic.monthReport(tight.S.txns, '2026-09', {}, new Date(2026, 9, 12)), { subs: [], fees: 0, accounts: [] });
+  assert.match(tl.map((i) => i.title).join('|'), /You saved 0% of your income/); assert.match(tl[0].detail, /more a month/);
+  const calm = gasWorld([100, 100, 100]); calm.S.txns.push({ id: 'p9', date: '2026-09-01', name: 'Payroll', amount: 5000, cat: 'Income' });
+  assert.deepStrictEqual(calm.logic.savingsIdeas(calm.logic.monthReport(calm.S.txns, '2026-09', {}, new Date(2026, 9, 12)), { subs: [], fees: 0, accounts: [] }), []);
+});
+
+test('50/30/20 and the monthly stack', () => {
+  const w = gasWorld([100, 100, 100]);
+  w.S.txns.push({ id: 'p', date: '2026-09-01', name: 'Payroll', amount: 4000, cat: 'Income' }, { id: 'e', date: '2026-09-04', name: 'Cinema', amount: -200, cat: 'Entertainment' });
+  const rep = w.logic.monthReport(w.S.txns, '2026-09', {}, new Date(2026, 9, 12));
+  const f = w.logic.fiftyThirtyTwenty(rep);
+  assert.deepStrictEqual([f.needs, f.wants, f.save], [1100, 200, 2700]);               // Gas and Housing count as needs
+  assert.ok(Math.abs(f.needsPct - 27.5) < 1e-9);
+  const st = w.logic.monthlyStack(w.S.txns, '2026-10', 6);
+  assert.deepStrictEqual(st.map((m) => m.k), ['2026-07', '2026-08', '2026-09']);
+  assert.strictEqual(st[2].by.Gas, 100); assert.strictEqual(st[2].income, 4000);
 });

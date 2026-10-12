@@ -319,3 +319,13 @@ test('market: falls back from Yahoo to Stooq, reports both failures, validates s
   assert.ok(many.AAPL.error && many.MSFT.error);
   assert.ok(calls.some((u) => u.includes('range=1y&interval=1d')));
 });
+
+test('custom categories: AI schema and results use the person\'s own categories', async () => {
+  const ai = aiWith((req) => {
+    assert.ok(req.output_config.format.schema.properties.merchants.items.properties.category.enum.includes('Gas'));
+    assert.ok(JSON.parse(req.messages[0].content).categories.includes('Gas'));
+    return final({ stop_reason: 'end_turn', content: [{ type: 'text', text: JSON.stringify({ merchants: [{ key: 'netflix', category: 'Gas', subscription: 'none', confidence: 'low', reason: '' }, { key: 'whole foods', category: 'Boats', subscription: 'none', confidence: 'low', reason: '' }], insights: [] }) }] });
+  });
+  const out = await ai.analyze({ ...goodPayload(), categories: ['Housing', 'Gas', 'Other', 'Income'] });
+  assert.deepStrictEqual(out.merchants.map((m) => m.category), ['Gas', 'Other']);       // unknown names fall back to Other
+});

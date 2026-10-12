@@ -1,6 +1,6 @@
 {
   "name": "tally-money",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Personal money app: spending, subscriptions, budgets and goals.",
   "author": "samnate17",
   "license": "UNLICENSED",
@@ -17,8 +17,6 @@
     "productName": "Tally Money",
     "files": [
       "index.html",
-      "splash.html",
-      "assets/**/*",
       "main.js",
       "preload.js",
       "link-preload.js",

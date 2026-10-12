@@ -92,11 +92,17 @@ Investments tab. Add each holding as ticker, shares and total invested. In the M
 
 `npm test` runs the logic and module tests (payoff math, affordability rules, sync application, PDF statement parsing, AI request and result handling, Plaid request handling) with no network. `xvfb-run -a npx electron --no-sandbox test/pdf-ipc.smoke.js` sends the fixture PDFs through the real app bridge. `xvfb-run -a npx electron --no-sandbox test/link-window.smoke.js` exercises the bank link window.
 
-## Icon and splash
+## Custom budgets, forecasts and the monthly report
 
-The app icon (`build/icon.png`, 1024 px; electron-builder turns it into the macOS icon), the web and Dock icons in `icons/`, the in-app logo and the splash artwork (`assets/splash.jpg`) come from the cinematic design in Figma (https://www.figma.com/design/MVx3v4oNaE6JfCgOC8x1J0). The PNG and JPEG files were rendered locally from the same layer specification rather than exported from Figma, so they can differ from the Figma file in fine detail.
+- **Your own budget categories.** On Budgets, "Add a budget" creates a category such as Gas. Give it keywords (for example `shell, chevron, exxon`) and new or imported transactions whose description contains one are filed there automatically; "Move matching past transactions" re-files history. Naming it Gas fills in common gas-station keywords. Custom categories are saved in backups.
+- **History-based suggestions.** Each category shows its average, recent trend and highest month over the last 3 to 6 months, plus a suggested limit (roughly the larger of the median and 110% of a recent-weighted forecast, rounded up to $5). "Forecast" shows a chart; "Use $X" sets it as the budget. This is arithmetic on your own past months, not a prediction of prices, so treat it as a starting point. With fewer than 3 months of data it says so.
+- **Monthly report.** The Monthly report tab shows income, spending and savings rate, a 6-month stacked chart, each category against its usual, top merchants, biggest purchases, a 50/30/20 check, and ranked savings ideas. For the current month it estimates the finish as spent so far plus a typical remainder; rent, mortgage, insurance, utilities and subscriptions are not extrapolated.
 
-On launch the Mac app shows `splash.html` in a frameless window for at least 1.8 seconds (at most 8) with an animated loading line, then reveals the main window and fades the splash out. Set `TALLY_NO_SPLASH=1` to skip it. `xvfb-run -a npx electron --no-sandbox test/splash.smoke.js` checks the sequence.
+## Icon
+
+The app icon (`build/icon.png`, 1024 px; electron-builder turns it into the macOS icon), the web and Dock icons in `icons/`, the in-app logo come from the cinematic design in Figma (https://www.figma.com/design/MVx3v4oNaE6JfCgOC8x1J0). The PNG and JPEG files were rendered locally from the same layer specification rather than exported from Figma, so they can differ from the Figma file in fine detail.
+
+The app opens straight to the main window, with no launch animation.
 
 ## Data and privacy
 
