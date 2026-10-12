@@ -1,0 +1,50 @@
+{
+  "name": "tally-money",
+  "version": "1.0.0",
+  "description": "Personal money app: spending, subscriptions, budgets and goals.",
+  "author": "samnate17",
+  "license": "UNLICENSED",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist:mac": "electron-builder --mac --publish never"
+  },
+  "build": {
+    "appId": "com.samnate17.tallymoney",
+    "productName": "Tally Money",
+    "files": [
+      "index.html",
+      "main.js",
+      "package.json"
+    ],
+    "directories": {
+      "buildResources": "build",
+      "output": "dist"
+    },
+    "mac": {
+      "category": "public.app-category.finance",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "identity": null
+    }
+  },
+  "devDependencies": {
+    "electron": "^44.7.0",
+    "electron-builder": "^26.15.3"
+  }
+}

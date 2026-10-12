@@ -12,6 +12,18 @@ npx serve .
 
 It also deploys as-is to GitHub Pages, Netlify or Cloudflare Pages.
 
+## Mac app
+
+The same page wrapped in Electron. The built app is a `.dmg` for Apple Silicon and Intel.
+
+Build it on GitHub (no Mac needed): Actions tab, "Build Mac app", Run workflow, then download `tally-money-mac` from the finished run. Pushing a tag like `v1.0.0` also attaches the files to a GitHub Release.
+
+Build it on a Mac: `npm ci && npm run dist:mac`, output in `dist/`. Run without packaging: `npm start`.
+
+The app is not code-signed or notarized (that needs a paid Apple Developer account), so macOS blocks the first launch. Right-click the app, choose Open, then Open again. If it says the app is damaged, run `xattr -cr "/Applications/Tally Money.app"`.
+
+The app keeps its own data, separate from the web version. Use Backup and Restore to move data between them.
+
 ## Data and privacy
 
 Everything is stored in the browser's `localStorage` (key `tally-money-v1`). Nothing is uploaded. Clearing site data erases it, and it does not sync between devices.
