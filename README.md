@@ -41,6 +41,10 @@ Dashboard, Workers & Pages, Create, Pages, Connect to Git, pick this repo (priva
 
 Every push to `main` redeploys. `npm run build:web` copies only the site files (`index.html`, `manifest.webmanifest`, `icons/`) so the Electron and build files are not published.
 
+### Locking it with Cloudflare Access
+
+Pages project, Settings, General, Access policy, Enable. Then in Zero Trust, edit the policy created for the project: action Allow, include rule Emails with your address, login method One-time PIN. Cloudflare Access is free for up to 50 users. The manifest link uses `crossorigin="use-credentials"` so the login cookie is sent when Safari fetches it.
+
 ## Data and privacy
 
 Everything is stored in the browser's `localStorage` (key `tally-money-v1`). Nothing is uploaded. Clearing site data erases it, and it does not sync between devices.
