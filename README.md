@@ -72,13 +72,21 @@ Transactions tab, AI analysis panel. Needs an Anthropic API key from console.ant
 
 ## PDF statements (Mac app)
 
-Transactions tab, PDF statements panel. Choose one or several statement PDFs (twelve months at once works), optionally set the type (checking or savings, or credit card; the default detects it), and review the transactions that were found before importing.
+Transactions tab, Import statements panel. Choose one or several statement PDFs (twelve months at once works), optionally set the type (checking or savings, or credit card; the default detects it), and review the transactions that were found before importing.
 
 - Text is extracted on your Mac with pdf.js (`statement.js`). A line counts as a transaction when it starts with a date and has a money amount. Supported dates: `09/14`, `09/14/2026`, `2026-09-14`, `Sep 14`, `14 Sep 2026`. Years missing from a date come from the statement period.
 - Signs are decided in this order: Withdrawals and Deposits columns, explicit minus signs, parentheses or CR/DR, running balances (including newest-first listings), then keywords. Rows whose sign was guessed are marked with a warning, and every amount button flips money in and out. On credit card statements purchases are spending and payments and credits are money in.
 - Transactions that match ones already in the app (same date, amount and merchant) are unchecked, so overlapping statements do not double count. Dates, descriptions and categories can be edited in the review list.
 - If a file's layout is not recognised, "Read with AI instead" sends only that file's text, with account and card numbers masked, to Anthropic after you confirm the size and rough cost. Scanned PDFs have no text and are not read: use your bank's downloadable PDF or a CSV.
 - The reader is tested on six generated statement layouts (`test/fixtures`), not on real bank statements, so expect to review rows, especially at first. If a statement of yours comes out wrong, the fix is usually a small change to the line detection in `statement.js`.
+
+## Credit health
+
+Credit tab. The app cannot pull a credit score from the bureaus (that needs a paid partner license), so you enter your score from your bank or card app and it tracks the history. It explains what affects the score using FICO's published weights (payment history 35%, amounts owed 30%, length of history 15%, new credit 10%, credit mix 10%) and gives advice from what it can see: card balances and limits (limits come from Plaid when linked, or you type them), the accounts you have, and a short profile you fill in for what it cannot see (late payments, applications, oldest account, collections). Utilization is shown per card and overall with the payment needed to get under 30% and 10%, plus a what-if box. The advice is general education, not a prediction of points.
+
+## Investments
+
+Investments tab. Add each holding as ticker, shares and total invested. In the Mac app the app loads about a year of daily prices from Yahoo Finance's public chart endpoint, with Stooq end-of-day data as a fallback (neither needs an account or key; both are unofficial or delayed and may fail, and the app says so per ticker). It shows value, gain or loss and today's move per holding and in total, a portfolio value chart (today's shares at past prices), a price chart per holding with your average cost, an allocation donut, and a volatility watch: annualized volatility from daily returns (under 20% low, 20 to 35% moderate, 35 to 55% high, above that very high), worst peak-to-trough drop, and a warning for any position that is 30% or more of the portfolio. In the browser version prices are not available (browsers block the request); holdings can still be recorded. Example data uses made-up price histories, labelled as such. Information only, not investment advice.
 
 ## Tests
 
@@ -100,9 +108,11 @@ The app starts with made-up example data. "Start fresh" clears it, and so does y
 
 Transactions tab, Backup panel. "Download backup" saves a JSON file with everything. "Restore from file" reads one back, shows what it contains, and asks before replacing your current data. Use it to move between devices or to recover after clearing site data.
 
-## CSV import
+## Importing CSV and PDF statements
 
-The file needs a header row with a date column, a description column (`description`, `name`, `payee`, `merchant` or `memo`) and an amount column (or separate `debit` and `credit` columns). Spending is negative, income positive. Categories are guessed from the description unless a `category` column matches one of the built-in categories. Duplicates are skipped.
+Transactions tab, Import statements panel. Both go through the same review screen: edit dates, descriptions and categories, flip the sign of any amount, untick rows, and nothing is added until you press Import. Rows that match transactions already in the app (same date, amount and merchant) are unchecked, so overlapping files do not double count.
+
+**CSV.** Works with exports from most banks without setup: the delimiter (comma, semicolon, tab), a header that is not on the first line (bank summaries above the table), a Details column next to a Description column, Transaction Date versus Post Date, separate Debit and Credit columns, a Type column, day-first or month-first dates, decimal commas, parentheses or trailing minus signs for negatives, and files with no header at all. Credit card exports that list purchases as positive numbers are detected and flipped. If the app cannot tell which column is which, it shows the first rows and lets you pick Date, Description, Amount (or Money out and Money in) yourself.
 
 ## Limits
 

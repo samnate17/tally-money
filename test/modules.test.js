@@ -151,6 +151,8 @@ test('plaid: category and account mapping', () => {
   assert.strictEqual(mapCategory('LOAN_PAYMENTS', 'LOAN_PAYMENTS_MORTGAGE_PAYMENT'), 'Housing');
   assert.strictEqual(mapCategory('SOMETHING_NEW', ''), '');
   assert.strictEqual(normalizeAccount({ account_id: 'x', type: 'depository', subtype: 'money market', balances: { current: -5 } }).balance, 0);
+  assert.strictEqual(normalizeAccount({ account_id: 'c', type: 'credit', balances: { current: 410, limit: 5000 } }).limit, 5000);
+  assert.strictEqual(normalizeAccount({ account_id: 'd', type: 'depository', balances: { current: 5, limit: null } }).limit, null);
   assert.strictEqual(normalizeTxn({ transaction_id: 'a', account_id: 'b', amount: 5, name: 'N', date: '2026-01-01', pending: false }, 'checking').amount, -5);
 });
 
@@ -250,4 +252,70 @@ test('ai: statement parsing request, cleaning and errors', async () => {
   await assert.rejects(() => aiWith(() => final({ stop_reason: 'refusal', content: [] })).statement('abc', 'credit'), /declined/);
   await assert.rejects(() => aiWith(() => final({ stop_reason: 'max_tokens', content: [] })).statement('abc', 'credit'), /too many/);
   await assert.rejects(() => aiWith(() => final({}), null).statement('abc', 'credit'), /Add your Anthropic API key/);
+});
+
+test('ai: scanned statements go as a PDF document block, with a PDF-specific prompt', async () => {
+  let seen;
+  const ai = aiWith((req) => { seen = req; return final({ stop_reason: 'end_turn', content: [{ type: 'text', text: JSON.stringify({ transactions: [{ date: '2026-09-03', description: 'Shop', amount: -5 }], notes: '' }) }] }); });
+  const r = await ai.statementPdf(Buffer.from('%PDF-1.4 fake'), 'credit');
+  assert.strictEqual(r.rows.length, 1);
+  const c = seen.messages[0].content;
+  assert.strictEqual(c[0].type, 'document');
+  assert.strictEqual(c[0].source.media_type, 'application/pdf');
+  assert.strictEqual(Buffer.from(c[0].source.data, 'base64').toString(), '%PDF-1.4 fake');
+  assert.deepStrictEqual(JSON.parse(c[1].text), { statementType: 'credit' });
+  assert.ok(/attached as a PDF/.test(seen.system));
+  await assert.rejects(() => ai.statementPdf(Buffer.alloc(0), 'credit'), /no longer in memory/);
+  await assert.rejects(() => ai.statementPdf(Buffer.alloc(20 * 1024 * 1024 + 1), 'credit'), /too large/);
+});
+
+test('ai: test connection shows success or the real error', async () => {
+  const ok = aiWith((req) => ({ finalMessage: async () => ({}) }));
+  const { store } = tmpStore();
+  const good = createAI({ store, clientFactory: () => ({ messages: { create: async (req) => ({ content: [{ type: 'text', text: 'OK' }], _req: req }) } }) });
+  good.saveKey('sk-ant-api03-abcdefghijklmnopqrstuv');
+  assert.deepStrictEqual(await good.testKey(), { model: MODEL, reply: 'OK' });
+  const bad = createAI({ store: tmpStore().store, clientFactory: () => ({ messages: { create: async () => { const e = new Error('x'); e.status = 404; e.error = { error: { message: 'model: claude-opus-5-5' } }; throw e; } } }) });
+  bad.saveKey('sk-ant-api03-abcdefghijklmnopqrstuv');
+  await assert.rejects(() => bad.testKey(), /could not find the model claude-opus-5-5.*404.*model: claude-opus-5-5/);
+  assert.match(friendlyError(Object.assign(new Error('m'), { status: 400, error: { error: { message: 'output_config.format: bad schema' } } })), /\(400\): output_config.format: bad schema/);
+  assert.match(friendlyError(Object.assign(new Error('boom'), { status: 418 })), /Anthropic error 418: boom/);
+  assert.ok(ok);
+});
+
+// ----- market data -----
+const { createMarket, normalizeYahoo, normalizeStooq } = require('../market');
+const yahooBody = (over = {}) => ({ chart: { result: [{ meta: { symbol: 'AAPL', longName: 'Apple Inc.', currency: 'USD', regularMarketPrice: 190.5, regularMarketTime: 1760457600, gmtoffset: -14400, ...over },
+  timestamp: [1760198400, 1760284800, 1760371200, 1760457600], indicators: { quote: [{ close: [180.1, 182.2, null, 190.5] }] } }], error: null } });
+
+test('market: Yahoo response is normalised (nulls dropped, previous close from the day before)', () => {
+  const q = normalizeYahoo('aapl', yahooBody().chart.result[0]);
+  assert.strictEqual(q.symbol, 'AAPL'); assert.strictEqual(q.name, 'Apple Inc.'); assert.strictEqual(q.price, 190.5);
+  assert.deepStrictEqual(q.closes.map((c) => c[1]), [180.1, 182.2, 190.5]);
+  assert.strictEqual(q.prev, 182.2);          // last bar is the current day, so yesterday's close is the previous one
+  assert.strictEqual(q.source, 'Yahoo Finance');
+  assert.throws(() => normalizeYahoo('x', { meta: {}, timestamp: [], indicators: { quote: [{ close: [] }] } }), /no price data/);
+});
+
+test('market: Stooq CSV is normalised', () => {
+  const q = normalizeStooq('vti', 'Date,Open,High,Low,Close,Volume\n2026-10-08,1,1,1,250.10,100\n2026-10-09,1,1,1,252.40,100\n2026-10-12,1,1,1,251.00,100\n');
+  assert.deepStrictEqual([q.price, q.prev, q.closes.length, q.symbol], [251, 252.4, 3, 'VTI']);
+  assert.throws(() => normalizeStooq('zzz', 'No data'), /no data/);
+});
+
+test('market: falls back from Yahoo to Stooq, reports both failures, validates symbols', async () => {
+  const calls = [];
+  const mk = (yahooOk, stooqOk) => createMarket({ fetchImpl: async (url) => {
+    calls.push(url);
+    if (url.includes('yahoo')) return yahooOk ? { ok: true, json: async () => yahooBody() } : { ok: false, status: 429 };
+    return stooqOk ? { ok: true, text: async () => 'Date,Open,High,Low,Close,Volume\n2026-10-08,1,1,1,10,1\n2026-10-09,1,1,1,11,1\n' } : { ok: false, status: 404 };
+  } });
+  assert.strictEqual((await mk(true, true).quote('AAPL')).source, 'Yahoo Finance');
+  assert.strictEqual((await mk(false, true).quote('AAPL')).source, 'Stooq (end of day)');
+  await assert.rejects(() => mk(false, false).quote('AAPL'), /Could not get a price for AAPL \(Yahoo: HTTP 429; Stooq: HTTP 404\)/);
+  await assert.rejects(() => mk(true, true).quote('bad symbol!'), /not a valid ticker/);
+  const many = await mk(false, false).quotes(['aapl', 'AAPL', 'msft']);
+  assert.deepStrictEqual(Object.keys(many).sort(), ['AAPL', 'MSFT']);
+  assert.ok(many.AAPL.error && many.MSFT.error);
+  assert.ok(calls.some((u) => u.includes('range=1y&interval=1d')));
 });

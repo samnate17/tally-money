@@ -5,9 +5,11 @@ const { createSecretStore } = require('./secrets');
 const { createPlaid } = require('./plaid');
 const { createAI } = require('./ai');
 const { parsePdf, maskText } = require('./statement');
+const { createMarket, SYMBOL } = require('./market');
 
-let store, plaid, ai, mainWin = null, linkState = null, splash = null;
+let store, plaid, ai, market, mainWin = null, linkState = null, splash = null;
 const statementText = new Map();
+const statementBytes = new Map(); // PDFs with no text layer, kept briefly so they can be sent to Claude if the user chooses
 let textSeq = 0;
 const SPLASH_MIN_MS = 1800;   // keep the splash up at least this long so it never just flashes
 const SPLASH_MAX_MS = 8000;   // and never longer than this if the main window is slow
@@ -103,12 +105,34 @@ function wireIpc() {
     if (buf.subarray(0, 5).toString('latin1') !== '%PDF-') throw new Error('That file is not a PDF.');
     let r;
     try { r = await parsePdf(buf, { type: type === 'credit' || type === 'checking' ? type : undefined }); }
-    catch (e) { throw new Error('Could not open this PDF. It may be damaged or password protected.'); }
+    catch (e) {
+      const why = String((e && (e.message || e.name)) || 'unknown error').replace(/\s+/g, ' ').slice(0, 160);
+      console.error('[pdf:parse]', e);
+      throw new Error(/password/i.test(why) ? 'This PDF is password protected. Open it in Preview, export a copy without the password, and try again.' : 'Could not read this PDF (' + why + ').');
+    }
     const masked = maskText(r.text || '');
     const textId = 't' + (++textSeq);
     statementText.set(textId, masked);
+    if (r.meta.noText && buf.length <= 20 * 1024 * 1024) statementBytes.set(textId, buf);
     while (statementText.size > 12) statementText.delete(statementText.keys().next().value);
-    return { rows: r.rows, meta: { type: r.meta.type, mode: r.meta.mode, pages: r.meta.pages, noText: !!r.meta.noText, rows: r.rows.length }, textId, chars: masked.length };
+    while (statementBytes.size > 3) statementBytes.delete(statementBytes.keys().next().value);
+    return {
+      rows: r.rows,
+      meta: { type: r.meta.type, mode: r.meta.mode, pages: r.meta.pages, noText: !!r.meta.noText, rows: r.rows.length },
+      textId, chars: masked.length, bytes: buf.length,
+      preview: (r.lines || []).slice(0, 120).map((l) => maskText(l)),
+    };
+  });
+  handle('quotes:get', (symbols) => {
+    if (!Array.isArray(symbols) || symbols.length > 40) throw new Error('Too many symbols.');
+    const list = symbols.map((s) => String(s).trim()).filter((s) => SYMBOL.test(s));
+    return market.quotes(list);
+  });
+  handle('ai:test', () => ai.testKey());
+  handle('ai:statementPdf', (textId, type) => {
+    const buf = statementBytes.get(String(textId));
+    if (!buf) throw new Error('That statement is no longer in memory. Choose the file again.');
+    return ai.statementPdf(buf, type);
   });
   handle('ai:statement', (textId, type) => {
     const text = statementText.get(String(textId));
@@ -177,6 +201,7 @@ app.whenReady().then(() => {
   store = createSecretStore({ file: path.join(app.getPath('userData'), 'secrets.bin'), safeStorage });
   plaid = createPlaid({ store });
   ai = createAI({ store });
+  market = createMarket();
   wireIpc();
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     { role: 'appMenu' },

@@ -49,12 +49,14 @@ function normalizeTxn(t, accountType) {
 
 function normalizeAccount(a) {
   const cur = a.balances && a.balances.current;
+  const lim = a.balances && a.balances.limit;
   return {
     accountId: a.account_id,
     name: String(a.name || a.official_name || 'Account').slice(0, 100),
     mask: a.mask || '',
     type: mapAccountType(a),
     balance: typeof cur === 'number' && isFinite(cur) ? Math.max(0, Math.round(cur * 100) / 100) : null,
+    limit: typeof lim === 'number' && isFinite(lim) && lim > 0 ? Math.round(lim) : null,
   };
 }
 

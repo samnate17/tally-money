@@ -19,6 +19,8 @@ test('amount and date tokens', () => {
   assert.strictEqual(matchDate('Sep 02 CHIPOTLE', 'mdy').d, 2);
   assert.strictEqual(matchDate('05 Sep 2026 APPLE', 'mdy').y, 2026);
   assert.strictEqual(matchDate('2026-09-01 X', 'mdy').d, 1);
+  assert.deepStrictEqual(matchDate('02-Oct-2026 X', 'mdy'), { y: 2026, m: 10, d: 2, len: 11 });
+  assert.strictEqual(matchDate('2-Oct X', 'mdy').y, null);
   assert.strictEqual(matchDate('13/45 X', 'mdy'), null);
 });
 
@@ -81,4 +83,22 @@ test('maskText hides account and card numbers but keeps the last four', () => {
   assert.ok(!/123456789012|4111 1111|9876543/.test(t));
   assert.ok(/\*\*\*\*9012/.test(t) && /\*\*\*\*1234/.test(t) && /\*\*\*\*6543/.test(t));
   assert.ok(/1,234\.56/.test(t) && /57444/.test(t) && /09\/03/.test(t));
+});
+
+test('rows stored as one text run per line, with a Unicode minus sign', async () => {
+  const r = await rows('singlerun-checking.pdf');
+  assert.strictEqual(r.meta.type, 'checking');
+  assert.deepStrictEqual(flat(r), [['2026-10-02', -6.75, 'DEBIT CARD PURCHASE STARBUCKS #4412'], ['2026-10-05', 1500, 'PAYROLL DIRECT DEP ACME CORP'], ['2026-10-09', -250, 'CHECK 1042']]);
+  assert.ok(!r.rows.some((x) => /balance|page/i.test(x.name)));
+});
+
+test('single-run credit card statement with two-digit years and a trailing summary line', async () => {
+  const r = await rows('singlerun-credit.pdf');
+  assert.strictEqual(r.meta.type, 'credit');
+  assert.deepStrictEqual(flat(r), [['2026-09-10', -52.18, 'TARGET 00012345'], ['2026-09-20', 300, 'AUTOPAY PAYMENT THANK YOU'], ['2026-09-29', -15.49, 'NETFLIX.COM']]);
+});
+
+test('parsePdf returns the extracted lines so a failed read can be inspected', async () => {
+  const r = await rows('singlerun-checking.pdf');
+  assert.ok(r.lines.length > 5 && r.lines.some((l) => /STARBUCKS/.test(l)));
 });

@@ -27,10 +27,13 @@ function world(overrides = {}) {
   const activeSubs = () => S.subs.filter((s) => s.status !== 'cancelled');
   const nextDate = (s) => { let d = parseD(s.next); while (d < TODAY) d = new Date(d.getFullYear(), d.getMonth() + 1, d.getDate()); return d; };
   const money0 = (n) => '$' + Math.round(n).toLocaleString('en-US');
-  const deps = { S, TODAY, iso, parseD, addDays, dayDiff, monthKey, shiftMonth, normName, guessCat, uid, NOWKEY, spendBy, incomeOf, isDebt, activeSubs, nextDate, money0 };
+  const CATS = ['Housing','Groceries','Dining','Transport','Subscriptions','Shopping','Health','Entertainment','Other','Income'];
+  const deps = { CATS, S, TODAY, iso, parseD, addDays, dayDiff, monthKey, shiftMonth, normName, guessCat, uid, NOWKEY, spendBy, incomeOf, isDebt, activeSubs, nextDate, money0 };
   const names = Object.keys(deps);
   const mk = (blk, ret) => new Function(...names, block(blk) + ';return {' + ret + '}')(...names.map((n) => deps[n]));
-  return { S, deps, logic: mk('LOGIC', 'applySync,buildAiPayload,aiProposals,aiEstimate,aiKey,pdfReviewRows,pdfCategory'), afford: mk('AFFORD', 'afCtx,assessAfford') };
+  return { S, deps,
+    logic: { ...mk('CREDIT', 'creditBand,creditUtil,creditWhatIf,creditAdvice'), ...mk('INVEST', 'logReturns,annVol,maxDrawdown,volLabel,rangeSeries,holdingStats,portfolioStats,portfolioSeries,volRows,seededCloses'), ...mk('LOGIC', 'applySync,buildAiPayload,aiProposals,aiEstimate,aiKey,pdfReviewRows,pdfCategory,csvDetect,csvBuild,csvDate,csvAmount,csvDelim,csvScan,csvOrder') },
+    afford: mk('AFFORD', 'afCtx,assessAfford') };
 }
 
 // ---------- bank sync ----------
@@ -227,4 +230,186 @@ test('pdfReviewRows: categories, duplicates against existing data and across ove
   assert.deepStrictEqual(r.map((x) => x.cat), ['Groceries', 'Subscriptions', 'Subscriptions', 'Income', 'Other', 'Income']);
   assert.strictEqual(r[3].uncertain, true);
   assert.strictEqual(logic.pdfCategory('Mystery', -5), 'Other');
+});
+
+// ---------- CSV ----------
+const csvRun = (text) => { const { logic } = world(); const d = logic.csvDetect(text); const b = d.ok ? logic.csvBuild(d.rows, d.headerIdx, d.map, { order: d.order, flip: d.flip }) : null; return { d, b, logic }; };
+const simple = (b) => b.rows.map((r) => [r.date, r.amount, r.name]);
+
+test('csv: amounts and dates in many formats', () => {
+  const { logic } = world();
+  const A = logic.csvAmount;
+  assert.strictEqual(A('1,234.56'), 1234.56); assert.strictEqual(A('(45.00)'), -45); assert.strictEqual(A('45.00-'), -45);
+  assert.strictEqual(A('$-3.10'), -3.1); assert.strictEqual(A('1.234,56'), 1234.56); assert.strictEqual(A('12,5'), 12.5); assert.strictEqual(A('2.400,00'), 2400);
+  assert.strictEqual(A('300.00 CR'), 300); assert.strictEqual(A('45.00 DR'), -45); assert.strictEqual(A('−6.75'), -6.75); assert.strictEqual(A('USD 12.00'), 12);
+  assert.strictEqual(A(''), null); assert.strictEqual(A('abc'), null); assert.strictEqual(A('10/02/2026'), 10022026 === 0 ? 0 : null);
+  const D = logic.csvDate;
+  assert.strictEqual(D('10/02/2026', 'mdy'), '2026-10-02'); assert.strictEqual(D('10/02/2026', 'dmy'), '2026-02-10');
+  assert.strictEqual(D('2026-10-02T14:00:00Z'), '2026-10-02'); assert.strictEqual(D('Oct 2, 2026'), '2026-10-02'); assert.strictEqual(D('October 2nd 2026'), '2026-10-02');
+  assert.strictEqual(D('2 Oct 2026'), '2026-10-02'); assert.strictEqual(D('02-Oct-26'), '2026-10-02'); assert.strictEqual(D('20261002'), '2026-10-02'); assert.strictEqual(D('15-10-2026', 'dmy'), '2026-10-15');
+  assert.strictEqual(D('13/45/2026'), null); assert.strictEqual(D('31/02/2026', 'dmy'), null); assert.strictEqual(D('Total'), null); assert.strictEqual(D(''), null);
+  assert.strictEqual(logic.csvOrder(['15/10/2026', '01/02/2026']), 'dmy'); assert.strictEqual(logic.csvOrder(['10/15/2026']), 'mdy');
+});
+
+test('csv: Chase checking export (extra columns, trailing commas, Details vs Description)', () => {
+  const { d, b } = csvRun('Details,Posting Date,Description,Amount,Type,Balance,Check or Slip #\nDEBIT,10/02/2026,"STARBUCKS #4412",-6.75,DEBIT_CARD,993.25,,\nCREDIT,10/05/2026,"ACME PAYROLL",1500.00,ACH_CREDIT,2493.25,,\n');
+  assert.ok(d.ok); assert.deepStrictEqual([d.map.date, d.map.desc, d.map.amount], [1, 2, 3]);
+  assert.deepStrictEqual(simple(b), [['2026-10-02', -6.75, 'STARBUCKS #4412'], ['2026-10-05', 1500, 'ACME PAYROLL']]);
+});
+
+test('csv: Bank of America style summary lines before the real header', () => {
+  const { d, b } = csvRun('Description,,Summary Amt.\nBeginning balance as of 09/01/2026,,"1,000.00"\nTotal credits,,"1,500.00"\nTotal debits,,"-256.75"\nEnding balance as of 09/30/2026,,"2,243.25"\n\nDate,Description,Amount,Running Bal.\n10/02/2026,"STARBUCKS",-6.75,"993.25"\n10/05/2026,"PAYROLL","1,500.00","2,493.25"\n');
+  assert.ok(d.ok); assert.strictEqual(d.headerIdx, 5);
+  assert.deepStrictEqual(simple(b), [['2026-10-02', -6.75, 'STARBUCKS'], ['2026-10-05', 1500, 'PAYROLL']]);
+});
+
+test('csv: separate debit and credit columns, transaction date preferred over posted date, category column', () => {
+  const { d, b } = csvRun('Transaction Date,Posted Date,Card No.,Description,Category,Debit,Credit\n2026-10-02,2026-10-03,1234,STARBUCKS,Dining,6.75,\n2026-10-05,2026-10-06,1234,PAYMENT THANK YOU,Payment/Credit,,300.00\n');
+  assert.ok(d.ok); assert.strictEqual(d.map.date, 0); assert.ok(d.map.debit === 5 && d.map.credit === 6);
+  assert.deepStrictEqual(simple(b), [['2026-10-02', -6.75, 'STARBUCKS'], ['2026-10-05', 300, 'PAYMENT THANK YOU']]);
+  assert.strictEqual(b.rows[0].cat, 'Dining'); assert.strictEqual(b.rows[1].cat, undefined);
+});
+
+test('csv: credit card export with positive purchases is flipped automatically', () => {
+  const { d, b } = csvRun('Date,Description,Amount\n10/01/2026,AUTOPAY PAYMENT - THANK YOU,-300.00\n10/03/2026,UBER TRIP,24.10\n10/04/2026,AMAZON.COM,56.20\n');
+  assert.strictEqual(d.flip, true);
+  assert.deepStrictEqual(simple(b), [['2026-10-01', 300, 'AUTOPAY PAYMENT - THANK YOU'], ['2026-10-03', -24.1, 'UBER TRIP'], ['2026-10-04', -56.2, 'AMAZON.COM']]);
+});
+
+test('csv: Apple Card style (tab separated, BOM, purchases positive, Type column)', () => {
+  const { d, b } = csvRun('﻿Transaction Date\tClearing Date\tDescription\tMerchant\tCategory\tType\tAmount (USD)\n10/02/2026\t10/03/2026\tAPPLE STORE\tApple\tShopping\tPurchase\t99.00\n10/05/2026\t10/05/2026\tACH DEPOSIT INTERNET TRANSFER\tBank\tPayment\tPayment\t-300.00\n10/06/2026\t10/07/2026\tSHELL\tShell\tGas\tPurchase\t40.00\n');
+  assert.strictEqual(d.delim, '\t'); assert.ok(d.ok); assert.strictEqual(d.flip, true);
+  assert.deepStrictEqual(simple(b), [['2026-10-02', -99, 'APPLE STORE'], ['2026-10-05', 300, 'ACH DEPOSIT INTERNET TRANSFER'], ['2026-10-06', -40, 'SHELL']]);
+});
+
+test('csv: unsigned amounts with a Type column use the type', () => {
+  const { b } = csvRun('Date,Description,Type,Amount\n10/02/2026,STARBUCKS,Debit,6.75\n10/05/2026,PAYROLL,Credit,1500.00\n');
+  assert.deepStrictEqual(simple(b), [['2026-10-02', -6.75, 'STARBUCKS'], ['2026-10-05', 1500, 'PAYROLL']]);
+});
+
+test('csv: semicolons, day-first dates, decimal commas and non-English headers fall back to content detection', () => {
+  const { d, b } = csvRun('Datum;Omschrijving;Bedrag;Saldo\n15-10-2026;ALBERT HEIJN 1234;-23,45;976,55\n16-10-2026;SALARIS ACME BV;2.400,00;3.376,55\n17-10-2026;NS REIZEN;-12,80;3.363,75\n');
+  assert.strictEqual(d.delim, ';'); assert.ok(d.ok); assert.strictEqual(d.headerIdx, 0); assert.strictEqual(d.order, 'dmy');
+  assert.deepStrictEqual(simple(b), [['2026-10-15', -23.45, 'ALBERT HEIJN 1234'], ['2026-10-16', 2400, 'SALARIS ACME BV'], ['2026-10-17', -12.8, 'NS REIZEN']]);
+});
+
+test('csv: no header row at all (Wells Fargo style)', () => {
+  const { d, b } = csvRun('"10/02/2026","-6.75","*","","STARBUCKS #4412"\n"10/05/2026","1500.00","*","","ACME PAYROLL"\n"10/09/2026","-250.00","*","","CHECK 1042"\n');
+  assert.ok(d.ok); assert.strictEqual(d.headerIdx, -1);
+  assert.deepStrictEqual(simple(b), [['2026-10-02', -6.75, 'STARBUCKS #4412'], ['2026-10-05', 1500, 'ACME PAYROLL'], ['2026-10-09', -250, 'CHECK 1042']]);
+});
+
+test('csv: quoted thousands, footer rows and blank lines are skipped; failure returns a table for the column picker', () => {
+  const { b } = csvRun('"Date","Description","Amount"\n"10/06/2026","RENT","-1,450.00"\n\n"Total","","-1,450.00"\n');
+  assert.deepStrictEqual(simple(b), [['2026-10-06', -1450, 'RENT']]); assert.strictEqual(b.bad, 1);
+  const bad = csvRun('a,b,c\n1,2,3\n4,5,6\n');
+  assert.strictEqual(bad.d.ok, false); assert.strictEqual(bad.d.rows.length, 3);
+  assert.strictEqual(csvRun('just one line').d.ok, false);
+});
+
+// ---------- credit ----------
+const card = (id, bal, lim, extra = {}) => ({ id, name: 'Card ' + id, type: 'credit', balance: bal, limit: lim, apr: 20, minPay: 25, history: [], ...extra });
+test('credit: score bands', () => {
+  const { logic } = world();
+  const b = (n) => logic.creditBand(n).label;
+  assert.deepStrictEqual([579, 580, 669, 670, 739, 740, 799, 800, 850].map(b), ['Poor', 'Fair', 'Fair', 'Good', 'Good', 'Very good', 'Very good', 'Exceptional', 'Exceptional']);
+});
+
+test('credit: utilization overall, per card, missing limits', () => {
+  const { logic } = world();
+  const u = logic.creditUtil([card('a', 1000, 4000), card('b', 500, 1000), card('c', 300, 0), { id: 'x', type: 'checking', balance: 9999 }]);
+  assert.strictEqual(u.cards, 3); assert.strictEqual(u.missing, 1); assert.strictEqual(u.balance, 1500); assert.strictEqual(u.limit, 5000);
+  assert.strictEqual(u.pct, 30); assert.deepStrictEqual(u.rows.map((r) => Math.round(r.pct)), [25, 50]);
+  assert.strictEqual(logic.creditUtil([card('c', 300, 0)]).pct, null);
+});
+
+test('credit: what-if payments go to the most-used cards first', () => {
+  const { logic } = world();
+  const accts = [card('a', 1000, 4000), card('b', 900, 1000), card('c', 100, 5000)];
+  const w = logic.creditWhatIf(accts, 1000);
+  assert.deepStrictEqual(w.payments.map((x) => [x.name, x.pay]), [['Card b', 900], ['Card a', 100]]);
+  assert.strictEqual(w.paid, 1000); assert.strictEqual(Math.round(w.pct * 10) / 10, 10);
+  assert.strictEqual(logic.creditWhatIf(accts, 99999).pct, 0);
+  assert.strictEqual(logic.creditWhatIf(accts, 0).payments.length, 0);
+});
+
+test('credit: advice ranks the biggest problems first and quotes real numbers', () => {
+  const { logic } = world();
+  const accts = [card('a', 2500, 5000), card('b', 1000, 1000), { id: 'l', type: 'auto', balance: 8000, limit: 0 }];
+  const adv = logic.creditAdvice(accts, { late: 'few', inq: '3plus', oldest: '2', derog: 'unknown' });
+  const by = (k) => adv.factors.find((f) => f.key === k);
+  assert.deepStrictEqual(adv.factors.map((f) => f.weight), [35, 30, 15, 10, 10]);
+  assert.strictEqual(by('owed').status, 'bad');           // 3,500 of 6,000 = 58%
+  assert.match(by('owed').detail, /58%/);
+  assert.ok(by('owed').actions.some((a) => /\$1700 across your cards/.test(a)), by('owed').actions.join('|')); // 3,500 - 30% of 6,000
+  assert.ok(by('owed').actions.some((a) => /Card b is at 100%/.test(a)));
+  assert.strictEqual(by('payment').status, 'warn');
+  assert.strictEqual(by('length').status, 'warn');
+  assert.strictEqual(by('new').status, 'warn');
+  assert.strictEqual(by('mix').status, 'good');
+  assert.deepStrictEqual(adv.focus, ['owed', 'payment', 'length']);
+});
+
+test('credit: healthy profile and unknowns', () => {
+  const { logic } = world();
+  const good = logic.creditAdvice([card('a', 200, 5000), { id: 'l', type: 'student', balance: 9000 }], { late: 'none', inq: 'none', oldest: '9', derog: 'none' });
+  assert.deepStrictEqual(good.factors.map((f) => f.status), ['good', 'good', 'good', 'good', 'good']);
+  assert.deepStrictEqual(good.focus, []);
+  const none = logic.creditAdvice([], { late: 'unknown', inq: 'unknown', oldest: '', derog: 'unknown' });
+  assert.deepStrictEqual(none.factors.map((f) => f.status), ['unknown', 'unknown', 'unknown', 'unknown', 'unknown']);
+  const coll = logic.creditAdvice([card('a', 100, 5000)], { late: 'none', inq: 'none', oldest: '9', derog: 'yes' });
+  assert.strictEqual(coll.factors[0].status, 'warn'); assert.ok(coll.factors[0].actions.some((a) => /dispute/i.test(a)));
+});
+
+// ---------- investments ----------
+const day = (s) => Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10), 21);
+test('invest: volatility, drawdown and labels', () => {
+  const { logic } = world();
+  const alt = Array.from({ length: 61 }, (_, i) => 100 * (i % 2 ? 1.01 : 1));      // swings of exactly 1% each day
+  assert.ok(Math.abs(logic.annVol(alt) - 15.87) < 0.3, String(logic.annVol(alt)));
+  assert.strictEqual(logic.annVol(Array(40).fill(50)), 0);
+  assert.strictEqual(logic.annVol([1, 2, 3]), null);                                // too little data to say
+  assert.strictEqual(logic.maxDrawdown([100, 120, 90, 110]), -25);
+  assert.strictEqual(logic.maxDrawdown([1, 2, 3]), 0);
+  const L = (v) => logic.volLabel(v).label;
+  assert.deepStrictEqual([null, 10, 20, 34.9, 35, 54.9, 55, 90].map(L), ['Not enough data', 'Low', 'Moderate', 'Moderate', 'High', 'High', 'Very high', 'Very high']);
+});
+
+test('invest: position and portfolio figures, missing prices handled', () => {
+  const { logic } = world();
+  const h = { id: 'h', symbol: 'AAA', shares: 10, invested: 1000 };
+  const st = logic.holdingStats(h, { price: 120, prev: 118 });
+  assert.deepStrictEqual([st.value, st.gain, st.gainPct, st.dayChg, st.avgCost], [1200, 200, 20, 20, 100]);
+  assert.ok(Math.abs(st.dayPct - 1.6949) < 0.001);
+  assert.strictEqual(logic.holdingStats(h, { error: 'x' }).value, null);
+  const ps = logic.portfolioStats([h, { id: 'g', symbol: 'BBB', shares: 5, invested: 500 }], { AAA: { price: 120, prev: 118 } });
+  assert.deepStrictEqual([ps.invested, ps.value, ps.priced, ps.missing, ps.gain, ps.gainPct], [1500, 1200, 1, 1, 200, 20]);  // gain only counts what has a price
+});
+
+test('invest: portfolio history aligns holdings that start on different days and forward-fills gaps', () => {
+  const { logic } = world();
+  const hs = [{ symbol: 'A', shares: 2, invested: 0 }, { symbol: 'B', shares: 1, invested: 0 }];
+  const qs = {
+    A: { closes: [[day('2026-10-01'), 10], [day('2026-10-02'), 11], [day('2026-10-05'), 12]] },
+    B: { closes: [[day('2026-10-02'), 100], [day('2026-10-03'), 101], [day('2026-10-05'), 103]] },
+  };
+  const s = logic.portfolioSeries(hs, qs, 365);
+  assert.deepStrictEqual(s.map((p) => p[1]), [122, 123, 127]);     // starts 10/02 when both exist; 10/03 carries A's 11 forward
+  assert.deepStrictEqual(logic.portfolioSeries(hs, { A: qs.A, B: { error: 'x' } }, 365).length, 3);   // a failed quote is left out
+  assert.deepStrictEqual(logic.portfolioSeries(hs, {}, 365), []);
+  assert.strictEqual(logic.portfolioSeries(hs, qs, 1).length, 1);
+});
+
+test('invest: volatility watch ranks and flags, and example prices behave', () => {
+  const { logic } = world();
+  const calm = logic.seededCloses(5, 100, 0.08, 0.15, 372).slice(-252), wild = logic.seededCloses(9, 100, 0.05, 0.65, 372).slice(-252);
+  assert.ok(calm.length > 240 && calm.every((c) => [1, 2, 3, 4, 5].includes(new Date(c[0]).getUTCDay())));
+  assert.deepStrictEqual(logic.seededCloses(5, 100, 0.08, 0.15, 372).slice(-252), calm);   // deterministic
+  const hs = [{ symbol: 'CALM', shares: 10, invested: 900, name: 'Calm' }, { symbol: 'WILD', shares: 10, invested: 900, name: 'Wild' }, { symbol: 'NONE', shares: 1, invested: 10, name: 'None' }];
+  const mkq = (c) => ({ price: c[c.length - 1][1], prev: c[c.length - 2][1], closes: c });
+  const rows = logic.volRows(hs, { CALM: mkq(calm), WILD: mkq(wild) });
+  assert.deepStrictEqual(rows.map((r) => r.symbol), ['WILD', 'CALM', 'NONE']);
+  assert.ok(rows[0].label.rank >= 3 && rows[1].label.rank <= 2 && rows[2].vol === null);
+  assert.ok(rows[0].dd < rows[1].dd);
+  assert.ok(Math.abs(rows[0].share + rows[1].share - 100) < 1e-6);
 });

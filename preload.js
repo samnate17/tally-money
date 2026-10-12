@@ -16,8 +16,13 @@ contextBridge.exposeInMainWorld('tally', {
     clearKey: inv('ai:clearKey'),
     analyze: inv('ai:analyze'),
     statement: inv('ai:statement'),
+    statementPdf: inv('ai:statementPdf'),
+    test: inv('ai:test'),
   },
   pdf: {
     parse: inv('pdf:parse'),
+  },
+  quotes: {
+    get: inv('quotes:get'),
   },
 });

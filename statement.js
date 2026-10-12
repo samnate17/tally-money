@@ -19,7 +19,8 @@ async function extractPages(data) {
     for (let i = 1; i <= doc.numPages; i++) {
       const pg = await doc.getPage(i);
       const tc = await pg.getTextContent();
-      pages.push(tc.items.filter((it) => typeof it.str === 'string' && it.str.trim() !== '').map((it) => ({ str: it.str.trim(), x: it.transform[4], y: it.transform[5], w: it.width })));
+      // Some PDFs write a minus as U+2212 or a dash; normalise so amounts parse.
+      pages.push(tc.items.filter((it) => typeof it.str === 'string' && it.str.trim() !== '').map((it) => ({ str: it.str.trim().replace(/[\u2212\u2012-\u2015]/g, '-'), x: it.transform[4], y: it.transform[5], w: it.width })));
     }
   } finally { await doc.destroy(); }
   return pages;
@@ -37,12 +38,23 @@ function buildLines(pages) {
     });
   });
   return lines.map((l) => {
-    const items = l.items.sort((a, b) => a.x - b.x), tokens = [];
+    const items = l.items.sort((a, b) => a.x - b.x), runs = [];
     items.forEach((it) => {
-      const prev = tokens[tokens.length - 1];
+      const prev = runs[runs.length - 1];
       if (prev && it.x - prev.x2 < 1.2) { prev.str += it.str; prev.x2 = it.x + it.w; } // one word split by the PDF
-      else tokens.push({ str: it.str, x: it.x, x2: it.x + it.w });
+      else runs.push({ str: it.str, x: it.x, x2: it.x + it.w });
     });
+    // Many statements store a whole row as one text run ("09/03 WHOLE FOODS -86.42 4,813.58"), so split every run into
+    // words and estimate each word's x position from its character offset.
+    const tokens = [];
+    runs.forEach((r) => {
+      const re = /\S+/g, len = r.str.length || 1;
+      let m;
+      while ((m = re.exec(r.str))) tokens.push({ str: m[0], x: r.x + ((r.x2 - r.x) * m.index) / len, x2: r.x + ((r.x2 - r.x) * (m.index + m[0].length)) / len });
+    });
+    for (let i = 0; i < tokens.length - 1; i++) { // a lone currency sign belongs to the amount after it
+      if (/^-?\$$/.test(tokens[i].str)) { tokens[i + 1].str = tokens[i].str + tokens[i + 1].str; tokens[i + 1].x = tokens[i].x; tokens.splice(i, 1); i--; }
+    }
     return { page: l.page, tokens, text: tokens.map((t) => t.str).join(' ') };
   });
 }
@@ -65,7 +77,7 @@ function matchDate(text, order) {
     return { y, m: mo, d: dy, len: m[0].length };
   }
   if ((m = new RegExp('^' + MONRE + '\\s+(\\d{1,2})(?:,?\\s+(\\d{4}))?(?=\\s|$)', 'i').exec(text))) return { y: m[3] ? +m[3] : null, m: MON[m[1].toLowerCase()], d: +m[2], len: m[0].length };
-  if ((m = new RegExp('^(\\d{1,2})\\s+' + MONRE + '(?:,?\\s+(\\d{4}))?(?=\\s|$)', 'i').exec(text))) return { y: m[3] ? +m[3] : null, m: MON[m[2].toLowerCase()], d: +m[1], len: m[0].length };
+  if ((m = new RegExp('^(\\d{1,2})[\\s-]+' + MONRE + '(?:[\\s,-]+(\\d{4}))?(?=\\s|$)', 'i').exec(text))) return { y: m[3] ? +m[3] : null, m: MON[m[2].toLowerCase()], d: +m[1], len: m[0].length };
   return null;
 }
 function findFullDates(text, order) { // dates with a 4-digit year anywhere in a line
@@ -221,10 +233,11 @@ async function parsePdf(data, opts = {}) {
   const count = pages.reduce((n, p) => n + p.length, 0);
   const lines = buildLines(pages);
   const text = lines.map((l) => l.text).join('\n');
-  if (!count) return { rows: [], meta: { pages: pages.length, noText: true, type: opts.type || 'checking', mode: 'none', rows: 0 }, text: '' };
+  if (!count) return { rows: [], meta: { pages: pages.length, noText: true, type: opts.type || 'checking', mode: 'none', rows: 0 }, text: '', lines: [] };
   const r = parseStatement(lines, opts);
   r.meta.pages = pages.length;
   r.text = text;
+  r.lines = lines.map((l) => l.text);
   return r;
 }
 
