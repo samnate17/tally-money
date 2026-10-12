@@ -1,6 +1,6 @@
 # Tally Money
 
-A personal money app in a single static page: spending overview, subscription tracker, budgets, transactions with CSV import, and savings goals. No build step, no dependencies, no server.
+A personal money app in a single static page: spending overview, accounts and debts with net worth and a payoff planner, subscription tracker, budgets, transactions with CSV import, and savings goals. No build step, no dependencies, no server.
 
 ## Run it
 
@@ -23,6 +23,12 @@ Build it on a Mac: `npm ci && npm run dist:mac`, output in `dist/`. Run without 
 The app is not code-signed or notarized (that needs a paid Apple Developer account), so macOS blocks the first launch. Right-click the app, choose Open, then Open again. If it says the app is damaged, run `xattr -cr "/Applications/Tally Money.app"`.
 
 The app keeps its own data, separate from the web version. Use Backup and Restore to move data between them.
+
+## Accounts and debts
+
+The Accounts tab holds checking, savings, cash, investment and property accounts plus credit cards, student, auto, mortgage and other loans. Debts take an APR and a minimum payment. Balances are entered by hand; each update is saved so the net worth chart can show a trend, and accounts not updated in 45 days are flagged.
+
+The payoff planner compares paying the highest interest rate first against the smallest balance first, with an optional extra monthly amount. It assumes fixed rates, no new charges, and that freed-up minimums roll into the next debt. Accounts are included in Backup and Restore; backups made before v1.1.0 still load.
 
 ## Safari Dock app
 
