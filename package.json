@@ -36,6 +36,7 @@
       "!**/*.d.ts",
       "!**/*.d.mts"
     ],
+    "afterPack": "scripts/after-pack.js",
     "directories": {
       "buildResources": "build",
       "output": "dist"

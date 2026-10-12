@@ -20,7 +20,7 @@ function sanitize(s) {
 
 const DEFAULTS = { visible: false, onTop: false, hideAmounts: false, x: null, y: null };
 
-function createWidget({ BrowserWindow, screen, file, preload, html }) {
+function createWidget({ BrowserWindow, screen, file, preload, html, nativeFile }) {
   let win = null, state = { ...DEFAULTS }, summary = null;
   try {
     const j = JSON.parse(fs.readFileSync(file, 'utf8'));
@@ -28,6 +28,16 @@ function createWidget({ BrowserWindow, screen, file, preload, html }) {
     summary = sanitize(j.summary);
   } catch (e) { /* first run */ }
 
+  // The macOS desktop widget (a separate sandboxed extension) reads this file. Written even when the floating widget is closed.
+  function writeNative() {
+    if (!nativeFile || !summary) return;
+    try {
+      fs.mkdirSync(require('path').dirname(nativeFile), { recursive: true });
+      const tmp = nativeFile + '.tmp';
+      fs.writeFileSync(tmp, JSON.stringify({ ...summary, hideAmounts: state.hideAmounts, updatedAt: new Date().toISOString() }), { mode: 0o600 });
+      fs.renameSync(tmp, nativeFile);
+    } catch (e) { /* non-fatal */ }
+  }
   function persist() {
     try { fs.writeFileSync(file, JSON.stringify({ state, summary })); } catch (e) { /* non-fatal */ }
   }
@@ -65,9 +75,9 @@ function createWidget({ BrowserWindow, screen, file, preload, html }) {
     show() { state.visible = true; persist(); open(); },
     hide() { state.visible = false; persist(); if (alive()) win.close(); },
     toggle() { return state.visible && alive() ? (this.hide(), false) : (this.show(), true); },
-    update(raw) { const s = sanitize(raw); if (!s) return false; summary = s; persist(); send(); return true; },
+    update(raw) { const s = sanitize(raw); if (!s) return false; summary = s; persist(); writeNative(); send(); return true; },
     setOnTop(v) { state.onTop = !!v; persist(); applyLevel(); send(); },
-    setHideAmounts(v) { state.hideAmounts = !!v; persist(); send(); },
+    setHideAmounts(v) { state.hideAmounts = !!v; persist(); writeNative(); send(); },
     status() { return { visible: !!(state.visible && alive()), onTop: state.onTop, hideAmounts: state.hideAmounts }; },
     wantsOpen() { return !!state.visible; },
     isWidgetContents(wc) { return alive() && wc === win.webContents; },

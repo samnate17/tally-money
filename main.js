@@ -81,7 +81,7 @@ function wireIpc() {
   // Desktop widget. The app window pushes a small summary; the widget window can only ask for it and send a few named actions.
   const fromMain = (e) => mainWin && !mainWin.isDestroyed() && e.sender === mainWin.webContents;
   ipcMain.handle('widget:push', (e, summary) => ({ ok: !!(fromMain(e) && widget && widget.update(summary)) }));
-  ipcMain.handle('widget:status', (e) => (fromMain(e) && widget ? { ok: true, data: widget.status() } : { ok: false }));
+  ipcMain.handle('widget:status', (e) => (fromMain(e) && widget ? { ok: true, data: { ...widget.status(), native: nativeWidgetBundled() } } : { ok: false }));
   ipcMain.handle('widget:set', (e, what, value) => {
     if (!fromMain(e) || !widget) return { ok: false };
     if (what === 'visible') { value ? widget.show() : widget.hide(); }
@@ -89,7 +89,7 @@ function wireIpc() {
     else if (what === 'hideAmounts') widget.setHideAmounts(!!value);
     else return { ok: false };
     buildMenu();
-    return { ok: true, data: widget.status() };
+    return { ok: true, data: { ...widget.status(), native: nativeWidgetBundled() } };
   });
   ipcMain.handle('widget:get', (e) => (widget && widget.isWidgetContents(e.sender) ? widget.get() : null));
   ipcMain.handle('widget:action', (e, name) => {
@@ -185,6 +185,11 @@ function createWindow(quiet) {
   });
 }
 
+// True when this build has the macOS desktop widget embedded (see scripts/after-pack.js).
+function nativeWidgetBundled() {
+  try { return process.platform === 'darwin' && require('fs').existsSync(path.join(path.dirname(app.getPath('exe')), '..', 'PlugIns', 'TallyWidget.appex')); } catch (e) { return false; }
+}
+
 function showMain() {
   if (!mainWin || mainWin.isDestroyed()) createWindow();
   if (mainWin.isMinimized()) mainWin.restore();
@@ -217,7 +222,7 @@ app.whenReady().then(() => {
   ai = createAI({ store });
   market = createMarket();
   wireIpc();
-  widget = createWidget({ BrowserWindow, screen, file: path.join(app.getPath('userData'), 'widget.json'), preload: path.join(__dirname, 'widget-preload.js'), html: path.join(__dirname, 'widget.html') });
+  widget = createWidget({ BrowserWindow, screen, file: path.join(app.getPath('userData'), 'widget.json'), preload: path.join(__dirname, 'widget-preload.js'), html: path.join(__dirname, 'widget.html'), nativeFile: path.join(app.getPath('userData'), 'native-widget.json') });
   buildMenu();
   if (process.platform === 'darwin' && app.dock && !app.isPackaged) {
     try { app.dock.setIcon(path.join(__dirname, 'build', 'icon.png')); } catch (e) { /* dev-only nicety */ }
