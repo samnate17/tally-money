@@ -18,6 +18,10 @@ Everything is stored in the browser's `localStorage` (key `tally-money-v1`). Not
 
 The app starts with made-up example data. "Start fresh" clears it, and so does your first CSV import.
 
+## Backup and restore
+
+Transactions tab, Backup panel. "Download backup" saves a JSON file with everything. "Restore from file" reads one back, shows what it contains, and asks before replacing your current data. Use it to move between devices or to recover after clearing site data.
+
 ## CSV import
 
 The file needs a header row with a date column, a description column (`description`, `name`, `payee`, `merchant` or `memo`) and an amount column (or separate `debit` and `credit` columns). Spending is negative, income positive. Categories are guessed from the description unless a `category` column matches one of the built-in categories. Duplicates are skipped.

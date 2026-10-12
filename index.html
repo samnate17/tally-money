@@ -330,7 +330,7 @@ function vTx(){
   }).join('');
   return '<div class="top"><h1>Transactions</h1><label class="btn small" style="cursor:pointer">Import CSV<input id="csv" type="file" accept=".csv,text/csv" hidden></label></div>'+
    '<section class="panel"><form class="form" id="txform"><label>Date<input id="tf-date" type="date" required value="'+iso(TODAY)+'"></label><label>Description<input id="tf-name" required placeholder="e.g. Trader Joe\'s"></label><label>Amount<input id="tf-amt" type="number" step="0.01" required placeholder="-24.50"></label><label>Category<select id="tf-cat"><option value="">Auto</option>'+CATS.map(function(c){return '<option>'+c+'</option>'}).join('')+'</select></label><button class="btn primary">Add</button></form><p class="sub muted" style="margin:10px 0 0;font-size:13px">Spending is negative, income is positive. CSV needs columns for date, description and amount.</p></section>'+
-   '<section class="panel"><div class="form" style="margin-bottom:8px"><input id="q" class="search" type="search" placeholder="Search transactions" value="'+esc(filter.q)+'" aria-label="Search"><select id="fcat" aria-label="Filter by category"><option value="">All categories</option>'+CATS.map(function(c){return '<option'+(c===filter.cat?' selected':'')+'>'+c+'</option>'}).join('')+'</select></div>'+(rows||'<div class="empty">No transactions match.</div>')+(list.length>150?'<div class="empty">Showing the latest 150 of '+list.length+'.</div>':'')+'</section>';
+   '<section class="panel"><div class="form" style="margin-bottom:8px"><input id="q" class="search" type="search" placeholder="Search transactions" value="'+esc(filter.q)+'" aria-label="Search"><select id="fcat" aria-label="Filter by category"><option value="">All categories</option>'+CATS.map(function(c){return '<option'+(c===filter.cat?' selected':'')+'>'+c+'</option>'}).join('')+'</select></div>'+(rows||'<div class="empty">No transactions match.</div>')+(list.length>150?'<div class="empty">Showing the latest 150 of '+list.length+'.</div>':'')+'</section>'+backupPanel();
 }
 function parseCSV(t){
   var rows=[],r=[],f='',q=false,i,c;
@@ -363,6 +363,29 @@ function importCSV(text){
   toast(n+' transactions imported.');
 }
 
+/* ---------- Backup ---------- */
+var pendingImport=null;
+function backupPanel(){
+  var p=pendingImport,pend=p?'<div class="banner" style="margin-top:12px"><span><b>Replace your data?</b> This file has '+p.txns.length+' transactions, '+p.subs.length+' subscriptions, '+Object.keys(p.budgets).length+' budgets and '+p.goals.length+' goals. Your current data will be overwritten.</span><span class="actions"><button class="btn small danger" data-act="imp-ok">Replace my data</button><button class="btn small" data-act="imp-no">Cancel</button></span></div>':'';
+  return '<section class="panel"><h2>Backup<small>save or restore everything</small></h2><div class="actions" style="justify-content:flex-start"><button class="btn primary" data-act="exp">Download backup</button><label class="btn" style="cursor:pointer">Restore from file<input id="bk" type="file" accept=".json,application/json" hidden></label></div><p class="sub muted" style="margin:10px 0 0;font-size:13px">Your data lives only in this browser. Download a backup now and then, and use it to move to another device or recover after clearing site data.</p>'+pend+'</section>';
+}
+function exportData(){
+  var payload={app:'tally-money',version:1,exported:new Date().toISOString(),data:{txns:S.txns,subs:S.subs,budgets:S.budgets,goals:S.goals}};
+  var url=URL.createObjectURL(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}));
+  var a=document.createElement('a');a.href=url;a.download='tally-backup-'+iso(TODAY)+'.json';document.body.appendChild(a);a.click();a.remove();
+  setTimeout(function(){URL.revokeObjectURL(url)},1000);toast('Backup downloaded.');
+}
+function cleanBackup(j){
+  var d=j&&j.data?j.data:j,dre=/^\d{4}-\d{2}-\d{2}$/;
+  if(!d||!Array.isArray(d.txns)||!Array.isArray(d.subs)||!Array.isArray(d.goals)||!d.budgets||typeof d.budgets!=='object')return null;
+  var txns=d.txns.filter(function(x){return x&&dre.test(x.date)&&isFinite(x.amount)&&x.name}).map(function(x){return {id:String(x.id||uid()),date:x.date,name:String(x.name).slice(0,120),amount:+x.amount,cat:CATS.indexOf(x.cat)>-1?x.cat:'Other'}});
+  var subs=d.subs.filter(function(x){return x&&x.name&&isFinite(x.amount)&&dre.test(x.next)}).map(function(x){return {id:String(x.id||uid()),name:String(x.name).slice(0,120),amount:+x.amount,cycle:x.cycle==='yearly'?'yearly':'monthly',next:x.next,status:['active','flagged','cancelled'].indexOf(x.status)>-1?x.status:'active'}});
+  var budgets={};Object.keys(d.budgets).forEach(function(c){if(CATS.indexOf(c)>-1&&c!=='Income'&&+d.budgets[c]>0)budgets[c]=+d.budgets[c]});
+  var goals=d.goals.filter(function(x){return x&&x.name&&+x.target>0&&isFinite(x.saved)}).map(function(x){return {id:String(x.id||uid()),name:String(x.name).slice(0,120),target:+x.target,saved:+x.saved}});
+  txns.sort(function(a,b){return a.date<b.date?1:-1});
+  return {txns:txns,subs:subs,budgets:budgets,goals:goals};
+}
+
 /* ---------- Goals ---------- */
 function vGoals(){
   var rows=S.goals.map(function(g){var p=g.saved/g.target;
@@ -382,10 +405,11 @@ function bindView(){
   m.querySelectorAll('[data-cat]').forEach(function(s){s.onchange=function(){S.txns.filter(function(x){return x.id===s.dataset.cat})[0].cat=s.value;save();toast('Category updated.')}});
   var q=$('#q',m);if(q)q.oninput=function(){filter.q=q.value;var pos=q.selectionStart;render();var n=$('#q');n.focus();n.setSelectionRange(pos,pos)};
   var fc=$('#fcat',m);if(fc)fc.onchange=function(){filter.cat=fc.value;render()};
+  var bk=$('#bk',m);if(bk)bk.onchange=function(){var file=bk.files[0];if(!file)return;var rd=new FileReader();rd.onload=function(){var c=null;try{c=cleanBackup(JSON.parse(String(rd.result)))}catch(e){}if(!c){toast('That file is not a Tally backup.');return}pendingImport=c;render()};rd.readAsText(file)};
   var csv=$('#csv',m);if(csv)csv.onchange=function(){var file=csv.files[0];if(!file)return;var rd=new FileReader();rd.onload=function(){var wasSample=S.sample;if(wasSample){S.txns=[];S.subs=[];S.goals=[];S.sample=false}importCSV(String(rd.result));save();render()};rd.readAsText(file)};
 }
 document.addEventListener('click',function(e){
-  var v=e.target.closest('[data-view]');if(v){view=v.dataset.view;render();window.scrollTo(0,0);return}
+  var v=e.target.closest('[data-view]');if(v){view=v.dataset.view;pendingImport=null;render();window.scrollTo(0,0);return}
   var b=e.target.closest('[data-act]');if(!b)return;
   var a=b.dataset.act,id=b.dataset.id,s=S.subs.filter(function(x){return x.id===id})[0];
   if(a==='mprev')month=shiftMonth(month,-1);
@@ -397,6 +421,9 @@ document.addEventListener('click',function(e){
   else if(a==='sub-del'){S.subs=S.subs.filter(function(x){return x.id!==id})}
   else if(a==='sub-adddet'){var d=detect()[+b.dataset.i];if(d)S.subs.push({id:uid(),name:d.name,amount:d.amount,cycle:d.cycle,next:d.next,status:'active'})}
   else if(a==='tx-del'){S.txns=S.txns.filter(function(x){return x.id!==id})}
+  else if(a==='exp'){exportData();return}
+  else if(a==='imp-ok'){S={sample:false,txns:pendingImport.txns,subs:pendingImport.subs,budgets:pendingImport.budgets,goals:pendingImport.goals};pendingImport=null;toast('Backup restored.')}
+  else if(a==='imp-no'){pendingImport=null}
   else if(a==='goal-del'){S.goals=S.goals.filter(function(x){return x.id!==id})}
   save();render();
 });
