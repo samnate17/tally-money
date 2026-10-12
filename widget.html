@@ -43,6 +43,7 @@ function m0(n){var a=Math.abs(Math.round(n)).toLocaleString('en-US');return (n<0
 function draw(d){
   var s=d&&d.summary;
   $('card').className='card'+(d&&d.hideAmounts?' hide':'');
+  if(s&&s.accent)document.documentElement.style.setProperty('--accent',s.accent);
   $('eye').setAttribute('aria-pressed',d&&d.hideAmounts?'true':'false');
   $('pin').setAttribute('aria-pressed',d&&d.onTop?'true':'false');
   if(!s){$('body').innerHTML='<div class="empty">Open Tally once to fill this in.</div>';return}

@@ -51,6 +51,16 @@ Every push to `main` redeploys. `npm run build:web` copies only the site files (
 
 Pages project, Settings, General, Access policy, Enable. Then in Zero Trust, edit the policy created for the project: action Allow, include rule Emails with your address, login method One-time PIN. Cloudflare Access is free for up to 50 users. The manifest link uses `crossorigin="use-credentials"` so the login cookie is sent when Safari fetches it.
 
+## Appearance and liquid glass
+
+The Appearance tab changes how the whole app looks, live, and remembers it on this device:
+
+- **Colour:** eight presets (Indigo, Ocean, Violet, Emerald, Sunset, Rose, Gold, Graphite) or any custom accent. Buttons, progress bars, highlights, the first chart colour, the background glow and the desktop widget follow it. Light and dark variants are derived automatically so text stays readable.
+- **Glass and light:** Auto, Light or Dark; an Aurora background that drifts slowly behind the glass, a Still version, or Plain; a Frost slider for how blurred and opaque panels are (raise it if text is hard to read); corner roundness.
+- **Type and motion:** text size, font (Modern, System, Rounded, Serif; these use fonts already on your Mac, nothing is downloaded), and Motion: Full or Calm. Full adds page transitions, count-up numbers, progress bars that fill, a light that follows your pointer across panels, and confetti when a goal is reached. Your system's "reduce motion" setting always wins.
+
+The glass look is built with CSS (backdrop blur, saturation, specular edges and highlights). It imitates Apple's Liquid Glass; it does not use Apple's native effect, which has no equivalent in a web page or Electron. Themes are stored per device in the browser or app and are not synced to hosted accounts. A theme that makes text hard to read can always be undone with Reset to default on the Appearance tab.
+
 ## Desktop widget (Mac app)
 
 Transactions tab, Desktop widget, Show the widget (or the Widget menu). A small frameless window you can drag anywhere shows net worth, how much of your budgets you have used and a rough per-day allowance, categories over budget, bills due in the next 7 days and your nearest goal. It updates whenever you change something in Tally and remembers its position and the last numbers it saw.

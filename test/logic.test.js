@@ -581,3 +581,37 @@ test('widget summary: only plain totals, budgets, bills, goal', () => {
   assert.strictEqual(w.daysLeft, 20);
   assert.ok(!/Secret|1234/.test(JSON.stringify(w)));
 });
+
+// ---- appearance ----
+function themeBlock() {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const code = src.slice(src.indexOf('/*THEME-START*/'), src.indexOf('/*THEME-END*/'));
+  return new Function(code + '\nreturn {cleanTheme, themeVars, hexToHsl, hslToHex, lumOf, PRESETS, THEME_DEFAULT};')();
+}
+
+test('theme: junk input falls back to defaults, valid input is kept and clamped', () => {
+  const t = themeBlock();
+  assert.deepStrictEqual(t.cleanTheme(null), t.THEME_DEFAULT);
+  assert.deepStrictEqual(t.cleanTheme('x'), t.THEME_DEFAULT);
+  const c = t.cleanTheme({ accent: 'url(javascript:alert(1))', mode: 'neon', bg: 'plain', frost: 900, radius: -4, size: 'l', font: 'comic', motion: 'reduced', preset: '<b>' });
+  assert.strictEqual(c.accent, t.THEME_DEFAULT.accent); assert.strictEqual(c.mode, 'auto'); assert.strictEqual(c.bg, 'plain');
+  assert.strictEqual(c.frost, 100); assert.strictEqual(c.radius, 6); assert.strictEqual(c.size, 'l'); assert.strictEqual(c.font, 'modern'); assert.strictEqual(c.motion, 'reduced'); assert.strictEqual(c.preset, 'indigo');
+  assert.strictEqual(t.cleanTheme({ accent: '#ABCDEF', preset: 'custom' }).accent, '#abcdef');
+});
+
+test('theme: colour maths round-trips and every preset gives readable, safe variables in light and dark', () => {
+  const t = themeBlock();
+  assert.strictEqual(t.hslToHex(...t.hexToHsl('#3b4cf0')).toLowerCase().length, 7);
+  const [h, s, l] = t.hexToHsl('#ff0000'); assert.ok(Math.abs(h) < 1e-6 && Math.abs(s - 100) < 1e-6 && Math.abs(l - 50) < 1e-6);
+  assert.strictEqual(t.hslToHex(0, 100, 50), '#ff0000');
+  for (const p of t.PRESETS) for (const dark of [false, true]) {
+    const v = t.themeVars({ accent: p.accent }, dark);
+    assert.match(v['--accent'], /^#[0-9a-f]{6}$/); assert.match(v['--accent-soft'], /^#[0-9a-f]{6}$/);
+    // text on the accent colour must stay legible (WCAG ratio at least 3 for large bold button text)
+    const la = t.lumOf(v['--accent']), li = t.lumOf(v['--accent-ink']), ratio = (Math.max(la, li) + 0.05) / (Math.min(la, li) + 0.05);
+    assert.ok(ratio >= 3, `${p.id} ${dark ? 'dark' : 'light'} contrast ${ratio.toFixed(2)}`);
+  }
+  const lo = t.themeVars({ frost: 0 }, false), hi = t.themeVars({ frost: 100 }, false);
+  assert.strictEqual(lo['--glass-pct'], '86%'); assert.strictEqual(hi['--glass-pct'], '46%'); assert.strictEqual(lo['--glass-blur'], '8px'); assert.strictEqual(hi['--glass-blur'], '36px');
+  assert.ok(Object.values(t.themeVars({ accent: '#112233', font: 'serif' }, true)).every((x) => !/[;{}<>]/.test(x)));   // nothing that could break out of a style value
+});

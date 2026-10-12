@@ -9,6 +9,7 @@ const str = (v, n = 40) => String(v == null ? '' : v).replace(/[\u0000-\u001f]/g
 function sanitize(s) {
   if (!s || typeof s !== 'object') return null;
   const o = { asOf: str(s.asOf, 30), sample: !!s.sample, month: str(s.month, 24), daysLeft: Math.max(0, Math.round(num(s.daysLeft))) };
+  o.accent = /^#[0-9a-f]{6}$/i.test(s.accent || '') ? String(s.accent).toLowerCase() : '';
   o.net = s.net && typeof s.net === 'object' ? { net: num(s.net.net), assets: num(s.net.assets), debts: num(s.net.debts) } : null;
   const m = s.spend && typeof s.spend === 'object' ? s.spend : {};
   o.spend = { income: num(m.income), spent: num(m.spent), budgeted: num(m.budgeted), budgetSpent: num(m.budgetSpent), left: num(m.left), perDay: num(m.perDay) };
