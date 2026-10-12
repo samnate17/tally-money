@@ -24,6 +24,12 @@ The app is not code-signed or notarized (that needs a paid Apple Developer accou
 
 The app keeps its own data, separate from the web version. Use Backup and Restore to move data between them.
 
+## Safari Dock app
+
+When the page is hosted over https (GitHub Pages, Netlify, Cloudflare Pages), Safari on macOS Sonoma or newer can install it: open the site, then File, Add to Dock. You get a Dock icon and a window without browser chrome. This uses `manifest.webmanifest` and the files in `icons/`.
+
+GitHub Pages is free only for public repos. A web app installed this way keeps its own data, separate from Safari tabs and the Mac app, so use Backup and Restore to move data.
+
 ## Data and privacy
 
 Everything is stored in the browser's `localStorage` (key `tally-money-v1`). Nothing is uploaded. Clearing site data erases it, and it does not sync between devices.
