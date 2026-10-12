@@ -51,9 +51,32 @@ Every push to `main` redeploys. `npm run build:web` copies only the site files (
 
 Pages project, Settings, General, Access policy, Enable. Then in Zero Trust, edit the policy created for the project: action Allow, include rule Emails with your address, login method One-time PIN. Cloudflare Access is free for up to 50 users. The manifest link uses `crossorigin="use-credentials"` so the login cookie is sent when Safari fetches it.
 
+## Can I afford it?
+
+Enter what it is, whether it is a one-time, monthly or yearly cost, its category and the price. The tab checks it against your real numbers: cash in checking, savings and cash accounts, subscriptions due in the next 30 days, your average income and spending over the last three full months, the category budget, and any debt above 10% APR. It answers Yes, Tight or Not right now, explains each reason with the amounts, and says how long saving would take if you should wait. It is rule-based, runs locally and works in the web version too. The rules: one-time costs should leave at least three months of spending in cash (under one month is a No), and monthly costs should leave at least 10% of income. These are rules of thumb, not financial advice.
+
+## Bank sync (Mac app, Plaid)
+
+Accounts tab, Bank sync panel. Create a Plaid account, copy the client ID and secret, paste them in (stored encrypted in the macOS Keychain through Electron safeStorage and never shown to the page), then Link a bank and Sync. Start in Sandbox: pick any test bank and sign in with `user_good` / `pass_good`.
+
+- Syncs transactions (365 days of history) and balances using Plaid's `/transactions/sync`. Cursors are stored in the page's storage, so a failed sync never loses data. Pending transactions are skipped until they post.
+- Transfers between your own accounts and credit card payments are skipped so they do not count as spending or income.
+- Linked accounts update their own balance. Interest rates and minimum payments for debts are still entered by hand.
+- Banks that use OAuth need a registered HTTPS redirect URI, which a desktop app does not have, so they may not appear in the bank list. Check your bank in Sandbox first, then in Production.
+- Plaid's free trial allows 10 linked banks in total, and unlinking does not free a slot.
+- The Plaid code has been tested against mocked responses and the link window against a fake Plaid page, not against a live Plaid account.
+
+## AI analysis (Mac app, Anthropic API)
+
+Transactions tab, AI analysis panel. Needs an Anthropic API key from console.anthropic.com (separate from a Claude.ai subscription and billed by usage), stored in the Keychain. "Analyze my last 12 months" first shows exactly what will be sent (merchant summaries with long digit runs masked, amounts, dates, monthly totals; no account numbers or balances) and an estimated cost, then waits for you. The model returns categories, subscription calls and a few observations as structured JSON. Nothing changes until you press Apply or Track: recategorizing overwrites categories you set by hand for those merchants, and subscriptions that stopped charging are listed as probably cancelled instead of offered for tracking. The model is `claude-opus-5-5` (set in `ai.js`).
+
+## Tests
+
+`npm test` runs the logic and module tests (payoff math, affordability rules, sync application, AI request and result handling, Plaid request handling) with no network. `xvfb-run -a npx electron --no-sandbox test/link-window.smoke.js` exercises the bank link window.
+
 ## Data and privacy
 
-Everything is stored in the browser's `localStorage` (key `tally-money-v1`). Nothing is uploaded. Clearing site data erases it, and it does not sync between devices.
+Everything is stored in the browser's `localStorage` (key `tally-money-v1`). Nothing is uploaded unless you use the Mac app's bank sync (data goes to and from Plaid) or AI analysis (summaries go to Anthropic). Clearing site data erases it, and it does not sync between devices.
 
 The app starts with made-up example data. "Start fresh" clears it, and so does your first CSV import.
 

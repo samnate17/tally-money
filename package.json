@@ -1,6 +1,6 @@
 {
   "name": "tally-money",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Personal money app: spending, subscriptions, budgets and goals.",
   "author": "samnate17",
   "license": "UNLICENSED",
@@ -9,7 +9,8 @@
   "scripts": {
     "start": "electron .",
     "build:web": "rm -rf dist-web && mkdir dist-web && cp -R index.html manifest.webmanifest icons dist-web/",
-    "dist:mac": "electron-builder --mac --publish never"
+    "dist:mac": "electron-builder --mac --publish never",
+    "test": "node --test test/*.test.js"
   },
   "build": {
     "appId": "com.samnate17.tallymoney",
@@ -17,6 +18,11 @@
     "files": [
       "index.html",
       "main.js",
+      "preload.js",
+      "link-preload.js",
+      "secrets.js",
+      "plaid.js",
+      "ai.js",
       "package.json"
     ],
     "directories": {
@@ -47,5 +53,8 @@
   "devDependencies": {
     "electron": "^44.7.0",
     "electron-builder": "^26.15.3"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.133.0"
   }
 }
