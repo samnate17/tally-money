@@ -21,7 +21,10 @@ jobs:
       - name: Run it in Electron (this runner's macOS version decides whether glass exists)
         run: |
           sw_vers
-          timeout 120 node_modules/.bin/electron test/glass.smoke.js out/arm64/glass.node 2>&1 | grep GLASS
+          node node_modules/electron/install.js
+          node_modules/.bin/electron --version
+          timeout 120 node_modules/.bin/electron test/glass.smoke.js out/arm64/glass.node 2>&1 | tee run.log
+          grep GLASS run.log
 
   macos26:
     runs-on: macos-26
@@ -35,6 +38,9 @@ jobs:
       - name: Add real glass to a window on macOS 26
         run: |
           sw_vers
-          timeout 120 node_modules/.bin/electron test/glass.smoke.js out/arm64/glass.node 2>&1 | tee run.log | grep GLASS
+          node node_modules/electron/install.js
+          node_modules/.bin/electron --version
+          timeout 120 node_modules/.bin/electron test/glass.smoke.js out/arm64/glass.node 2>&1 | tee run.log
+          grep GLASS run.log
           grep -q '"supported":true' run.log
           grep -q '"ok":true' run.log
