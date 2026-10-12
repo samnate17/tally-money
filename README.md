@@ -58,7 +58,21 @@ Transactions tab, Desktop widget, Show the widget (or the Widget menu). A small 
 - **Blur amounts** hides the figures for when others can see your screen. **Keep on top** floats it over other windows; off, it sits like a normal window.
 - The Widget menu also has **Open Tally when I log in**. When the app starts that way and the widget is on, only the widget appears; click the Dock icon or the widget's arrow to open the main window.
 - Only totals, category names, bill names and one goal name are sent to the widget. No transactions or account names. It reads nothing itself.
-- This is a floating window, not a native macOS widget in Notification Center or the desktop widget gallery. A native widget needs a Swift app extension built in Xcode and a signed build, which this project does not have. `xvfb-run -a node_modules/.bin/electron --no-sandbox test/widget.smoke.js` checks the window, the data path and the buttons on Linux; it has not been run on macOS.
+- The floating widget is separate from the native macOS widget described next. Both use the same numbers and the Blur amounts setting.
+
+### Native macOS widget (desktop and Notification Center)
+
+The Mac app also contains a real WidgetKit widget, in `native-widget/` (SwiftUI, small, medium and large sizes). To add it: right-click the desktop (or open Notification Center), Edit Widgets, search for **Tally Money**. It needs macOS 14 (Sonoma) or newer for desktop widgets.
+
+How it works: the app writes the same sanitized summary to `~/Library/Application Support/Tally Money/native-widget.json` (owner-only permissions) whenever something changes. The widget is a sandboxed extension whose entitlements allow read-only access to that one folder; it has no network access and never sees transactions. macOS decides when widgets refresh, so it updates about every 15 minutes rather than instantly. The app cannot force a refresh without a signed app group.
+
+Limits you should know about:
+
+- **It is only ad hoc signed.** There is no Apple Developer account behind this project, so the build signs the widget (and re-seals the app) with `codesign --sign -`. Apple's tooling is built around properly signed widgets and may refuse to list or load an ad hoc one on some macOS versions. CI proves it compiles for Apple Silicon and Intel and that the signatures verify; it cannot prove macOS will show it. If it does not appear in Edit Widgets, drag Tally Money into Applications, open it once, then run `pluginkit -mA | grep tally` in Terminal and log out and in. If it still does not appear, the fix is a paid Apple Developer membership: set `WIDGET_SIGN_IDENTITY` to a Developer ID identity and the same build signs with it.
+- macOS may ask whether Tally Money may read data from other apps the first time the widget loads. Allow it.
+- The widget is not built in Linux or by `npm run dist:mac` on a machine without Xcode command line tools. In that case the app still builds, the widget step prints a warning, and the Desktop widget panel says the build has no macOS widget.
+
+`.github/workflows/widget-check.yml` compiles the widget on every change under `native-widget/`, and the Mac build fails if the widget is not embedded.
 
 ## Accounts for other people (hosted version)
 
