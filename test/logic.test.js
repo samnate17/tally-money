@@ -885,3 +885,63 @@ test('bills: repeating payments you have not tracked are suggested', () => {
   const s = B.suggestBills(txns, items, '2026-10');
   assert.deepStrictEqual(s.map((x) => [x.name, x.amount, x.dueDay, x.months]), [['GEICO AUTO', 140, 17, 3]]);   // rent is tracked, one-off, groceries and tiny items are not suggested
 });
+
+// ---- energy ----
+function energyBlock() { return new Function(srcBlock('/*ENERGY-START*/', '/*ENERGY-END*/') + '\nreturn {splitCsv, numOf, dateOf, parseEnergyCsv, parseEnergyXml, parseEnergyFile, energyMerge, energySeries, energyInsights};')(); }
+
+test('energy: a Green Button style billing CSV with a preface is read by month, with cost', () => {
+  const E = energyBlock();
+  const csv = ['Name,Jane Doe', 'Address,"1 Main St, Bennington NH"', 'Account Number,123456', '', 'Service period start,Service period end,Usage (kWh),Cost', '09/05/2025,10/06/2025,612,$98.40', '10/06/2025,11/05/2025,540.5,"$1,087.25"', '11/05/2025,12/05/2025,700,$140.00', 'notes,,,'].join('\r\n');
+  const r = E.parseEnergyCsv(csv);
+  assert.ok(r.ok); assert.deepStrictEqual(r.records, [{ month: '2025-10', kwh: 612, cost: 98.4, days: 31 }, { month: '2025-11', kwh: 540.5, cost: 1087.25, days: 30 }, { month: '2025-12', kwh: 700, cost: 140, days: 30 }]);
+  assert.strictEqual(r.skipped, 1);
+  assert.strictEqual(E.parseEnergyFile(csv).records.length, 3);
+});
+
+test('energy: interval CSV (hourly, watt-hours) adds up per month; wrong units and junk are refused politely', () => {
+  const E = energyBlock();
+  const lines = ['Date,Start Time,Usage (Wh)']; for (let h = 0; h < 24; h++) lines.push(`2025-10-30,${h}:00,500`); for (let h = 0; h < 24; h++) lines.push(`2025-11-01,${h}:00,1000`);
+  const r = E.parseEnergyCsv(lines.join('\n'));
+  assert.deepStrictEqual(r.records, [{ month: '2025-10', kwh: 12, cost: null, days: 1 }, { month: '2025-11', kwh: 24, cost: null, days: 1 }]);
+  assert.match(E.parseEnergyCsv('Start,End,Usage (therms)\n01/01/2025,02/01/2025,40').error, /not electricity/);
+  assert.match(E.parseEnergyCsv('a,b,c\n1,2,3').error, /usage column/);
+  assert.match(E.parseEnergyFile('   ').error, /empty/);
+  assert.strictEqual(E.numOf('($5.00)'), -5); assert.strictEqual(E.numOf('abc'), null); assert.deepStrictEqual(E.dateOf('Oct 5, 2025'), { y: 2025, m: 10, d: 5 });
+  assert.deepStrictEqual(E.splitCsv('a;b;"c;d"\n1;2;3'), [['a', 'b', 'c;d'], ['1', '2', '3']]);
+});
+
+test('energy: ESPI XML interval readings and usage summaries', () => {
+  const E = energyBlock();
+  const feed = (body) => `<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom" xmlns:espi="http://naesb.org/espi"><entry><content><espi:ReadingType><espi:powerOfTenMultiplier>0</espi:powerOfTenMultiplier><espi:uom>72</espi:uom></espi:ReadingType></content></entry>${body}</feed>`;
+  const reading = (start, v, cost) => `<espi:IntervalReading><espi:cost>${cost}</espi:cost><espi:timePeriod><espi:duration>86400</espi:duration><espi:start>${start}</espi:start></espi:timePeriod><espi:value>${v}</espi:value></espi:IntervalReading>`;
+  const oct = Date.UTC(2025, 9, 10) / 1000, nov = Date.UTC(2025, 10, 10) / 1000;
+  const r = E.parseEnergyFile(feed(`<entry><content><espi:IntervalBlock>${reading(oct, 20000, 300000)}${reading(oct + 86400, 22000, 330000)}${reading(nov, 30000, 450000)}</espi:IntervalBlock></content></entry>`));
+  assert.ok(r.ok); assert.deepStrictEqual(r.records, [{ month: '2025-10', kwh: 42, cost: 6.3, days: 2 }, { month: '2025-11', kwh: 30, cost: 4.5, days: 1 }]);
+  const sum = E.parseEnergyXml(feed(`<entry><content><espi:UsageSummary><espi:billingPeriod><espi:duration>2592000</espi:duration><espi:start>${Date.UTC(2025, 8, 5) / 1000}</espi:start></espi:billingPeriod><espi:billLastPeriod>9840000</espi:billLastPeriod><espi:overallConsumptionLastPeriod><espi:value>612000</espi:value></espi:overallConsumptionLastPeriod></espi:UsageSummary></content></entry>`));
+  assert.deepStrictEqual(sum.records, [{ month: '2025-10', kwh: 612, cost: 98.4, days: 30 }]);
+  assert.match(E.parseEnergyXml('<feed><espi:uom>38</espi:uom></feed>').error, /watt-hours/); assert.match(E.parseEnergyXml('<feed></feed>').error, /No usage readings/);
+});
+
+test('energy: merging, per-day figures and advice from a year of invented data', () => {
+  const E = energyBlock();
+  const mk = (m, kwh, rate, days) => ({ month: m, kwh, cost: Math.round(kwh * rate * 100) / 100, days });
+  const data = [mk('2024-11', 900, .24, 30), mk('2024-12', 1500, .24, 31), mk('2025-01', 1700, .24, 31), mk('2025-02', 1500, .25, 28), mk('2025-03', 1200, .25, 31), mk('2025-04', 600, .26, 30), mk('2025-05', 520, .26, 31), mk('2025-06', 560, .27, 30), mk('2025-07', 640, .27, 31), mk('2025-08', 630, .28, 31), mk('2025-09', 540, .28, 30), mk('2025-10', 700, .29, 31)];
+  const ser = E.energySeries(data); assert.strictEqual(ser.length, 12); assert.ok(Math.abs(ser[0].perDay - 30) < 1e-9); assert.ok(Math.abs(ser[11].rate - .29) < 1e-9);
+  const ins = E.energyInsights(data), titles = ins.map((x) => x.title).join(' | ');
+  assert.match(titles, /Winter use is [\d.]+ times your spring and fall use/); assert.match(titles, /Your lowest month uses [\d.]+ kWh a day/);
+  assert.match(titles, /Using 10% less/);
+  assert.ok(!/price per kWh/.test(titles));                                          // no same-month comparison available yet, so no rate claim (rates swing with season)
+  assert.ok(ins.every((x) => x.saving === null || x.saving >= 0)); for (let i = 1; i < ins.length; i++) assert.ok((ins[i - 1].saving || 0) >= (ins[i].saving || 0));
+  assert.deepStrictEqual(E.energyInsights([data[0]]), []);
+  const merged = E.energyMerge([{ month: '2025-10', kwh: 1, cost: 1, days: 31 }, { month: '2025-09', kwh: 2, cost: 2, days: 30 }], [{ month: '2025-10', kwh: 700, cost: 200, days: 31 }, { month: '2025-11', kwh: 800, cost: 220 }]);
+  assert.deepStrictEqual([merged.added, merged.updated, merged.records.map((r) => r.month + ':' + r.kwh)], [1, 1, ['2025-09:2', '2025-10:700', '2025-11:800']]);
+  const yoy = E.energyInsights(data.concat([mk('2025-11', 1100, .29, 30)]));        // November 2025 against November 2024
+  assert.ok(yoy.some((x) => /Compared with the same month last year: use up \d+%/.test(x.title)));
+  assert.ok(yoy.some((x) => /price per kWh is up 21% on a year ago/.test(x.title)));                // 29 cents against 24 for November
+  assert.ok(E.energyInsights(data.concat([mk('2025-11', 900, .245, 30)])).some((x) => /about the same as a year ago/.test(x.title)));
+});
+
+test('energy data survives a backup round trip and bad rows are dropped',()=>{
+  const src=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
+  assert.ok(/energy:S\.energy/.test(src)&&/energy:energy/.test(src)&&/energy:pendingImport\.energy/.test(src));
+});

@@ -223,6 +223,13 @@ Credit tab. The app cannot pull a credit score from the bureaus (that needs a pa
 
 Investments tab. Add each holding as ticker, shares and total invested. In the Mac app the app loads about a year of daily prices from Yahoo Finance's public chart endpoint, with Stooq end-of-day data as a fallback (neither needs an account or key; both are unofficial or delayed and may fail, and the app says so per ticker). It shows value, gain or loss and today's move per holding and in total, a portfolio value chart (today's shares at past prices), a price chart per holding with your average cost, an allocation donut, and a volatility watch: annualized volatility from daily returns (under 20% low, 20 to 35% moderate, 35 to 55% high, above that very high), worst peak-to-trough drop, and a warning for any position that is 30% or more of the portfolio. In the browser version prices are not available (browsers block the request); holdings can still be recorded. Example data uses made-up price histories, labelled as such. Information only, not investment advice.
 
+## Bills, loans, "Can I afford it?" and electricity
+
+- **Bills** (Overview box and tab): add recurring bills; each counts as paid when a matching payment shows up in your transactions, or when you mark it. Shows paid vs pending for the month.
+- **Car loan / Student loans**: balance, rate, payment, payoff date and ways to pay off sooner. Fill in by hand, read a statement with AI (Mac app + API key), or, for student loans, link through Plaid Liabilities. No public Honda Financial or Nelnet API exists that I could find.
+- **Can I afford it?** suggests cutting categories, earning extra, or waiting.
+- **Electricity**: Eversource has no public API. Download your data from eversource.com (My Account, Usage, Green Button, Download My Data; CSV or XML, about 13 months) and choose the file on the Bills tab, or type months in. The app charts use and cost and gives savings advice. The file parsers follow the standard Green Button formats but have only been tested on made-up samples, so tell me if your real file is rejected.
+
 ## Tests
 
 `npm test` runs the logic and module tests (payoff math, affordability rules, sync application, PDF statement parsing, AI request and result handling, Plaid request handling) with no network. `xvfb-run -a npx electron --no-sandbox test/pdf-ipc.smoke.js` sends the fixture PDFs through the real app bridge. `xvfb-run -a npx electron --no-sandbox test/link-window.smoke.js` exercises the bank link window.
