@@ -102,3 +102,65 @@ test('parsePdf returns the extracted lines so a failed read can be inspected', a
   const r = await rows('singlerun-checking.pdf');
   assert.ok(r.lines.length > 5 && r.lines.some((l) => /STARBUCKS/.test(l)));
 });
+
+// ---- credit-union layout: glued dates ("SEP02"), wrapped descriptions, two accounts, summary tables (all data invented) ----
+const { buildLines, parseStatement } = require('../statement');
+function pageOf(rows) {            // rows: arrays of [text, x]; one line per row, top to bottom
+  return rows.map((cells, i) => cells.map(([str, x]) => ({ str, x, y: 800 - i * 12, w: str.length * 5 }))).flat();
+}
+const R = (...c) => c;
+// a transaction row as a real PDF stores it: text, then each amount as its own item under its column
+const T = (text, amt, bal) => R([text, 20], [amt, amt.startsWith('-') ? 340 : 420], [bal, 490]);
+function creditUnion() {
+  const hdr = R(['DATE', 20], ['TRANSACTION', 60], ['DESCRIPTION', 130], ['WITHDRAWALS', 330], ['DEPOSITS', 410], ['BALANCE', 480]);
+  return [pageOf([
+    R(['Account Statement', 20]), R(['MEMBER # STATEMENT PERIOD PAGE', 20]), R(['1234567 09-01-26 to 09-30-26 1 of 2', 20]),
+    R(['Example Federal Credit Union', 20]), R(['PRIMARY SAVINGS ACCT# 1', 20]), hdr,
+    R(['PREVIOUS BALANCE', 20], ['500.00', 490]),
+    T('SEP01 TRANSFER FROM/TO 2', '-230.00', '270.00'), R(['One time transfer to Free Checking ~ b1234567-89ab-4cde-8f01-23456789abcd', 20]),
+    T('SEP30 DIVIDEND', '0.02', '270.02'), R(['*** ANNUAL PERCENTAGE YIELD EARNED FROM 09-01-26 THRU 09-30-26 WAS 0.11% ***', 20]), R(['SEP30 NEW BALANCE', 20], ['270.02', 490]),
+    R(['FREE CHECKING ACCT# 2', 20]), hdr,
+    R(['PREVIOUS BALANCE', 20], ['100.00', 490]),
+    T('AUG31 DEBIT CARD DEBIT 400000000001', '-18.84', '81.16'), R(['CORNER FOOD SHOP WORCESTER MA 08-30-26', 20]),
+    T('SEP01 TRANSFER FROM/TO 1', '230.00', '311.16'), R(['One time transfer to Free Checking ~ b1234567-89ab-4cde-8f01-23456789abcd', 20]),
+    T('SEP02 EFT ACH ACME PAYROLL 99 DOE,JANE', '2,600.00', '2,911.16'),
+    T('SEP06 WITHDRAWAL', '-400.00', '2,511.16'), R(['ATM 0906 1247 000808 225 MAIN ST WORCESTER MA', 20]),
+    T('SEP08 TRANSFER 7654321 FROM/TO 2', '-70.00', '2,441.16'), R(['Payment to ALEX EXAMPLE ~ 1234abcd-1234-1234-1234-1234abcd1234', 20]),
+    T('SEP08 CHECK 100027', '-1,350.00', '1,091.16'),
+    T('SEP09 DEBIT CARD DEBIT 400000000001', '-9.69', '1,081.47'), R(['AMAZON MKTPL*AB12 Amzn.com/billWA 09-09-26', 20]),
+    R(['Direct general inquiries regarding this statement to the phone number or address below.', 20]),
+  ]), pageOf([
+    R(['Account Statement', 20]), R(['FREE CHECKING Continued ACCT# 2', 20]), hdr,
+    R(['SEP30 NEW BALANCE', 20], ['1,081.47', 490]),
+    R(['CHECKS CLEARED', 20]), R(['CHK# DATE AMOUNT CHK# DATE AMOUNT', 20]), R(['100027 SEP08 1,350.00', 20]),
+    R(['DEPOSITS, DIVIDENDS AND OTHER CREDITS', 20]), R(['DATE AMOUNT DATE AMOUNT', 20]), R(['SEP01 230.00 SEP02 2,600.00', 20]),
+    R(['WITHDRAWALS, FEES AND OTHER DEBITS', 20]), R(['DATE AMOUNT DATE AMOUNT DATE AMOUNT', 20]), R(['AUG31 -18.84 SEP06 -400.00 SEP08 -70.00', 20]), R(['SEP09 -9.69', 20]),
+    R(['TOTAL WITHDRAWALS 4 -498.53', 20]),
+  ])];
+}
+
+test('credit union statement: glued dates, wrapped merchant names, two accounts, own-account transfers, no index-table rows', () => {
+  const r = parseStatement(buildLines(creditUnion()), {});
+  assert.strictEqual(r.meta.type, 'checking');                                     // "Credit Union" and "PREVIOUS BALANCE" do not make it a card
+  assert.deepStrictEqual(r.rows.map((x) => [x.date, x.amount, x.name]), [
+    ['2026-09-01', -230, 'TRANSFER FROM/TO 2 One time transfer to Free Checking'],
+    ['2026-09-30', 0.02, 'DIVIDEND'],
+    ['2026-08-31', -18.84, 'CORNER FOOD SHOP WORCESTER MA'],
+    ['2026-09-01', 230, 'TRANSFER FROM/TO 1 One time transfer to Free Checking'],
+    ['2026-09-02', 2600, 'EFT ACH ACME PAYROLL 99 DOE,JANE'],
+    ['2026-09-06', -400, 'WITHDRAWAL ATM 0906 1247 000808 225 MAIN ST WORCESTER MA'],
+    ['2026-09-08', -70, 'TRANSFER 7654321 FROM/TO 2 Payment to ALEX EXAMPLE'],
+    ['2026-09-08', -1350, 'CHECK 100027'],
+    ['2026-09-09', -9.69, 'AMAZON MKTPL*AB12 Amzn.com/billWA']]);
+  assert.deepStrictEqual(r.rows.filter((x) => x.transfer).map((x) => x.amount), [-230, 230]);          // paying a person is not an own-account transfer
+  assert.ok(r.rows.every((x) => !x.uncertain));
+  assert.ok(!r.rows.some((x) => /^(SEP|AUG)\d/.test(x.name)));
+});
+
+test('glued month-and-day dates', () => {
+  assert.deepStrictEqual(matchDate('SEP22 DEBIT CARD', 'mdy'), { y: null, m: 9, d: 22, len: 5 });
+  assert.strictEqual(matchDate('Aug3 X', 'mdy').d, 3);
+  assert.strictEqual(matchDate('SEP45 X', 'mdy'), null);
+  assert.strictEqual(matchDate('SEPTEMBER STATEMENT', 'mdy'), null);
+  assert.strictEqual(matchDate('MAYBE 12.00', 'mdy'), null);
+});

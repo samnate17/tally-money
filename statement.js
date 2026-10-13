@@ -78,6 +78,7 @@ function matchDate(text, order) {
   }
   if ((m = new RegExp('^' + MONRE + '\\s+(\\d{1,2})(?:,?\\s+(\\d{4}))?(?=\\s|$)', 'i').exec(text))) return { y: m[3] ? +m[3] : null, m: MON[m[1].toLowerCase()], d: +m[2], len: m[0].length };
   if ((m = new RegExp('^(\\d{1,2})[\\s-]+' + MONRE + '(?:[\\s,-]+(\\d{4}))?(?=\\s|$)', 'i').exec(text))) return { y: m[3] ? +m[3] : null, m: MON[m[2].toLowerCase()], d: +m[1], len: m[0].length };
+  if ((m = /^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)(\d{1,2})(?=\s|$)/i.exec(text)) && +m[2] >= 1 && +m[2] <= 31) return { y: null, m: MON[m[1].toLowerCase()], d: +m[2], len: m[0].length };   // "SEP22", no space and no year
   return null;
 }
 function findFullDates(text, order) { // dates with a 4-digit year anywhere in a line
@@ -118,7 +119,7 @@ function parseStatement(lines, opts = {}) {
   const firstRow = lines.findIndex(rowLike);
   const header = lines.slice(0, firstRow < 0 ? Math.min(lines.length, 40) : firstRow);
   const headText = header.map((l) => l.text).join('\n');
-  meta.type = opts.type === 'credit' || opts.type === 'checking' ? opts.type : (/new balance|minimum payment due|credit limit|payment due date|credit card|previous balance/i.test(headText) ? 'credit' : 'checking');
+  meta.type = opts.type === 'credit' || opts.type === 'checking' ? opts.type : (/minimum payment due|credit limit|payment due date|available credit|credit card (statement|account|number)|cash advance/i.test(headText) || (/new balance/i.test(headText) && /minimum payment/i.test(headText)) ? 'credit' : 'checking');
 
   // statement period
   const dates = [];
@@ -145,10 +146,25 @@ function parseStatement(lines, opts = {}) {
   if (cols) meta.mode = 'columns';
 
   const rows = [];
-  let opening = null, sawExplicitNeg = false;
+  let opening = null, sawExplicitNeg = false, lastLi = -9, contN = 0, inSummary = false;
+  // A description that wraps onto the next line ("DEBIT CARD DEBIT 4012..." then "GATEWAY FOOD SHOPS WORCESTER MA 09-02-26").
+  const CONT_STOP = /^(account statement|member\s*#|statement period|page\b|\d+ of \d+|call:|date\s+(transaction|description)|.*acct\s*#|direct general|in case of|telephone|attention|p\.?o\.? box|\*{3}|deposits,|withdrawals,|total\b|continued\b)/i;
+  const tidy = (t) => t.replace(/\s*~\s*[0-9a-f]{8}-[0-9a-f-]{20,}\s*$/i, '').replace(/\s+\d{1,2}[-/]\d{1,2}[-/]\d{2,4}\s*$/, '').replace(/\s+/g, ' ').trim();
+  const appendCont = (row, text) => {
+    const c = tidy(text);
+    if (!c) return;
+    row.name = /^(debit|credit|pos|atm)? ?card (debit|credit|purchase)?\s*\d*$/i.test(row.name) || /^(debit card|credit card)\s+(debit|credit)\s+\d+$/i.test(row.name) ? c : (row.name + ' ' + c).replace(/\s+/g, ' ').trim();
+  };
   lines.forEach((l, li) => {
     if (li < (firstRow < 0 ? lines.length : firstRow)) return;
+    // The tables at the end ("DEPOSITS, DIVIDENDS AND OTHER CREDITS", "CHECKS CLEARED") list the same transactions again, without descriptions.
+    if (/^(deposits,? dividends and other credits|withdrawals,? fees and other debits|checks cleared)\b/i.test(l.text)) inSummary = true;
+    else if (inSummary && (/acct\s*#/i.test(l.text) || /^account statement$/i.test(l.text))) inSummary = false;
+    if (inSummary) return;
     const d1 = matchDate(l.text, order);
+    if (!d1 && rows.length && lastLi === li - 1 && contN < 2 && l.text.length <= 140 && !l.tokens.some((t) => parseAmt(t.str)) && !CONT_STOP.test(l.text) && !SKIP.test(l.text)) {
+      appendCont(rows[rows.length - 1], l.text); lastLi = li; contN++; return;
+    }
     if (!d1) {
       if (/(beginning|opening|previous|starting)\s+balance/i.test(l.text)) { const a = l.tokens.map((t) => parseAmt(t.str)).filter(Boolean); if (a.length && opening === null) opening = a[a.length - 1].v * (a[a.length - 1].neg ? -1 : 1); }
       return;
@@ -169,12 +185,13 @@ function parseStatement(lines, opts = {}) {
     // trailing CR/DR glued to an amount token ("300.00 CR" as one run)
     toks.forEach((t) => { const m = new RegExp('^(.*?)(\\(?-?\\$?\\s?' + NUM + '\\)?-?)\\s*(CR|DR)$', 'i').exec(t.str); if (m && !AMT.test(t.str)) { const a = parseAmt(m[2]); if (a) { a[m[3].toLowerCase()] = true; amts.push({ ...a, x: (t.x + t.x2) / 2 }); const ix = desc.indexOf(t.str); if (ix > -1) { if (m[1].trim()) desc[ix] = m[1].trim(); else desc.splice(ix, 1); } } } });
     const name = desc.join(' ').replace(/\s+/g, ' ').trim();
+    if (/^(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\d{1,2}\s*)+$/i.test(name)) return;   // a row made only of dates is an index table, not a transaction
     if (!amts.length || !name || SKIP.test(name)) { if (amts.length && name && SKIP.test(name)) meta.skipped++; return; }
 
     let amt = null, balance = null, sign = 0, certain = true;
     if (cols) {
       const classify = (a) => { let best = null, bd = Infinity; Object.keys(cols).forEach((k) => { const dd = Math.abs(a.x - cols[k]); if (dd < bd) { bd = dd; best = k; } }); return best; };
-      amts.forEach((a) => { const c = classify(a); if (c === 'balance') balance = a.v; else if (!amt) { amt = a; sign = c === 'debit' ? -1 : 1; } });
+      amts.forEach((a) => { const c = classify(a); if (c === 'balance') balance = a.v * (a.neg ? -1 : 1); else if (!amt) { amt = a; sign = (a.neg || a.dr) ? -1 : c === 'debit' ? -1 : 1; } });   // an explicit minus sign beats column position
       if (!amt) return;
     } else if (meta.type === 'credit') {
       amt = amts[amts.length - 1]; sign = (amt.neg || amt.cr) ? 1 : -1;
@@ -184,6 +201,7 @@ function parseStatement(lines, opts = {}) {
     }
     const y = pickYear(d1, meta.period, fallbackYear);
     rows.push({ date: iso(y, d1.m, d1.d), name, amount: sign * amt.v, abs: amt.v, sign, balance, uncertain: false });
+    lastLi = li; contN = 0;
   });
 
   // checking statements without a debit/credit column: resolve unsigned amounts
@@ -217,7 +235,8 @@ function parseStatement(lines, opts = {}) {
       rows.forEach((r) => { r.amount = r.sign * r.abs; });
     }
   }
-  rows.forEach((r) => { delete r.sign; delete r.balance; r.amount = Math.round(r.amount * 100) / 100; delete r.abs; });
+  const OWN = /\b(transfer|xfer)\b.*\b(to|from)\b.*\b(checking|savings|share|money market)\b/i;
+  rows.forEach((r) => { delete r.sign; delete r.balance; r.name = tidy(r.name); r.amount = Math.round(r.amount * 100) / 100; delete r.abs; if (OWN.test(r.name)) r.transfer = true; });
   meta.rows = rows.length;
   return { rows, meta };
 }
