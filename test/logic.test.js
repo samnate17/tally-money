@@ -973,3 +973,12 @@ test('Dashboard and Assistant tabs are wired in', () => {
   assert.ok(src.includes("['dash','Dashboard'") && src.includes('dash:vDash') && src.includes("['assist','Assistant'") && src.includes('assist:vAssist'));
   assert.ok(src.includes('window.tally.localAi.chat') && src.includes('chose not to share'));
 });
+
+test('Windows build is configured and attached to the release after the Mac job', () => {
+  const root = path.join(__dirname, '..');
+  const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+  assert.strictEqual(pkg.scripts['dist:win'], 'electron-builder --win --publish never');
+  assert.deepStrictEqual(pkg.build.win.target, [{ target: 'nsis', arch: ['x64'] }]);
+  const wf = fs.readFileSync(path.join(root, '.github', 'workflows', 'build-mac.yml'), 'utf8');
+  assert.ok(/build-windows:\n\s+needs: build\n\s+runs-on: windows-latest/.test(wf) && wf.includes('dist/*.exe'));
+});

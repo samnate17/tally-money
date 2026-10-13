@@ -22,7 +22,8 @@ function isNewer(a, b) {
   for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] > y[i];
   return false;
 }
-function pickAsset(assets, arch) {
+function pickAsset(assets, arch, platform) {
+  if (platform === 'win32') return (Array.isArray(assets) ? assets : []).filter((a) => a && typeof a.name === 'string' && /Setup.*\.exe$/.test(a.name))[0] || null;   // Windows: the installer (64-bit; it also runs on Windows on ARM)
   const dmgs = (Array.isArray(assets) ? assets : []).filter((a) => a && typeof a.name === 'string' && /\.dmg$/.test(a.name));
   return (arch === 'arm64' ? dmgs.filter((a) => /-arm64\.dmg$/.test(a.name)) : dmgs.filter((a) => !/arm64/.test(a.name)))[0] || null;
 }
@@ -84,7 +85,7 @@ function createUpdater({ store, version, arch, platform, appPath, tmpDir, result
     try { fsImpl.accessSync(path.dirname(appPath), fs.constants.W_OK); return true; } catch (e) { return false; }
   }
   function installBlocker() {
-    if (platform !== 'darwin') return 'In-app install works on the Mac app only.';
+    if (platform !== 'darwin') return 'In-app install works on the Mac app only. On Windows, download the new installer from the releases page and run it over the old one; your data stays.';
     if (!appPath || !/\.app$/.test(appPath)) return 'This copy is not an installed app (it is running from source), so it cannot replace itself.';
     if (/\/AppTranslocation\//.test(appPath) || /^\/Volumes\//.test(appPath)) return 'Move Tally Money into your Applications folder and open it from there first.';
     if (!canInstall()) return 'Tally Money cannot write to the folder it is installed in. Move it to Applications.';
@@ -121,7 +122,7 @@ function createUpdater({ store, version, arch, platform, appPath, tmpDir, result
       if (!res.ok) throw new Error(friendlyStatus(res.status));
       const j = await res.json();
       const tag = String(j.tag_name || '');
-      const asset = pickAsset(j.assets, arch);
+      const asset = pickAsset(j.assets, arch, platform);
       latest = { tag, asset };
       return { current: version, latest: tag.replace(/^v/, ''), newer: isNewer(tag, version), notes: String(j.body || '').slice(0, 4000), url: String(j.html_url || ''),
         hasAsset: !!asset, size: asset ? asset.size : 0, assetName: asset ? asset.name : '' };

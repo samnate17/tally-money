@@ -111,3 +111,10 @@ test('updater: the result of an update is reported once', () => {
   const u = U.createUpdater({ store: memStore(), version: '1.6.1', arch: 'arm64', platform: 'darwin', appPath: '', tmpDir: dir, resultFile: rf });
   assert.deepStrictEqual(u.status().lastResult, { ok: false, error: 'Could not copy' }); assert.strictEqual(u.status().lastResult, null);
 });
+
+test('updater: on Windows it offers the Setup installer and says updating in place is Mac-only', () => {
+  const assets = [{ name: 'Tally.Money-1.7.2.dmg' }, { name: 'Tally.Money-Setup-1.7.2.exe' }, { name: 'Tally.Money-1.7.2-mac.zip' }];
+  assert.strictEqual(U.pickAsset(assets, 'x64', 'win32').name, 'Tally.Money-Setup-1.7.2.exe');
+  assert.strictEqual(U.pickAsset(assets.slice(0, 1), 'x64', 'win32'), null);
+  assert.strictEqual(U.pickAsset(assets, 'x64').name, 'Tally.Money-1.7.2.dmg');       // Mac behaviour is unchanged
+});

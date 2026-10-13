@@ -299,7 +299,7 @@ function showMain() {
 function buildMenu() {
   const st = widget ? widget.status() : { visible: false, onTop: false };
   Menu.setApplicationMenu(Menu.buildFromTemplate([
-    { role: 'appMenu' },
+    ...(process.platform === 'darwin' ? [{ role: 'appMenu' }] : [{ role: 'fileMenu' }]),
     { role: 'editMenu' },
     { role: 'viewMenu' },
     {

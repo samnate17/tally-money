@@ -399,7 +399,7 @@ var TABS=[['overview','Overview'],['dash','Dashboard','Live'],['accounts','Accou
 function nav(){
   function items(short){return TABS.map(function(t){return '<button class="nav" data-view="'+t[0]+'"'+(view===t[0]?' aria-current="page"':'')+'>'+ICON[t[0]]+'<span>'+(short&&t[2]||t[1])+'</span></button>'}).join('')}
   var h=items(false);
-  $('#rail').innerHTML='<div class="brand"><svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="tl-bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1B2470"/><stop offset="1" stop-color="#05061A"/></linearGradient><linearGradient id="tl-bar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#8FA2FF"/></linearGradient></defs><rect width="24" height="24" fill="url(#tl-bg)"/><g fill="url(#tl-bar)"><rect x="5.2" y="5.4" width="2.1" height="13.2" rx="1.05"/><rect x="8.9" y="5.4" width="2.1" height="13.2" rx="1.05"/><rect x="12.6" y="5.4" width="2.1" height="13.2" rx="1.05"/><rect x="16.3" y="5.4" width="2.1" height="13.2" rx="1.05"/></g><path d="M4.6 17.2 19.4 7.4" stroke="#FFB45A" stroke-width="1.9" stroke-linecap="round" fill="none"/></svg>Tally</div>'+h+'<div class="railfoot"><span>'+(window.tally?'Your data stays on this Mac. Bank sync and AI analysis send data only when you use them.':HOSTED?'Signed in as '+esc(AUTH.email)+'. Your data is encrypted before it leaves this browser.':'Your data stays in this browser. Nothing is uploaded.')+'</span></div>';
+  $('#rail').innerHTML='<div class="brand"><svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="tl-bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1B2470"/><stop offset="1" stop-color="#05061A"/></linearGradient><linearGradient id="tl-bar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#8FA2FF"/></linearGradient></defs><rect width="24" height="24" fill="url(#tl-bg)"/><g fill="url(#tl-bar)"><rect x="5.2" y="5.4" width="2.1" height="13.2" rx="1.05"/><rect x="8.9" y="5.4" width="2.1" height="13.2" rx="1.05"/><rect x="12.6" y="5.4" width="2.1" height="13.2" rx="1.05"/><rect x="16.3" y="5.4" width="2.1" height="13.2" rx="1.05"/></g><path d="M4.6 17.2 19.4 7.4" stroke="#FFB45A" stroke-width="1.9" stroke-linecap="round" fill="none"/></svg>Tally</div>'+h+'<div class="railfoot"><span>'+(window.tally?'Your data stays on this computer. Bank sync and AI analysis send data only when you use them.':HOSTED?'Signed in as '+esc(AUTH.email)+'. Your data is encrypted before it leaves this browser.':'Your data stays in this browser. Nothing is uploaded.')+'</span></div>';
   $('#tabbar').innerHTML=items(true);
 }
 var refreshing=false;
@@ -460,7 +460,7 @@ function budgetRows(limit,mk){
 }
 
 
-/* ---------- Private assistant (runs on this Mac through Ollama) ---------- */
+/* ---------- Private assistant (runs on this computer through Ollama) ---------- */
 var ASSIST={st:null,model:'',msgs:[],busy:false,id:'',useData:true,loading:false,pull:null};
 try{var _as=JSON.parse(localStorage.getItem('tally-assist-v1')||'{}');if(typeof _as.model==='string')ASSIST.model=_as.model;if(_as.useData===false)ASSIST.useData=false}catch(e){}
 function assistSave(){try{localStorage.setItem('tally-assist-v1',JSON.stringify({model:ASSIST.model,useData:ASSIST.useData}))}catch(e){}}
@@ -561,10 +561,10 @@ function assistPullPanel(open){
 var ASSIST_IDEAS=['How am I doing this month?','Where could I cut spending?','Which bills are still unpaid?','How fast can I pay off my loans?','Explain my last electric bill.'];
 function vAssist(){
   var head='<div class="top"><h1>Assistant</h1>'+(ASSIST.msgs.length?'<button class="btn small" data-act="asst-clear"'+(ASSIST.busy?' disabled':'')+'>Clear chat</button>':'')+'</div>';
-  if(!(window.tally&&window.tally.localAi))return head+'<section class="panel"><p style="margin:0">The private assistant runs on your Mac, so it is only in the Mac app. Open Tally Money from your Applications folder to use it.</p></section>';
-  if(!ASSIST.st){assistLoad();return head+'<section class="panel"><div class="empty">Looking for the assistant on this Mac…</div></section>'}
+  if(!(window.tally&&window.tally.localAi))return head+'<section class="panel"><p style="margin:0">The private assistant runs on your computer, so it is only in the desktop app (Mac or Windows), not in a web browser.</p></section>';
+  if(!ASSIST.st){assistLoad();return head+'<section class="panel"><div class="empty">Looking for the assistant on this computer…</div></section>'}
   var st=ASSIST.st;
-  if(!st.running)return head+'<section class="panel"><h2>Set up the assistant<small>once, about 5 minutes</small></h2><p class="sub" style="margin:0 0 10px">It uses <b>Ollama</b>, a free app that runs AI models on your Mac. Your questions and your finances never leave this computer.</p><ol class="sub" style="margin:0 0 12px;padding-left:20px;font-size:14px"><li>Download Ollama from <a href="https://ollama.com/download" target="_blank" rel="noopener">ollama.com/download</a>, drag it to Applications and open it once. Finish its first-run steps.</li><li>Come back here and press Check again.</li><li>Then press a Download button to get a model. No Terminal needed.</li></ol><div class="actions" style="justify-content:flex-start"><button class="btn primary" data-act="asst-check">Check again</button></div></section>';
+  if(!st.running)return head+'<section class="panel"><h2>Set up the assistant<small>once, about 5 minutes</small></h2><p class="sub" style="margin:0 0 10px">It uses <b>Ollama</b>, a free app that runs AI models on your Mac. Your questions and your finances never leave this computer.</p><ol class="sub" style="margin:0 0 12px;padding-left:20px;font-size:14px"><li>Download Ollama from <a href="https://ollama.com/download" target="_blank" rel="noopener">ollama.com/download</a>, install it and open it once. Finish its first-run steps.</li><li>Come back here and press Check again.</li><li>Then press a Download button to get a model. No Terminal needed.</li></ol><div class="actions" style="justify-content:flex-start"><button class="btn primary" data-act="asst-check">Check again</button></div></section>';
   if(!st.models.length)return head+'<section class="panel"><h2>Ollama is running</h2><p class="sub" style="margin:0 0 10px">It has no model yet. Download one here. It is a one-time download.</p>'+assistPullPanel(true)+'<div class="actions" style="justify-content:flex-start;margin-top:10px"><button class="btn small" data-act="asst-check">Check again</button></div></section>';
   var log=ASSIST.msgs.map(function(x,i){
     var me=x.role==='user',live=ASSIST.busy&&i===ASSIST.msgs.length-1;
@@ -573,9 +573,9 @@ function vAssist(){
   }).join('');
   var ideas=ASSIST.msgs.length?'':'<div class="actions" style="justify-content:flex-start;margin:6px 0 12px">'+ASSIST_IDEAS.map(function(q,i){return '<button class="btn small" data-act="asst-ask" data-i="'+i+'">'+esc(q)+'</button>'}).join('')+'</div>';
   return head+'<section class="panel"><div class="form" style="align-items:center;margin-bottom:8px"><label>Model<select id="asst-model">'+st.models.map(function(x){return '<option'+(x.name===ASSIST.model?' selected':'')+'>'+esc(x.name)+'</option>'}).join('')+'</select></label><label style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="asst-data"'+(ASSIST.useData?' checked':'')+'> Let it see my Tally Money numbers</label></div>'+
-    '<div id="asst-log" style="max-height:52vh;overflow:auto;padding:4px 2px">'+(log||'<p class="sub muted" style="margin:6px 0">Ask about your spending, bills, loans or energy use. Everything runs on your Mac.</p>')+'</div>'+ideas+
+    '<div id="asst-log" style="max-height:52vh;overflow:auto;padding:4px 2px">'+(log||'<p class="sub muted" style="margin:6px 0">Ask about your spending, bills, loans or energy use. Everything runs on this computer.</p>')+'</div>'+ideas+
     '<form id="asstform" class="form" style="margin-top:8px"><input id="asst-in" placeholder="Ask a question…" autocomplete="off" style="flex:1 1 280px"'+(ASSIST.busy?' disabled':'')+'>'+(ASSIST.busy?'<button type="button" class="btn" data-act="asst-stop">Stop</button>':'<button class="btn primary">Send</button>')+'</form>'+
-    '<p class="sub muted" style="margin:10px 0 0;font-size:12px">A small model on your Mac can be wrong, especially with arithmetic, so check numbers that matter against the other tabs. It is not financial advice.</p>'+assistPullPanel(false)+'</section>';
+    '<p class="sub muted" style="margin:10px 0 0;font-size:12px">A small model on your computer can be wrong, especially with arithmetic, so check numbers that matter against the other tabs. It is not financial advice.</p>'+assistPullPanel(false)+'</section>';
 }
 
 /* ---------- Live dashboard ---------- */
@@ -2227,7 +2227,7 @@ function loanImportPanel(kind){
   if(I.msg)h+='<div class="banner" style="margin-bottom:12px"><span>'+esc(I.msg)+'</span></div>';
   h+='<p class="sub" style="margin:0 0 10px;white-space:normal">Choose a statement or account summary from '+(kind==='auto'?'Honda Financial (a PDF from your online account)':'Nelnet (a PDF statement), or the loan data download from studentaid.gov, which lists each federal loan')+'. Claude reads it and fills in the balance, rate and payment for you to check.</p>'+
     (hasKey?'<label class="btn" style="cursor:pointer;display:inline-block">Choose a file<input type="file" data-loanfile="'+kind+'" accept=".pdf,.txt,.csv,application/pdf,text/plain" hidden></label>':'<p class="sub muted" style="margin:0">Add your Anthropic API key (AI analysis, on the Transactions tab) to use this.</p>')+
-    '<p class="sub muted" style="margin:10px 0 0;font-size:12px">The file is read on this Mac. Account and card numbers are masked, then the text is sent to Claude with your API key. Nothing is saved until you confirm.</p>';
+    '<p class="sub muted" style="margin:10px 0 0;font-size:12px">The file is read on this computer. Account and card numbers are masked, then the text is sent to Claude with your API key. Nothing is saved until you confirm.</p>';
   // Plaid: student loans only, and only when keys are set up
   if(kind==='student'){
     if(!plSt&&!plLoading){plLoading=true;tcall(T.plaid.status()).then(function(st){plSt=st;if(view==='student')render()}).catch(function(){})}
@@ -2247,7 +2247,7 @@ function tcall(p){return p.then(function(r){if(!r||!r.ok){var e=new Error((r&&r.
 function plShell(){return '<section class="panel" id="plaidpanel">'+plInner()+'</section>'}
 function plInner(){
   var h='<h2>Bank sync<small>Plaid</small></h2>';
-  if(!T)return h+'<p class="sub muted" style="margin:0">Bank sync is available in the Mac app. This page can import a CSV from your bank instead.</p>';
+  if(!T)return h+'<p class="sub muted" style="margin:0">Bank sync is available in the desktop app. This page can import a CSV from your bank instead.</p>';
   if(!plSt)return h+'<div class="empty">Loading…</div>';
   var msg=plMsg?'<div class="banner" style="margin-bottom:12px"><span>'+(plMsg.t==='err'?'<b class="bad">Problem.</b> ':'')+esc(plMsg.m)+'</span></div>':'';
   if(!plSt.secureStorage)return h+'<p class="sub muted">Secure storage is not available on this system, so bank keys can’t be saved safely. Use CSV import instead.</p>';
@@ -2369,7 +2369,7 @@ function stmtRead(fileList){
       var built=det.ok?csvBuild(det.rows,det.headerIdx,det.map,{order:det.order,flip:det.flip}):{rows:[],bad:0};
       pdf.files.push({name:file.name,file:file,rows:built.rows,bad:built.bad,meta:{type:'csv',pages:0,noText:false},csv:det,csvOk:det.ok&&built.rows.length>0});
     }).catch(function(e){pdf.files.push({name:file.name,file:file,rows:[],error:'Could not read this file: '+e.message})});
-    if(!T){pdf.files.push({name:file.name,file:file,rows:[],error:'PDF statements are read in the Mac app. Export a CSV from your bank instead.'});return}
+    if(!T){pdf.files.push({name:file.name,file:file,rows:[],error:'PDF statements are read in the desktop app. Export a CSV from your bank instead.'});return}
     return file.arrayBuffer().then(function(buf){return tcall(T.pdf.parse(buf,pdf.type==='auto'?null:pdf.type))}).then(function(r){pdf.files.push({name:file.name,file:file,rows:r.rows,meta:r.meta,textId:r.textId,chars:r.chars,preview:r.preview||[]})}).catch(function(e){pdf.files.push({name:file.name,file:file,rows:[],error:e.message})});
   })});
   return chain.then(function(){
@@ -2450,7 +2450,7 @@ var aiSt=null,aiStage='idle',aiPrep=null,aiRes=null,aiProp=null,aiErr='',aiMsg='
 function aiShell(){return '<section class="panel" id="aipanel">'+aiInner()+'</section>'}
 function aiInner(){
   var h='<h2>AI analysis<small>categories, subscriptions and insights</small></h2>';
-  if(!T)return h+'<p class="sub muted" style="margin:0">AI analysis is available in the Mac app, where your API key can be stored safely.</p>';
+  if(!T)return h+'<p class="sub muted" style="margin:0">AI analysis is available in the desktop app, where your API key can be stored safely.</p>';
   if(!aiSt)return h+'<div class="empty">Loading…</div>';
   if(!aiSt.secureStorage)return h+'<p class="sub muted">Secure storage is not available on this system, so an API key can’t be saved safely.</p>';
   var note=aiMsg?'<div class="banner" style="margin-bottom:12px"><span>'+esc(aiMsg)+'</span></div>':'';
@@ -3117,7 +3117,7 @@ function updatesPanel(){
   var st=UP.st,i=UP.info,h='<section class="panel" id="updpanel"><h2>App updates<small>version '+esc(st.version)+'</small></h2>';
   if(!st.hasToken){
     h+='<p class="sub" style="margin:0 0 10px">Tally Money is private, so it needs a read-only GitHub token to see new releases. Create one once:</p><ol class="sub" style="margin:0 0 12px;padding-left:20px;font-size:13px"><li>Open <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">GitHub, new fine-grained token</a>.</li><li>Repository access: Only select repositories, then <b>tally-money</b>.</li><li>Permissions, Repository permissions: <b>Contents: Read-only</b>. Nothing else.</li><li>Set an expiry (up to a year; updates stop working when it expires). Generate, copy the token and paste it here.</li></ol>'+
-      '<form id="upform" class="form"><input id="up-token" type="password" placeholder="github_pat_…" autocomplete="off" style="flex:1 1 260px" required><button class="btn primary">Save token</button></form><p class="sub muted" style="margin:10px 0 0;font-size:12px">The token is kept in your Mac\'s Keychain and only used to read this repository\'s releases and download them.</p>';
+      '<form id="upform" class="form"><input id="up-token" type="password" placeholder="github_pat_…" autocomplete="off" style="flex:1 1 260px" required><button class="btn primary">Save token</button></form><p class="sub muted" style="margin:10px 0 0;font-size:12px">The token is kept in your computer\'s secure storage (macOS Keychain or Windows credential protection) and only used to read this repository\'s releases and download them.</p>';
   }else{
     var avail=i&&i.newer;
     h+='<div class="actions" style="justify-content:flex-start"><button class="btn'+(avail?'':' primary')+'" data-act="up-check"'+(UP.busy?' disabled':'')+'>'+(UP.busy==='check'?'Checking…':'Check for updates')+'</button>'+(avail&&st.canInstall&&i.hasAsset?'<button class="btn primary" data-act="up-install"'+(UP.busy?' disabled':'')+'>Update to '+esc(i.latest)+' ('+mb(i.size)+')</button>':'')+'<button class="btn small" data-act="up-cleartoken"'+(UP.busy==='install'?' disabled':'')+'>Remove token</button></div>';
@@ -3126,8 +3126,8 @@ function updatesPanel(){
     if(avail){
       h+='<p style="margin:12px 0 4px"><b>Version '+esc(i.latest)+' is available</b> <span class="muted">(you have '+esc(i.current)+')</span></p>';
       if(i.notes)h+='<pre class="pdfpre" style="max-height:160px">'+esc(i.notes)+'</pre>';
-      if(!i.hasAsset)h+='<p class="sub bad" style="margin:8px 0 0">This release has no download for your Mac.</p>';
-      else if(!st.canInstall)h+='<p class="sub" style="margin:8px 0 0">'+esc(st.installBlocker||'This copy cannot update itself.')+' You can still download it from the releases page.</p>';
+      if(!i.hasAsset)h+='<p class="sub bad" style="margin:8px 0 0">This release has no download for this computer.</p>';
+      else if(!st.canInstall)h+='<p class="sub" style="margin:8px 0 0">'+esc(st.installBlocker||'This copy cannot update itself.')+' You can still download it from the <a href="'+esc(i.url||'#')+'" target="_blank" rel="noopener">releases page</a>.</p>';
       else h+='<p class="sub muted" style="margin:8px 0 0;font-size:12px">The download is checked against GitHub\'s checksum, then replaces this app and reopens it. Your data stays. If anything fails, the old version is kept. Keychain may ask once to allow the new version to use saved keys.</p>';
     }
   }

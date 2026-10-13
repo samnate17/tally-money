@@ -10,7 +10,8 @@
     "start": "electron .",
     "build:web": "rm -rf dist-web && mkdir dist-web && cp -R index.html manifest.webmanifest icons _headers dist-web/",
     "dist:mac": "electron-builder --mac --publish never",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "dist:win": "electron-builder --win --publish never"
   },
   "build": {
     "appId": "com.samnate17.tallymoney",
@@ -63,6 +64,23 @@
         }
       ],
       "identity": null
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "Tally.Money-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": false
     }
   },
   "devDependencies": {

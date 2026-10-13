@@ -246,6 +246,16 @@ With **Let it see my Tally Money numbers** ticked, each question includes a summ
 
 Honest limits: small local models make arithmetic and reasoning mistakes, so check numbers that matter against the other tabs. Quality and speed depend on the model and your Mac. The streaming, errors and Stop button are tested against a stand-in for Ollama; I could not run a real model in the build environment.
 
+## Windows
+
+A Windows installer (`Tally.Money-Setup-<version>.exe`, 64-bit; it also runs on Windows on ARM) is built by the same GitHub Actions workflow and attached to each release, after the Mac files. Run it, and if Windows SmartScreen says it protected your PC, choose **More info**, then **Run anyway** (the installer is not signed, which would need a paid certificate). Your data lives on that computer only; to move it from the Mac use Download backup on the Mac and Restore from file on Windows, or use the hosted version.
+
+What is the same: every tab, bank sync, statement reading, the Assistant (install Ollama for Windows), the Dashboard, the desktop widget window and the backup. Your Plaid, AI and update keys are stored with Windows' own credential protection and are not shared with the Mac, so enter them again on Windows.
+
+What is different: no Liquid Glass or macOS widget (the CSS glass look is used), and no in-app install of updates. **Check for updates** still tells you when a newer version exists and links to the release page; download the new installer and run it over the old one, and your data stays.
+
+Honest limits: the build is checked in CI (it must produce the installer), but I could not run the Windows app myself, so expect rough edges and report them.
+
 ## Tests
 
 `npm test` runs the logic and module tests (payoff math, affordability rules, sync application, PDF statement parsing, AI request and result handling, Plaid request handling) with no network. `xvfb-run -a npx electron --no-sandbox test/pdf-ipc.smoke.js` sends the fixture PDFs through the real app bridge. `xvfb-run -a npx electron --no-sandbox test/link-window.smoke.js` exercises the bank link window.
