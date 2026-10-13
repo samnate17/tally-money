@@ -127,6 +127,18 @@ Each category can have sub-categories: for example Housing has Rent, Mortgage, E
 - **AI.** Predict with AI also returns a sub-category when one of your listed names clearly fits; anything else is left unsorted.
 - **Limits.** Budgets are still set per category, not per sub-category. Sub-categories are saved in backups. If you rename an entry in a list, old transactions keep the old name until you edit them.
 
+## Car loan and student loans
+
+Two tabs, **Car loan** and **Student loans**, track what you owe, the interest rate, the payment and when it will be paid off. Add each loan by hand (federal student loans usually come as several loans with different rates, so add each one). They are the same accounts as in the Accounts tab, so net worth and the debt payoff plan include them.
+
+- **What you see:** total owed, average rate, monthly payment, next due date, payoff date and interest still to pay at today's payments; each loan with its own payoff date and progress; the payments to that lender found in your imported transactions (with a warning when your latest payment differs from the one you entered).
+- **Pay it off faster:** an extra amount each month, a one-time extra, half-payments every two weeks, or a target ("be done in 3 years") that works out the exact monthly total. A chart compares your current plan with the faster one, and a table shows what +$25, +$50, +$100, +$250 and +$500 would save. With several loans the extra goes to the highest rate first.
+- **What to pay:** the amount due, plus a suggestion based on your usual leftover money (half of it) and what that would save. It warns when you owe something at a higher rate elsewhere (a credit card, say), or when your cash is under one month of spending.
+- **Update from a statement (Mac app, needs your Anthropic API key):** choose a PDF or text statement from Honda Financial, Nelnet or any lender, or the loan data download from studentaid.gov. The file is read on your Mac, account numbers are masked, and Claude fills in the balance, rate, payment and due day for you to check before anything is saved. Existing loans are updated, new ones added.
+- **Plaid (student loans, Mac app):** a Link a loan servicer button asks Plaid for its Liabilities data, which includes each student loan's balance, rate, minimum payment and due date. Whether Nelnet is supported, and whether your Plaid account has access to that data, is something only Plaid can confirm; it could not be tried from where this was built. Loans it returns are merged with ones you entered when the rate and balance match.
+- **Honda Financial and Nelnet APIs:** neither company offers a public API for personal accounts that I could find, so there is no direct link. The statement reader above is the closest thing, and works for any lender.
+- **Limits:** interest is calculated monthly on the balance. Federal loans accrue interest daily, so real figures differ by a few dollars. Payoff dates assume you keep paying the amounts shown. This is general information, not financial advice.
+
 ## Accounts for other people (hosted version)
 
 Two ways to let other people use Tally:

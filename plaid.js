@@ -60,6 +60,35 @@ function normalizeAccount(a) {
   };
 }
 
+
+// Student-loan details from /liabilities/get. Field names follow Plaid's documented StudentLoan object. Not verified against a live
+// Plaid account (the development sandbox cannot reach Plaid), so the mapping ignores anything missing rather than failing.
+function normalizeLoans(res) {
+  const accounts = (res && res.accounts) || [], student = (res && res.liabilities && res.liabilities.student) || [];
+  const byId = {};
+  accounts.forEach((a) => { byId[a.account_id] = a; });
+  const num = (v) => (typeof v === 'number' && isFinite(v) ? v : null);
+  const loans = student.map((s) => {
+    const a = byId[s.account_id] || {}, bal = a.balances && num(a.balances.current);
+    const due = /^\d{4}-\d{2}-(\d{2})$/.exec(String(s.next_payment_due_date || ''));
+    return {
+      accountId: String(s.account_id || ''),
+      name: String(s.loan_name || a.official_name || a.name || 'Student loan').slice(0, 60),
+      balance: bal === null ? null : Math.max(0, Math.round(bal * 100) / 100),
+      apr: num(s.interest_rate_percentage),
+      minPay: num(s.minimum_payment_amount),
+      dueDay: due ? +due[1] : 0,
+      origBalance: num(s.origination_principal_amount),
+      expectedPayoff: /^\d{4}-\d{2}-\d{2}$/.test(String(s.expected_payoff_date || '')) ? s.expected_payoff_date : '',
+      outstandingInterest: num(s.outstanding_interest_amount),
+      ytdInterestPaid: num(s.ytd_interest_paid),
+    };
+  }).filter((l) => l.accountId);
+  const listed = new Set(loans.map((l) => l.accountId));
+  const other = accounts.filter((a) => a.type === 'loan' && !listed.has(a.account_id)).map((a) => ({ accountId: a.account_id, name: String(a.official_name || a.name || 'Loan').slice(0, 60), subtype: a.subtype || '', balance: a.balances && num(a.balances.current) }));
+  return { loans, other };
+}
+
 function createPlaid({ store, fetchImpl }) {
   const f = fetchImpl || ((...a) => fetch(...a));
 
@@ -115,11 +144,12 @@ function createPlaid({ store, fetchImpl }) {
   }
   function clearKeys() { store.del('plaid'); }
 
-  async function createLinkToken(itemId) {
+  async function createLinkToken(itemId, mode) {
     const c = cfg();
     if (!c) throw new Error('Add your Plaid keys first.');
     const body = { client_name: 'Tally Money', language: 'en', country_codes: [c.country], user: { client_user_id: 'tally-money-local' } };
     if (itemId) body.access_token = itemToken(itemId);
+    else if (mode === 'loan') { body.products = ['liabilities']; }
     else { body.products = ['transactions']; body.transactions = { days_requested: 365 }; }
     const r = await call('/link/token/create', body);
     return r.link_token;
@@ -182,7 +212,17 @@ function createPlaid({ store, fetchImpl }) {
     }
   }
 
-  return { status, saveKeys, clearKeys, createLinkToken, exchange, removeItem, sync };
+  async function loans(itemId) {
+    const token = itemToken(itemId);
+    try {
+      return normalizeLoans(await call('/liabilities/get', { access_token: token }));
+    } catch (e) {
+      if (e.code === 'PRODUCT_NOT_READY') { const err = new Error('Plaid is still preparing this loan data. Try again in a minute.'); err.code = e.code; throw err; }
+      if (e.code === 'ADDITIONAL_CONSENT_REQUIRED' || e.code === 'PRODUCTS_NOT_SUPPORTED' || e.code === 'NO_LIABILITY_ACCOUNTS') { const err = new Error('Plaid has no loan details for this account (' + e.code + '). Not every servicer is supported.'); err.code = e.code; throw err; }
+      throw e;
+    }
+  }
+  return { status, saveKeys, clearKeys, createLinkToken, exchange, removeItem, sync, loans };
 }
 
-module.exports = { createPlaid, normalizeTxn, normalizeAccount, mapCategory, mapAccountType };
+module.exports = { createPlaid, normalizeLoans, normalizeTxn, normalizeAccount, mapCategory, mapAccountType };

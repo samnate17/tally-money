@@ -10,6 +10,9 @@ contextBridge.exposeInMainWorld('tally', {
   theme: {
     mode: inv('theme:mode'),
   },
+  loan: {
+    readFile: inv('loan:text'),
+  },
   update: {
     status: inv('update:status'),
     setToken: inv('update:setToken'),
@@ -26,6 +29,8 @@ contextBridge.exposeInMainWorld('tally', {
     link: inv('plaid:link'),
     sync: inv('plaid:sync'),
     remove: inv('plaid:remove'),
+    linkLoan: inv('plaid:linkLoan'),
+    loans: inv('plaid:loans'),
   },
   ai: {
     status: inv('ai:status'),
@@ -36,6 +41,7 @@ contextBridge.exposeInMainWorld('tally', {
     statementPdf: inv('ai:statementPdf'),
     test: inv('ai:test'),
     categorize: inv('ai:categorize'),
+    loans: inv('ai:loans'),
   },
   pdf: {
     parse: inv('pdf:parse'),

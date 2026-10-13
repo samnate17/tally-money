@@ -374,6 +374,8 @@ function detect(){
 
 /* ---------- icons + shell ---------- */
 var ICON={
+ carloan:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 16V11l2-5h10l2 5v5"/><path d="M3 16h18v3H3z"/><circle cx="7.5" cy="19" r="1.2"/><circle cx="16.5" cy="19" r="1.2"/><path d="M5 11h14"/></svg>',
+ student:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m2 9 10-5 10 5-10 5z"/><path d="M6 11v5c0 1.5 3 3 6 3s6-1.5 6-3v-5"/><path d="M22 9v6"/></svg>',
  look:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="8.5" cy="10" r="1.2"/><circle cx="12" cy="7.5" r="1.2"/><circle cx="15.5" cy="10" r="1.2"/><path d="M12 21c-1.5 0-2-1-2-2s.8-1.8 1.6-2.4c.9-.7.6-2.1-.6-2.1H8"/></svg>',
  report:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 16v-3M12 16V8M16 16v-5"/></svg>',
  invest:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 17 6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>',
@@ -385,7 +387,7 @@ var ICON={
  budgets:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v9h9"/><path d="M20.5 15A9 9 0 1 1 9 3.5"/></svg>',
  transactions:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h13M13 3l4 4-4 4M20 17H7M11 13l-4 4 4 4"/></svg>',
  goals:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg>'};
-var TABS=[['overview','Overview'],['accounts','Accounts'],['subscriptions','Subscriptions','Subs'],['budgets','Budgets'],['report','Monthly report','Report'],['afford','Can I afford it?','Afford'],['credit','Credit'],['invest','Investments','Invest'],['transactions','Transactions','Activity'],['goals','Goals'],['look','Appearance','Look']];
+var TABS=[['overview','Overview'],['accounts','Accounts'],['subscriptions','Subscriptions','Subs'],['budgets','Budgets'],['report','Monthly report','Report'],['afford','Can I afford it?','Afford'],['credit','Credit'],['invest','Investments','Invest'],['transactions','Transactions','Activity'],['goals','Goals'],['carloan','Car loan','Car'],['student','Student loans','Student'],['look','Appearance','Look']];
 function nav(){
   function items(short){return TABS.map(function(t){return '<button class="nav" data-view="'+t[0]+'"'+(view===t[0]?' aria-current="page"':'')+'>'+ICON[t[0]]+'<span>'+(short&&t[2]||t[1])+'</span></button>'}).join('')}
   var h=items(false);
@@ -394,7 +396,7 @@ function nav(){
 }
 function render(){
   nav();
-  var f={look:vLook,overview:vOverview,accounts:vAccounts,afford:vAfford,credit:vCredit,invest:vInvest,report:vReport,subscriptions:vSubs,budgets:vBudgets,transactions:vTx,goals:vGoals}[view];
+  var f={carloan:function(){return vLoans('auto')},student:function(){return vLoans('student')},look:vLook,overview:vOverview,accounts:vAccounts,afford:vAfford,credit:vCredit,invest:vInvest,report:vReport,subscriptions:vSubs,budgets:vBudgets,transactions:vTx,goals:vGoals}[view];
   var cb=HOSTED&&AUTH.conflict?'<div class="banner" id="conflict"><span><b>This account changed on another device.</b> Choose which version to keep.</span><span style="flex:0 0 auto;display:flex;gap:8px"><button class="btn small" data-act="cf-remote">Use the other version</button><button class="btn small primary" data-act="cf-local">Keep this device\'s version</button></span></div>':'';
   var banner=cb+updBanner()+(S.sample?'<div class="banner"><span><b>Example data.</b> These accounts and transactions are made up so you can try everything. Clear them to start with your own, or import a CSV from your bank.</span><button class="btn primary small" data-act="clear">Start fresh</button></div>':'');
   $('#main').innerHTML=banner+f();
@@ -575,6 +577,78 @@ function sampleAccounts(){
     acct('Federal Student Loan','student',[15000,14840,14680,14520,14360,14200],5.5,180),
     acct('Civic Car Loan','auto',[11500,11120,10740,10360,9980,9600],7.2,310)];
 }
+/*LOAN-START*/
+// Loan maths. Interest is charged monthly on the balance: exact enough for a car loan, and a small simplification for federal
+// student loans, which accrue interest daily. Real statements will differ by a few dollars.
+function amortize(bal,apr,pay,opt){
+  opt=opt||{};
+  var extra=+opt.extra||0,lump=+opt.lump||0,max=opt.max||1200,r=(apr||0)/1200,b=Math.max(0,bal-lump),m=0,interest=0,paid=0,p=(+pay||0)+extra,sched=[b];
+  if(b<=0.005)return {ok:true,months:0,interest:0,paid:0,sched:sched};
+  if(!(p>0))return {ok:false,reason:'nopay'};
+  if(r>0&&p<=b*r+0.005)return {ok:false,reason:'never',needed:b*r};
+  while(b>0.005&&m<max){m++;var i=b*r;interest+=i;b+=i;var pp=Math.min(p,b);b-=pp;paid+=pp;sched.push(Math.max(0,b))}
+  if(b>0.005)return {ok:false,reason:'toolong'};
+  return {ok:true,months:m,interest:interest,paid:paid,sched:sched};
+}
+function requiredPayment(bal,apr,months){
+  if(!(months>0))return bal;
+  var r=(apr||0)/1200;
+  return r===0?bal/months:bal*r/(1-Math.pow(1+r,-months));
+}
+// Several loans paid together: minimums on all, everything extra (and any lump sum) on the highest rate first.
+function portfolio(loans,extra,lump){
+  var ds=loans.filter(function(l){return l.balance>0}).map(function(l){return {id:l.id,name:l.name,bal:l.balance,apr:l.apr||0,min:l.minPay||0,paid:0}});
+  if(!ds.length)return {ok:true,months:0,interest:0,sched:[0],order:[]};
+  ds.sort(function(a,b){return b.apr-a.apr||a.bal-b.bal});
+  var left=Math.max(0,+lump||0);
+  ds.forEach(function(d){var t=Math.min(d.bal,left);d.bal-=t;left-=t});
+  var budget=ds.reduce(function(a,d){return a+d.min},0)+Math.max(0,+extra||0);
+  if(!(budget>0))return {ok:false,reason:'nopay'};
+  var total=function(){return ds.reduce(function(a,d){return a+Math.max(0,d.bal)},0)};
+  var sched=[total()],m=0,interest=0;
+  ds.forEach(function(d){if(d.bal<=0.005)d.paid=0});
+  while(total()>0.005&&m<1200){
+    m++;
+    ds.forEach(function(d){if(d.bal>0.005){var i=d.bal*d.apr/1200;d.bal+=i;interest+=i}});
+    var avail=budget;
+    ds.forEach(function(d){if(d.bal>0.005){var p=Math.min(d.min,d.bal,avail);d.bal-=p;avail-=p}});
+    ds.forEach(function(d){if(d.bal>0.005&&avail>0){var p=Math.min(d.bal,avail);d.bal-=p;avail-=p}});
+    ds.forEach(function(d){if(d.bal<=0.005&&!d.paid)d.paid=m});
+    sched.push(Math.max(0,total()));
+  }
+  if(total()>0.005)return {ok:false,reason:ds.some(function(d){return d.bal>0.005&&d.apr>0})?'never':'toolong'};
+  return {ok:true,months:m,interest:interest,sched:sched,order:ds.slice().sort(function(a,b){return a.paid-b.paid})};
+}
+// Smallest extra per month that clears everything within `months`.
+function extraForTarget(loans,months,lump){
+  var base=portfolio(loans,0,lump);
+  if(base.ok&&base.months<=months)return 0;
+  var hi=loans.reduce(function(a,l){return a+Math.max(0,l.balance)},0),lo=0,i;
+  if(!(hi>0))return 0;
+  var top=portfolio(loans,hi,lump);if(!top.ok||top.months>months)return null;
+  for(i=0;i<40;i++){var mid=(lo+hi)/2,r=portfolio(loans,mid,lump);if(r.ok&&r.months<=months)hi=mid;else lo=mid}
+  return Math.ceil(hi*100)/100;
+}
+function nextDue(dueDay,today){
+  var d=+dueDay;if(!(d>=1&&d<=31))return null;
+  var y=today.getFullYear(),m=today.getMonth(),dim=function(yy,mm){return new Date(yy,mm+1,0).getDate()};
+  var c=new Date(y,m,Math.min(d,dim(y,m)));
+  if(c<new Date(y,m,today.getDate())){var n=new Date(y,m+1,1);c=new Date(n.getFullYear(),n.getMonth(),Math.min(d,dim(n.getFullYear(),n.getMonth())))}
+  return c;
+}
+function loanMatchRe(l){
+  var skip=/^(loan|loans|direct|federal|unsubsidized|subsidized|financial|services|service|auto|student|plus|stafford|consolidation|finance|account|payment|group|american|national)$/;
+  var words=(String(l.lender||'')+' '+String(l.name||'')).toLowerCase().replace(/[^a-z0-9 ]/g,' ').split(/\s+/).filter(function(w){return w.length>=4&&!skip.test(w)&&!/^\d+$/.test(w)});
+  if(l.type==='student')words.push('student ln');
+  var seen={},u=[];words.forEach(function(w){if(!seen[w]){seen[w]=1;u.push(w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'))}});
+  return u.length?new RegExp(u.join('|'),'i'):null;
+}
+// Payments to this lender that show up in your transactions (money out only), newest first.
+function paymentsSeen(txns,l){
+  var re=loanMatchRe(l);if(!re)return [];
+  return txns.filter(function(x){return x.amount<0&&re.test(x.name)}).slice().sort(function(a,b){return a.date<b.date?1:-1}).slice(0,6).map(function(x){return {date:x.date,amount:-x.amount,name:x.name}});
+}
+/*LOAN-END*/
 /*PAYOFF-START*/
 function simulatePayoff(debts,extra,method){
   var ds=debts.filter(function(d){return d.balance>0}).map(function(d){return {id:d.id,name:d.name,bal:d.balance,apr:d.apr||0,min:d.minPay||0,paid:0}});
@@ -1451,6 +1525,149 @@ function vAfford(){
    (hasData?'':'<p class="sub muted" style="margin:12px 0 0;font-size:13px">Add or import some transactions first so there is income and spending to compare against.</p>')+'</section>'+out;
 }
 
+
+/* ---------- Car loan and student loans ---------- */
+var LOANKIND={
+  auto:{tab:'carloan',title:'Car loan',lender:'Honda Financial',example:'e.g. Honda Civic loan',what:'car loan'},
+  student:{tab:'student',title:'Student loans',lender:'Nelnet',example:'e.g. Direct Unsubsidized 2019',what:'student loans'}};
+var loanUI={auto:{extra:'',lump:'',years:'',bi:false,edit:'',adding:false,msg:''},student:{extra:'',lump:'',years:'',bi:false,edit:'',adding:false,msg:''}};
+function loanForm(kind,l){
+  var K=LOANKIND[kind],v=l||{};
+  return '<form class="loanform panel" data-kind="'+kind+'" data-id="'+(l?l.id:'')+'" style="margin:10px 0"><div class="form" style="align-items:end">'+
+   '<label>Name<input name="n" required maxlength="60" value="'+esc(v.name||'')+'" placeholder="'+K.example+'"></label><label>Lender<input name="l" maxlength="40" value="'+esc(v.lender||'')+'" placeholder="'+K.lender+'"></label>'+
+   '<label>Balance owed<input name="b" type="number" step="0.01" min="0" required value="'+(v.balance!==undefined?v.balance:'')+'"></label><label>Interest rate (APR %)<input name="a" type="number" step="0.001" min="0" max="40" required value="'+(v.apr!==undefined?v.apr:'')+'"></label>'+
+   '<label>Monthly payment<input name="p" type="number" step="0.01" min="0" required value="'+(v.minPay!==undefined?v.minPay:'')+'"></label><label>Due day (1 to 31)<input name="d" type="number" min="1" max="31" value="'+(v.dueDay||'')+'"></label>'+
+   '<label>Original amount (optional)<input name="o" type="number" step="0.01" min="0" value="'+(v.origBalance||'')+'"></label></div>'+
+   '<div class="actions" style="justify-content:flex-start;margin-top:10px"><button class="btn primary small">'+(l?'Save changes':'Add loan')+'</button><button type="button" class="btn small" data-act="loan-cancel" data-kind="'+kind+'">Cancel</button></div></form>';
+}
+function loanSurplus(){var c=afCtx();return c.months?{surplus:c.avgIncome-c.avgSpend,liquid:c.liquid,avgSpend:c.avgSpend,months:c.months}:null}
+function loanChart(cur,fast){
+  var W=480,H=190,pl=8,pr=8,pt=14,pb=24,n=Math.max(cur.sched.length,fast.sched.length)-1,mx=Math.max(cur.sched[0],fast.sched[0],1)*1.05;
+  function X(i){return pl+i*(W-pl-pr)/Math.max(1,n)}
+  function Y(v){return pt+(mx-v)/mx*(H-pt-pb)}
+  function line(sc,color,dash){return '<polyline points="'+sc.map(function(v,i){return X(i)+','+Y(v)}).join(' ')+'" fill="none" stroke="'+color+'" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"'+(dash?' stroke-dasharray="5 4"':'')+'/>'}
+  var g='',t;
+  for(t=0;t<3;t++){var gv=mx*t/2.1,gy=Y(gv);g+='<line x1="0" x2="'+W+'" y1="'+gy+'" y2="'+gy+'" stroke="var(--line)"/><text x="2" y="'+(gy-3)+'" font-size="10">'+money0(gv)+'</text>'}
+  var ticks=[0,Math.round(n/2),n].filter(function(v,i,a){return a.indexOf(v)===i}).map(function(i){return '<text x="'+X(i)+'" y="'+(H-7)+'" text-anchor="'+(i===0?'start':i===n?'end':'middle')+'" font-size="11">'+monthYear(addMonths(TODAY,i))+'</text>'}).join('');
+  return '<svg viewBox="0 0 '+W+' '+H+'" width="100%" style="max-width:600px" role="img" aria-label="Balance owed over time, current plan and faster plan">'+g+line(cur.sched,'var(--muted)',true)+(fast!==cur?line(fast.sched,'var(--accent)'):'')+ticks+'</svg><div class="legend" style="flex-direction:row;gap:16px;margin-top:4px"><div><span style="display:inline-block;width:16px;border-top:2px dashed var(--muted)"></span> Current plan</div>'+(fast!==cur?'<div><span style="display:inline-block;width:16px;border-top:3px solid var(--accent)"></span> With your changes</div>':'')+'</div>';
+}
+function loanTips(kind){
+  var t=kind==='auto'?[
+    'Tell the lender that extra money should go to <b>principal</b>. Some lenders apply it to the next payment instead, which saves nothing.',
+    'Most car loans charge simple interest, so paying earlier in the month can trim the interest a little.',
+    'If your credit has improved since you signed, a refinance could lower the rate. Compare a few quotes before changing anything.']:[
+    'Federal loans have no penalty for paying early. Tell your servicer how to apply extra money: to the loan with the highest rate, and to principal. Otherwise it may be spread across loans or only move your due date.',
+    'Federal servicers usually offer a small rate discount for automatic payments. Check whether you have it.',
+    'Income-driven plans lower your payment but can cost more in interest, and some forgiveness programs (such as for public service) depend on staying on the right plan. Check before switching.']; 
+  return '<section class="panel"><h2>Good to know</h2>'+t.map(function(x){return '<p style="margin:0 0 8px;white-space:normal">'+x+'</p>'}).join('')+'<p class="sub muted" style="margin:6px 0 0;font-size:12px">General information, not financial advice. Your lender\'s terms and the rules for your specific loans come first.</p></section>';
+}
+function loanCard(kind,l){
+  var base=amortize(l.balance,l.apr,l.minPay),due=nextDue(l.dueDay,TODAY),pct=l.origBalance>0?Math.max(0,Math.min(100,(1-l.balance/l.origBalance)*100)):null;
+  var meta=esc(l.lender||'')+(l.lender?' · ':'')+l.apr+'% APR · '+money0(l.minPay)+'/mo'+(due?' · next due '+shortDate(iso(due)):'');
+  var line=base.ok?(base.months?'Paid off <b>'+monthYear(addMonths(TODAY,base.months))+'</b> ('+dur(base.months)+') · about '+money0(base.interest)+' interest still to pay':'Paid off'):(base.reason==='never'?'<span class="bad">The payment does not cover the interest (about '+money0(base.needed)+' a month), so the balance would grow.</span>':'<span class="warn">Add a monthly payment to see a payoff date.</span>');
+  if(loanUI[kind].edit===l.id)return loanForm(kind,l);
+  return '<div class="row wrap" style="align-items:flex-start">'+logo(l.name)+'<div class="grow" style="flex-basis:220px"><div class="nm">'+esc(l.name)+(l.plaid?' <span class="pill good">Linked</span>':'')+'</div><div class="sub">'+meta+'</div><div class="sub" style="margin-top:3px;white-space:normal">'+line+'</div>'+(pct!==null?'<div class="bar" style="margin-top:6px;max-width:320px"><i style="width:'+pct+'%"></i></div><div class="sub">'+pct.toFixed(0)+'% paid off of '+money0(l.origBalance)+'</div>':'')+'</div><div class="amt num">'+money(l.balance)+'</div><div class="actions" style="flex:none;flex-wrap:nowrap"><button class="btn small" data-act="loan-edit" data-kind="'+kind+'" data-id="'+l.id+'">Edit</button><button class="btn small" data-act="acct-del" data-id="'+l.id+'" aria-label="Remove">&times;</button></div></div>';
+}
+function vLoans(kind){
+  var K=LOANKIND[kind],U=loanUI[kind],loans=S.accounts.filter(function(a){return a.type===kind});
+  var head='<div class="top"><h1>'+K.title+'</h1><button class="btn small" data-act="loan-add" data-kind="'+kind+'">Add a loan</button></div>';
+  var msg=U.msg?'<div class="banner"><span>'+esc(U.msg)+'</span></div>':'';
+  var adding=U.adding?'<section class="panel"><h2>Add a '+(kind==='auto'?'car loan':'student loan')+'</h2>'+loanForm(kind,null)+'<p class="sub muted" style="margin:0;font-size:12px">The balance, rate and payment are on your lender\'s website or monthly statement'+(kind==='student'?'. Federal loans often come as several separate loans with different rates, so add each one':'')+'.</p></section>':'';
+  if(!loans.length)return head+msg+adding+(U.adding?'':'<section class="panel"><div class="empty">No '+K.what+' yet. Add what you owe, the rate and the payment to see when it will be paid off and how to pay it off sooner.<div style="margin-top:12px"><button class="btn primary" data-act="loan-add" data-kind="'+kind+'">Add a loan</button></div></div></section>')+loanImportPanel(kind);
+  var total=loans.reduce(function(a,l){return a+l.balance},0),mins=loans.reduce(function(a,l){return a+l.minPay},0),wapr=total>0?loans.reduce(function(a,l){return a+l.balance*l.apr},0)/total:0;
+  var cur=portfolio(loans,0,0),dues=loans.map(function(l){return nextDue(l.dueDay,TODAY)}).filter(Boolean).sort(function(a,b){return a-b});
+  var tiles='<div class="grid tiles">'+tile('You owe',money0(total),loans.length+' loan'+(loans.length===1?'':'s'))+tile('Interest rate',wapr.toFixed(2)+'%',loans.length>1?'Average, weighted by balance':'APR')+tile('You pay',money0(mins)+'<span class="muted" style="font-size:14px">/mo</span>',dues.length?'Next due '+shortDate(iso(dues[0])):'Add a due day to see this')+
+    tile('Paid off',cur.ok?(cur.months?monthYear(addMonths(TODAY,cur.months)):'Done'):'Never',cur.ok?dur(cur.months)+' at today\'s payments':'Payments do not cover the interest')+tile('Interest still to pay',cur.ok?money0(cur.interest):'—','If you only pay what is due')+'</div>';
+  var cards='<section class="panel"><h2>Your loans</h2>'+loans.map(function(l){return loanCard(kind,l)}).join('')+(loans.length>1?'<p class="sub muted" style="margin:10px 0 0;font-size:13px">Extra money works hardest on the highest rate first: '+esc(attackFirst(loans).name)+' ('+attackFirst(loans).apr+'%).</p>':'')+'</section>';
+  var extraV=Math.max(0,+U.extra||0),lumpV=Math.max(0,+U.lump||0),biV=U.bi?mins/12:0,fast=portfolio(loans,extraV+biV,lumpV),changed=extraV>0||lumpV>0||U.bi;
+  var cmp='';
+  if(cur.ok){
+    var f=changed&&fast.ok?fast:cur;
+    cmp='<div class="grid tiles" style="margin-top:12px">'+tile('Current plan',cur.months?monthYear(addMonths(TODAY,cur.months)):'Done',dur(cur.months)+' · '+money0(cur.interest)+' interest')+
+      (changed&&fast.ok?tile('With your changes','<span class="good">'+(fast.months?monthYear(addMonths(TODAY,fast.months)):'Done')+'</span>',dur(fast.months)+' · '+money0(fast.interest)+' interest')+tile('You save','<span class="good">'+money0(cur.interest-fast.interest)+'</span>',(cur.months-fast.months)+' month'+(cur.months-fast.months===1?'':'s')+' sooner'):'')+'</div>';
+  }
+  var presets=[25,50,100,250,500].map(function(x){var r=portfolio(loans,x,0);return '<tr><td><button class="btn small" data-act="loan-preset" data-kind="'+kind+'" data-v="'+x+'">+'+money0(x)+'/mo</button></td><td class="num">'+(r.ok&&cur.ok?monthYear(addMonths(TODAY,r.months)):'—')+'</td><td class="num">'+(r.ok&&cur.ok?(cur.months-r.months)+' mo sooner':'—')+'</td><td class="num good">'+(r.ok&&cur.ok?money0(cur.interest-r.interest):'—')+'</td></tr>'}).join('');
+  var yrs=+U.years>0?Math.round(+U.years*12):0,tgt='';
+  if(yrs){var ex=extraForTarget(loans,yrs,lumpV);tgt=ex===null?'<p class="sub" style="margin:10px 0 0">That is faster than is possible even by paying everything at once. Try a longer time.</p>':ex===0?'<p style="margin:10px 0 0">You are already on track to be done by '+monthYear(addMonths(TODAY,yrs))+' with what you pay now.</p>':'<p style="margin:10px 0 0"><b>To be done by '+monthYear(addMonths(TODAY,yrs))+'</b> pay about <b>'+money0(mins+ex)+' a month</b> in total, which is <b>'+money0(ex)+' more</b> than now.</p>'}
+  var faster='<section class="panel"><h2>Pay it off faster</h2>'+
+    '<div class="form" style="margin-bottom:6px"><label>Extra each month<input id="lx-extra" data-kind="'+kind+'" type="number" min="0" step="5" value="'+(U.extra||'')+'" placeholder="0"></label><label>One-time extra now<input id="lx-lump" data-kind="'+kind+'" type="number" min="0" step="50" value="'+(U.lump||'')+'" placeholder="0"></label><label>Be done in (years)<input id="lx-years" data-kind="'+kind+'" type="number" min="0" step="0.5" value="'+(U.years||'')+'" placeholder="e.g. 3"></label><label style="flex-direction:row;align-items:center;gap:6px"><input id="lx-bi" data-kind="'+kind+'" type="checkbox"'+(U.bi?' checked':'')+'> Half payment every 2 weeks</label></div>'+
+    '<p class="sub muted" style="margin:0 0 6px;font-size:12px">Every-two-weeks payments add up to one extra monthly payment a year. That only helps if your lender applies them as they arrive, so ask first.</p>'+tgt+cmp+
+    '<div style="margin-top:12px">'+loanChart(cur,changed&&fast.ok?fast:cur)+'</div>'+
+    '<table class="maptable" style="margin-top:12px;width:100%"><thead><tr><th>Extra</th><th>Paid off</th><th>Sooner by</th><th>Interest saved</th></tr></thead><tbody>'+presets+'</tbody></table></section>';
+  var ss=loanSurplus(),adv='';
+  if(ss&&ss.surplus>0){
+    var half=Math.floor(ss.surplus*0.5/5)*5,r2=half>0?portfolio(loans,half,0):null;
+    adv=(r2&&r2.ok&&cur.ok?'<p style="margin:0 0 8px;white-space:normal">Your usual leftover money is about <b>'+money0(ss.surplus)+'</b> a month. Putting half of it, <b>'+money0(half)+'</b>, toward '+esc(attackFirst(loans).name)+' would finish <b>'+(cur.months-r2.months)+' months sooner</b> and save about <b>'+money0(cur.interest-r2.interest)+'</b> in interest. <button class="btn small" data-act="loan-preset" data-kind="'+kind+'" data-v="'+half+'">Try it</button></p>':'');
+  }else if(ss)adv='<p style="margin:0 0 8px;white-space:normal">Your spending is about equal to or higher than your income in the last '+ss.months+' month'+(ss.months===1?'':'s')+', so there is no leftover to add. The Monthly report shows where you could cut, and Can I afford it? can plan around that.</p>';
+  else adv='<p class="sub muted" style="margin:0 0 8px">Import a few months of transactions and this will suggest how much extra you can put toward the loan.</p>';
+  var hi=S.accounts.filter(function(a){return isDebt(a)&&a.type!==kind&&a.balance>0&&a.apr>attackFirst(loans).apr});
+  if(hi.length)adv+='<p style="margin:0 0 8px;white-space:normal"><b>Heads up:</b> you also owe '+hi.map(function(a){return esc(a.name)+' at '+a.apr+'%'}).join(', ')+', which costs more than this '+K.what+'. Extra money saves more there first.</p>';
+  if(ss&&ss.liquid!==null&&ss.avgSpend>0&&ss.liquid<ss.avgSpend)adv+='<p style="margin:0 0 8px;white-space:normal"><b>Heads up:</b> your cash ('+money0(ss.liquid)+') is under one month of spending. A small cushion first makes big extra payments safer.</p>';
+  var pay='<section class="panel"><h2>What to pay</h2><p style="margin:0 0 8px"><b>Due each month: '+money0(mins)+'</b>'+(dues.length?' (next on '+shortDate(iso(dues[0]))+')':'')+'.</p>'+adv+'</section>';
+  var groups={},gOrder=[];
+  loans.forEach(function(l){var re=loanMatchRe(l),k=re?re.source:'';if(!k)return;if(!groups[k]){groups[k]=[];gOrder.push(k)}groups[k].push(l)});
+  var seen=gOrder.map(function(k){var ls=groups[k],l=ls[0];var p=paymentsSeen(S.txns,l);if(!p.length)return '';var typ=p[0].amount,diff=ls.length===1&&Math.abs(typ-l.minPay)>5&&l.minPay>0;return '<div style="margin-bottom:10px"><div class="nm">'+esc(ls.map(function(x){return x.name}).join(', '))+'</div>'+p.map(function(x){return '<div class="row"><div class="grow"><div class="sub">'+shortDate(x.date)+' · '+esc(x.name)+'</div></div><div class="amt num">'+money(x.amount)+'</div></div>'}).join('')+(diff?'<p class="sub warn" style="margin:4px 0 0">Your latest payment was '+money(typ)+' but you entered '+money(l.minPay)+'. Edit the loan if the amount changed.</p>':'')+'</div>'}).join('');
+  var seenP=seen?'<section class="panel"><h2>Payments I found<small>in your transactions</small></h2>'+seen+'</section>':'';
+  return head+msg+adding+tiles+cards+faster+pay+seenP+loanImportPanel(kind)+loanTips(kind);
+}
+function attackFirst(loans){return loans.filter(function(l){return l.balance>0}).slice().sort(function(a,b){return b.apr-a.apr||a.balance-b.balance})[0]||loans[0]}
+var plLoading=false;
+function upsertLoan(kind,r){
+  var a=null;
+  if(r.accountId)a=S.accounts.filter(function(x){return x.plaid&&x.plaid.accountId===r.accountId})[0];
+  if(!a&&r.match)a=S.accounts.filter(function(x){return x.id===r.match})[0];
+  var isNew=!a;
+  if(!a){a={id:uid(),type:kind,history:[],name:'Loan',apr:0,minPay:0,balance:0};S.accounts.push(a)}
+  if(isNew||r.name)a.name=String(r.name||a.name).slice(0,60);
+  if(r.lender)a.lender=String(r.lender).slice(0,40);
+  if(r.apr!==null&&r.apr!==undefined&&(isNew||r.apr>0))a.apr=r.apr;
+  if(r.minPay!==null&&r.minPay!==undefined&&(isNew||r.minPay>0))a.minPay=r.minPay;
+  if(r.dueDay>=1&&r.dueDay<=31)a.dueDay=r.dueDay;
+  if(r.origBalance>0)a.origBalance=r.origBalance;
+  if(r.balance!==null&&r.balance!==undefined&&(isNew||r.balance>0||a.balance===0)){
+    if(a.balance!==r.balance||!a.history.length){a.balance=r.balance;var t=iso(TODAY),h=a.history.filter(function(x){return x.date===t})[0];if(h)h.balance=r.balance;else a.history.push({date:t,balance:r.balance})}
+  }
+  if(r.accountId)a.plaid={accountId:r.accountId,itemId:r.itemId};
+  return a;
+}
+function applyLoans(res,itemId){
+  var n=0;
+  var taken={};
+  (res.loans||[]).forEach(function(l){
+    var man=S.accounts.filter(function(a){return a.type==='student'&&!a.plaid&&!taken[a.id]&&l.apr!==null&&Math.abs(a.apr-l.apr)<0.01&&l.balance!==null&&Math.abs(a.balance-l.balance)<=Math.max(50,a.balance*0.2)})[0];
+    if(man)taken[man.id]=1;
+    upsertLoan('student',{match:man?man.id:'',accountId:l.accountId,itemId:itemId,name:man?'':l.name,lender:(PL.items[itemId]&&PL.items[itemId].name)||'',balance:l.balance,apr:l.apr,minPay:l.minPay,dueDay:l.dueDay,origBalance:l.origBalance});n++});
+  return n;
+}
+function loanImportPanel(kind){
+  var K=LOANKIND[kind],U=loanUI[kind],I=U.imp||{stage:'idle'};
+  if(!(window.tally&&window.tally.loan))return '<section class="panel"><h2>Update from a statement</h2><p class="sub muted" style="margin:0">Reading a lender statement with AI works in the Mac app. Here you can add and edit loans by hand.</p></section>';
+  var hasKey=!!(aiSt&&aiSt.hasKey),h='<section class="panel"><h2>Update from a statement<small>'+(kind==='auto'?'Honda Financial or any lender':'Nelnet or any servicer')+'</small></h2>';
+  if(I.stage==='busy')return h+'<div class="empty">'+esc(I.msg||'Working…')+'</div></section>';
+  if(I.stage==='review'){
+    var rows=I.rows.map(function(r,i){
+      return '<div class="row wrap" style="align-items:flex-end;gap:8px"><input type="checkbox" data-lr="on" data-i="'+i+'"'+(r.on?' checked':'')+' aria-label="Include"><div class="form" style="flex:1 1 520px;align-items:end">'+
+       '<label>Name<input data-lr="name" data-i="'+i+'" value="'+esc(r.name)+'" style="width:170px"></label><label>Lender<input data-lr="lender" data-i="'+i+'" value="'+esc(r.lender)+'" style="width:110px"></label>'+
+       '<label>Balance<input data-lr="balance" data-i="'+i+'" type="number" step="0.01" value="'+r.balance+'" style="width:100px"></label><label>APR %<input data-lr="apr" data-i="'+i+'" type="number" step="0.001" value="'+r.apr+'" style="width:80px"></label>'+
+       '<label>Payment<input data-lr="minPay" data-i="'+i+'" type="number" step="0.01" value="'+r.minPay+'" style="width:90px"></label><label>Due day<input data-lr="dueDay" data-i="'+i+'" type="number" min="0" max="31" value="'+r.dueDay+'" style="width:64px"></label></div>'+
+       '<div class="sub" style="flex:1 1 100%;margin-left:28px">'+(r.match?'<span class="pill good">Updates your existing loan</span>':'<span class="pill mute">New loan</span>')+(r.note?' <span class="warn">'+esc(r.note)+'</span>':'')+((r.apr===0||r.minPay===0||r.balance===0)?' <span class="warn">A zero here usually means the statement did not show it. Fill it in or leave it and it will be kept as is.</span>':'')+'</div></div>'}).join('');
+    var n=I.rows.filter(function(r){return r.on}).length;
+    return h+(I.notes?'<p class="sub" style="margin:0 0 8px">'+esc(I.notes)+'</p>':'')+'<p class="sub muted" style="margin:0 0 8px;font-size:13px">Claude read '+I.rows.length+' loan'+(I.rows.length===1?'':'s')+' from '+esc(I.file)+'. Check every number against the document before saving.</p>'+rows+'<div class="actions" style="justify-content:flex-start;margin-top:12px"><button class="btn primary" data-act="loan-imp-ok" data-kind="'+kind+'"'+(n?'':' disabled')+'>Save '+n+' loan'+(n===1?'':'s')+'</button><button class="btn" data-act="loan-imp-cancel" data-kind="'+kind+'">Cancel</button></div></section>';
+  }
+  if(I.msg)h+='<div class="banner" style="margin-bottom:12px"><span>'+esc(I.msg)+'</span></div>';
+  h+='<p class="sub" style="margin:0 0 10px;white-space:normal">Choose a statement or account summary from '+(kind==='auto'?'Honda Financial (a PDF from your online account)':'Nelnet (a PDF statement), or the loan data download from studentaid.gov, which lists each federal loan')+'. Claude reads it and fills in the balance, rate and payment for you to check.</p>'+
+    (hasKey?'<label class="btn" style="cursor:pointer;display:inline-block">Choose a file<input type="file" data-loanfile="'+kind+'" accept=".pdf,.txt,.csv,application/pdf,text/plain" hidden></label>':'<p class="sub muted" style="margin:0">Add your Anthropic API key (AI analysis, on the Transactions tab) to use this.</p>')+
+    '<p class="sub muted" style="margin:10px 0 0;font-size:12px">The file is read on this Mac. Account and card numbers are masked, then the text is sent to Claude with your API key. Nothing is saved until you confirm.</p>';
+  // Plaid: student loans only, and only when keys are set up
+  if(kind==='student'){
+    if(!plSt&&!plLoading){plLoading=true;tcall(T.plaid.status()).then(function(st){plSt=st;if(view==='student')render()}).catch(function(){})}
+    var loanItems=Object.keys(PL.items).filter(function(id){return PL.items[id].loan});
+    if(plSt&&plSt.configured)h+='<div style="margin-top:16px;border-top:1px solid var(--line);padding-top:12px"><div class="nm" style="margin-bottom:6px">Link your servicer with Plaid</div><p class="sub" style="margin:0 0 8px;white-space:normal">Plaid can read loan balances, rates and payments from supported servicers. Whether Nelnet is available for your Plaid account is something only Plaid can confirm, and it needs Plaid\'s loan data access on your account.</p><div class="actions" style="justify-content:flex-start"><button class="btn" data-act="loan-plink"'+(plBusy?' disabled':'')+'>Link a loan servicer</button>'+(loanItems.length?'<button class="btn" data-act="loan-prefresh"'+(plBusy?' disabled':'')+'>Refresh linked loans</button>':'')+'</div>'+(plMsg?'<p class="sub" style="margin:8px 0 0">'+esc(plMsg.m)+'</p>':'')+'</div>';
+    else if(plSt)h+='<p class="sub muted" style="margin:14px 0 0;font-size:12px">To link a servicer with Plaid, add your Plaid keys under Bank sync on the Accounts tab first.</p>';
+  }
+  return h+'</section>';
+}
+
 /* ---------- Bank sync (Mac app) ---------- */
 var T=window.tally||null;
 var PL={items:{}},plSt=null,plBusy='',plMsg=null,plConfirm='';
@@ -1488,6 +1705,7 @@ function plSyncIds(ids){
   var tot={newTx:0,updTx:0,delTx:0,newAcct:0,updAcct:0},errs=[];
   return ids.reduce(function(p,id){return p.then(function(){
     var it=PL.items[id];if(!it)return;
+    if(it.loan)return tcall(T.plaid.loans(id)).then(function(r){var n=applyLoans(r,id);tot.updAcct+=n;it.last=new Date().toISOString();it.error='';save();savePL()}).catch(function(e){it.error=e.message;savePL();errs.push((it.name||'Loan servicer')+': '+e.message)});
     return tcall(T.plaid.sync(id,it.cursor||'')).then(function(r){
       if(S.sample){S.txns=[];S.subs=[];S.goals=[];S.accounts=[];S.budgets={};S.extraPay=0;S.plaidIgnored=[];S.credit=defCredit();S.holdings=[];S.sample=false}
       var c=applySync(r,id);Object.keys(tot).forEach(function(k){tot[k]+=c[k]});
@@ -2029,6 +2247,24 @@ document.addEventListener('click',function(e){
   else if(a==='aside-drop'){dropAside(id)}
   else if(a==='cat-local'){catLocal();return}
   else if(a==='cat-ai'){catAi();return}
+  else if(a==='loan-imp-cancel'){loanUI[b.dataset.kind].imp={stage:'idle'}}
+  else if(a==='loan-imp-ok'){
+    var kk=b.dataset.kind,I2=loanUI[kk].imp,cnt=0;
+    (I2.rows||[]).forEach(function(r){if(!r.on)return;upsertLoan(kk,{match:r.match,name:r.name,lender:r.lender,balance:+r.balance,apr:+r.apr,minPay:+r.minPay,dueDay:+r.dueDay,origBalance:+r.origBalance});cnt++});
+    loanUI[kk].imp={stage:'idle',msg:'Saved '+cnt+' loan'+(cnt===1?'':'s')+'.'};
+  }
+  else if(a==='loan-plink'){
+    plRun(function(){return tcall(T.plaid.linkLoan()).then(function(r){
+      if(r.cancelled){plMsg={t:'ok',m:'Linking cancelled.'};return}
+      PL.items[r.itemId]={name:r.name||'Loan servicer',cursor:'',last:null,error:'',relink:false,loan:true};savePL();
+      return plSyncIds([r.itemId]);
+    })},'Waiting for the servicer window…').then(function(){render()});return;
+  }
+  else if(a==='loan-prefresh'){plRun(function(){return plSyncIds(Object.keys(PL.items).filter(function(id){return PL.items[id].loan}))},'Refreshing…').then(function(){render()});return}
+  else if(a==='loan-add'){loanUI[b.dataset.kind].adding=true;loanUI[b.dataset.kind].edit=''}
+  else if(a==='loan-cancel'){loanUI[b.dataset.kind].adding=false;loanUI[b.dataset.kind].edit=''}
+  else if(a==='loan-edit'){loanUI[b.dataset.kind].edit=id;loanUI[b.dataset.kind].adding=false}
+  else if(a==='loan-preset'){loanUI[b.dataset.kind].extra=b.dataset.v}
   else if(a==='sub-sort'){var sd=resortSubs();catUndo=sd.length?sd.map(function(i2){return [i2,'__sub']}):null;catMsg=sd.length?'Sorted '+sd.length+' transaction'+(sd.length===1?'':'s')+' into sub-categories.':'Nothing to sort.'}
   else if(a==='cat-undo'){(catUndo||[]).forEach(function(p){var t=S.txns.filter(function(x){return x.id===p[0]})[0];if(!t)return;if(p[1]==='__sub')delete t.sub;else t.cat=p[1]});catUndo=null;catMsg='Undone.'}
   else if(a==='up-check'){updCheck(false);return}
@@ -2043,7 +2279,7 @@ document.addEventListener('click',function(e){
   else if(a==='wg-hide'){widgetSet('hideAmounts',b.checked);return}
   else if(a==='acct-out'){signOut();return}
   else if(a==='acct-pw'){acctMode='pw';acctMsg=''}
-  else if(a==='acct-del'){acctMode='del';acctMsg=''}
+  else if(a==='acct-delete-me'){acctMode='del';acctMsg=''}
   else if(a==='acct-cancel'){acctMode='';acctMsg=''}
   else if(a==='cf-remote'){resolveConflict(true);return}
   else if(a==='cf-local'){resolveConflict(false);return}
@@ -2103,6 +2339,33 @@ function thClick(a,b){
 function thBind(m){
   m.querySelectorAll('.txedit').forEach(function(fm){var cs=fm.elements['c'],us=fm.elements['u'];if(cs&&us)cs.onchange=function(){us.innerHTML=subOptions(cs.value,'')};fm.onsubmit=function(e){e.preventDefault();var g=function(n){return fm.elements[n]};var r=editTxn(fm.dataset.id,{date:g('d').value,name:g('n').value,amount:parseFloat(g('a').value),cat:g('c').value,sub:g('u').value},g('s').checked);editTx='';catMsg='';save();render();toast(r?(r.changed?'Saved. Also updated '+r.changed+' similar transaction'+(r.changed===1?'':'s')+'.':'Saved.'):'Could not save.')}});
   m.querySelectorAll('[data-subs]').forEach(function(i){i.onchange=function(){var l=parseSubList(i.value);if(!S.subCats)S.subCats={};if(l.length)S.subCats[i.dataset.subs]=l;else delete S.subCats[i.dataset.subs];save();render();toast('Sub-categories for '+i.dataset.subs+' saved.')}});
+  m.querySelectorAll('[data-loanfile]').forEach(function(inp){inp.onchange=function(){
+    var kind=inp.dataset.loanfile,f=inp.files[0];if(!f)return;
+    var rd=new FileReader();rd.onload=function(){
+      loanUI[kind].imp={stage:'busy',msg:'Reading '+f.name+'…'};render();
+      tcall(T.loan.readFile(rd.result,f.name)).then(function(r){loanUI[kind].imp.msg='Asking Claude to find the loans…';render();return tcall(T.ai.loans(r.textId,kind))}).then(function(res){
+        var rows=(res.loans||[]).map(function(l){
+          var ex=S.accounts.filter(function(a){return a.type===kind&&(a.name.toLowerCase()===l.name.toLowerCase()||(l.apr>0&&a.apr===l.apr&&(!l.lender||(a.lender||'').toLowerCase()===l.lender.toLowerCase())&&Math.abs(a.balance-l.balance)<a.balance*0.5))})[0];
+          return {on:true,match:ex?ex.id:'',name:l.name,lender:l.lender,balance:l.balance,apr:l.apr,minPay:l.minPay,dueDay:l.dueDay,origBalance:l.origBalance,note:l.note};
+        });
+        loanUI[kind].imp=rows.length?{stage:'review',rows:rows,notes:res.notes,file:f.name}:{stage:'idle',msg:'Claude could not find any loans in '+f.name+'. Check that it is a loan statement, or add the loan by hand.'};render();
+      }).catch(function(e){loanUI[kind].imp={stage:'idle',msg:e.message};render()});
+    };rd.readAsArrayBuffer(f);inp.value='';
+  }});
+  m.querySelectorAll('[data-lr]').forEach(function(i2){i2.onchange=function(){
+    var kind=view==='student'?'student':'auto',r=loanUI[kind].imp&&loanUI[kind].imp.rows&&loanUI[kind].imp.rows[+i2.dataset.i];if(!r)return;
+    var f=i2.dataset.lr;if(f==='on')r.on=i2.checked;else if(f==='name'||f==='lender')r[f]=i2.value;else r[f]=parseFloat(i2.value)||0;
+    if(f==='on')render();
+  }});
+  m.querySelectorAll('.loanform').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();var g=function(n){return fm.elements[n].value},kind=fm.dataset.kind,id=fm.dataset.id,bal=parseFloat(g('b')),apr=parseFloat(g('a')),pay=parseFloat(g('p'));
+    if(!(bal>=0)||!(apr>=0)||!(pay>=0)||!g('n').trim())return;
+    var dd=parseInt(g('d'),10),orig=parseFloat(g('o')),a=id?S.accounts.filter(function(x){return x.id===id})[0]:null;
+    if(!a){a={id:uid(),type:kind,history:[]};S.accounts.push(a)}
+    a.name=g('n').trim().slice(0,60);a.lender=g('l').trim().slice(0,40);a.apr=apr;a.minPay=pay;a.dueDay=dd>=1&&dd<=31?dd:0;a.origBalance=orig>0?orig:0;
+    if(a.balance!==bal||!a.history.length){a.balance=bal;var t=iso(TODAY),h=a.history.filter(function(x){return x.date===t})[0];if(h)h.balance=bal;else a.history.push({date:t,balance:bal})}
+    loanUI[kind].adding=false;loanUI[kind].edit='';loanUI[kind].msg='';if(S.sample&&S.accounts.length){}save();render();toast(id?'Loan saved.':'Loan added.')}});
+  ['extra','lump','years'].forEach(function(k){m.querySelectorAll('#lx-'+k).forEach(function(i){i.onchange=function(){loanUI[i.dataset.kind][k]=i.value;render()}})});
+  m.querySelectorAll('#lx-bi').forEach(function(i){i.onchange=function(){loanUI[i.dataset.kind].bi=i.checked;render()}});
   var uf=$('#upform',m);if(uf)uf.onsubmit=function(e){e.preventDefault();window.tally.update.setToken($('#up-token').value).then(function(r){if(r&&r.ok){UP.st.hasToken=true;UP.msg='';render();updCheck(false)}else{UP.msg=(r&&r.error)||'Could not save the token.';toast(UP.msg);render()}})};
   var ta=$('#th-accent',m);
   if(ta){ta.oninput=function(){TH.accent=ta.value.toLowerCase();TH.preset='custom';saveTheme();applyTheme();var h=ta.parentNode.querySelector('.muted');if(h)h.textContent=TH.accent.toUpperCase()};ta.onchange=function(){render()}}
@@ -2264,6 +2527,7 @@ function widgetPush(){
 }
 function widgetInit(){
   updInit();
+  if(window.tally&&window.tally.ai&&window.tally.ai.status&&!aiSt)window.tally.ai.status().then(function(r){if(r&&r.ok&&!aiSt){aiSt=r.data;if(view==='student'||view==='carloan'||view==='transactions')render()}},function(){});
   if(window.tally&&window.tally.glass)window.tally.glass.status().then(function(r){if(r&&r.ok){GS=r.data;if(view==='look')render()}},function(){});
   if(!window.tally||!window.tally.widget)return;
   window.tally.widget.status().then(function(r){if(r&&r.ok){WS=r.data;if(view==='transactions')render()}},function(){});
@@ -2380,7 +2644,7 @@ function accountPanel(){
   if(!HOSTED)return '';
   var f=acctMode==='pw'?'<form data-acct="pw" class="form" style="margin-top:12px;flex-wrap:wrap"><input id="ac-old" type="password" placeholder="Current password" autocomplete="current-password" required><input id="ac-new" type="password" placeholder="New password (10+)" autocomplete="new-password" required><input id="ac-new2" type="password" placeholder="Repeat new password" autocomplete="new-password" required><button class="btn primary">Change password</button><button class="btn" type="button" data-act="acct-cancel">Cancel</button></form>'
    :acctMode==='del'?'<form data-acct="del" class="form" style="margin-top:12px;flex-wrap:wrap"><input id="ac-old" type="password" placeholder="Password to confirm" autocomplete="current-password" required><button class="btn danger">Delete my account and data</button><button class="btn" type="button" data-act="acct-cancel">Cancel</button></form><p class="sub muted" style="font-size:13px">This permanently removes your account and everything stored for it. It cannot be undone.</p>':'';
-  return '<section class="panel"><h2>Account<small>'+esc(AUTH.email)+'</small></h2><p class="sub muted" style="margin:0 0 10px;font-size:13px">Your data is encrypted in this browser before it is saved to your account, so the site owner cannot read it. If you forget your password it cannot be recovered, so keep a backup. <span id="syncstat">'+esc(AUTH.status)+'</span></p><div class="actions" style="justify-content:flex-start"><button class="btn" data-act="acct-pw">Change password</button><button class="btn" data-act="acct-out">Sign out</button><button class="btn danger" data-act="acct-del">Delete account</button></div>'+(acctMsg?'<p class="sub" style="margin:10px 0 0">'+esc(acctMsg)+'</p>':'')+f+'</section>';
+  return '<section class="panel"><h2>Account<small>'+esc(AUTH.email)+'</small></h2><p class="sub muted" style="margin:0 0 10px;font-size:13px">Your data is encrypted in this browser before it is saved to your account, so the site owner cannot read it. If you forget your password it cannot be recovered, so keep a backup. <span id="syncstat">'+esc(AUTH.status)+'</span></p><div class="actions" style="justify-content:flex-start"><button class="btn" data-act="acct-pw">Change password</button><button class="btn" data-act="acct-out">Sign out</button><button class="btn danger" data-act="acct-delete-me">Delete account</button></div>'+(acctMsg?'<p class="sub" style="margin:10px 0 0">'+esc(acctMsg)+'</p>':'')+f+'</section>';
 }
 document.addEventListener('submit',function(e){
   var fm=e.target.closest&&e.target.closest('form[data-acct]');if(!fm)return;e.preventDefault();

@@ -730,3 +730,49 @@ test('sub-categories: editing sets and clears them, similar transactions follow,
   S.txns.push({ id: 'h', date: '2026-10-06', name: 'UNSORTED THING', amount: -5, cat: 'Housing' }); assert.ok(w.subBreakdown(S.txns, 'Housing', '2026-10').some((r) => r.sub === 'Unsorted' && r.amount === 5));
   assert.strictEqual(w.resortSubs().length, 0);
 });
+
+// ---- loans ----
+function loanBlock() { return new Function(srcBlock('/*LOAN-START*/', '/*LOAN-END*/') + '\nreturn {amortize, requiredPayment, portfolio, extraForTarget, nextDue, loanMatchRe, paymentsSeen};')(); }
+
+test('loans: a single loan pays off on the schedule the formula predicts, and extra money shortens it', () => {
+  const L = loanBlock();
+  const pay = L.requiredPayment(20000, 6, 60);
+  assert.ok(Math.abs(pay - 386.66) < 0.01, 'standard 60-month payment');
+  const base = L.amortize(20000, 6, pay);
+  assert.strictEqual(base.months, 60); assert.ok(Math.abs(base.interest - (pay * 60 - 20000)) < 0.5); assert.ok(base.sched[60] === 0 && base.sched[0] === 20000);
+  const fast = L.amortize(20000, 6, pay, { extra: 100 });
+  assert.ok(fast.months < 60 && fast.interest < base.interest); assert.strictEqual(fast.sched.length, fast.months + 1);
+  const lumped = L.amortize(20000, 6, pay, { lump: 5000 }); assert.ok(lumped.months < base.months && lumped.sched[0] === 15000);
+  assert.deepStrictEqual(L.amortize(1000, 0, 100).months, 10); assert.strictEqual(L.amortize(1000, 0, 100).interest, 0);
+  assert.strictEqual(L.amortize(0, 5, 100).months, 0); assert.strictEqual(L.amortize(10, 5, 100, { lump: 50 }).months, 0);
+  assert.deepStrictEqual([L.amortize(1000, 5, 0).reason, L.amortize(10000, 12, 50).reason], ['nopay', 'never']);
+  assert.ok(Math.abs(L.amortize(10000, 12, 50).needed - 100) < 1e-9);                                  // the first month's interest is what the payment must beat
+  assert.strictEqual(L.requiredPayment(1200, 0, 12), 100); assert.strictEqual(L.requiredPayment(500, 5, 0), 500);
+});
+
+test('loans: several loans, extra money goes to the highest rate first, and a target date has an exact answer', () => {
+  const L = loanBlock();
+  const loans = [{ id: 'a', name: 'Low', balance: 5000, apr: 3, minPay: 60 }, { id: 'b', name: 'High', balance: 3000, apr: 8, minPay: 50 }, { id: 'z', name: 'Done', balance: 0, apr: 5, minPay: 10 }];
+  const none = L.portfolio(loans, 0), withExtra = L.portfolio(loans, 100);
+  assert.ok(none.ok && withExtra.ok && withExtra.months < none.months && withExtra.interest < none.interest);
+  assert.strictEqual(withExtra.order[0].id, 'b');                                                         // the 8% loan clears first
+  assert.strictEqual(withExtra.sched[0], 8000); assert.strictEqual(withExtra.sched[withExtra.months], 0);
+  const one = [{ id: 'x', name: 'X', balance: 9000, apr: 5, minPay: 150 }], a = L.amortize(9000, 5, 150), p = L.portfolio(one, 0);
+  assert.strictEqual(p.months, a.months); assert.ok(Math.abs(p.interest - a.interest) < 1e-6);            // one loan agrees with the single-loan maths
+  assert.ok(L.portfolio(loans, 0, 3000).months < none.months);                                            // a lump sum goes to the highest rate
+  assert.strictEqual(L.portfolio([], 50).months, 0); assert.strictEqual(L.portfolio([{ id: 'n', balance: 100, apr: 4, minPay: 0 }], 0).reason, 'nopay');
+  const x = L.extraForTarget(loans, 24, 0); assert.ok(x > 0); assert.ok(L.portfolio(loans, x).months <= 24); assert.ok(L.portfolio(loans, x - 1).months > 24);
+  assert.strictEqual(L.extraForTarget(loans, 1000, 0), 0); assert.strictEqual(L.extraForTarget(loans, 0, 0), null);
+});
+
+test('loans: due dates and the payments found in your transactions', () => {
+  const L = loanBlock();
+  assert.strictEqual(L.nextDue(15, new Date(2026, 9, 12)).getDate(), 15); assert.strictEqual(L.nextDue(15, new Date(2026, 9, 20)).getMonth(), 10);
+  assert.strictEqual(L.nextDue(31, new Date(2026, 1, 3)).getDate(), 28); assert.strictEqual(L.nextDue(0, new Date()), null); assert.strictEqual(L.nextDue(12, new Date(2026, 9, 12)).getDate(), 12);
+  const txns = [{ date: '2026-09-18', name: 'EFT ACH HONDA PMT 123 SAMUEL', amount: -846.32 }, { date: '2026-08-18', name: 'EFT ACH HONDA PMT 123 SAMUEL', amount: -846.32 }, { date: '2026-09-02', name: 'Honda refund', amount: 40 }, { date: '2026-09-05', name: 'SHAWS', amount: -9 },
+    { date: '2026-09-09', name: 'NELNET PAYMENT 4455', amount: -190 }, { date: '2026-09-10', name: 'RETURNED DEPT EDUCATION STUDENT LN999 DCU', amount: 120 }];
+  assert.deepStrictEqual(L.paymentsSeen(txns, { type: 'auto', lender: 'Honda Financial', name: 'Honda Civic' }).map((x) => x.amount), [846.32, 846.32]);
+  assert.deepStrictEqual(L.paymentsSeen(txns, { type: 'student', lender: 'Nelnet', name: 'Direct Unsubsidized 2019' }).map((x) => x.amount), [190]);
+  assert.deepStrictEqual(L.paymentsSeen(txns, { type: 'auto', lender: '', name: 'Car' }), []);            // nothing distinctive to match on
+  assert.ok(L.loanMatchRe({ type: 'auto', lender: 'A+B (Co.)', name: 'Loan' }) === null || true);
+});

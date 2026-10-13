@@ -48,9 +48,9 @@ function handle(channel, fn) {
   });
 }
 
-async function runLink(itemId) {
+async function runLink(itemId, mode) {
   if (linkState) throw new Error('A bank connection window is already open.');
-  const token = await plaid.createLinkToken(itemId);
+  const token = await plaid.createLinkToken(itemId, mode);
   const server = http.createServer((req, res) => {
     if (req.url.split('?')[0] === '/') {
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
@@ -150,6 +150,14 @@ function wireIpc() {
     const id = await plaid.exchange(r.publicToken);
     return { itemId: id, name: r.institution || 'Bank' };
   });
+  handle('plaid:linkLoan', async () => {
+    const r = await runLink(null, 'loan');
+    if (r.cancelled) return { cancelled: true };
+    if (r.error) throw new Error(r.error);
+    const id = await plaid.exchange(r.publicToken);
+    return { itemId: id, name: r.institution || 'Loan servicer' };
+  });
+  handle('plaid:loans', (itemId) => plaid.loans(String(itemId)));
   handle('plaid:sync', (itemId, cursor) => plaid.sync(String(itemId), cursor ? String(cursor) : ''));
   handle('plaid:remove', (itemId) => plaid.removeItem(String(itemId)));
 
@@ -190,6 +198,30 @@ function wireIpc() {
   });
   handle('ai:test', () => ai.testKey());
   handle('ai:categorize', (p) => ai.categorize(p));
+  // A servicer statement for the loan tabs: a PDF (read locally, then masked) or a plain text/CSV file. The text stays in memory until the AI call.
+  handle('loan:text', async (bytes, name) => {
+    const buf = Buffer.from(bytes instanceof ArrayBuffer ? new Uint8Array(bytes) : bytes);
+    if (!buf.length || buf.length > 25 * 1024 * 1024) throw new Error('Choose a file under 25 MB.');
+    let text;
+    if (buf.subarray(0, 5).toString('latin1') === '%PDF-') {
+      try { text = (await parsePdf(buf, {})).text || ''; }
+      catch (e) { throw new Error(/password/i.test(String(e && e.message)) ? 'This PDF is password protected. Export a copy without the password and try again.' : 'Could not read this PDF.'); }
+      if (!text.trim()) throw new Error('This PDF has no text I can read (it may be a scan). Try the text download from the servicer, or type the loan in by hand.');
+    } else {
+      text = buf.toString('utf8');
+      if (/\u0000/.test(text.slice(0, 2000))) throw new Error('That does not look like a text file or PDF.');
+    }
+    const masked = maskText(text).slice(0, 200000);
+    const textId = 'l' + (++textSeq);
+    statementText.set(textId, masked);
+    while (statementText.size > 12) statementText.delete(statementText.keys().next().value);
+    return { textId, chars: masked.length, name: String(name || '').slice(0, 80) };
+  });
+  handle('ai:loans', (textId, kind) => {
+    const text = statementText.get(String(textId));
+    if (!text) throw new Error('That file is no longer in memory. Choose it again.');
+    return ai.loansFromText(text, kind === 'student' ? 'student' : 'auto');
+  });
   handle('ai:statementPdf', (textId, type) => {
     const buf = statementBytes.get(String(textId));
     if (!buf) throw new Error('That statement is no longer in memory. Choose the file again.');
