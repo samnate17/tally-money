@@ -951,3 +951,14 @@ test('Plaid key form reads its fields before the busy redraw wipes them', () => 
   const i = src.indexOf("var keys={clientId:$('#pl-id').value");
   assert.ok(i > 0 && i < src.indexOf('plRun(function(){return tcall(T.plaid.saveKeys(keys))'));
 });
+
+test('a bill linked to a sub-category is paid by transactions filed under it', () => {
+  const B = billsWorld(), today = new Date(2026, 9, 25);
+  const bill = { id: 'b1', name: 'Power', amount: 100, dueDay: 20, cat: 'Housing', sub: 'Electric', match: '' };
+  const it = B.billItems([bill], [])[0];
+  const tx = [{ date: '2026-10-19', name: 'ACH DEBIT 88123 UTIL CO', amount: -96, cat: 'Housing', sub: 'Electric' }, { date: '2026-10-19', name: 'ACH DEBIT WATER', amount: -50, cat: 'Housing', sub: 'Water' }];
+  assert.strictEqual(B.billStatus(it, '2026-10', tx, {}, today).state, 'paid');
+  assert.strictEqual(B.billStatus(it, '2026-10', tx.slice(1), {}, today).state, 'overdue');
+  const noSub = B.billItems([{ ...bill, sub: '' }], [])[0];
+  assert.notStrictEqual(B.billStatus(noSub, '2026-10', tx, {}, today).state, 'paid');
+});

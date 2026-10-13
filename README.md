@@ -225,7 +225,7 @@ Investments tab. Add each holding as ticker, shares and total invested. In the M
 
 ## Bills, loans, "Can I afford it?" and electricity
 
-- **Bills** (Overview box and tab): add recurring bills; each counts as paid when a matching payment shows up in your transactions, or when you mark it. Shows paid vs pending for the month.
+- **Bills** (Overview box and tab): add recurring bills; each counts as paid when a matching payment shows up in your transactions, or when you mark it. Pick a category and sub-category for each bill (for example Housing, Electric): payments filed under that sub-category count toward the bill, so you can link it to the recurring charge in your bank without typing matching words. Shows paid vs pending for the month.
 - **Car loan / Student loans**: balance, rate, payment, payoff date and ways to pay off sooner. Fill in by hand, read a statement with AI (Mac app + API key), or, for student loans, link through Plaid Liabilities. No public Honda Financial or Nelnet API exists that I could find.
 - **Can I afford it?** suggests cutting categories, earning extra, or waiting.
 - **Electricity**: Eversource has no public API. Download your data from eversource.com (My Account, Usage, Green Button, Download My Data; CSV or XML, about 13 months) and choose the file on the Bills tab, or type months in. The app charts use and cost and gives savings advice. The file parsers follow the standard Green Button formats but have only been tested on made-up samples, so tell me if your real file is rejected.

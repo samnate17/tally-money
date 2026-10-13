@@ -676,8 +676,10 @@ function billStatus(it,mk,txns,marks,today){
   var from=new Date(y,m,1),to=new Date(y,m+1,0);
   if(due&&it.dueDay<=7)from=new Date(due.getFullYear(),due.getMonth(),due.getDate()-7);     // a bill due early in the month is often paid in the last days of the one before
   var f=iso(from),t=iso(to);
-  if(it.re)txns.forEach(function(x){
-    if(x.amount>=0||x.date<f||x.date>t||!it.re.test(x.name))return;
+  var subLink=it.source==='bill'&&it.cat&&it.sub;                                   // a bill with a sub-category also matches payments filed under that category and sub-category
+  if(it.re||subLink)txns.forEach(function(x){
+    if(x.amount>=0||x.date<f||x.date>t)return;
+    if(!((it.re&&it.re.test(x.name))||(subLink&&x.cat===it.cat&&x.sub===it.sub)))return;
     var a=-x.amount;if(it.amount>0&&(a<it.amount*0.5||a>it.amount*3))return;                  // utilities vary, but not by that much
     if(!found||x.date>found.date)found={date:x.date,amount:a,name:x.name};
   });
@@ -1851,8 +1853,9 @@ function billForm(b){
   return '<form class="billform panel" data-id="'+(b?b.id:'')+'" style="margin:10px 0"><div class="form" style="align-items:end"><label>Name<input name="n" required maxlength="40" value="'+esc(v.name||'')+'" placeholder="e.g. Eversource electric"></label>'+
    '<label>Usual amount<input name="a" type="number" min="0" step="0.01" required value="'+(v.amount!==undefined?v.amount:'')+'"></label><label>Due day (1 to 31)<input name="d" type="number" min="0" max="31" value="'+(v.dueDay||'')+'"></label>'+
    '<label>Category<select name="c">'+CATS.filter(function(c){return c!=='Income'}).map(function(c){return '<option'+(c===(v.cat||'Housing')?' selected':'')+'>'+esc(c)+'</option>'}).join('')+'</select></label>'+
+   '<label>Sub-category<select name="u">'+subOptions(v.cat||'Housing',v.sub||'')+'</select></label>'+
    '<label>Words in the payment name<input name="m" maxlength="80" value="'+esc(v.match||'')+'" placeholder="e.g. eversource" style="width:170px"></label></div>'+
-   '<p class="sub muted" style="margin:8px 0 0;font-size:12px">The words are how a payment in your transactions is recognised as this bill. Leave them out to mark it paid by hand.</p>'+
+   '<p class="sub muted" style="margin:8px 0 0;font-size:12px">A payment counts toward this bill if its description has one of the words, or, when you pick a sub-category, if it is filed under that category and sub-category (for example Housing, Electric). Leave both out to mark it paid by hand.</p>'+
    '<div class="actions" style="justify-content:flex-start;margin-top:10px"><button class="btn primary small">'+(b?'Save changes':'Add bill')+'</button><button type="button" class="btn small" data-act="bill-cancel">Cancel</button></div></form>';
 }
 function billPill(st){
@@ -1873,7 +1876,7 @@ function vBills(){
     var act=st.state==='paid'?'<button class="btn small" data-act="bill-undo" data-id="'+esc(it.id)+'">'+(st.manual?'Undo':'Not paid?')+'</button>':'<button class="btn small primary" data-act="bill-paid" data-id="'+esc(it.id)+'">Mark paid</button>';
     var more=it.source==='bill'?'<button class="btn small" data-act="bill-edit" data-id="'+esc(it.id)+'">Edit</button><button class="btn small" data-act="bill-del" data-id="'+esc(it.id)+'" aria-label="Remove">&times;</button>':'<span class="sub muted" style="font-size:12px">from your loan</span>';
     var paidNote=st.state==='paid'&&st.found&&Math.abs(st.found.amount-it.amount)>=1?' · paid '+money(st.found.amount):'';
-    return '<div class="row wrap">'+logo(it.name)+'<div class="grow" style="flex-basis:200px"><div class="nm">'+esc(it.name)+'</div><div class="sub">'+(it.dueDay?'Due on the '+it.dueDay+ordinal(it.dueDay):'No due day')+(it.cat?' · '+esc(it.cat):'')+paidNote+'</div></div>'+billPill(st)+'<div class="amt num">'+money(it.amount)+'</div><div class="actions" style="flex:none;flex-wrap:nowrap">'+act+more+'</div></div>';
+    return '<div class="row wrap">'+logo(it.name)+'<div class="grow" style="flex-basis:200px"><div class="nm">'+esc(it.name)+'</div><div class="sub">'+(it.dueDay?'Due on the '+it.dueDay+ordinal(it.dueDay):'No due day')+(it.cat?' · '+esc(it.cat)+(it.sub?' › '+esc(it.sub):''):'')+paidNote+'</div></div>'+billPill(st)+'<div class="amt num">'+money(it.amount)+'</div><div class="actions" style="flex:none;flex-wrap:nowrap">'+act+more+'</div></div>';
   }).join('');
   var list='<section class="panel"><h2>'+monthLabel(month)+'<small>'+sum.paidCount+' of '+sum.count+' paid</small></h2>'+(rows||'<div class="empty">No bills yet. Add rent, electricity, internet, insurance and anything else due every month.</div>')+
     '<div class="actions" style="justify-content:flex-start;margin-top:10px"><button class="btn small primary" data-act="bill-add">Add a bill</button></div>'+(billUI.adding?billForm(null):'')+
@@ -2763,10 +2766,10 @@ function thBind(m){
     if(!/^\d{4}-\d{2}$/.test(mo)||!(k>=0)||(c!==null&&!(c>=0)))return;
     S.energy=energyMerge(S.energy,[{month:mo,kwh:Math.round(k*10)/10,cost:c===null?null:Math.round(c*100)/100,days:Math.max(0,Math.round(parseFloat(g('d'))||0))}]).records;
     energyUI.adding=false;save();render();toast('Month saved.')}});
-  m.querySelectorAll('.billform').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();var g=function(n){return fm.elements[n].value},amt=parseFloat(g('a')),dd=parseInt(g('d'),10),id=fm.dataset.id;
+  m.querySelectorAll('.billform').forEach(function(fm){var bc=fm.elements['c'],bu=fm.elements['u'];if(bc&&bu)bc.onchange=function(){bu.innerHTML=subOptions(bc.value,'')};fm.onsubmit=function(e){e.preventDefault();var g=function(n){return fm.elements[n].value},amt=parseFloat(g('a')),dd=parseInt(g('d'),10),id=fm.dataset.id;
     if(!g('n').trim()||!(amt>=0))return;
     var b=id?S.bills.filter(function(x){return x.id===id})[0]:null;if(!b){b={id:uid()};S.bills.push(b)}
-    b.name=g('n').trim().slice(0,40);b.amount=Math.round(amt*100)/100;b.dueDay=dd>=1&&dd<=31?dd:0;b.cat=g('c');b.sub=guessSub(b.cat,b.name);b.match=g('m').trim().slice(0,80);
+    b.name=g('n').trim().slice(0,40);b.amount=Math.round(amt*100)/100;b.dueDay=dd>=1&&dd<=31?dd:0;b.cat=g('c');b.sub=fm.elements['u']?g('u'):'';b.match=g('m').trim().slice(0,80);
     billUI.adding=false;billUI.edit='';save();render();toast(id?'Bill saved.':'Bill added.')}});
   m.querySelectorAll('.loanform').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();var g=function(n){return fm.elements[n].value},kind=fm.dataset.kind,id=fm.dataset.id,bal=parseFloat(g('b')),apr=parseFloat(g('a')),pay=parseFloat(g('p'));
     if(!(bal>=0)||!(apr>=0)||!(pay>=0)||!g('n').trim())return;
