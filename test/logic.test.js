@@ -962,3 +962,8 @@ test('a bill linked to a sub-category is paid by transactions filed under it', (
   const noSub = B.billItems([{ ...bill, sub: '' }], [])[0];
   assert.notStrictEqual(B.billStatus(noSub, '2026-10', tx, {}, today).state, 'paid');
 });
+
+test('every main tab gets a Refresh button except the ones that have their own', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  assert.ok(src.includes("data-act=\"refresh\"") && src.includes("view!=='invest'&&view!=='look'") && src.includes("a==='refresh'"));
+});

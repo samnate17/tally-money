@@ -230,6 +230,8 @@ Investments tab. Add each holding as ticker, shares and total invested. In the M
 - **Can I afford it?** suggests cutting categories, earning extra, or waiting.
 - **Electricity**: Eversource has no public API. Download your data from eversource.com (My Account, Usage, Green Button, Download My Data; CSV or XML, about 13 months) and choose the file on the Bills tab, or type months in. The app charts use and cost and gives savings advice. The file parsers follow the standard Green Button formats but have only been tested on made-up samples, so tell me if your real file is rejected.
 
+**Refresh button.** Every tab except Investments (which has Refresh prices) and Appearance has a Refresh button beside its title. It updates the date, re-runs the Can I afford it? check on your latest numbers, pulls changes made on another device (hosted accounts), and syncs your linked banks and loans in the Mac app.
+
 ## Tests
 
 `npm test` runs the logic and module tests (payoff math, affordability rules, sync application, PDF statement parsing, AI request and result handling, Plaid request handling) with no network. `xvfb-run -a npx electron --no-sandbox test/pdf-ipc.smoke.js` sends the fixture PDFs through the real app bridge. `xvfb-run -a npx electron --no-sandbox test/link-window.smoke.js` exercises the bank link window.

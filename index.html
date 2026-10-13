@@ -54,6 +54,7 @@ button{cursor:pointer}
 main{min-width:0;display:flex;flex-direction:column;gap:16px}
 .top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .top h1{font-size:30px}
+.top .refresh{margin-right:auto}
 .btn{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:8px 14px;font-weight:500}
 .btn:hover{border-color:var(--accent)}
 .btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:700}
@@ -396,12 +397,27 @@ function nav(){
   $('#rail').innerHTML='<div class="brand"><svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="tl-bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1B2470"/><stop offset="1" stop-color="#05061A"/></linearGradient><linearGradient id="tl-bar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#8FA2FF"/></linearGradient></defs><rect width="24" height="24" fill="url(#tl-bg)"/><g fill="url(#tl-bar)"><rect x="5.2" y="5.4" width="2.1" height="13.2" rx="1.05"/><rect x="8.9" y="5.4" width="2.1" height="13.2" rx="1.05"/><rect x="12.6" y="5.4" width="2.1" height="13.2" rx="1.05"/><rect x="16.3" y="5.4" width="2.1" height="13.2" rx="1.05"/></g><path d="M4.6 17.2 19.4 7.4" stroke="#FFB45A" stroke-width="1.9" stroke-linecap="round" fill="none"/></svg>Tally</div>'+h+'<div class="railfoot"><span>'+(window.tally?'Your data stays on this Mac. Bank sync and AI analysis send data only when you use them.':HOSTED?'Signed in as '+esc(AUTH.email)+'. Your data is encrypted before it leaves this browser.':'Your data stays in this browser. Nothing is uploaded.')+'</span></div>';
   $('#tabbar').innerHTML=items(true);
 }
+var refreshing=false;
+// Refresh: use today's date, re-run the affordability check on the latest data, pull another device's changes, and sync linked banks.
+function refreshAll(){
+  if(refreshing)return;
+  refreshing=true;
+  TODAY=new Date();TODAY.setHours(0,0,0,0);NOWKEY=monthKey(iso(TODAY));if(month>NOWKEY)month=NOWKEY;
+  if(aff.res&&+aff.amount>0){aff.ctx=afCtx(aff.cat);aff.res=assessAfford({type:aff.type,cat:aff.cat,amount:+aff.amount,name:aff.name},aff.ctx)}
+  pullIfNewer();
+  render();
+  var ids=T&&PL&&PL.items?Object.keys(PL.items):[];
+  var p=ids.length?plSyncIds(ids).then(function(){return plMsg&&plMsg.t==='err'?plMsg.m:'Refreshed. '+(plMsg?plMsg.m:'')}):Promise.resolve('Refreshed.');
+  p.catch(function(e){return 'Refreshed, but the bank sync failed: '+e.message}).then(function(m){refreshing=false;render();toast(m)});
+}
 function render(){
   nav();
   var f={bills:vBills,carloan:function(){return vLoans('auto')},student:function(){return vLoans('student')},look:vLook,overview:vOverview,accounts:vAccounts,afford:vAfford,credit:vCredit,invest:vInvest,report:vReport,subscriptions:vSubs,budgets:vBudgets,transactions:vTx,goals:vGoals}[view];
   var cb=HOSTED&&AUTH.conflict?'<div class="banner" id="conflict"><span><b>This account changed on another device.</b> Choose which version to keep.</span><span style="flex:0 0 auto;display:flex;gap:8px"><button class="btn small" data-act="cf-remote">Use the other version</button><button class="btn small primary" data-act="cf-local">Keep this device\'s version</button></span></div>':'';
   var banner=cb+updBanner()+(S.sample?'<div class="banner"><span><b>Example data.</b> These accounts and transactions are made up so you can try everything. Clear them to start with your own, or import a CSV from your bank.</span><button class="btn primary small" data-act="clear">Start fresh</button></div>':'');
-  $('#main').innerHTML=banner+f();
+  var body=f();
+  if(view!=='invest'&&view!=='look')body=body.replace(/(<div class="top"><h1>[^<]*<\/h1>)/,'$1<button class="btn small refresh" data-act="refresh" aria-label="Refresh this page"'+(refreshing?' disabled':'')+'>'+(refreshing?'Refreshing…':'&#8635; Refresh')+'</button>');
+  $('#main').innerHTML=banner+body;
   bindView();thBind($('#main'));afterRender();
 }
 function monthNav(){return '<div class="monthnav"><button class="btn small" data-act="mprev" aria-label="Previous month">&larr;</button><b>'+monthLabel(month)+'</b><button class="btn small" data-act="mnext" aria-label="Next month"'+(month>=NOWKEY?' disabled':'')+'>&rarr;</button></div>'}
@@ -2603,6 +2619,7 @@ document.addEventListener('click',function(e){
   var b=e.target.closest('[data-act]');if(!b)return;
   var a=b.dataset.act,id=b.dataset.id,s=S.subs.filter(function(x){return x.id===id})[0];
   if(a==='mprev')month=shiftMonth(month,-1);
+  else if(a==='refresh'){refreshAll();return}
   else if(a==='mnext'){if(month<NOWKEY)month=shiftMonth(month,1)}
   else if(a==='clear'){S={sample:false,txns:[],subs:[],budgets:{},goals:[],accounts:[],extraPay:0,plaidIgnored:[],credit:defCredit(),holdings:[],customCats:[]};migrate();syncCats();save();toast('Cleared. Add transactions or import a CSV.')}
   else if(a==='sub-cancel'){s.status='cancelled';save();toast('Nice. '+money(perMonth(s))+'/mo saved.')}
