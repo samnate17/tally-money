@@ -189,6 +189,7 @@ function wireIpc() {
     return market.quotes(list);
   });
   handle('ai:test', () => ai.testKey());
+  handle('ai:categorize', (p) => ai.categorize(p));
   handle('ai:statementPdf', (textId, type) => {
     const buf = statementBytes.get(String(textId));
     if (!buf) throw new Error('That statement is no longer in memory. Choose the file again.');

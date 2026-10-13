@@ -109,6 +109,14 @@ Limits and honest caveats:
 - The token can read your private source code. Use a token limited to this one repository, read-only, with an expiry, and revoke it at GitHub if you lose your Mac.
 - Tested: the version and download logic (mocked GitHub), and the install script on a real macOS runner (success, corrupt image, read-only folder). Not tested: a real update on your Mac against your private releases.
 
+## Predicting categories, editing and setting money aside
+
+- **Categories.** Besides Housing, Groceries, Dining and the rest, there are now Travel, Cash and transfers (ATM withdrawals, Cash App, Venmo, Zelle, Apple Cash, remittances, payments to named people) and Debt and loans (car, student and card payments). New and imported transactions are filed by a built-in rule list; custom categories and anything you corrected before take priority.
+- **Predict categories** (Transactions tab, and on the import review screen). *Guess with built-in rules* re-sorts everything filed as Other on your device. *Predict with AI* (Mac app, needs your Anthropic API key) asks Claude about each distinct merchant. It sends only the merchant name (long digit strings masked) and the amount: no dates, account numbers or balances. Results are applied right away with an Undo button, and on the import screen predicted rows are marked AI so you can check them before importing.
+- **Edit.** Every transaction has an Edit button for its date, description, amount (negative is money out) and category. Tick "Use this category for every similar transaction" and the app updates the others with the same merchant name and remembers the choice for future imports and syncs.
+- **Not mine.** For money that landed on your account but was not yours, such as a friend's Cash App or a payment you only passed along, press Not mine. The transaction moves to a Set aside list under the Transactions tab and drops out of spending, income, budgets, forecasts and reports. Restore puts it back. Re-importing the same statement will not bring set-aside items back. Both the set-aside list and remembered category fixes are included in backups.
+- **Limits.** Predictions are guesses, most reliable for well-known merchants; local rules know common names only; AI costs a small amount per request on your key. Transfers between your own accounts are detected on statements that say "transfer to/from checking or savings" and arrive unchecked on the import screen; paying a credit card from checking is not treated as a transfer, so it counts as spending unless you also import and set aside the other side yourself.
+
 ## Accounts for other people (hosted version)
 
 Two ways to let other people use Tally:

@@ -615,3 +615,77 @@ test('theme: colour maths round-trips and every preset gives readable, safe vari
   assert.strictEqual(lo['--glass-pct'], '86%'); assert.strictEqual(hi['--glass-pct'], '46%'); assert.strictEqual(lo['--glass-blur'], '8px'); assert.strictEqual(hi['--glass-blur'], '36px');
   assert.ok(Object.values(t.themeVars({ accent: '#112233', font: 'serif' }, true)).every((x) => !/[;{}<>]/.test(x)));   // nothing that could break out of a style value
 });
+
+// ---- category prediction and corrections ----
+function srcBlock(a, b) { const src = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8'); return src.slice(src.indexOf(a), src.indexOf(b)); }
+function catWorld(S) {
+  const CATS = ['Housing', 'Groceries', 'Dining', 'Transport', 'Subscriptions', 'Shopping', 'Health', 'Entertainment', 'Travel', 'Cash and transfers', 'Debt and loans', 'Gas', 'Other', 'Income'];
+  const normName = (n) => n.toLowerCase().replace(/[#\d*]+/g, '').replace(/\s+/g, ' ').trim(), aiKey = (n) => normName(n) || '(blank)';
+  const ruleCat = (n) => { for (const c of S.customCats || []) for (const r of c.rules) if (new RegExp('(^|[^a-z0-9])' + r + '($|[^a-z0-9])', 'i').test(n)) return c.name; return null; };
+  const TODAY = new Date(2026, 9, 12), iso = (d) => d.toISOString().slice(0, 10);
+  const guessBlock = srcBlock('/*CATEGORY-START*/', '/*CATEGORY-END*/'), editBlock = srcBlock('/*EDIT-START*/', '/*EDIT-END*/');
+  return new Function('S,CATS,aiKey,ruleCat,TODAY,iso', guessBlock + editBlock + '\nreturn {guessCat, learnMerchant, editTxn, setAsideTxn, restoreTxn, dropAside, reguessOther};')(S, CATS, aiKey, ruleCat, TODAY, iso);
+}
+
+test('categories: common statement merchants land in sensible categories', () => {
+  const w = catWorld({ customCats: [], merchantCats: {}, txns: [] });
+  const table = {
+    'GATEWAY FOOD SHOPS WORCESTER MA': 'Groceries', 'US 202 EXPRESS MINI MAR BENNINGTON NH': 'Groceries', 'SHAWS 4694 PETERBOROUGH NH': 'Groceries', '365 MARKET 888 432-329 TROY MI': 'Groceries', 'THE MAPLE STATION MARKE TEMPLE NH': 'Groceries',
+    'BJS FUEL #9058 LEOMINSTER MA': 'Transport', 'E-ZPass MA 877-123 MA': 'Transport', 'SHELL OIL 57444': 'Transport',
+    'POMODOROS PIZZA WORCESTER MA': 'Dining', 'TEMBO GRILL WORCESTER MA': 'Dining', 'MCDONALD S F1234 JAFFREY NH': 'Dining', 'INSOMNIA COOKIES-WORCE 877-632-5564 MA': 'Dining',
+    'APPLE.COM/BILL 866-712-7753 CA': 'Subscriptions', 'ANTHROPIC* CLAUDE SUB ANTHROPIC.COMCA': 'Subscriptions', 'XFINITY MOBILE 888-936-4968 PA': 'Subscriptions', 'Peacock 14D40 Premium 212-555 NY': 'Subscriptions',
+    'EFT ACH COMCAST-XFINITY CABLE SVCS SAMUEL': 'Housing', 'EFT ACH EVERSOURCE WEB_PAY SEP 26': 'Housing',
+    'EFT ACH HONDA PMT 123 SAM': 'Debt and loans', 'EFT ACH APPLECARD GSBANKPAYMENT 123 Sam': 'Debt and loans', 'RETURNED - UNCOLLECTED FUNDS DEPT EDUCATION STUDENT LN123 DCU': 'Debt and loans',
+    'CASH APP*ALISON KIARIE Oakland CA': 'Cash and transfers', 'VENMO *Someone Visa Direct NY': 'Cash and transfers', 'RMTLY* FE9A4 REMITLY.COM WA': 'Cash and transfers', 'APPLE CASH SENT MONEY 1INFINITELOOPCA': 'Cash and transfers',
+    'WITHDRAWAL ATM 0902 1838 47 Blackstone River Rd Worcester MA': 'Cash and transfers', 'WITHDRAWAL ATM 0928 JAPANPOST BANK NAGANO': 'Cash and transfers', 'TRANSFER 123 FROM/TO 2 Payment to JANE DOE': 'Cash and transfers', 'EFT ACH DANIEL KAMAU IAT PAYPAL SAMUEL': 'Cash and transfers',
+    'AGODA.COM SHINAGAWA New York NY': 'Travel', 'JAPAN BULLET TRAIN MINATOKU': 'Travel', 'PRINCE HOTELS TOKYO': 'Travel', 'MOBILE SUICA APPLE V TOKYO': 'Travel',
+    'AMAZON MKTPL*5X8MC5430 Amzn.com/billWA': 'Shopping', 'AMAZON RETA* 532V942L1 WWW.AMAZON.COWA': 'Shopping', 'OLYMPIC WINE SPIRITS 508-123 MA': 'Shopping',
+    'SHOOTERS BAR BILLIARD WORCESTER MA': 'Entertainment', 'CVS/PHARMACY #063 PETERBOROUGH NH': 'Health', 'SOMETHING UNKNOWN LLC': 'Other' };
+  Object.keys(table).forEach((n) => assert.strictEqual(w.guessCat(n), table[n], n));
+  assert.strictEqual(w.guessCat('ACME PAYROLL'), 'Income');
+});
+
+test('categories: your corrections win, custom keyword rules still work, and "Other" forgets', () => {
+  const S = { customCats: [{ name: 'Gas', rules: ['bjs fuel'] }], merchantCats: {}, txns: [] };
+  const w = catWorld(S);
+  assert.strictEqual(w.guessCat('BJS FUEL #9058 LEOMINSTER MA'), 'Gas');
+  w.learnMerchant('SHOOTERS BAR BILLIARD WORCESTER MA', 'Dining'); assert.strictEqual(w.guessCat('SHOOTERS BAR BILLIARD 123 WORCESTER MA'), 'Dining');   // digits and case do not matter
+  w.learnMerchant('BJS FUEL #1', 'Transport'); assert.strictEqual(w.guessCat('BJS FUEL #9058 LEOMINSTER MA'), 'Gas'); // a different merchant string, so the rule above is unaffected
+  w.learnMerchant('BJS FUEL #9058 LEOMINSTER MA', 'Transport'); assert.strictEqual(w.guessCat('BJS FUEL #9058 LEOMINSTER MA'), 'Transport');
+  w.learnMerchant('SHOOTERS BAR BILLIARD WORCESTER MA', 'Other'); assert.strictEqual(w.guessCat('SHOOTERS BAR BILLIARD WORCESTER MA'), 'Entertainment');
+  S.merchantCats.x = 'Deleted Category'; w.learnMerchant('', 'Dining');
+  assert.strictEqual(w.guessCat('x'), 'Other');                                                              // a remembered category that no longer exists is ignored
+});
+
+test('edit: fields change, bad input is ignored, similar transactions follow, set-aside money leaves every list and can come back', () => {
+  const S = { customCats: [], merchantCats: {}, setAside: [], txns: [
+    { id: 'a', date: '2026-09-01', name: 'CASH APP*SAM 1', amount: -20, cat: 'Other' }, { id: 'b', date: '2026-09-03', name: 'CASH APP*SAM 22', amount: -35, cat: 'Other' },
+    { id: 'c', date: '2026-09-05', name: 'CASH APP*SAM CASH OUT', amount: 116.78, cat: 'Income' }, { id: 'd', date: '2026-09-02', name: 'SHAWS', amount: -9, cat: 'Groceries' }] };
+  const w = catWorld(S);
+  const r = w.editTxn('a', { date: 'garbage', name: '  Rent to roommate  ', amount: -25.456, cat: 'Housing' }, false);
+  const a = S.txns.find((x) => x.id === 'a');
+  assert.deepStrictEqual([a.date, a.name, a.amount, a.cat, r.changed], ['2026-09-01', 'Rent to roommate', -25.46, 'Housing', 0]);
+  w.editTxn('a', { name: '', amount: 0, cat: 'Not a category' }, false); assert.deepStrictEqual([a.name, a.amount, a.cat], ['Rent to roommate', -25.46, 'Housing']);
+  const r2 = w.editTxn('b', { cat: 'Cash and transfers' }, true); assert.strictEqual(r2.changed, 0);
+  S.txns.push({ id: 'e', date: '2026-09-08', name: 'CASH APP*SAM 333', amount: -5, cat: 'Other' }, { id: 'f', date: '2026-09-09', name: 'CASH APP*SAM 4', amount: 50, cat: 'Other' });
+  const r3 = w.editTxn('b', { cat: 'Cash and transfers' }, true); assert.strictEqual(r3.changed, 1);              // 'e' follows; money in ('f') is not forced into a spending category
+  assert.strictEqual(S.txns.find((x) => x.id === 'e').cat, 'Cash and transfers'); assert.strictEqual(S.txns.find((x) => x.id === 'f').cat, 'Other');
+  assert.strictEqual(S.merchantCats[Object.keys(S.merchantCats)[0]], 'Cash and transfers');
+  assert.deepStrictEqual(S.txns.map((x) => x.date), S.txns.map((x) => x.date).slice().sort().reverse());          // kept newest first
+  assert.strictEqual(w.editTxn('nope', { cat: 'Dining' }, false), null);
+  const before = S.txns.length;
+  assert.strictEqual(w.setAsideTxn('d'), true); assert.strictEqual(S.txns.length, before - 1); assert.strictEqual(S.setAside[0].id, 'd'); assert.ok(S.setAside[0].asideAt);
+  assert.strictEqual(w.setAsideTxn('d'), false);
+  assert.strictEqual(w.restoreTxn('d'), true); assert.ok(S.txns.some((x) => x.id === 'd') && !('asideAt' in S.txns.find((x) => x.id === 'd')) && S.setAside.length === 0);
+  w.setAsideTxn('c'); assert.strictEqual(w.dropAside('c'), true); assert.ok(!S.txns.some((x) => x.id === 'c') && S.setAside.length === 0);
+});
+
+test('re-guessing the "Other" pile is undoable and leaves money in alone', () => {
+  const S = { customCats: [], merchantCats: {}, setAside: [], txns: [
+    { id: '1', date: '2026-09-01', name: 'POMODOROS PIZZA', amount: -12, cat: 'Other' }, { id: '2', date: '2026-09-01', name: 'MYSTERY LLC', amount: -3, cat: 'Other' },
+    { id: '3', date: '2026-09-01', name: 'ACME PAYROLL', amount: 900, cat: 'Other' }, { id: '4', date: '2026-09-01', name: 'AMAZON REFUND', amount: 5, cat: 'Other' }, { id: '5', date: '2026-09-01', name: 'SHAWS', amount: -4, cat: 'Dining' }] };
+  const w = catWorld(S); const undo = w.reguessOther();
+  assert.deepStrictEqual(S.txns.map((x) => x.cat), ['Dining', 'Other', 'Income', 'Other', 'Dining']);
+  assert.deepStrictEqual(undo.map((p) => p[0]).sort(), ['1', '3']);
+  undo.forEach((p) => { S.txns.find((x) => x.id === p[0]).cat = p[1]; }); assert.deepStrictEqual(S.txns.map((x) => x.cat), ['Other', 'Other', 'Other', 'Other', 'Dining']);
+});

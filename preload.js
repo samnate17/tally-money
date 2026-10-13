@@ -35,6 +35,7 @@ contextBridge.exposeInMainWorld('tally', {
     statement: inv('ai:statement'),
     statementPdf: inv('ai:statementPdf'),
     test: inv('ai:test'),
+    categorize: inv('ai:categorize'),
   },
   pdf: {
     parse: inv('pdf:parse'),

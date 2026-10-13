@@ -373,3 +373,26 @@ test('glass: preferences default on, survive junk, and the addon loader tolerate
   assert.strictEqual(g.applyGlass({ addGlass: () => 3 }, { getNativeWindowHandle: () => Buffer.alloc(8) }, {}), 3);
   assert.strictEqual(g.applyGlass({ addGlass: () => -1 }, { getNativeWindowHandle: () => Buffer.alloc(8) }, {}), -1);
 });
+
+test('ai: categorize sends only names and amounts, keeps keys and categories valid', async () => {
+  let req;
+  const ai = aiWith((r) => { req = r; return final({ stop_reason: 'end_turn', usage: { input_tokens: 10, output_tokens: 5 }, content: [{ type: 'text', text: JSON.stringify({ items: [
+    { key: 'a', category: 'Dining', confidence: 'high', reason: 'Pizza restaurant' },
+    { key: 'b', category: 'Not a category', confidence: 'weird', reason: 'x'.repeat(300) },
+    { key: 'zzz', category: 'Dining', confidence: 'high', reason: 'not asked for' },
+    { key: 'a', category: 'Shopping', confidence: 'high', reason: 'duplicate' }] }) }] }); });
+  const out = await ai.categorize({ categories: ['Dining', 'Shopping', 'Gas'], items: [{ key: 'a', name: 'POMODOROS PIZZA WORCESTER MA 4012888888881881', amount: -11.96, date: '2026-09-06', account: '999' }, { key: 'b', name: 'MYSTERY', amount: 5 }] });
+  assert.deepStrictEqual(out.items.map((x) => [x.key, x.category, x.confidence]), [['a', 'Dining', 'high'], ['b', 'Other', 'low']]);
+  assert.strictEqual(out.items[1].reason.length, 140);
+  const sent = JSON.parse(req.messages[0].content);
+  assert.deepStrictEqual(Object.keys(sent.items[0]).sort(), ['amount', 'key', 'name']);                 // no dates, no account fields
+  assert.ok(!/4012888888881881/.test(req.messages[0].content)); assert.match(sent.items[0].name, /\*\*\*\*1881/);
+  assert.ok(sent.categories.includes('Gas') && sent.categories.includes('Other'));
+  assert.deepStrictEqual(req.output_config.format.schema.properties.items.items.properties.category.enum, sent.categories);
+  assert.match(req.system, /untrusted/);
+  await assert.rejects(ai.categorize({ items: [] }), /nothing to categorize/);
+  await assert.rejects(ai.categorize({ items: new Array(301).fill({ key: 'k', name: 'n', amount: 1 }) }), /Too many/);
+  const none = aiWith(() => final({}), null); await assert.rejects(none.categorize({ items: [{ key: 'a', name: 'n', amount: 1 }] }), /API key/);
+  const refused = aiWith(() => final({ stop_reason: 'refusal', content: [] })); await assert.rejects(refused.categorize({ items: [{ key: 'a', name: 'n', amount: 1 }] }), /declined/);
+  const junk = aiWith(() => final({ stop_reason: 'end_turn', content: [{ type: 'text', text: 'not json' }] })); await assert.rejects(junk.categorize({ items: [{ key: 'a', name: 'n', amount: 1 }] }), /could not read/);
+});
