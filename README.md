@@ -139,6 +139,18 @@ Two tabs, **Car loan** and **Student loans**, track what you owe, the interest r
 - **Honda Financial and Nelnet APIs:** neither company offers a public API for personal accounts that I could find, so there is no direct link. The statement reader above is the closest thing, and works for any lender.
 - **Limits:** interest is calculated monthly on the balance. Federal loans accrue interest daily, so real figures differ by a few dollars. Payoff dates assume you keep paying the amounts shown. This is general information, not financial advice.
 
+## A plan for "Can I afford it?"
+
+When a purchase does not fit yet, the Can I afford it? tab adds a **How to afford it** panel with a concrete plan:
+
+- **Timelines:** for a one-time cost, a table for 1, 3, 6 and 12 months shows how much to set aside each month and where it comes from: your usual leftover money first, then trimming spending, then extra income. Pick a timeline to see its steps, or let the app suggest the soonest one that needs no extra income.
+- **Where you could trim:** categories ranked by what a sensible trim would free up (roughly 25 to 35% of dining, shopping, entertainment and travel, 15% of cash and transfers, less on groceries and transport, nothing on housing or debt payments), with the biggest sub-category named, plus any subscriptions you marked To review. Untick anything you would not cut and the plan updates.
+- **Or earn more:** the extra income still needed each month, converted to hours at the hourly pay you enter (assuming you keep about 80% after tax).
+- **Recurring costs** are judged against keeping at least 10% of your income, and the panel says how much monthly cost would fit.
+- It also says the most you could spend today while keeping a three-month cushion, or a one-month cushion if you accept it.
+
+This is rule-of-thumb arithmetic on your last three full months of transactions, not financial advice.
+
 ## Accounts for other people (hosted version)
 
 Two ways to let other people use Tally:

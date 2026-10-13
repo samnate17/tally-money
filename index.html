@@ -1448,6 +1448,89 @@ function monthlyStack(txns,nowKey,n){
   return keys.map(function(k){var by={},inc=0,sp=0;txns.forEach(function(x){if(monthKey(x.date)!==k)return;if(x.amount>0)inc+=x.amount;else if(x.cat!=='Income'){by[x.cat]=(by[x.cat]||0)-x.amount;sp-=x.amount}});return {k:k,income:inc,spend:sp,by:by}});
 }
 /*BUDGET-END*/
+/*PLAN-START*/
+// A plan for affording something: how big the gap is, what could close it (leftover money, trimming spending, earning more) and how long it takes.
+var TRIM_PCT={'Dining':.25,'Shopping':.30,'Entertainment':.30,'Travel':.35,'Cash and transfers':.15,'Subscriptions':.20,'Other':.15,'Groceries':.08,'Transport':.07,'Health':0,'Housing':0,'Debt and loans':0,'Income':0};
+var ESSENTIAL_CATS={'Groceries':1,'Transport':1};
+function round5(n){return Math.round(n/5)*5}
+function affordPlan(a){
+  var upfront=Math.max(0,+a.upfront||0),monthly=Math.max(0,+a.monthly||0),income=Math.max(0,+a.income||0),spend=Math.max(0,+a.spend||0),surplus=income-spend,
+    liquid=a.liquid===null||a.liquid===undefined?null:+a.liquid,upcoming=Math.max(0,+a.upcoming||0),rate=Math.max(0,+a.hourly||0),take=a.takeHome>0&&a.takeHome<=1?a.takeHome:0.8,skip=a.skip||{};
+  var out={kind:upfront>0?'upfront':monthly>0?'monthly':'none',surplus:surplus,rate:rate,takeHome:take};
+  // the gap
+  if(upfront>0){
+    var cushion=3*spend;
+    out.comfortGap=liquid===null?Math.max(0,upfront-Math.max(0,surplus)):Math.max(0,upfront+cushion+upcoming-liquid);
+    out.minGap=liquid===null?Math.max(0,upfront-Math.max(0,surplus)):Math.max(0,upfront+spend+upcoming-liquid);
+    out.gap=out.comfortGap;
+    if(liquid!==null){out.affordableComfortably=Math.max(0,liquid-cushion-upcoming);out.affordableStretch=Math.max(0,liquid-spend-upcoming)}
+  }else if(monthly>0){
+    out.gap=Math.max(0,0.1*income-(surplus-monthly));     // enough to keep 10% of income after the new cost
+    out.breakEven=Math.max(0,monthly-surplus);
+    out.affordableMonthly=Math.max(0,surplus-0.1*income);
+  }else out.gap=0;
+  // what could be trimmed
+  var cuts=[];
+  (a.cats||[]).forEach(function(c){
+    var pct=TRIM_PCT[c.cat]!==undefined?TRIM_PCT[c.cat]:0.15;
+    if(!(c.avg>=20)||!(pct>0))return;
+    var save=round5(c.avg*pct);if(save<5)return;
+    var top=(c.subs||[]).filter(function(x){return x.avg>0&&x.sub!=='Unsorted'}).sort(function(p,q){return q.avg-p.avg})[0];
+    cuts.push({id:c.cat,label:c.cat,avg:c.avg,pct:pct,save:save,essential:!!ESSENTIAL_CATS[c.cat],hint:top&&top.avg>=0.35*c.avg?top.sub+' is the biggest part ('+Math.round(top.avg)+' a month)':'',on:!skip[c.cat]});
+  });
+  if(a.flaggedSubs>0)cuts.push({id:'__subs',label:'Subscriptions you marked To review',avg:a.flaggedSubs,pct:1,save:Math.round(a.flaggedSubs),essential:false,hint:'Cancel the ones you do not use',on:!skip.__subs});
+  cuts.sort(function(p,q){return (p.essential-q.essential)||(q.save-p.save)});
+  out.cuts=cuts;
+  var cutTotal=cuts.filter(function(c){return c.on}).reduce(function(n,c){return n+c.save},0);
+  out.cutTotal=cutTotal;
+  // how the monthly amount needed splits between leftover money, trimming and extra income
+  function split(need){
+    var left=upfront>0?Math.max(0,surplus):0;      // for a monthly cost the leftover money is already inside the gap, so only trimming and earning can close it
+    var fromLeft=Math.min(need,left),r1=need-fromLeft,fromCuts=Math.min(r1,cutTotal),r2=r1-fromCuts;
+    return {perMonth:need,fromLeftover:fromLeft,fromCuts:fromCuts,fromIncome:r2,hours:rate>0?r2/(rate*take):null};
+  }
+  if(upfront>0){
+    out.scenarios=[1,3,6,12].map(function(n){var r=split(out.gap/n);r.months=n;return r});
+    var left=Math.max(0,surplus);
+    out.monthsLeftoverOnly=out.gap<=0?0:(left>0?Math.ceil(out.gap/left):null);
+    out.monthsWithCuts=out.gap<=0?0:(left+cutTotal>0?Math.ceil(out.gap/(left+cutTotal)):null);
+    var pick=null;
+    if(a.horizon)out.scenarios.forEach(function(sc){if(sc.months===+a.horizon)pick=sc});
+    var forced=!!pick;
+    if(!pick)out.scenarios.forEach(function(sc){if(!pick&&sc.fromIncome<=0.5)pick=sc});
+    out.chosen=pick||out.scenarios[out.scenarios.length-1];out.needsIncome=forced?out.chosen.fromIncome>0.5:(!pick&&out.gap>0);out.horizonForced=forced;
+  }else if(monthly>0){
+    out.relief=split(out.gap);
+    out.reliefBreakEven=split(out.breakEven);
+    out.needsIncome=out.relief.fromIncome>0.5;
+  }
+  // plain-language steps
+  var m0=function(v){return '$'+Math.round(v).toLocaleString('en-US')},st=[];
+  if(out.kind==='upfront'){
+    if(out.gap<=0)st.push('You already have enough to pay '+m0(upfront)+' and keep a three-month cushion. No changes needed.');
+    else{
+      var ch=out.chosen;
+      st.push((out.horizonForced?'To have it in '+ch.months+' month'+(ch.months===1?'':'s')+':':out.needsIncome?'Aim to have it in 12 months:':'You could have it in '+ch.months+' month'+(ch.months===1?'':'s')+':')+' set aside '+m0(ch.perMonth)+' a month.');
+      if(ch.fromLeftover>=1)st.push(m0(ch.fromLeftover)+' of that is the money you usually have left over.');
+      var on=cuts.filter(function(c){return c.on}).slice(0,3);
+      if(ch.fromCuts>=1)st.push(m0(ch.fromCuts)+' a month from trimming spending'+(on.length?', for example '+on.map(function(c){return c.label+' by '+m0(c.save)}).join(', '):'')+'.');
+      if(ch.fromIncome>=1)st.push('The remaining '+m0(ch.fromIncome)+' a month would have to come from earning more'+(ch.hours!==null?': about '+Math.ceil(ch.hours)+' extra hours a month at '+m0(rate)+' an hour (assuming you keep about '+Math.round(take*100)+'% after tax)':'')+'.');
+      if(out.minGap<out.comfortGap)st.push('If you accept a thinner cushion (one month of spending instead of three), the gap shrinks from '+m0(out.comfortGap)+' to '+m0(out.minGap)+'.');
+    }
+  }else if(out.kind==='monthly'){
+    if(out.gap<=0)st.push('Adding '+m0(monthly)+' a month still leaves you about '+m0(surplus-monthly)+' a month, at least 10% of your income. No changes needed.');
+    else{
+      var r=out.relief;
+      st.push('To keep at least 10% of your income after paying '+m0(monthly)+' a month, you need to find about '+m0(out.gap)+' a month.');
+      var on2=cuts.filter(function(c){return c.on}).slice(0,3);
+      if(r.fromCuts>=1)st.push(m0(r.fromCuts)+' a month could come from trimming'+(on2.length?': '+on2.map(function(c){return c.label+' '+m0(c.save)}).join(', '):'')+'.');
+      if(r.fromIncome>=1)st.push('That still leaves '+m0(r.fromIncome)+' a month, which would take about '+(r.hours!==null?Math.ceil(r.hours)+' extra hours a month at '+m0(rate)+' an hour':'more income')+', or a cheaper option.');
+    }
+  }
+  out.steps=st;
+  return out;
+}
+/*PLAN-END*/
 /*AFFORD-START*/
 function afCtx(cat){
   var ks=[],i,inc=0,sp=0,n=0;
@@ -1457,7 +1540,7 @@ function afCtx(cat){
   var up=0;activeSubs().forEach(function(s){var d=nextDate(s);if(dayDiff(TODAY,d)<=30)up+=s.amount});
   var hd=null;S.accounts.forEach(function(a){if(isDebt(a)&&a.balance>0&&a.apr>=10){hd=hd||{total:0,maxApr:0};hd.total+=a.balance;hd.maxApr=Math.max(hd.maxApr,a.apr)}});
   var bl=null;if(cat&&S.budgets[cat]>0)bl=S.budgets[cat]-(spendBy(NOWKEY).by[cat]||0);
-  return {months:n,avgIncome:n?inc/n:0,avgSpend:n?sp/n:0,liquid:liquid,upcoming:up,highDebt:hd,budgetLeft:bl};
+  return {months:n,ks:ks,avgIncome:n?inc/n:0,avgSpend:n?sp/n:0,liquid:liquid,upcoming:up,highDebt:hd,budgetLeft:bl};
 }
 function assessAfford(inp,c){
   var amt=inp.amount,monthly=inp.type==='monthly'?amt:inp.type==='yearly'?amt/12:0,upfront=inp.type==='once'||inp.type==='yearly'?amt:0;
@@ -1505,7 +1588,34 @@ function assessAfford(inp,c){
   return {level:level,title:title,reasons:R,wait:wait,stats:st,surplus:surplus};
 }
 /*AFFORD-END*/
-var aff={type:'once',cat:'Shopping',amount:'',name:'',res:null,ctx:null};
+var aff={type:'once',cat:'Shopping',amount:'',name:'',res:null,ctx:null,horizon:0,rate:20,skip:{}};
+function affPlanInput(){
+  var c=aff.ctx,amt=+aff.amount,ks=c.ks||[],by={},subs={};
+  ks.forEach(function(k){var sp=spendBy(k).by;Object.keys(sp).forEach(function(cat){by[cat]=(by[cat]||0)+sp[cat]})});
+  S.txns.forEach(function(x){if(x.amount<0&&ks.indexOf(monthKey(x.date))>-1&&x.cat!=='Income'){var m=subs[x.cat]=subs[x.cat]||{};var n=x.sub||'Unsorted';m[n]=(m[n]||0)-x.amount}});
+  var cats=Object.keys(by).map(function(cat){return {cat:cat,avg:by[cat]/Math.max(1,ks.length),subs:Object.keys(subs[cat]||{}).map(function(n){return {sub:n,avg:subs[cat][n]/Math.max(1,ks.length)}})}});
+  var flagged=activeSubs().filter(function(x){return x.status==='flagged'}).reduce(function(a,x){return a+perMonth(x)},0);
+  return {upfront:aff.type==='once'||aff.type==='yearly'?amt:0,monthly:aff.type==='monthly'?amt:0,income:c.avgIncome,spend:c.avgSpend,liquid:c.liquid,upcoming:c.upcoming,cats:cats,hourly:+aff.rate||0,takeHome:0.8,skip:aff.skip,flaggedSubs:flagged,horizon:aff.horizon||0};
+}
+function affPlanPanel(){
+  var c=aff.ctx;if(!c||!c.months)return '';
+  var p=affordPlan(affPlanInput());
+  if(p.kind==='none'||p.gap<=0)return '';
+  var h='<section class="panel"><h2>How to afford it</h2>';
+  h+='<ol style="margin:0 0 12px;padding-left:20px">'+p.steps.map(function(x){return '<li style="margin:4px 0;white-space:normal">'+esc(x)+'</li>'}).join('')+'</ol>';
+  if(p.kind==='upfront'){
+    h+='<div class="sub muted" style="margin-bottom:6px">Compare timelines (the gap to a three-month cushion is '+money0(p.comfortGap)+'):</div><table class="maptable" style="width:100%;margin-bottom:12px"><thead><tr><th>Be ready in</th><th>Set aside a month</th><th>From leftover</th><th>From trimming</th><th>From earning</th></tr></thead><tbody>'+
+     p.scenarios.map(function(sc){var on=p.horizonForced&&p.chosen.months===sc.months;return '<tr'+(on?' style="font-weight:700"':'')+'><td><button class="btn small'+(on?' primary':'')+'" data-act="af-h" data-v="'+sc.months+'">'+sc.months+' mo</button></td><td class="num">'+money0(sc.perMonth)+'</td><td class="num">'+money0(sc.fromLeftover)+'</td><td class="num">'+money0(sc.fromCuts)+'</td><td class="num '+(sc.fromIncome>0.5?'warn':'good')+'">'+(sc.fromIncome>0.5?money0(sc.fromIncome)+(sc.hours!==null?' (~'+Math.ceil(sc.hours)+' h)':''):'none')+'</td></tr>'}).join('')+'</tbody></table>'+
+     (p.horizonForced?'<button class="btn small" data-act="af-h" data-v="0" style="margin-bottom:12px">Back to the suggested timeline</button>':'');
+  }
+  var cutRows=p.cuts.map(function(cu){return '<label class="row" style="cursor:pointer;gap:10px"><input type="checkbox" data-act="af-cut" data-id="'+esc(cu.id)+'"'+(cu.on?' checked':'')+'><div class="grow"><div class="nm">'+esc(cu.label)+(cu.essential?' <span class="pill mute">essential, smaller</span>':'')+'</div><div class="sub" style="white-space:normal">You average '+money0(cu.avg)+' a month'+(cu.pct<1?'; a '+Math.round(cu.pct*100)+'% trim':'')+(cu.hint?'. '+esc(cu.hint):'')+'</div></div><div class="amt num good">'+money0(cu.save)+'/mo</div></label>'}).join('');
+  h+='<h3 style="font-size:15px;margin:6px 0 4px">Where you could trim<small class="muted" style="font-family:var(--font-body);font-weight:400"> untick what you would not cut</small></h3>'+(cutRows||'<div class="empty">Nothing stands out to trim in your recent spending.</div>')+
+     '<div class="grid tiles" style="margin-top:12px">'+tile('Trimming adds',money0(p.cutTotal),'Per month, of what is ticked')+tile('Leftover now',(p.surplus<0?'-':'')+money0(Math.abs(p.surplus)),'Income minus spending, per month')+'</div>';
+  h+='<h3 style="font-size:15px;margin:14px 0 4px">Or earn more</h3><div class="form" style="margin-bottom:6px"><label>Your hourly pay<input id="af-rate" type="number" min="0" step="1" value="'+(aff.rate||'')+'"></label></div><p class="sub" style="margin:0;white-space:normal">Hours are worked out assuming you keep about 80% of extra pay after tax. Overtime, a few extra shifts, a short side job or selling things you no longer use all count; the table above shows how many hours each timeline would take.</p>';
+  if(p.kind==='upfront'&&p.affordableComfortably!==undefined)h+='<h3 style="font-size:15px;margin:14px 0 4px">What you could buy today</h3><p style="margin:0;white-space:normal">Without touching your cushion, up to <b>'+money0(p.affordableComfortably)+'</b> (keeping three months of spending) or <b>'+money0(p.affordableStretch)+'</b> if you accept a one-month cushion. If the price is above that, a cheaper option or waiting costs nothing.</p>';
+  if(p.kind==='monthly')h+='<h3 style="font-size:15px;margin:14px 0 4px">What you could add</h3><p style="margin:0;white-space:normal">A new monthly cost of up to <b>'+money0(p.affordableMonthly)+'</b> fits while still keeping 10% of your income.</p>';
+  return h+'<p class="sub muted" style="margin:14px 0 0;font-size:12px">Suggested trims are rules of thumb applied to your last '+c.months+' month'+(c.months===1?'':'s')+' (about 25 to 35% of dining, shopping and entertainment, less on essentials, none on housing). They are starting points, not advice.</p></section>';
+}
 function vAfford(){
   var cats=CATS.filter(function(c){return c!=='Income'});
   var r=aff.res,c=aff.ctx,out='';
@@ -1522,7 +1632,7 @@ function vAfford(){
   var hasData=S.txns.length>0;
   return '<div class="top"><h1>Can I afford it?</h1></div>'+
    '<section class="panel"><form class="form" id="afform"><label>What is it? (optional)<input id="af-name" value="'+esc(aff.name)+'" placeholder="e.g. Laptop"></label><label>Type<select id="af-kind"><option value="once"'+(aff.type==='once'?' selected':'')+'>One-time purchase</option><option value="monthly"'+(aff.type==='monthly'?' selected':'')+'>Monthly cost</option><option value="yearly"'+(aff.type==='yearly'?' selected':'')+'>Yearly cost</option></select></label><label>Category<select id="af-cat">'+cats.map(function(k){return '<option'+(k===aff.cat?' selected':'')+'>'+k+'</option>'}).join('')+'</select></label><label>Cost<input id="af-amt" type="number" min="0.01" step="0.01" required placeholder="0.00" value="'+esc(aff.amount)+'"></label><button class="btn primary">Check</button></form>'+
-   (hasData?'':'<p class="sub muted" style="margin:12px 0 0;font-size:13px">Add or import some transactions first so there is income and spending to compare against.</p>')+'</section>'+out;
+   (hasData?'':'<p class="sub muted" style="margin:12px 0 0;font-size:13px">Add or import some transactions first so there is income and spending to compare against.</p>')+'</section>'+out+(r?affPlanPanel():'');
 }
 
 
@@ -2173,7 +2283,7 @@ function bindView(){
   var q=$('#q',m);if(q)q.oninput=function(){filter.q=q.value;var pos=q.selectionStart;render();var n=$('#q');n.focus();n.setSelectionRange(pos,pos)};
   var fc=$('#fcat',m);if(fc)fc.onchange=function(){filter.cat=fc.value;render()};
   var aff2=$('#afform',m);
-  if(aff2)aff2.onsubmit=function(e){e.preventDefault();aff.type=$('#af-kind').value;aff.cat=$('#af-cat').value;aff.name=$('#af-name').value.trim();aff.amount=$('#af-amt').value;var amt=parseFloat(aff.amount);if(!(amt>0))return;aff.ctx=afCtx(aff.cat);aff.res=assessAfford({type:aff.type,cat:aff.cat,amount:amt,name:aff.name},aff.ctx);render()};
+  if(aff2)aff2.onsubmit=function(e){e.preventDefault();aff.type=$('#af-kind').value;aff.cat=$('#af-cat').value;aff.name=$('#af-name').value.trim();aff.amount=$('#af-amt').value;var amt=parseFloat(aff.amount);if(!(amt>0))return;aff.horizon=0;aff.skip={};aff.ctx=afCtx(aff.cat);aff.res=assessAfford({type:aff.type,cat:aff.cat,amount:amt,name:aff.name},aff.ctx);render()};
   if($('#plaidpanel',m)){if(plSt)renderPl();else loadPl()}
   if($('#pdfpanel',m)){renderPdf();if(!aiSt)loadAi()}
   if($('#aipanel',m)){if(aiSt)renderAi();else loadAi()}
@@ -2247,6 +2357,8 @@ document.addEventListener('click',function(e){
   else if(a==='aside-drop'){dropAside(id)}
   else if(a==='cat-local'){catLocal();return}
   else if(a==='cat-ai'){catAi();return}
+  else if(a==='af-h'){aff.horizon=+b.dataset.v||0}
+  else if(a==='af-cut'){aff.skip[b.dataset.id]=!b.checked}
   else if(a==='loan-imp-cancel'){loanUI[b.dataset.kind].imp={stage:'idle'}}
   else if(a==='loan-imp-ok'){
     var kk=b.dataset.kind,I2=loanUI[kk].imp,cnt=0;
@@ -2352,6 +2464,7 @@ function thBind(m){
       }).catch(function(e){loanUI[kind].imp={stage:'idle',msg:e.message};render()});
     };rd.readAsArrayBuffer(f);inp.value='';
   }});
+  var ar=$('#af-rate',m);if(ar)ar.onchange=function(){aff.rate=parseFloat(ar.value)||0;render()};
   m.querySelectorAll('[data-lr]').forEach(function(i2){i2.onchange=function(){
     var kind=view==='student'?'student':'auto',r=loanUI[kind].imp&&loanUI[kind].imp.rows&&loanUI[kind].imp.rows[+i2.dataset.i];if(!r)return;
     var f=i2.dataset.lr;if(f==='on')r.on=i2.checked;else if(f==='name'||f==='lender')r[f]=i2.value;else r[f]=parseFloat(i2.value)||0;

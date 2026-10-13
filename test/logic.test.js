@@ -776,3 +776,60 @@ test('loans: due dates and the payments found in your transactions', () => {
   assert.deepStrictEqual(L.paymentsSeen(txns, { type: 'auto', lender: '', name: 'Car' }), []);            // nothing distinctive to match on
   assert.ok(L.loanMatchRe({ type: 'auto', lender: 'A+B (Co.)', name: 'Loan' }) === null || true);
 });
+
+// ---- affordability plan ----
+function planBlock() { return new Function(srcBlock('/*PLAN-START*/', '/*PLAN-END*/') + '\nreturn {affordPlan};')().affordPlan; }
+const baseCats = [{ cat: 'Dining', avg: 300, subs: [{ sub: 'Takeout and delivery', avg: 180 }, { sub: 'Restaurants', avg: 120 }] }, { cat: 'Shopping', avg: 200, subs: [] }, { cat: 'Groceries', avg: 500, subs: [] }, { cat: 'Housing', avg: 1500, subs: [] }, { cat: 'Entertainment', avg: 10, subs: [] }, { cat: 'Transport', avg: 200, subs: [] }];
+
+test('plan: a purchase you cannot afford yet gets a gap, trims ranked by size, and an income need only when trimming is not enough', () => {
+  const plan = planBlock();
+  const p = plan({ upfront: 3000, income: 4000, spend: 3500, liquid: 11000, upcoming: 100, cats: baseCats, hourly: 25, flaggedSubs: 30 });
+  assert.strictEqual(p.kind, 'upfront'); assert.strictEqual(p.comfortGap, 3000 + 10500 + 100 - 11000);            // 2,600 short of a three-month cushion
+  assert.strictEqual(p.minGap, 0);                                                                           // but fine if one month of cushion is enough
+  assert.deepStrictEqual(p.cuts.map((c) => [c.id, c.save]), [['Dining', 75], ['Shopping', 60], ['__subs', 30], ['Groceries', 40], ['Transport', 15]]);   // discretionary first, essentials last
+  assert.strictEqual(p.cuts[0].hint, 'Takeout and delivery is the biggest part (180 a month)');
+  assert.ok(!p.cuts.some((c) => c.id === 'Housing' || c.id === 'Entertainment'));                            // housing is not trimmed; tiny categories are skipped
+  assert.strictEqual(p.cutTotal, 220); assert.strictEqual(p.surplus, 500);
+  const s3 = p.scenarios.find((x) => x.months === 3);
+  assert.ok(Math.abs(s3.perMonth - 2600 / 3) < 1e-9); assert.ok(Math.abs(s3.fromLeftover - 500) < 1e-9); assert.strictEqual(s3.fromCuts, 220); assert.ok(Math.abs(s3.fromIncome - (2600 / 3 - 720)) < 1e-9);   // three months needs a bit of extra income
+  const s1 = p.scenarios.find((x) => x.months === 1); assert.ok(s1.fromIncome > 0 && Math.abs(s1.hours - s1.fromIncome / (25 * 0.8)) < 1e-9);
+  const s6 = p.scenarios.find((x) => x.months === 6); assert.ok(Math.abs(s6.fromLeftover - 2600 / 6) < 1e-9 && s6.fromCuts === 0 && s6.fromIncome === 0);   // six months is covered by leftover money alone
+  assert.strictEqual(p.chosen.months, 6); assert.strictEqual(p.needsIncome, false);
+  assert.ok(p.steps.some((x) => /6 months/.test(x)) && !p.steps.some((x) => /trimming spending/.test(x)) && p.steps.some((x) => /thinner cushion/.test(x)));
+  assert.strictEqual(p.monthsLeftoverOnly, 6); assert.strictEqual(p.monthsWithCuts, 4);
+  assert.strictEqual(p.affordableComfortably, 400); assert.strictEqual(p.affordableStretch, 7400);
+});
+
+test('plan: turning trims off, no leftover money and unaffordable amounts push the answer toward earning more', () => {
+  const plan = planBlock();
+  const skipAll = {}; baseCats.forEach((c) => { skipAll[c.cat] = true; });
+  const q = plan({ upfront: 6000, income: 3000, spend: 3000, liquid: 2000, upcoming: 0, cats: baseCats, hourly: 20, skip: skipAll });
+  assert.strictEqual(q.cutTotal, 0); assert.strictEqual(q.monthsLeftoverOnly, null); assert.strictEqual(q.monthsWithCuts, null);
+  assert.strictEqual(q.needsIncome, true); assert.strictEqual(q.chosen.months, 12);
+  assert.ok(q.chosen.fromIncome > 0 && Math.abs(q.chosen.hours - q.chosen.fromIncome / 16) < 1e-9);               // $20 an hour, 80% kept
+  assert.ok(q.steps.some((x) => /earning more/.test(x) && /extra hours/.test(x)));
+  assert.ok(plan({ upfront: 6000, income: 3000, spend: 3000, liquid: 2000, cats: [], hourly: 0 }).chosen.hours === null);   // no hourly rate: say "more income" instead of hours
+  const rich = plan({ upfront: 100, income: 4000, spend: 2000, liquid: 20000, cats: baseCats }); assert.strictEqual(rich.gap, 0); assert.ok(/No changes needed/.test(rich.steps[0]));
+  const noBal = plan({ upfront: 1500, income: 3000, spend: 2500, liquid: null, cats: [] }); assert.strictEqual(noBal.gap, 1000);   // without balances, compare with one month's leftover
+});
+
+test('plan: a monthly cost is judged against keeping 10% of income', () => {
+  const plan = planBlock();
+  const m = plan({ monthly: 150, income: 4000, spend: 3500, cats: baseCats, hourly: 20 });
+  assert.strictEqual(m.kind, 'monthly'); assert.strictEqual(m.gap, 0.1 * 4000 - (500 - 150)); assert.strictEqual(m.breakEven, 0);
+  assert.ok(Math.abs(m.relief.perMonth - 50) < 1e-9 && m.relief.fromLeftover === 0 && m.relief.fromCuts === 50 && m.relief.fromIncome === 0 && m.affordableMonthly === 100);   // $50 short of the 10% target, closed by trimming
+  const big = plan({ monthly: 800, income: 4000, spend: 3500, cats: baseCats, hourly: 20 });
+  assert.strictEqual(big.breakEven, 300); assert.ok(big.relief.fromIncome > 0 && big.needsIncome); assert.ok(big.steps.some((x) => /extra hours/.test(x)));
+  const fine = plan({ monthly: 20, income: 5000, spend: 3000, cats: [] }); assert.strictEqual(fine.gap, 0); assert.ok(/No changes needed/.test(fine.steps[0]));
+  assert.strictEqual(plan({ income: 1, spend: 1 }).kind, 'none');
+});
+
+test('plan: choosing a timeline forces that scenario and the wording follows', () => {
+  const plan = planBlock();
+  const a = { upfront: 3000, income: 4000, spend: 3500, liquid: 11000, upcoming: 100, cats: baseCats, hourly: 25 };
+  const auto = plan(a), one = plan({ ...a, horizon: 1 }), twelve = plan({ ...a, horizon: 12 });
+  assert.strictEqual(auto.chosen.months, 6); assert.strictEqual(auto.horizonForced, false);
+  assert.strictEqual(one.chosen.months, 1); assert.strictEqual(one.horizonForced, true); assert.strictEqual(one.needsIncome, true); assert.match(one.steps[0], /^To have it in 1 month:/);
+  assert.ok(one.steps.some((x) => /extra hours/.test(x)));
+  assert.strictEqual(twelve.needsIncome, false); assert.match(twelve.steps[0], /12 months/);
+});
