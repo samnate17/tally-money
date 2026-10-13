@@ -9,8 +9,10 @@ const { createMarket, SYMBOL } = require('./market');
 const { createWidget } = require('./widget');
 const glassLib = require('./glass');
 const { createUpdater } = require('./updater');
+const { createLocalAI } = require('./local-ai');
 const { spawn } = require('child_process');
 
+let localAi = null;
 let store, plaid, ai, market, widget, updater, mainWin = null, linkState = null;
 let glassAddon = null, glassState = { available: false, active: false, reason: '' }, glassId = -1, glassPrefsFile = '';
 const statementText = new Map();
@@ -133,6 +135,13 @@ function wireIpc() {
     if (!mainWin || mainWin.isDestroyed() || e.sender !== mainWin.webContents || !updater) return { ok: false, error: 'Blocked.' };
     try { return { ok: true, data: await fn(...args) }; } catch (err) { return { ok: false, error: (err && err.message) || 'Something went wrong.' }; }
   });
+  // Private assistant on this Mac, through Ollama on localhost (see local-ai.js).
+  mainOnly('localai:status', () => localAi.status());
+  mainOnly('localai:chat', (r) => {
+    const id = String((r && r.id) || '');
+    return localAi.chat({ id, model: r && r.model, messages: r && r.messages, onToken: (text) => { if (mainWin && !mainWin.isDestroyed()) mainWin.webContents.send('localai:token', { id, text }); } });
+  });
+  mainOnly('localai:cancel', (id) => localAi.cancel(String(id)));
   mainOnly('update:status', () => updater.status());
   mainOnly('update:setToken', (t) => updater.setToken(t));
   mainOnly('update:clearToken', () => updater.clearToken());
@@ -305,6 +314,7 @@ function buildMenu() {
 
 app.whenReady().then(() => {
   store = createSecretStore({ file: path.join(app.getPath('userData'), 'secrets.bin'), safeStorage });
+  localAi = createLocalAI();
   plaid = createPlaid({ store });
   ai = createAI({ store });
   market = createMarket();

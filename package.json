@@ -29,6 +29,7 @@
       "widget.js",
       "glass.js",
       "updater.js",
+      "local-ai.js",
       "widget.html",
       "widget-preload.js",
       "!**/*.map",

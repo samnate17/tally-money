@@ -967,3 +967,9 @@ test('every main tab gets a Refresh button except the ones that have their own',
   const src = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
   assert.ok(src.includes("data-act=\"refresh\"") && src.includes("view!=='invest'&&view!=='look'") && src.includes("a==='refresh'"));
 });
+
+test('Dashboard and Assistant tabs are wired in', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  assert.ok(src.includes("['dash','Dashboard'") && src.includes('dash:vDash') && src.includes("['assist','Assistant'") && src.includes('assist:vAssist'));
+  assert.ok(src.includes('window.tally.localAi.chat') && src.includes('chose not to share'));
+});

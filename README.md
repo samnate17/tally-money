@@ -232,6 +232,20 @@ Investments tab. Add each holding as ticker, shares and total invested. In the M
 
 **Refresh button.** Every tab except Investments (which has Refresh prices) and Appearance has a Refresh button beside its title. It updates the date, re-runs the Can I afford it? check on your latest numbers, pulls changes made on another device (hosted accounts), and syncs your linked banks and loans in the Mac app.
 
+## Live dashboard
+
+The Dashboard tab puts the important numbers on one screen: net worth, what is left this month, how much of your budgets you have used, bills still to pay, loan balances, the donut of where money went, loan payoff dates, electricity use, goals and net worth over time. It stays current by itself: the clock ticks every second, the page redraws every minute (and rolls over at midnight), and in the Mac app you can tick **Sync banks every 30 min** to pull new transactions while it is open. **Full screen** hides the sidebar for a wall display. It only shows what is already in the app; it is not a separate web page.
+
+## Private assistant (Mac app, runs locally)
+
+The Assistant tab is a chat that runs entirely on your Mac through [Ollama](https://ollama.com), a free app that runs open AI models. Nothing is sent to the internet: the app only talks to Ollama at `127.0.0.1:11434`, and that address cannot be changed from the page.
+
+Setup, once: install Ollama and open it, then in Terminal run `ollama pull llama3.2` (about 2 GB, works on most Macs) or `ollama pull qwen2.5:7b` for better answers if you have 16 GB or more of memory. Press Check again in the Assistant tab.
+
+With **Let it see my Tally Money numbers** ticked, each question includes a summary of your accounts, this month, the last three months, bills, loans, subscriptions, electricity, goals and your 25 latest transactions (no account numbers are ever stored by the app). Untick it to chat without your data. The chat is kept in memory only and disappears when you close the app.
+
+Honest limits: small local models make arithmetic and reasoning mistakes, so check numbers that matter against the other tabs. Quality and speed depend on the model and your Mac. The streaming, errors and Stop button are tested against a stand-in for Ollama; I could not run a real model in the build environment.
+
 ## Tests
 
 `npm test` runs the logic and module tests (payoff math, affordability rules, sync application, PDF statement parsing, AI request and result handling, Plaid request handling) with no network. `xvfb-run -a npx electron --no-sandbox test/pdf-ipc.smoke.js` sends the fixture PDFs through the real app bridge. `xvfb-run -a npx electron --no-sandbox test/link-window.smoke.js` exercises the bank link window.
