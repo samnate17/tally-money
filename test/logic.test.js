@@ -945,3 +945,9 @@ test('energy data survives a backup round trip and bad rows are dropped',()=>{
   const src=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
   assert.ok(/energy:S\.energy/.test(src)&&/energy:energy/.test(src)&&/energy:pendingImport\.energy/.test(src));
 });
+
+test('Plaid key form reads its fields before the busy redraw wipes them', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const i = src.indexOf("var keys={clientId:$('#pl-id').value");
+  assert.ok(i > 0 && i < src.indexOf('plRun(function(){return tcall(T.plaid.saveKeys(keys))'));
+});
