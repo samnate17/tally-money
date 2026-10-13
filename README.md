@@ -240,7 +240,7 @@ The Dashboard tab puts the important numbers on one screen: net worth, what is l
 
 The Assistant tab is a chat that runs entirely on your Mac through [Ollama](https://ollama.com), a free app that runs open AI models. Nothing is sent to the internet: the app only talks to Ollama at `127.0.0.1:11434`, and that address cannot be changed from the page.
 
-Setup, once: install Ollama and open it, then in Terminal run `ollama pull llama3.2` (about 2 GB, works on most Macs) or `ollama pull qwen2.5:7b` for better answers if you have 16 GB or more of memory. Press Check again in the Assistant tab.
+Setup, once: install Ollama, drag it to Applications and open it (finish its first-run steps). In the Assistant tab press Check again, then press **Download llama3.2** (about 2 GB, works on most Macs) or **Download qwen2.5:7b** (4.7 GB, better answers, needs about 8 GB of free memory). A progress bar shows the download and Stop cancels it; starting again resumes. You can also type any other Ollama model name. No Terminal needed, and `ollama pull <name>` in Terminal does the same thing.
 
 With **Let it see my Tally Money numbers** ticked, each question includes a summary of your accounts, this month, the last three months, bills, loans, subscriptions, electricity, goals and your 25 latest transactions (no account numbers are ever stored by the app). Untick it to chat without your data. The chat is kept in memory only and disappears when you close the app.
 

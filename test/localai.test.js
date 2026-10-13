@@ -73,3 +73,33 @@ test('every local module the app requires is packaged', () => {
     for (const m of src.matchAll(/require\('\.\/([\w-]+)'\)/g)) assert.ok(files.includes(m[1] + '.js'), entry + ' requires ' + m[1] + '.js but it is not in build.files');
   }
 });
+
+test('local AI: pull streams progress, reports errors, and can be stopped', async () => {
+  let o = await fakeOllama((req, res) => {
+    const ev = [{ status: 'pulling manifest' }, { status: 'pulling abc', total: 1000, completed: 250 }, { status: 'pulling abc', total: 1000, completed: 1000 }, { status: 'verifying sha256 digest' }, { status: 'success' }].map((e) => JSON.stringify(e) + '\n').join('');
+    res.write(ev.slice(0, 30)); setTimeout(() => res.end(ev.slice(30)), 10);
+  });
+  let ai = createLocalAI({ host: o.host }), seen = [];
+  const r = await ai.pull({ id: 'p', model: 'qwen2.5:7b', onProgress: (p) => seen.push(p) });
+  assert.deepStrictEqual(r, { done: true, stopped: false });
+  assert.deepStrictEqual(seen.map((p) => p.status), ['pulling manifest', 'pulling abc', 'pulling abc', 'verifying sha256 digest', 'success']);
+  assert.deepStrictEqual([seen[1].completed, seen[1].total], [250, 1000]);
+  assert.strictEqual(o.seen.find((x) => x.url === '/api/pull').body.model, 'qwen2.5:7b');
+  o.srv.close();
+  o = await fakeOllama((req, res) => { res.end(JSON.stringify({ error: 'pull model manifest: file does not exist' }) + '\n'); });
+  ai = createLocalAI({ host: o.host });
+  await assert.rejects(ai.pull({ model: 'nosuch:1b' }), /file does not exist/);
+  o.srv.close();
+  o = await fakeOllama((req, res) => { res.end(JSON.stringify({ status: 'pulling abc', total: 5, completed: 1 }) + '\n'); });   // ends without success
+  ai = createLocalAI({ host: o.host });
+  await assert.rejects(ai.pull({ model: 'm' }), /ended before it finished/);
+  o.srv.close();
+  ai = createLocalAI({ host: 'http://127.0.0.1:1' });
+  await assert.rejects(ai.pull({ model: 'm' }), /not running/);
+  await assert.rejects(ai.pull({ model: 'a b; rm -rf' }), /Enter a model name/);
+  o = await fakeOllama((req, res) => { res.write(JSON.stringify({ status: 'pulling abc', total: 5, completed: 1 }) + '\n'); });
+  ai = createLocalAI({ host: o.host });
+  const p = ai.pull({ id: 'z', model: 'm', onProgress: () => setTimeout(() => ai.cancel('z'), 5) });
+  assert.deepStrictEqual(await p, { done: false, stopped: true });
+  o.srv.closeAllConnections(); o.srv.close();
+});

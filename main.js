@@ -141,6 +141,10 @@ function wireIpc() {
     const id = String((r && r.id) || '');
     return localAi.chat({ id, model: r && r.model, messages: r && r.messages, onToken: (text) => { if (mainWin && !mainWin.isDestroyed()) mainWin.webContents.send('localai:token', { id, text }); } });
   });
+  mainOnly('localai:pull', (r) => {
+    const id = String((r && r.id) || '');
+    return localAi.pull({ id, model: r && r.model, onProgress: (p) => { if (mainWin && !mainWin.isDestroyed()) mainWin.webContents.send('localai:progress', { id, ...p }); } });
+  });
   mainOnly('localai:cancel', (id) => localAi.cancel(String(id)));
   mainOnly('update:status', () => updater.status());
   mainOnly('update:setToken', (t) => updater.setToken(t));

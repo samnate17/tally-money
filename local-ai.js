@@ -88,13 +88,60 @@ function createLocalAI({ fetchImpl, host } = {}) {
     }
   }
 
+  // Downloads a model through Ollama (the same as `ollama pull`). onProgress({status, completed, total}) is called as it goes.
+  async function pull({ id, model, onProgress }) {
+    if (!MODEL_RE.test(String(model || ''))) throw new Error('Enter a model name such as llama3.2 or qwen2.5:7b.');
+    const ctl = new AbortController();
+    if (id) running.set(id, ctl);
+    try {
+      let res;
+      try {
+        res = await f(base + '/api/pull', { method: 'POST', headers: { 'content-type': 'application/json' }, signal: ctl.signal, body: JSON.stringify({ model, stream: true }) });
+      } catch (e) {
+        if (ctl.signal.aborted) return { done: false, stopped: true };
+        throw new Error('Ollama is not running. Open the Ollama app and try again.');
+      }
+      if (!res.ok) {
+        let msg = '';
+        try { msg = String((await res.json()).error || ''); } catch (e) { /* empty */ }
+        throw new Error(msg || 'Ollama returned an error (' + res.status + ').');
+      }
+      let buf = '', ok = false;
+      const dec = new TextDecoder();
+      const eat = (line) => {
+        line = line.trim();
+        if (!line) return;
+        let j;
+        try { j = JSON.parse(line); } catch (e) { return; }
+        if (j.error) throw new Error(String(j.error).slice(0, 300));
+        if (j.status === 'success') ok = true;
+        if (onProgress) onProgress({ status: String(j.status || '').slice(0, 80), completed: +j.completed || 0, total: +j.total || 0 });
+      };
+      try {
+        for await (const chunk of res.body) {
+          buf += typeof chunk === 'string' ? chunk : dec.decode(chunk, { stream: true });
+          let i;
+          while ((i = buf.indexOf('\n')) >= 0) { eat(buf.slice(0, i)); buf = buf.slice(i + 1); }
+        }
+        eat(buf);
+      } catch (e) {
+        if (ctl.signal.aborted) return { done: false, stopped: true };
+        throw e;
+      }
+      if (!ok) throw new Error('The download ended before it finished. Try again; it resumes where it stopped.');
+      return { done: true, stopped: false };
+    } finally {
+      if (id) running.delete(id);
+    }
+  }
+
   function cancel(id) {
     const c = running.get(id);
     if (c) c.abort();
     return !!c;
   }
 
-  return { status, chat, cancel, _clean: clean };
+  return { status, chat, pull, cancel, _clean: clean };
 }
 
 module.exports = { createLocalAI, HOST, MODEL_RE };

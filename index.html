@@ -461,7 +461,7 @@ function budgetRows(limit,mk){
 
 
 /* ---------- Private assistant (runs on this Mac through Ollama) ---------- */
-var ASSIST={st:null,model:'',msgs:[],busy:false,id:'',useData:true,loading:false};
+var ASSIST={st:null,model:'',msgs:[],busy:false,id:'',useData:true,loading:false,pull:null};
 try{var _as=JSON.parse(localStorage.getItem('tally-assist-v1')||'{}');if(typeof _as.model==='string')ASSIST.model=_as.model;if(_as.useData===false)ASSIST.useData=false}catch(e){}
 function assistSave(){try{localStorage.setItem('tally-assist-v1',JSON.stringify({model:ASSIST.model,useData:ASSIST.useData}))}catch(e){}}
 var ASSIST_SYSTEM='You are the private assistant inside Tally Money, a personal finance app. You run on the user\'s own computer. Answer using only the figures in the DATA block below. Be concrete, short and friendly. If the data does not contain what is needed, say so instead of guessing. Never invent numbers, and do your arithmetic carefully, showing the figures you use. You are not a financial adviser: for investments, tax or legal questions give general information and suggest a professional. Amounts are US dollars.';
@@ -496,6 +496,7 @@ function assistLoad(){
   window.tally.localAi.status().then(function(r){
     ASSIST.loading=false;
     if(r&&r.ok){ASSIST.st=r.data;var names=r.data.models.map(function(x){return x.name});
+      if(names.indexOf(ASSIST.model)<0&&names.indexOf(ASSIST.model+':latest')>-1){ASSIST.model=ASSIST.model+':latest';assistSave()}
       if(names.length&&names.indexOf(ASSIST.model)<0){var pref=['qwen2.5','llama3.1','llama3.2','gemma','mistral','phi'],pick=null;pref.forEach(function(p){if(!pick)pick=names.filter(function(n){return n.indexOf(p)===0})[0]||null});ASSIST.model=pick||names[0];assistSave()}}
     else ASSIST.st={running:false,models:[]};
     if(view==='assist')render();
@@ -505,6 +506,12 @@ var assistTokenBound=false;
 function assistBind(){
   if(assistTokenBound||!(window.tally&&window.tally.localAi))return;
   assistTokenBound=true;
+  window.tally.localAi.onProgress(function(m){
+    var pl=ASSIST.pull;if(!pl||!m||m.id!==pl.id)return;
+    var pct=m.total>0?Math.min(100,m.completed/m.total*100):null;
+    pl.txt=(m.total>0?'Downloading '+Math.round(pct)+'% ('+(m.completed/1e9).toFixed(1)+' of '+(m.total/1e9).toFixed(1)+' GB)':(m.status||'Working')+'…');pl.pct=pct;
+    var t=$('#pull-txt'),bar=$('#pull-bar');if(t)t.textContent=pl.txt;if(bar&&pct!==null)bar.style.width=pct.toFixed(0)+'%';
+  });
   window.tally.localAi.onToken(function(m){
     if(!m||m.id!==ASSIST.id)return;
     var last=ASSIST.msgs[ASSIST.msgs.length-1];if(!last||last.role!=='assistant')return;
@@ -529,14 +536,36 @@ function assistSend(text){
     render();
   },function(){ASSIST.busy=false;var last=ASSIST.msgs[ASSIST.msgs.length-1];if(last)last.error='The assistant could not answer.';render()});
 }
+var ASSIST_MODELS=[['llama3.2','2 GB, runs on most Macs'],['qwen2.5:7b','4.7 GB, better answers, needs about 8 GB of free memory']];
+function assistPull(model){
+  model=String(model||'').trim();
+  if(!model||(ASSIST.pull&&ASSIST.pull.busy)||!(window.tally&&window.tally.localAi&&window.tally.localAi.pull))return;
+  assistBind();
+  var id='p'+Date.now();
+  ASSIST.pull={busy:true,id:id,model:model,pct:null,txt:'Starting…',err:''};render();
+  window.tally.localAi.pull({id:id,model:model}).then(function(r){
+    var pl=ASSIST.pull;if(!pl||pl.id!==id)return;
+    if(r&&r.ok&&r.data&&r.data.done){ASSIST.pull=null;ASSIST.model=model;assistSave();ASSIST.st=null;assistLoad();toast(model+' is ready.')}
+    else if(r&&r.ok&&r.data&&r.data.stopped){ASSIST.pull=null;toast('Download stopped. Starting it again resumes where it left off.')}
+    else{pl.busy=false;pl.err=(r&&r.error)||'The download failed.'}
+    render();
+  },function(){var pl=ASSIST.pull;if(pl&&pl.id===id){pl.busy=false;pl.err='The download failed.';render()}});
+}
+function assistPullPanel(open){
+  var pl=ASSIST.pull,busy=pl&&pl.busy;
+  var body=busy?'<p class="sub" style="margin:0 0 8px">Downloading <b>'+esc(pl.model)+'</b>. You can keep using the app; leave it open until it finishes.</p><div class="bar"><i id="pull-bar" style="width:'+(pl.pct!==null&&pl.pct!==undefined?pl.pct.toFixed(0):0)+'%"></i></div><p class="sub" id="pull-txt" style="margin:6px 0 10px">'+esc(pl.txt)+'</p><button class="btn small" data-act="asst-pullstop">Stop</button>'
+    :'<div class="actions" style="justify-content:flex-start;margin-bottom:8px">'+ASSIST_MODELS.map(function(m){return '<button class="btn small" data-act="asst-pull" data-m="'+esc(m[0])+'">Download '+esc(m[0])+'</button>'}).join('')+'</div><p class="sub muted" style="margin:0 0 8px;font-size:12px">'+ASSIST_MODELS.map(function(m){return esc(m[0])+': '+m[1]}).join('. ')+'.</p>'+
+      '<form id="pullform" class="form" style="align-items:end"><label>Or another model<input id="pull-name" placeholder="e.g. gemma2:9b" maxlength="100" autocomplete="off"></label><button class="btn small">Download</button></form>'+(pl&&pl.err?'<p class="sub bad" style="margin:8px 0 0">'+esc(pl.err)+'</p>':'');
+  return open?body:'<details style="margin-top:12px"'+(busy||(pl&&pl.err)?' open':'')+'><summary class="sub" style="cursor:pointer">Download another model</summary><div style="margin-top:8px">'+body+'</div></details>';
+}
 var ASSIST_IDEAS=['How am I doing this month?','Where could I cut spending?','Which bills are still unpaid?','How fast can I pay off my loans?','Explain my last electric bill.'];
 function vAssist(){
   var head='<div class="top"><h1>Assistant</h1>'+(ASSIST.msgs.length?'<button class="btn small" data-act="asst-clear"'+(ASSIST.busy?' disabled':'')+'>Clear chat</button>':'')+'</div>';
   if(!(window.tally&&window.tally.localAi))return head+'<section class="panel"><p style="margin:0">The private assistant runs on your Mac, so it is only in the Mac app. Open Tally Money from your Applications folder to use it.</p></section>';
   if(!ASSIST.st){assistLoad();return head+'<section class="panel"><div class="empty">Looking for the assistant on this Mac…</div></section>'}
   var st=ASSIST.st;
-  if(!st.running)return head+'<section class="panel"><h2>Set up the assistant<small>once, about 5 minutes</small></h2><p class="sub" style="margin:0 0 10px">It uses <b>Ollama</b>, a free app that runs AI models on your Mac. Your questions and your finances never leave this computer.</p><ol class="sub" style="margin:0 0 12px;padding-left:20px;font-size:14px"><li>Download Ollama from <a href="https://ollama.com/download" target="_blank" rel="noopener">ollama.com/download</a> and open it once.</li><li>In Terminal run: <code>ollama pull llama3.2</code> (a 2 GB model that works on most Macs). If your Mac has 16 GB or more memory, <code>ollama pull qwen2.5:7b</code> gives better answers.</li><li>Come back here and press Check again.</li></ol><div class="actions" style="justify-content:flex-start"><button class="btn primary" data-act="asst-check">Check again</button></div></section>';
-  if(!st.models.length)return head+'<section class="panel"><h2>Ollama is running</h2><p class="sub" style="margin:0 0 10px">It has no model yet. In Terminal run <code>ollama pull llama3.2</code> (2 GB), or <code>ollama pull qwen2.5:7b</code> if your Mac has 16 GB or more memory. Then press Check again.</p><div class="actions" style="justify-content:flex-start"><button class="btn primary" data-act="asst-check">Check again</button></div></section>';
+  if(!st.running)return head+'<section class="panel"><h2>Set up the assistant<small>once, about 5 minutes</small></h2><p class="sub" style="margin:0 0 10px">It uses <b>Ollama</b>, a free app that runs AI models on your Mac. Your questions and your finances never leave this computer.</p><ol class="sub" style="margin:0 0 12px;padding-left:20px;font-size:14px"><li>Download Ollama from <a href="https://ollama.com/download" target="_blank" rel="noopener">ollama.com/download</a>, drag it to Applications and open it once. Finish its first-run steps.</li><li>Come back here and press Check again.</li><li>Then press a Download button to get a model. No Terminal needed.</li></ol><div class="actions" style="justify-content:flex-start"><button class="btn primary" data-act="asst-check">Check again</button></div></section>';
+  if(!st.models.length)return head+'<section class="panel"><h2>Ollama is running</h2><p class="sub" style="margin:0 0 10px">It has no model yet. Download one here. It is a one-time download.</p>'+assistPullPanel(true)+'<div class="actions" style="justify-content:flex-start;margin-top:10px"><button class="btn small" data-act="asst-check">Check again</button></div></section>';
   var log=ASSIST.msgs.map(function(x,i){
     var me=x.role==='user',live=ASSIST.busy&&i===ASSIST.msgs.length-1;
     return '<div style="display:flex;justify-content:'+(me?'flex-end':'flex-start')+';margin:8px 0"><div style="max-width:min(640px,88%);padding:10px 14px;border-radius:16px;white-space:pre-wrap;line-height:1.5;'+(me?'background:var(--accent);color:var(--on-accent,#fff)':'background:var(--card,rgba(255,255,255,.7));border:1px solid var(--line)')+'">'+
@@ -546,7 +575,7 @@ function vAssist(){
   return head+'<section class="panel"><div class="form" style="align-items:center;margin-bottom:8px"><label>Model<select id="asst-model">'+st.models.map(function(x){return '<option'+(x.name===ASSIST.model?' selected':'')+'>'+esc(x.name)+'</option>'}).join('')+'</select></label><label style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="asst-data"'+(ASSIST.useData?' checked':'')+'> Let it see my Tally Money numbers</label></div>'+
     '<div id="asst-log" style="max-height:52vh;overflow:auto;padding:4px 2px">'+(log||'<p class="sub muted" style="margin:6px 0">Ask about your spending, bills, loans or energy use. Everything runs on your Mac.</p>')+'</div>'+ideas+
     '<form id="asstform" class="form" style="margin-top:8px"><input id="asst-in" placeholder="Ask a question…" autocomplete="off" style="flex:1 1 280px"'+(ASSIST.busy?' disabled':'')+'>'+(ASSIST.busy?'<button type="button" class="btn" data-act="asst-stop">Stop</button>':'<button class="btn primary">Send</button>')+'</form>'+
-    '<p class="sub muted" style="margin:10px 0 0;font-size:12px">A small model on your Mac can be wrong, especially with arithmetic, so check numbers that matter against the other tabs. It is not financial advice.</p></section>';
+    '<p class="sub muted" style="margin:10px 0 0;font-size:12px">A small model on your Mac can be wrong, especially with arithmetic, so check numbers that matter against the other tabs. It is not financial advice.</p>'+assistPullPanel(false)+'</section>';
 }
 
 /* ---------- Live dashboard ---------- */
@@ -2762,6 +2791,8 @@ document.addEventListener('click',function(e){
   if(a==='mprev')month=shiftMonth(month,-1);
   else if(a==='refresh'){refreshAll();return}
   else if(a==='asst-check'){ASSIST.st=null;assistLoad();render();return}
+  else if(a==='asst-pull'){assistPull(b.dataset.m);return}
+  else if(a==='asst-pullstop'){if(ASSIST.pull&&window.tally&&window.tally.localAi)window.tally.localAi.cancel(ASSIST.pull.id);return}
   else if(a==='asst-clear'){ASSIST.msgs=[]}
   else if(a==='asst-stop'){if(ASSIST.busy&&window.tally&&window.tally.localAi)window.tally.localAi.cancel(ASSIST.id);return}
   else if(a==='asst-ask'){assistSend(ASSIST_IDEAS[+b.dataset.i]);return}
@@ -2918,6 +2949,7 @@ function thBind(m){
     };rd.readAsArrayBuffer(f);inp.value='';
   }});
   var af=$('#asstform',m);if(af)af.onsubmit=function(e){e.preventDefault();var inp=$('#asst-in');var t=inp.value;inp.value='';assistSend(t)};
+  var pf=$('#pullform',m);if(pf)pf.onsubmit=function(e){e.preventDefault();assistPull($('#pull-name').value)};
   var am=$('#asst-model',m);if(am)am.onchange=function(){ASSIST.model=am.value;assistSave()};
   var ad=$('#asst-data',m);if(ad)ad.onchange=function(){ASSIST.useData=ad.checked;assistSave()};
   var alog=$('#asst-log',m);if(alog)alog.scrollTop=alog.scrollHeight;
