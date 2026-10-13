@@ -84,6 +84,14 @@ Limits you should know about:
 
 `.github/workflows/widget-check.yml` compiles the widget on every change under `native-widget/`, and the Mac build fails if the widget is not embedded.
 
+### Native Liquid Glass (Mac app, macOS 26 and newer)
+
+On macOS 26 (Tahoe) or newer the Mac app's window uses Apple's real Liquid Glass material (`NSGlassEffectView`) instead of the CSS imitation. The window is transparent, the glass sits behind the page, and panels are drawn as tinted glass on top, so your wallpaper and the windows behind Tally show through with Apple's own lensing. It is on by default where available; Appearance, Window material turns it off or on (the app restarts, because a window's transparency is fixed when it is created). The Aurora background is replaced by the desktop in this mode, and the app's Light/Dark choice is passed to macOS so the glass matches.
+
+How it works: `native-glass/glass.mm` is a small N-API addon written for this project (it looks the class up at runtime, so it compiles on any SDK and reports "unsupported" on older macOS). `scripts/after-pack.js` compiles it for each architecture and puts `glass.node` in the app; `glass.js` decides whether to use it. On macOS 25 and older, on Linux and in the browser, the CSS glass look is used, unchanged. CI (`glass-check.yml`) compiles it and, on a macOS 26 runner, adds a real glass view to an Electron window and removes it again.
+
+Limits: glass is one layer behind the whole window, not a separate lens on every panel, so panels get tint and edge highlights but not individual refraction. Panels sit on top of live desktop content, so text contrast depends on your wallpaper; raise Frost in Appearance if it is hard to read. Apple may change the API in later macOS versions. What CI cannot show is how it looks, so check it on your Mac.
+
 ## Accounts for other people (hosted version)
 
 Two ways to let other people use Tally:

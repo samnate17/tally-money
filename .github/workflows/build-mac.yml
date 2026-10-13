@@ -32,6 +32,8 @@ jobs:
             test -d "$app/Contents/PlugIns/TallyWidget.appex" || { echo "widget missing in $app"; exit 1; }
             codesign --verify --strict "$app"
             codesign --verify --strict "$app/Contents/PlugIns/TallyWidget.appex"
+            test -f "$app/Contents/Resources/glass.node" || { echo "glass.node missing in $app"; exit 1; }
+            codesign --verify --strict "$app/Contents/Resources/glass.node"
             codesign -d --entitlements - "$app/Contents/PlugIns/TallyWidget.appex" 2>&1 | grep -c "app-sandbox"
             file "$app/Contents/PlugIns/TallyWidget.appex/Contents/MacOS/TallyWidget"
           done
