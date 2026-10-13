@@ -26,7 +26,14 @@ linkBridge.getToken().then(function (token) {
   var h = Plaid.create({
     token: token,
     onSuccess: function (pt, meta) { linkBridge.success(pt, meta); },
-    onExit: function (err, meta) { linkBridge.exit(err ? (err.display_message || err.error_message || '') : ''); }
+    onExit: function (err, meta) {
+      if (!err) { linkBridge.exit(''); return; }
+      var m = err.display_message || err.error_message || 'The bank connection failed.', d = [];
+      if (err.error_code) d.push('code ' + err.error_code);
+      if (meta && meta.request_id) d.push('request ' + meta.request_id);
+      if (meta && meta.institution && meta.institution.name) d.push(meta.institution.name);
+      linkBridge.exit(m + (d.length ? ' (Plaid ' + d.join(', ') + ')' : ''));
+    }
   });
   h.open();
 }).catch(function () {
