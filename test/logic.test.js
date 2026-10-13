@@ -833,3 +833,55 @@ test('plan: choosing a timeline forces that scenario and the wording follows', (
   assert.ok(one.steps.some((x) => /extra hours/.test(x)));
   assert.strictEqual(twelve.needsIncome, false); assert.match(twelve.steps[0], /12 months/);
 });
+
+// ---- bills ----
+function billsWorld() {
+  const normName = (n) => n.toLowerCase().replace(/[#\d*]+/g, '').replace(/\s+/g, ' ').trim(), aiKey = (n) => normName(n) || '(blank)';
+  const monthKey = (s) => s.slice(0, 7), shiftMonth = (k, n) => { const p = k.split('-'); const d = new Date(+p[0], +p[1] - 1 + n, 1); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); };
+  const iso = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  return new Function('aiKey,monthKey,shiftMonth,iso', srcBlock('/*LOAN-START*/', '/*LOAN-END*/') + srcBlock('/*BILLS-START*/', '/*BILLS-END*/') + '\nreturn {billMatchRe, billItems, dueDateFor, billStatus, billsSummary, suggestBills};')(aiKey, monthKey, shiftMonth, iso);
+}
+
+test('bills: payments are found in transactions with a sensible amount window; marks override; states follow the calendar', () => {
+  const B = billsWorld(), today = new Date(2026, 9, 12);                                               // Oct 12
+  const bills = [{ id: 'rent', name: 'Maple Court Rent', amount: 1500, dueDay: 1, match: 'maple court' }, { id: 'el', name: 'Eversource electric', amount: 110, dueDay: 22, match: '' }, { id: 'wifi', name: 'Wi-Fi', amount: 70, dueDay: 8, match: 'comcast' }, { id: 'prop', name: 'Propane', amount: 240, dueDay: 0, match: 'amerigas' }, { id: 'gen', name: 'Electric bill', amount: 50, dueDay: 15, match: '' }];
+  const txns = [{ date: '2026-09-29', name: 'MAPLE COURT RENT', amount: -1500 }, { date: '2026-10-06', name: 'EFT ACH COMCAST CABLE', amount: -69.99 }, { date: '2026-10-07', name: 'COMCAST REFUND', amount: 20 }, { date: '2026-10-03', name: 'EVERSOURCE WEB PAY', amount: -480 }];
+  const items = B.billItems(bills, []);
+  const st = (id, mk, marks) => B.billStatus(items.find((x) => x.id === id), mk || '2026-10', txns, marks || {}, today);
+  assert.strictEqual(st('rent').state, 'paid'); assert.strictEqual(st('rent').found.date, '2026-09-29');     // paid in the last days of September for the October 1 due date
+  assert.strictEqual(st('wifi').state, 'paid'); assert.strictEqual(st('wifi').paidAmount, 69.99);
+  assert.strictEqual(st('el').state, 'upcoming');                                                           // the $480 payment is outside the window for a $110 bill
+  assert.strictEqual(st('prop').state, 'upcoming'); assert.strictEqual(st('prop').due, null);
+  assert.strictEqual(B.billMatchRe(items.find((x) => x.id === 'gen').raw), null);                           // nothing distinctive to match on: manual only
+  assert.strictEqual(st('gen').state, 'soon');                                                              // due the 15th, three days away
+  assert.strictEqual(st('el', '2026-10', { 'el:2026-10': 'paid' }).state, 'paid'); assert.strictEqual(st('el', '2026-10', { 'el:2026-10': 'paid' }).paidAmount, 110);
+  assert.strictEqual(st('rent', '2026-10', { 'rent:2026-10': 'unpaid' }).state, 'overdue');                    // marked unpaid even though a payment was found; due on the 1st, so past due on the 12th
+  assert.strictEqual(st('el', '2026-09').state, 'missed');                                                  // last month, nothing found, not marked
+  assert.strictEqual(B.billStatus({ id: 'x', name: 'x', amount: 10, dueDay: 5, re: null }, '2026-10', [], {}, today).state, 'overdue');
+  assert.strictEqual(B.dueDateFor(31, '2026-02').getDate(), 28); assert.strictEqual(B.dueDateFor(0, '2026-02'), null);
+});
+
+test('bills: loans appear as bills, and the summary adds up paid, pending and overdue', () => {
+  const B = billsWorld(), today = new Date(2026, 9, 12);
+  const accounts = [{ id: 'c', name: 'Honda Civic loan', lender: 'Honda Financial', type: 'auto', minPay: 846.32, dueDay: 18, balance: 18000 }, { id: 'z', name: 'Old loan', type: 'auto', minPay: 100, dueDay: 3, balance: 0 }, { id: 'n', name: 'Direct Unsub', lender: 'Nelnet', type: 'student', minPay: 95, dueDay: 5, balance: 7000 }, { id: 'k', name: 'Visa', type: 'credit', minPay: 25, dueDay: 9, balance: 500 }];
+  const bills = [{ id: 'rent', name: 'Rent', amount: 1500, dueDay: 1, match: 'maple' }];
+  const items = B.billItems(bills, accounts);
+  assert.deepStrictEqual(items.map((x) => x.id).sort(), ['loan:c', 'loan:n', 'rent']);                       // paid-off loans and credit cards are not listed
+  const txns = [{ date: '2026-10-01', name: 'MAPLE COURT RENT', amount: -1500 }, { date: '2026-10-05', name: 'NELNET PAYMENT 12', amount: -95 }];
+  const sum = B.billsSummary(items, '2026-10', txns, {}, today);
+  assert.deepStrictEqual([sum.count, sum.paidCount, sum.paid, sum.pending, sum.total, sum.overdue], [3, 2, 1595, 846.32, 2441.32, 0]);
+  assert.strictEqual(sum.next.item.id, 'loan:c'); assert.deepStrictEqual(sum.rows.map((r) => r.item.id), ['rent', 'loan:n', 'loan:c']);   // by due date
+  const late = B.billsSummary(items, '2026-10', [], {}, new Date(2026, 9, 20)); assert.strictEqual(late.overdue, 3);                 // rent (1st), student loan (5th) and car loan (18th) are all past due on the 20th
+  assert.strictEqual(late.pending, 2441.32);
+  assert.strictEqual(B.billsSummary([], '2026-10', [], {}, today).count, 0);
+});
+
+test('bills: repeating payments you have not tracked are suggested', () => {
+  const B = billsWorld();
+  const mk = (d, name, amt, cat, sub) => ({ date: d, name, amount: amt, cat, ...(sub ? { sub } : {}) });
+  const txns = [mk('2026-08-17', 'GEICO AUTO 123', -140, 'Transport', 'Insurance'), mk('2026-09-17', 'GEICO AUTO 456', -140, 'Transport', 'Insurance'), mk('2026-10-17', 'GEICO AUTO 789', -140, 'Transport', 'Insurance'),
+    mk('2026-09-02', 'MAPLE COURT RENT', -1500, 'Housing', 'Rent'), mk('2026-10-02', 'MAPLE COURT RENT', -1500, 'Housing', 'Rent'), mk('2026-10-05', 'ONE TIME FEE', -90, 'Housing'), mk('2026-09-09', 'SHAWS', -80, 'Groceries'), mk('2026-10-09', 'SHAWS', -80, 'Groceries'), mk('2026-09-20', 'TINY THING', -10, 'Housing'), mk('2026-10-20', 'TINY THING', -10, 'Housing')];
+  const items = B.billItems([{ id: 'r', name: 'Rent', amount: 1500, dueDay: 2, match: 'maple' }], []);
+  const s = B.suggestBills(txns, items, '2026-10');
+  assert.deepStrictEqual(s.map((x) => [x.name, x.amount, x.dueDay, x.months]), [['GEICO AUTO', 140, 17, 3]]);   // rent is tracked, one-off, groceries and tiny items are not suggested
+});
