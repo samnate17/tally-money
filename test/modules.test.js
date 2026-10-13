@@ -396,3 +396,15 @@ test('ai: categorize sends only names and amounts, keeps keys and categories val
   const refused = aiWith(() => final({ stop_reason: 'refusal', content: [] })); await assert.rejects(refused.categorize({ items: [{ key: 'a', name: 'n', amount: 1 }] }), /declined/);
   const junk = aiWith(() => final({ stop_reason: 'end_turn', content: [{ type: 'text', text: 'not json' }] })); await assert.rejects(junk.categorize({ items: [{ key: 'a', name: 'n', amount: 1 }] }), /could not read/);
 });
+
+test('ai: categorize accepts a sub-category only if it is on the list for the chosen category', async () => {
+  let req;
+  const ai = aiWith((r) => { req = r; return final({ stop_reason: 'end_turn', content: [{ type: 'text', text: JSON.stringify({ items: [
+    { key: 'a', category: 'Housing', subcategory: 'Electric', confidence: 'high', reason: 'Power utility' },
+    { key: 'b', category: 'Housing', subcategory: 'Made up', confidence: 'high', reason: 'x' },
+    { key: 'c', category: 'Dining', subcategory: 'Electric', confidence: 'low', reason: 'x' }] }) }] }); });
+  const out = await ai.categorize({ categories: ['Housing', 'Dining'], subcategories: { Housing: ['Rent', 'Electric'], Dining: ['Coffee'] }, items: [{ key: 'a', name: 'EVERSOURCE', amount: -60 }, { key: 'b', name: 'X', amount: -1 }, { key: 'c', name: 'Y', amount: -1 }] });
+  assert.deepStrictEqual(out.items.map((x) => [x.key, x.category, x.sub]), [['a', 'Housing', 'Electric'], ['b', 'Housing', ''], ['c', 'Dining', '']]);
+  assert.deepStrictEqual(JSON.parse(req.messages[0].content).subcategories, { Housing: ['Rent', 'Electric'], Dining: ['Coffee'] });
+  assert.ok(req.output_config.format.schema.properties.items.items.required.includes('subcategory'));
+});

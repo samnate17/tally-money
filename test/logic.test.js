@@ -30,7 +30,7 @@ function world(overrides = {}) {
   const CATS = ['Housing','Groceries','Dining','Transport','Subscriptions','Shopping','Health','Entertainment','Other','Income'];
   const aiKey = (n) => normName(n) || '(blank)';
   const DEBT_TYPES = { credit: 1, student: 1, auto: 1, mortgage: 1, loan: 1 };
-  const deps = { aiKey, DEBT_TYPES, CATS, S, TODAY, iso, parseD, addDays, dayDiff, monthKey, shiftMonth, normName, guessCat, uid, NOWKEY, spendBy, incomeOf, isDebt, activeSubs, nextDate, money0 };
+  const deps = { aiKey, DEBT_TYPES, CATS, S, TODAY, iso, parseD, addDays, dayDiff, monthKey, shiftMonth, normName, guessCat, guessSub: () => '', uid, NOWKEY, spendBy, incomeOf, isDebt, activeSubs, nextDate, money0 };
   const names = Object.keys(deps);
   const mk = (blk, ret) => new Function(...names, block(blk) + ';return {' + ret + '}')(...names.map((n) => deps[n]));
   return { S, deps,
@@ -623,8 +623,9 @@ function catWorld(S) {
   const normName = (n) => n.toLowerCase().replace(/[#\d*]+/g, '').replace(/\s+/g, ' ').trim(), aiKey = (n) => normName(n) || '(blank)';
   const ruleCat = (n) => { for (const c of S.customCats || []) for (const r of c.rules) if (new RegExp('(^|[^a-z0-9])' + r + '($|[^a-z0-9])', 'i').test(n)) return c.name; return null; };
   const TODAY = new Date(2026, 9, 12), iso = (d) => d.toISOString().slice(0, 10);
-  const guessBlock = srcBlock('/*CATEGORY-START*/', '/*CATEGORY-END*/'), editBlock = srcBlock('/*EDIT-START*/', '/*EDIT-END*/');
-  return new Function('S,CATS,aiKey,ruleCat,TODAY,iso', guessBlock + editBlock + '\nreturn {guessCat, learnMerchant, editTxn, setAsideTxn, restoreTxn, dropAside, reguessOther};')(S, CATS, aiKey, ruleCat, TODAY, iso);
+  const guessBlock = srcBlock('/*CATEGORY-START*/', '/*CATEGORY-END*/'), subBlock = srcBlock('/*SUB-START*/', '/*SUB-END*/'), editBlock = srcBlock('/*EDIT-START*/', '/*EDIT-END*/');
+  const monthKey = (s) => s.slice(0, 7), shiftMonth = (k, n) => { const p = k.split('-'); const d = new Date(+p[0], +p[1] - 1 + n, 1); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); };
+  return new Function('S,CATS,aiKey,ruleCat,TODAY,iso,monthKey,shiftMonth', guessBlock + subBlock + editBlock + '\nreturn {guessCat, learnMerchant, editTxn, setAsideTxn, restoreTxn, dropAside, reguessOther, subList, guessSub, subFor, parseSubList, cleanSubName, subBreakdown, resortSubs, learnSub};')(S, CATS, aiKey, ruleCat, TODAY, iso, monthKey, shiftMonth);
 }
 
 test('categories: common statement merchants land in sensible categories', () => {
@@ -688,4 +689,44 @@ test('re-guessing the "Other" pile is undoable and leaves money in alone', () =>
   assert.deepStrictEqual(S.txns.map((x) => x.cat), ['Dining', 'Other', 'Income', 'Other', 'Dining']);
   assert.deepStrictEqual(undo.map((p) => p[0]).sort(), ['1', '3']);
   undo.forEach((p) => { S.txns.find((x) => x.id === p[0]).cat = p[1]; }); assert.deepStrictEqual(S.txns.map((x) => x.cat), ['Other', 'Other', 'Other', 'Other', 'Dining']);
+});
+
+// ---- sub-categories ----
+test('sub-categories: defaults, rules for the housing examples, your own lists and learned fixes', () => {
+  const S = { customCats: [], merchantCats: {}, merchantSubs: {}, subCats: {}, setAside: [], txns: [] };
+  const w = catWorld(S);
+  assert.deepStrictEqual(w.subList('Housing').slice(0, 5), ['Rent', 'Mortgage', 'Electric', 'Wi-Fi and internet', 'Propane and heating oil']);
+  const table = [['Housing', 'MAPLE COURT RENT', 'Rent'], ['Housing', 'EFT ACH EVERSOURCE WEB_PAY SEP 26', 'Electric'], ['Housing', 'EFT ACH COMCAST-XFINITY CABLE SVCS', 'Wi-Fi and internet'],
+    ['Housing', 'AMERIGAS PROPANE 123', 'Propane and heating oil'], ['Housing', 'CITY WATER DEPT', 'Water and sewer'], ['Transport', 'BJS FUEL #9058', 'Fuel'], ['Transport', 'E-ZPass MA', 'Tolls and parking'],
+    ['Cash and transfers', 'WITHDRAWAL ATM 0902', 'ATM cash'], ['Subscriptions', 'ANTHROPIC* CLAUDE SUB', 'Software and AI'], ['Housing', 'SOMETHING ELSE', '']];
+  table.forEach(([c, n, e]) => assert.strictEqual(w.guessSub(c, n), e, n));
+  assert.strictEqual(w.guessCat('AMERIGAS PROPANE 123'), 'Housing');                 // heating fuel is a home cost, not car fuel
+  assert.strictEqual(w.guessSub('Dining', 'EVERSOURCE'), '');                       // a rule only applies inside its own category
+  S.subCats.Housing = ['Rent', 'Electricity'];                                      // the person's own list replaces the default
+  assert.strictEqual(w.guessSub('Housing', 'EVERSOURCE'), '');                      // 'Electric' is no longer in the list, so it is not suggested
+  w.learnSub('EVERSOURCE', 'Electricity'); assert.strictEqual(w.guessSub('Housing', 'EVERSOURCE 99'), 'Electricity');
+  assert.deepStrictEqual(w.parseSubList(' Rent, Wi-Fi ,rent,,<b>Prop"ane</b>\nGas & Oil'), ['Rent', 'Wi-Fi', 'bPropane/b', 'Gas  Oil'.replace('  ', ' ')]);
+  assert.strictEqual(w.cleanSubName('x'.repeat(80)).length, 32); assert.strictEqual(w.cleanSubName(null), '');
+  assert.strictEqual(w.subFor('Housing', 'X', 'Rent'), 'Rent'); assert.strictEqual(w.subFor('Housing', 'X', 'Nope'), '');
+});
+
+test('sub-categories: editing sets and clears them, similar transactions follow, the breakdown adds up', () => {
+  const S = { customCats: [], merchantCats: {}, merchantSubs: {}, subCats: {}, setAside: [], txns: [
+    { id: 'a', date: '2026-10-02', name: 'EVERSOURCE 1', amount: -60, cat: 'Housing' }, { id: 'b', date: '2026-10-03', name: 'MAPLE COURT RENT', amount: -1500, cat: 'Housing' },
+    { id: 'c', date: '2026-10-04', name: 'MYSTERY PAYEE', amount: -40, cat: 'Housing' }, { id: 'd', date: '2026-09-02', name: 'EVERSOURCE 2', amount: -50, cat: 'Housing', sub: 'Electric' },
+    { id: 'e', date: '2026-09-03', name: 'MAPLE COURT RENT', amount: -1500, cat: 'Housing', sub: 'Rent' }, { id: 'f', date: '2026-08-03', name: 'MAPLE COURT RENT', amount: -1500, cat: 'Housing', sub: 'Rent' },
+    { id: 'g', date: '2026-10-05', name: 'SHAWS', amount: -9, cat: 'Groceries' }] };
+  const w = catWorld(S);
+  assert.deepStrictEqual(w.resortSubs().sort(), ['a', 'b']); assert.deepStrictEqual([S.txns[0].sub, S.txns[1].sub, S.txns[2].sub], ['Electric', 'Rent', undefined]);
+  w.editTxn('c', { cat: 'Housing', sub: 'Propane and heating oil' }, true); assert.strictEqual(S.txns.find((x) => x.id === 'c').sub, 'Propane and heating oil'); assert.strictEqual(S.merchantSubs['mystery payee'], 'Propane and heating oil');
+  w.editTxn('c', { cat: 'Dining' }, false); assert.ok(!('sub' in S.txns.find((x) => x.id === 'c')));                         // moving to another category drops a sub that does not belong there
+  w.editTxn('c', { sub: '' }, false);
+  const bd = w.subBreakdown(S.txns, 'Housing', '2026-10');
+  assert.deepStrictEqual(bd.map((r) => [r.sub, r.amount]), [['Rent', 1500], ['Electric', 60]]);
+  assert.strictEqual(bd[0].avg, 1500); assert.strictEqual(bd[1].avg, 25);                                                    // two earlier months with Housing spending: (0 + 50) / 2 for Electric
+  assert.ok(Math.abs(bd.reduce((a, r) => a + r.share, 0) - 100) < 1e-9);
+  assert.deepStrictEqual(w.subBreakdown(S.txns, 'Dining', '2026-10').map((r) => [r.sub, r.amount]), [['Unsorted', 40]]);   // the transaction moved to Dining earlier
+  assert.deepStrictEqual(w.subBreakdown(S.txns, 'Travel', '2026-10'), []);
+  S.txns.push({ id: 'h', date: '2026-10-06', name: 'UNSORTED THING', amount: -5, cat: 'Housing' }); assert.ok(w.subBreakdown(S.txns, 'Housing', '2026-10').some((r) => r.sub === 'Unsorted' && r.amount === 5));
+  assert.strictEqual(w.resortSubs().length, 0);
 });

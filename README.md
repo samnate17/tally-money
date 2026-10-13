@@ -117,6 +117,16 @@ Limits and honest caveats:
 - **Not mine.** For money that landed on your account but was not yours, such as a friend's Cash App or a payment you only passed along, press Not mine. The transaction moves to a Set aside list under the Transactions tab and drops out of spending, income, budgets, forecasts and reports. Restore puts it back. Re-importing the same statement will not bring set-aside items back. Both the set-aside list and remembered category fixes are included in backups.
 - **Limits.** Predictions are guesses, most reliable for well-known merchants; local rules know common names only; AI costs a small amount per request on your key. Transfers between your own accounts are detected on statements that say "transfer to/from checking or savings" and arrive unchecked on the import screen; paying a credit card from checking is not treated as a transfer, so it counts as spending unless you also import and set aside the other side yourself.
 
+## Sub-categories
+
+Each category can have sub-categories: for example Housing has Rent, Mortgage, Electric, Wi-Fi and internet, Propane and heating oil, Water and sewer, Trash, and Repairs and supplies. Every other built-in category has a starter list too.
+
+- **Filing.** New, imported and synced transactions get a sub-category automatically when the merchant name is recognised (Eversource becomes Electric, Comcast becomes Wi-Fi and internet, AmeriGas becomes Propane and heating oil, and so on). For existing history, the Transactions tab offers Sort into sub-categories, which can be undone. Edit lets you pick or clear one by hand; with "Use this category for every similar transaction" ticked, the app also remembers your sub-category for that merchant.
+- **Your own lists.** Budgets tab, Sub-categories: type any names, separated by commas, for each category (for example `Rent, Wi-Fi, Propane, Electric bill`). Changing a list does not change transactions that are already sorted.
+- **Seeing them.** Transactions show their sub-category under the name. On the Budgets tab, pressing Forecast on a category now also shows that category by sub-category for the month, next to each one's three-month average. The Monthly report shows each category's biggest sub-categories. Anything not yet sorted is grouped as Unsorted.
+- **AI.** Predict with AI also returns a sub-category when one of your listed names clearly fits; anything else is left unsorted.
+- **Limits.** Budgets are still set per category, not per sub-category. Sub-categories are saved in backups. If you rename an entry in a list, old transactions keep the old name until you edit them.
+
 ## Accounts for other people (hosted version)
 
 Two ways to let other people use Tally:

@@ -144,8 +144,8 @@ const categorizeSchema = (cats) => ({
       items: {
         type: 'object',
         additionalProperties: false,
-        properties: { key: { type: 'string' }, category: { type: 'string', enum: cats }, confidence: { type: 'string', enum: CONF }, reason: { type: 'string' } },
-        required: ['key', 'category', 'confidence', 'reason'],
+        properties: { key: { type: 'string' }, category: { type: 'string', enum: cats }, subcategory: { type: 'string' }, confidence: { type: 'string', enum: CONF }, reason: { type: 'string' } },
+        required: ['key', 'category', 'subcategory', 'confidence', 'reason'],
       },
     },
   },
@@ -158,15 +158,18 @@ const CATEGORIZE_SYSTEM = [
   'Guidance: restaurants, cafes, bars and food delivery are Dining. Supermarkets, convenience and corner stores and wholesale clubs are Groceries. Fuel stations, tolls, parking, ride share, car upkeep and auto insurance are Transport. Rent, mortgage, electricity, gas and water utilities and home internet or cable are Housing. Streaming, software, AI tools, phone plans and memberships are Subscriptions. Hotels, flights, trains, and purchases made abroad on a trip are Travel. ATM withdrawals and person-to-person payments (Cash App, Venmo, Zelle, Apple Cash, remittance services, "payment to" a named person) are Cash and transfers. Car, student and other loan payments and credit card payments are Debt and loans. Online and in-store retail is Shopping. Pharmacies, clinics and health insurance are Health. Cinemas, games, bowling and billiards are Entertainment.',
   'Positive amounts are money in: use Income for pay, interest and dividends, and Other for refunds, deposits you cannot place and money from people. Use Other when you genuinely cannot tell; do not guess wildly.',
   'Categories the person created themselves (anything beyond the standard list above) are real budgets, so use them when the merchant clearly fits their name.',
+  'subcategory: the input may include a "subcategories" object mapping each category to its allowed sub-categories (for example Housing: Rent, Electric, Wi-Fi and internet). When the category you chose has a list and one entry clearly fits, return it exactly as written; otherwise return an empty string.',
   'confidence: "high" when the merchant is well known or the name is clear, "medium" when you are inferring from partial text, "low" when it is a guess.',
   'reason: one short phrase (under 100 characters) saying what the merchant is.',
 ].join('\n');
-function cleanCategorize(raw, keys, cats) {
+function cleanCategorize(raw, keys, cats, subs) {
   const want = new Set(keys), seen = new Set(), out = [];
   (raw && Array.isArray(raw.items) ? raw.items : []).forEach((it) => {
     if (!it || !want.has(String(it.key)) || seen.has(String(it.key))) return;
     seen.add(String(it.key));
-    out.push({ key: String(it.key), category: cats.includes(it.category) ? it.category : 'Other', confidence: CONF.includes(it.confidence) ? it.confidence : 'low', reason: String(it.reason || '').slice(0, 140) });
+    const category = cats.includes(it.category) ? it.category : 'Other';
+    const sub = subs && Array.isArray(subs[category]) && subs[category].includes(it.subcategory) ? it.subcategory : '';
+    out.push({ key: String(it.key), category, sub, confidence: CONF.includes(it.confidence) ? it.confidence : 'low', reason: String(it.reason || '').slice(0, 140) });
   });
   return out;
 }
@@ -226,6 +229,12 @@ function createAI({ store, clientFactory }) {
     if (items.length > MAX_CATEGORIZE) throw new Error('Too many items in one request (limit ' + MAX_CATEGORIZE + ').');
     const clean = items.map((x, i) => ({ key: String((x && x.key) || i), name: maskLong(x && x.name), amount: Math.round((+(x && x.amount) || 0) * 100) / 100 }));
     const keys = clean.map((x) => x.key);
+    const subs = {};
+    if (payload.subcategories && typeof payload.subcategories === 'object') {
+      Object.keys(payload.subcategories).slice(0, 40).forEach((c) => {
+        if (Array.isArray(payload.subcategories[c])) subs[String(c).slice(0, 24)] = payload.subcategories[c].map((x) => String(x).slice(0, 32)).filter(Boolean).slice(0, 24);
+      });
+    }
     const cats = Array.isArray(payload.categories) ? Array.from(new Set(payload.categories.map((c) => String(c).trim().slice(0, 24)).filter(Boolean).concat(['Other', 'Income']))).slice(0, 40) : CATS;
     let msg;
     try {
@@ -234,7 +243,7 @@ function createAI({ store, clientFactory }) {
         max_tokens: 16000,
         system: CATEGORIZE_SYSTEM,
         output_config: { effort: 'medium', format: { type: 'json_schema', schema: categorizeSchema(cats) } },
-        messages: [{ role: 'user', content: JSON.stringify({ categories: cats, items: clean }) }],
+        messages: [{ role: 'user', content: JSON.stringify({ categories: cats, subcategories: subs, items: clean }) }],
       });
       msg = await stream.finalMessage();
     } catch (err) {
@@ -245,7 +254,7 @@ function createAI({ store, clientFactory }) {
     const text = (msg.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('');
     let parsed;
     try { parsed = JSON.parse(text); } catch (e) { throw new Error('Claude returned an answer the app could not read. Try again.'); }
-    return { items: cleanCategorize(parsed, keys, cats), usage: { input: msg.usage && msg.usage.input_tokens, output: msg.usage && msg.usage.output_tokens } };
+    return { items: cleanCategorize(parsed, keys, cats, subs), usage: { input: msg.usage && msg.usage.input_tokens, output: msg.usage && msg.usage.output_tokens } };
   }
 
   async function runStatement(system, content) {
