@@ -1,6 +1,6 @@
 // macOS only: node test/updater.mac.smoke.js
 // Runs the real install script against real disk images: success, a corrupt image, and a read-only install folder.
-const { spawn, spawnSync, execFileSync } = require('child_process');
+const { spawnSync, execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -22,8 +22,10 @@ function makeDmg(marker, name) {
   return dmg;
 }
 function run(dmg, app, result) {
-  const sleeper = spawn('sleep', ['2'], { stdio: 'ignore' });                         // stands in for the running app: the script must wait for it to exit
-  const r = spawnSync('/bin/bash', [script, dmg, app, String(sleeper.pid), result], { env: { ...process.env, HOME: home, NO_OPEN: '1' }, timeout: 120000 });
+  // Stands in for the running app: a process that exits after 2 seconds, which the script must wait for. It is started from a
+  // short-lived shell so launchd adopts and reaps it (a child of this blocked Node process would linger as a zombie).
+  const pid = execFileSync('/bin/sh', ['-c', 'sleep 2 >/dev/null 2>&1 & echo $!']).toString().trim();
+  const r = spawnSync('/bin/bash', [script, dmg, app, pid, result], { env: { ...process.env, HOME: home, NO_OPEN: '1' }, timeout: 120000 });
   return r.status;
 }
 const marker = (app) => fs.readFileSync(path.join(app, 'Contents', 'marker.txt'), 'utf8');
