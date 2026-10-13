@@ -92,6 +92,23 @@ How it works: `native-glass/glass.mm` is a small N-API addon written for this pr
 
 Limits: glass is one layer behind the whole window, not a separate lens on every panel, so panels get tint and edge highlights but not individual refraction. Panels sit on top of live desktop content, so text contrast depends on your wallpaper; raise Frost in Appearance if it is hard to read. Apple may change the API in later macOS versions. What CI cannot show is how it looks, so check it on your Mac.
 
+## Updating the app from inside the app
+
+Appearance tab, App updates (or Help, Check for Updates in the menu bar). Because the repository is private and the app is not signed by Apple, the usual auto-update libraries do not work, so this is built by hand:
+
+1. **One-time setup:** paste a read-only GitHub token. Create a fine-grained token at https://github.com/settings/personal-access-tokens/new, repository access: only `tally-money`, permission Repository, Contents: Read-only, with an expiry of up to a year. It is kept in the macOS Keychain (the same encrypted store as your other keys) and is never sent to the page. When it expires, paste a new one.
+2. **Check for updates** asks GitHub for the latest release. Once a day-ish (each launch) the app also checks quietly and shows a banner when a newer version exists.
+3. **Update** downloads the `.dmg` for your Mac (Apple Silicon or Intel), checks its size and SHA-256 against what GitHub reports for that file, then closes the app. A small script mounts the image, swaps the new app in for the old one in the same place, removes the "downloaded from the internet" flag, and reopens it. If any step fails, the old version is put back and the app tells you why. The script's log is `~/Library/Logs/Tally Money update.log`.
+
+Limits and honest caveats:
+
+- Your data lives outside the app and carries over.
+- It works only for a copy installed in a normal folder such as Applications and opened from there. A copy running from the disk image or from a quarantined Downloads folder is told to move to Applications first.
+- The first update has to be installed by hand, because earlier versions do not contain the updater.
+- Keychain items are tied to the app's signature, and ad hoc signatures change with every build, so macOS may ask once after an update to let the new version use your saved Plaid, AI and token entries. Choose Always Allow. If you choose Deny, those saved keys cannot be read and need re-entering.
+- The token can read your private source code. Use a token limited to this one repository, read-only, with an expiry, and revoke it at GitHub if you lose your Mac.
+- Tested: the version and download logic (mocked GitHub), and the install script on a real macOS runner (success, corrupt image, read-only folder). Not tested: a real update on your Mac against your private releases.
+
 ## Accounts for other people (hosted version)
 
 Two ways to let other people use Tally:

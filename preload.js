@@ -10,6 +10,15 @@ contextBridge.exposeInMainWorld('tally', {
   theme: {
     mode: inv('theme:mode'),
   },
+  update: {
+    status: inv('update:status'),
+    setToken: inv('update:setToken'),
+    clearToken: inv('update:clearToken'),
+    check: inv('update:check'),
+    install: inv('update:install'),
+    onProgress: (cb) => ipcRenderer.on('update:progress', (_e, p) => cb(p)),
+  },
+  onNav: (cb) => ipcRenderer.on('nav', (_e, where) => cb(String(where))),
   plaid: {
     status: inv('plaid:status'),
     saveKeys: inv('plaid:saveKeys'),

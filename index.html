@@ -383,7 +383,7 @@ function render(){
   nav();
   var f={look:vLook,overview:vOverview,accounts:vAccounts,afford:vAfford,credit:vCredit,invest:vInvest,report:vReport,subscriptions:vSubs,budgets:vBudgets,transactions:vTx,goals:vGoals}[view];
   var cb=HOSTED&&AUTH.conflict?'<div class="banner" id="conflict"><span><b>This account changed on another device.</b> Choose which version to keep.</span><span style="flex:0 0 auto;display:flex;gap:8px"><button class="btn small" data-act="cf-remote">Use the other version</button><button class="btn small primary" data-act="cf-local">Keep this device\'s version</button></span></div>':'';
-  var banner=cb+(S.sample?'<div class="banner"><span><b>Example data.</b> These accounts and transactions are made up so you can try everything. Clear them to start with your own, or import a CSV from your bank.</span><button class="btn primary small" data-act="clear">Start fresh</button></div>':'');
+  var banner=cb+updBanner()+(S.sample?'<div class="banner"><span><b>Example data.</b> These accounts and transactions are made up so you can try everything. Clear them to start with your own, or import a CSV from your bank.</span><button class="btn primary small" data-act="clear">Start fresh</button></div>':'');
   $('#main').innerHTML=banner+f();
   bindView();thBind($('#main'));afterRender();
 }
@@ -1861,6 +1861,11 @@ document.addEventListener('click',function(e){
   else if(a==='cat-del'){budDel=b.dataset.c}
   else if(a==='cat-cancel'){budDel=''}
   else if(a==='cat-del-yes'){var dc=b.dataset.c;S.txns.forEach(function(x){if(x.cat===dc)x.cat='Other'});delete S.budgets[dc];S.customCats=S.customCats.filter(function(c){return c.name!==dc});syncCats();budDel='';budSel=''}
+  else if(a==='up-check'){updCheck(false);return}
+  else if(a==='up-install'){updInstall();return}
+  else if(a==='up-later'){UP.hide=true}
+  else if(a==='up-open'){view='look';pendingImport=null}
+  else if(a==='up-cleartoken'){window.tally.update.clearToken().then(function(){UP.st.hasToken=false;UP.info=null;UP.msg='';render()});return}
   else if(a==='gl-on'||a==='gl-off'){window.tally.glass.set(a==='gl-on');toast('Restarting…');return}
   else if(a.indexOf('th-')===0){thClick(a,b);return}
   else if(a==='wg-vis'){widgetSet('visible',!(WS&&WS.visible));return}
@@ -1917,7 +1922,7 @@ function vLook(){
   '<section class="panel"><h2>Type and motion</h2>'+
     '<div class="lookrow"><span class="lbl">Text size</span><span class="ctl">'+seg('th-size',TH.size,[['s','Small'],['m','Normal'],['l','Large']])+'</span></div>'+
     '<div class="lookrow"><span class="lbl">Font</span><span class="ctl">'+seg('th-font',TH.font,[['modern','Modern'],['system','System'],['rounded','Rounded'],['serif','Serif']])+'</span></div>'+
-    '<div class="lookrow"><span class="lbl">Motion<small>Page transitions, count-ups, the drifting background and confetti. Your system "reduce motion" setting always wins.</small></span><span class="ctl">'+seg('th-motion',TH.motion,[['full','Full'],['reduced','Calm']])+'</span></div></section>';
+    '<div class="lookrow"><span class="lbl">Motion<small>Page transitions, count-ups, the drifting background and confetti. Your system "reduce motion" setting always wins.</small></span><span class="ctl">'+seg('th-motion',TH.motion,[['full','Full'],['reduced','Calm']])+'</span></div></section>'+updatesPanel();
 }
 function thClick(a,b){
   if(a==='th-preset'){var p=PRESETS.filter(function(x){return x.id===b.dataset.v})[0];if(p){TH.preset=p.id;TH.accent=p.accent}}
@@ -1926,6 +1931,7 @@ function thClick(a,b){
   saveTheme();applyTheme();render();return true;
 }
 function thBind(m){
+  var uf=$('#upform',m);if(uf)uf.onsubmit=function(e){e.preventDefault();window.tally.update.setToken($('#up-token').value).then(function(r){if(r&&r.ok){UP.st.hasToken=true;UP.msg='';render();updCheck(false)}else{UP.msg=(r&&r.error)||'Could not save the token.';toast(UP.msg);render()}})};
   var ta=$('#th-accent',m);
   if(ta){ta.oninput=function(){TH.accent=ta.value.toLowerCase();TH.preset='custom';saveTheme();applyTheme();var h=ta.parentNode.querySelector('.muted');if(h)h.textContent=TH.accent.toUpperCase()};ta.onchange=function(){render()}}
   var fr=$('#th-frost',m);if(fr)fr.oninput=function(){TH.frost=clampN(fr.value,0,100,60);saveTheme();applyTheme()};
@@ -1959,6 +1965,72 @@ function confetti(){
   var t0=performance.now();
   (function f(ts){var dt=ts-t0;x.clearRect(0,0,w,h);ps.forEach(function(p){p.vy+=.3;p.x+=p.vx;p.y+=p.vy;p.a+=p.va;x.save();x.translate(p.x,p.y);x.rotate(p.a);x.fillStyle=p.c;x.globalAlpha=Math.max(0,1-dt/1900);x.fillRect(-p.r,-p.r/2,p.r*2,p.r);x.restore()});if(dt<1900)requestAnimationFrame(f);else cv.remove()})(t0);
 }
+
+/* ---------- App updates (Mac app) ---------- */
+var UP={st:null,info:null,busy:'',msg:'',prog:null,hide:false};
+function mb(n){return Math.max(1,Math.round(n/1048576))+' MB'}
+function updInit(){
+  if(!(window.tally&&window.tally.update))return;
+  var u=window.tally.update;
+  u.onProgress(function(p){
+    UP.prog=p;var b=$('#upprog i'),t=$('#uptxt');
+    if(p.phase==='install'){if(b)b.style.width='100%';if(t)t.textContent='Installing. Tally Money will close and reopen by itself.';return}
+    if(b)b.style.width=(p.total?Math.min(100,p.received/p.total*100):0)+'%';
+    if(t)t.textContent='Downloading '+mb(p.received||0)+' of '+mb(p.total||0);
+  });
+  if(window.tally.onNav)window.tally.onNav(function(w){if(w==='update'){view='look';render();updCheck(false)}});
+  u.status().then(function(r){
+    if(!r||!r.ok)return;
+    UP.st=r.data;
+    var lr=r.data.lastResult;
+    if(lr){if(lr.ok)toast('Updated to version '+r.data.version+'.');else{UP.msg='The last update could not be installed: '+lr.error+' Your previous version was kept.';toast('Update failed. Your previous version was kept.')}}
+    if(r.data.hasToken)updCheck(true);
+    if(view==='look')render();
+  },function(){});
+}
+function updCheck(auto){
+  if(!(window.tally&&window.tally.update)||UP.busy)return;
+  UP.busy='check';if(!auto){UP.msg='';render()}
+  window.tally.update.check({auto:!!auto}).then(function(r){
+    UP.busy='';
+    if(r&&r.ok&&r.data){UP.info=r.data;UP.hide=false;UP.msg=r.data.newer?'':'You have the latest version ('+r.data.current+').'}
+    else if(r&&!r.ok&&!auto)UP.msg=r.error||'Could not check for updates.';
+    render();
+  },function(){UP.busy='';if(!auto)UP.msg='Could not check for updates.';render()});
+}
+function updInstall(){
+  if(UP.busy)return;
+  UP.busy='install';UP.msg='';UP.prog=null;render();
+  window.tally.update.install().then(function(r){
+    if(r&&r.ok)return;               // the app is about to quit and reopen
+    UP.busy='';UP.msg=(r&&r.error)||'The update could not be installed.';render();
+  },function(){UP.busy='';UP.msg='The update could not be installed.';render()});
+}
+function updBanner(){
+  var i=UP.info;if(!(i&&i.newer)||UP.hide||UP.busy==='install')return '';
+  return '<div class="banner"><span><b>Version '+esc(i.latest)+' is available.</b> You have '+esc(i.current)+'.</span><span style="flex:0 0 auto;display:flex;gap:8px"><button class="btn small" data-act="up-later">Later</button><button class="btn small primary" data-act="up-open">See details</button></span></div>';
+}
+function updatesPanel(){
+  if(!(window.tally&&window.tally.update)||!UP.st)return '';
+  var st=UP.st,i=UP.info,h='<section class="panel" id="updpanel"><h2>App updates<small>version '+esc(st.version)+'</small></h2>';
+  if(!st.hasToken){
+    h+='<p class="sub" style="margin:0 0 10px">Tally Money is private, so it needs a read-only GitHub token to see new releases. Create one once:</p><ol class="sub" style="margin:0 0 12px;padding-left:20px;font-size:13px"><li>Open <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">GitHub, new fine-grained token</a>.</li><li>Repository access: Only select repositories, then <b>tally-money</b>.</li><li>Permissions, Repository permissions: <b>Contents: Read-only</b>. Nothing else.</li><li>Set an expiry (up to a year; updates stop working when it expires). Generate, copy the token and paste it here.</li></ol>'+
+      '<form id="upform" class="form"><input id="up-token" type="password" placeholder="github_pat_…" autocomplete="off" style="flex:1 1 260px" required><button class="btn primary">Save token</button></form><p class="sub muted" style="margin:10px 0 0;font-size:12px">The token is kept in your Mac\'s Keychain and only used to read this repository\'s releases and download them.</p>';
+  }else{
+    var avail=i&&i.newer;
+    h+='<div class="actions" style="justify-content:flex-start"><button class="btn'+(avail?'':' primary')+'" data-act="up-check"'+(UP.busy?' disabled':'')+'>'+(UP.busy==='check'?'Checking…':'Check for updates')+'</button>'+(avail&&st.canInstall&&i.hasAsset?'<button class="btn primary" data-act="up-install"'+(UP.busy?' disabled':'')+'>Update to '+esc(i.latest)+' ('+mb(i.size)+')</button>':'')+'<button class="btn small" data-act="up-cleartoken"'+(UP.busy==='install'?' disabled':'')+'>Remove token</button></div>';
+    if(UP.busy==='install')h+='<div class="bar" id="upprog" style="margin-top:12px"><i style="width:0%"></i></div><p class="sub" id="uptxt" style="margin:6px 0 0">Starting…</p>';
+    if(avail){
+      h+='<p style="margin:12px 0 4px"><b>Version '+esc(i.latest)+' is available</b> <span class="muted">(you have '+esc(i.current)+')</span></p>';
+      if(i.notes)h+='<pre class="pdfpre" style="max-height:160px">'+esc(i.notes)+'</pre>';
+      if(!i.hasAsset)h+='<p class="sub bad" style="margin:8px 0 0">This release has no download for your Mac.</p>';
+      else if(!st.canInstall)h+='<p class="sub" style="margin:8px 0 0">'+esc(st.installBlocker||'This copy cannot update itself.')+' You can still download it from the releases page.</p>';
+      else h+='<p class="sub muted" style="margin:8px 0 0;font-size:12px">The download is checked against GitHub\'s checksum, then replaces this app and reopens it. Your data stays. If anything fails, the old version is kept. Keychain may ask once to allow the new version to use saved keys.</p>';
+    }
+  }
+  if(UP.msg)h+='<p class="sub" style="margin:10px 0 0">'+esc(UP.msg)+'</p>';
+  return h+'</section>';
+}
 /* ---------- Desktop widget (Mac app) ---------- */
 var WS=null,wT=0;
 function widgetPush(){
@@ -1966,6 +2038,7 @@ function widgetPush(){
   clearTimeout(wT);wT=setTimeout(function(){try{window.tally.widget.push((function(){var w=widgetSummary();w.accent=TH.accent;return w})()).catch(function(){})}catch(e){}},500);
 }
 function widgetInit(){
+  updInit();
   if(window.tally&&window.tally.glass)window.tally.glass.status().then(function(r){if(r&&r.ok){GS=r.data;if(view==='look')render()}},function(){});
   if(!window.tally||!window.tally.widget)return;
   window.tally.widget.status().then(function(r){if(r&&r.ok){WS=r.data;if(view==='transactions')render()}},function(){});

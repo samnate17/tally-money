@@ -1,6 +1,6 @@
 {
   "name": "tally-money",
-  "version": "1.6.1",
+  "version": "1.6.2",
   "description": "Personal money app: spending, subscriptions, budgets and goals.",
   "author": "samnate17",
   "license": "UNLICENSED",
@@ -28,6 +28,7 @@
       "market.js",
       "widget.js",
       "glass.js",
+      "updater.js",
       "widget.html",
       "widget-preload.js",
       "!**/*.map",

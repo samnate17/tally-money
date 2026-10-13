@@ -8,8 +8,10 @@ const { parsePdf, maskText } = require('./statement');
 const { createMarket, SYMBOL } = require('./market');
 const { createWidget } = require('./widget');
 const glassLib = require('./glass');
+const { createUpdater } = require('./updater');
+const { spawn } = require('child_process');
 
-let store, plaid, ai, market, widget, mainWin = null, linkState = null;
+let store, plaid, ai, market, widget, updater, mainWin = null, linkState = null;
 let glassAddon = null, glassState = { available: false, active: false, reason: '' }, glassId = -1, glassPrefsFile = '';
 const statementText = new Map();
 const statementBytes = new Map(); // PDFs with no text layer, kept briefly so they can be sent to Claude if the user chooses
@@ -117,6 +119,24 @@ function wireIpc() {
     if (!fromMain2(e)) return { ok: false };
     nativeTheme.themeSource = mode === 'light' || mode === 'dark' ? mode : 'system';
     return { ok: true };
+  });
+
+  // App updates (see updater.js). Only the main window may call these.
+  const mainOnly = (channel, fn) => ipcMain.handle(channel, async (e, ...args) => {
+    if (!mainWin || mainWin.isDestroyed() || e.sender !== mainWin.webContents || !updater) return { ok: false, error: 'Blocked.' };
+    try { return { ok: true, data: await fn(...args) }; } catch (err) { return { ok: false, error: (err && err.message) || 'Something went wrong.' }; }
+  });
+  mainOnly('update:status', () => updater.status());
+  mainOnly('update:setToken', (t) => updater.setToken(t));
+  mainOnly('update:clearToken', () => updater.clearToken());
+  mainOnly('update:check', (opt) => updater.check(opt || {}));
+  mainOnly('update:install', async () => {
+    const send = (p) => { if (mainWin && !mainWin.isDestroyed()) mainWin.webContents.send('update:progress', p); };
+    send({ phase: 'download', received: 0, total: 0 });
+    await updater.download((p) => send({ phase: 'download', ...p }));
+    send({ phase: 'install' });
+    updater.install();                  // quits the app; a script swaps the new version in and reopens it
+    return true;
   });
 
   handle('plaid:status', () => plaid.status());
@@ -239,6 +259,7 @@ function buildMenu() {
       ],
     },
     { role: 'windowMenu' },
+    { label: 'Help', submenu: [{ label: 'Check for Updates…', click: () => { showMain(); if (mainWin) mainWin.webContents.send('nav', 'update'); } }] },
   ]));
 }
 
@@ -250,6 +271,12 @@ app.whenReady().then(() => {
   glassPrefsFile = path.join(app.getPath('userData'), 'appearance.json');
   glassAddon = glassLib.loadAddon({ resourcesPath: process.resourcesPath, devDir: path.join(__dirname, 'native-glass') });
   glassState = glassLib.decide({ platform: process.platform, osVersion: process.getSystemVersion && process.getSystemVersion(), prefs: glassLib.readPrefs(glassPrefsFile), addon: glassAddon });
+  updater = createUpdater({
+    store, version: app.getVersion(), arch: process.arch, platform: process.platform,
+    appPath: app.isPackaged && process.platform === 'darwin' ? path.resolve(app.getPath('exe'), '../../..') : '',
+    tmpDir: path.join(app.getPath('temp'), 'tally-money-update'), resultFile: path.join(app.getPath('userData'), 'update-result.json'),
+    spawnImpl: spawn, quit: () => app.quit(),
+  });
   wireIpc();
   widget = createWidget({ BrowserWindow, screen, file: path.join(app.getPath('userData'), 'widget.json'), preload: path.join(__dirname, 'widget-preload.js'), html: path.join(__dirname, 'widget.html'), nativeFile: path.join(app.getPath('userData'), 'native-widget.json') });
   buildMenu();
