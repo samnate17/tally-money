@@ -40,7 +40,7 @@ test('updater: check reports newer or current, picks the asset, and gives plain 
   assert.strictEqual(calls[0].opt.headers.Authorization, 'Bearer ' + TOKEN); assert.match(calls[0].url, /\/repos\/samnate17\/tally-money\/releases\/latest$/);
   u = U.createUpdater({ ...base, version: '1.7.0', ...mk(() => json(rel)) });
   assert.strictEqual((await u.check()).newer, false);
-  for (const [s, re] of [[401, /rejected the token/], [403, /refused/], [404, /could not find/], [500, /error \(500\)/]]) {
+  for (const [s, re] of [[401, /rejected the token/], [403, /refused/], [404, /cannot tell whether you are up to date[\s\S]*Only select repositories[\s\S]*Contents[\s\S]*samnate17/], [500, /error \(500\)/]]) {
     u = U.createUpdater({ ...base, version: '1.6.1', ...mk(() => json({}, s)) });
     await assert.rejects(u.check(), re);
   }

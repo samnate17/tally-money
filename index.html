@@ -2892,10 +2892,10 @@ function updCheck(auto){
   UP.busy='check';if(!auto){UP.msg='';render()}
   window.tally.update.check({auto:!!auto}).then(function(r){
     UP.busy='';
-    if(r&&r.ok&&r.data){UP.info=r.data;UP.hide=false;UP.msg=r.data.newer?'':'You have the latest version ('+r.data.current+').'}
-    else if(r&&!r.ok&&!auto)UP.msg=r.error||'Could not check for updates.';
+    if(r&&r.ok&&r.data){UP.info=r.data;UP.hide=false;UP.msg=''}
+    else if(r&&!r.ok&&!auto){UP.info=null;UP.msg=r.error||'Could not check for updates, so I cannot tell whether you are up to date.'}
     render();
-  },function(){UP.busy='';if(!auto)UP.msg='Could not check for updates.';render()});
+  },function(){UP.busy='';if(!auto)UP.msg='Could not check for updates, so I cannot tell whether you are up to date.';render()});
 }
 function updInstall(){
   if(UP.busy)return;
@@ -2918,6 +2918,7 @@ function updatesPanel(){
   }else{
     var avail=i&&i.newer;
     h+='<div class="actions" style="justify-content:flex-start"><button class="btn'+(avail?'':' primary')+'" data-act="up-check"'+(UP.busy?' disabled':'')+'>'+(UP.busy==='check'?'Checking…':'Check for updates')+'</button>'+(avail&&st.canInstall&&i.hasAsset?'<button class="btn primary" data-act="up-install"'+(UP.busy?' disabled':'')+'>Update to '+esc(i.latest)+' ('+mb(i.size)+')</button>':'')+'<button class="btn small" data-act="up-cleartoken"'+(UP.busy==='install'?' disabled':'')+'>Remove token</button></div>';
+    if(i&&!i.newer&&!avail&&!UP.busy)h+='<p style="margin:12px 0 0"><span class="pill good">Up to date</span> <span class="sub">Version '+esc(i.current)+' is the newest release.</span></p>';
     if(UP.busy==='install')h+='<div class="bar" id="upprog" style="margin-top:12px"><i style="width:0%"></i></div><p class="sub" id="uptxt" style="margin:6px 0 0">Starting…</p>';
     if(avail){
       h+='<p style="margin:12px 0 4px"><b>Version '+esc(i.latest)+' is available</b> <span class="muted">(you have '+esc(i.current)+')</span></p>';
@@ -2927,7 +2928,7 @@ function updatesPanel(){
       else h+='<p class="sub muted" style="margin:8px 0 0;font-size:12px">The download is checked against GitHub\'s checksum, then replaces this app and reopens it. Your data stays. If anything fails, the old version is kept. Keychain may ask once to allow the new version to use saved keys.</p>';
     }
   }
-  if(UP.msg)h+='<p class="sub" style="margin:10px 0 0">'+esc(UP.msg)+'</p>';
+  if(UP.msg)h+='<p class="sub bad" style="margin:10px 0 0">'+esc(UP.msg)+'</p>';
   return h+'</section>';
 }
 /* ---------- Desktop widget (Mac app) ---------- */

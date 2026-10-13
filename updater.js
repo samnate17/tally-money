@@ -27,9 +27,9 @@ function pickAsset(assets, arch) {
   return (arch === 'arm64' ? dmgs.filter((a) => /-arm64\.dmg$/.test(a.name)) : dmgs.filter((a) => !/arm64/.test(a.name)))[0] || null;
 }
 function friendlyStatus(status) {
-  if (status === 401) return 'GitHub rejected the token. It may have expired or been revoked. Paste a new one.';
-  if (status === 403) return 'GitHub refused the request (rate limit, or the token lacks permission). Try again later or check the token has Contents: read access.';
-  if (status === 404) return 'GitHub could not find the releases. Check the token has access to the tally-money repository (Contents: read-only), and that a release exists.';
+  if (status === 401) return 'GitHub rejected the token, so I cannot tell whether you are up to date. It may have expired or been revoked, or it was not copied in full. Create a new one with Repository access: only tally-money and Contents: Read-only, then paste it here.';
+  if (status === 403) return 'GitHub refused the request, so I cannot tell whether you are up to date. Either you hit a rate limit (try again in a few minutes) or the token lacks permission: check that Repository permissions has Contents set to Read-only.';
+  if (status === 404) return 'GitHub could not find the releases, so I cannot tell whether you are up to date. This almost always means the token cannot see the repository. Check these settings on the token: (1) Repository access is "Only select repositories" with tally-money chosen, not "Public repositories"; (2) Repository permissions has Contents set to Read-only; (3) the Resource owner is samnate17. Fix it, then remove the token here and paste the new one.';
   return 'GitHub returned an error (' + status + ').';
 }
 
