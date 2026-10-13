@@ -982,3 +982,21 @@ test('Windows build is configured and attached to the release after the Mac job'
   const wf = fs.readFileSync(path.join(root, '.github', 'workflows', 'build-mac.yml'), 'utf8');
   assert.ok(/build-windows:\n\s+needs: build\n\s+runs-on: windows-latest/.test(wf) && wf.includes('dist/*.exe'));
 });
+
+test('personal expenses like haircuts get their own categories and sub-categories', () => {
+  const W = catWorld({ customCats: [], merchantCats: {}, subCats: {}, merchantSubs: {} });
+  const cases = [
+    ['GREAT CLIPS #1234 SPRINGFIELD', 'Personal care', 'Haircut'], ['Joe the Barber', 'Personal care', 'Haircut'], ['ULTA BEAUTY 551', 'Personal care', 'Cosmetics'],
+    ['Lotus Nails & Spa', 'Personal care', 'Skin and nails'], ['PETCO 1042', 'Pets', 'Food and supplies'], ['Valley Veterinary Hospital', 'Pets', 'Vet'],
+    ['UDEMY ONLINE COURSE', 'Education', 'Courses'], ['AMERICAN RED CROSS', 'Gifts and donations', 'Donations'], ['1-800-FLOWERS', 'Gifts and donations', 'Gifts and flowers'],
+  ];
+  cases.forEach(([name, cat, sub]) => { assert.strictEqual(W.guessCat(name), cat, name); assert.strictEqual(W.guessSub(cat, name), sub, name + ' sub'); });
+  // earlier behaviour is unchanged for things that merely look similar
+  ['HOT DOG STAND', 'Shell Oil 5521', 'EVERSOURCE', 'Spotify USA', 'Tokyo Cafe'].forEach((n) => assert.ok(!['Personal care', 'Pets', 'Education', 'Gifts and donations'].includes(W.guessCat(n)), n));
+  assert.strictEqual(W.guessCat('Shell Oil 5521'), 'Transport'); assert.strictEqual(W.guessCat('EVERSOURCE'), 'Housing');
+});
+
+test('the bill form can make a new category and sub-category', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  assert.ok(src.includes('+ New category…') && src.includes('+ New sub-category…') && src.includes('function newCatName'));
+});

@@ -261,10 +261,11 @@ canvas.confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:non
 (function(){
 'use strict';
 /* ---------- helpers ---------- */
-var BASECATS=['Housing','Groceries','Dining','Transport','Subscriptions','Shopping','Health','Entertainment','Travel','Cash and transfers','Debt and loans'];
+var BASECATS=['Housing','Groceries','Dining','Transport','Subscriptions','Shopping','Health','Personal care','Entertainment','Pets','Education','Gifts and donations','Travel','Cash and transfers','Debt and loans'];
 var CATS=BASECATS.concat(['Other','Income']);
 var RULE_PRESETS={gas:['shell','chevron','exxon','mobil','bp','arco','valero','sunoco','speedway','texaco','marathon','citgo','fuel','gas station','costco gas','wawa','sheetz','circle k','pilot','caseys']};
-function syncCats(){var custom=(S&&Array.isArray(S.customCats)?S.customCats:[]).map(function(c){return c.name});CATS.length=0;BASECATS.concat(custom,['Other','Income']).forEach(function(c){CATS.push(c)})}
+function syncCats(){var custom=(S&&Array.isArray(S.customCats)?S.customCats:[]).map(function(c){return c.name});CATS.length=0;var seen={};BASECATS.forEach(function(b){seen[b.toLowerCase()]=1});custom=custom.filter(function(c){return !seen[String(c).toLowerCase()]});   // a custom category that now matches a built-in one is shown once; its keyword rules still apply
+  BASECATS.concat(custom,['Other','Income']).forEach(function(c){CATS.push(c)})}
 function ruleRe(k){return new RegExp('(^|[^a-z0-9])'+String(k).toLowerCase().replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'($|[^a-z0-9])','i')}
 function ruleCat(n){var cc=(S&&S.customCats)||[];for(var i=0;i<cc.length;i++)for(var j=0;j<cc[i].rules.length;j++)if(ruleRe(cc[i].rules[j]).test(n))return cc[i].name;return null}
 var CCOL={Housing:'--c1',Groceries:'--c2',Dining:'--c3',Transport:'--c5',Subscriptions:'--c6',Shopping:'--c4',Health:'--c7',Entertainment:'--c8',Other:'--c8',Income:'--good'};
@@ -278,6 +279,10 @@ var KEYWORDS=[
  ['Transport',/uber(?! ?eats)|lyft|shell oil|shell service|chevron|exxon|mobil\b|sunoco|\bbp\b|citgo|marathon|valero|gulf oil|speedway|\bfuel\b|\bgas\b|e-?zpass|toll|parking|\bmta\b|transit|metro|taxi|car ?wash|jiffy|autozone|o'?reilly|advance auto|midas|dmv|geico|progressive ins|state farm|allstate|auto insurance/i],
  ['Subscriptions',/netflix|spotify|hulu|disney|icloud|adobe|youtube|prime video|apple\.com|dropbox|patreon|audible|gym|fitness|membership|anthropic|openai|chatgpt|claude|github|notion|1password|peacock|paramount|hbo|itunes|google (one|storage|play)|microsoft 365|office 365|nytimes|wsj|substack|duolingo|mobile\b|wireless|t-mobile|mint mobile|visible/i],
  ['Housing',/\brent\b|mortgage|landlord|\bhoa\b|eversource|national grid|con ?ed|pg&e|duke energy|electric|utility|water (bill|dept)|sewer|trash|waste|internet|comcast|xfinity|spectrum|fios|centurylink|\bcox\b|renters? ins/i],
+ ['Personal care',/haircut|hair ?cut|barber|great clips|supercuts|sport clips|hair (studio|salon|cuttery)|\bsalon\b|\bnails?\b|manicure|pedicure|\bspa\b|massage|waxing|\bulta\b|sephora|cosmetic|beauty/i],
+ ['Pets',/petco|petsmart|chewy|pet supplies|veterinar|animal (hospital|clinic)|\bvet\b|kennel/i],
+ ['Education',/tuition|university|college|udemy|coursera|skillshare|pluralsight|duolingo|textbook|bookstore/i],
+ ['Gifts and donations',/donat|charity|gofundme|red cross|unicef|church|tithe|florist|flowers|\bgift\b/i],
  ['Groceries',/grocer|whole foods|trader joe|kroger|safeway|aldi|costco|walmart|market basket|shaw'?s|stop ?& ?shop|hannaford|price chopper|wegmans|publix|food lion|sprouts|bj'?s\b|365 market|supermarket|mini mar|convenience|7-?eleven|seven-?eleven|village sto|general store|food shops?|\bmarke\b|\bmarket\b/i],
  ['Dining',/restaurant|cafe|coffee|starbucks|dunkin|chipotle|mcdonald|burger|pizza|pomodoro|doordash|uber ?eats|grubhub|taco|sushi|ramen|noodle|grill|kitchen|bistro|diner|bakery|cookies|donut|bbq|wings|steak|thai|tst\*|toast|\bpub\b|tavern|brew|bar & grill/i],
  ['Health',/pharmacy|cvs|walgreens|rite aid|clinic|dental|doctor|hospital|urgent care|medical|vision|optic|therapy|health|blue cross|aetna|cigna|kaiser|insurance/i],
@@ -1454,6 +1459,10 @@ var DEFAULT_SUBS={
  Subscriptions:['Streaming','Software and AI','Phone plan','Memberships'],
  Shopping:['Online','Clothing','Home and hardware','Alcohol'],
  Health:['Pharmacy','Doctor and dental','Insurance'],
+ 'Personal care':['Haircut','Skin and nails','Cosmetics','Massage and spa'],
+ Pets:['Food and supplies','Vet','Grooming'],
+ Education:['Tuition','Courses','Books'],
+ 'Gifts and donations':['Donations','Gifts and flowers'],
  Entertainment:['Games','Events','Bars and nightlife'],
  Travel:['Lodging','Flights and trains','Food and local transport'],
  'Cash and transfers':['ATM cash','Sent to people','Remittances'],
@@ -1487,7 +1496,14 @@ var SUBRULES=[
  ['Travel','Lodging',/hotel|resort|airbnb|agoda|booking\.com|expedia|hostel/i],
  ['Travel','Flights and trains',/airline|airways|flight|amtrak|train|suica|shinkansen|jetblue/i],
  ['Health','Pharmacy',/pharmacy|cvs|walgreens|rite aid/i],
- ['Shopping','Alcohol',/wine|liquor|spirits|nhlc/i]];
+ ['Shopping','Alcohol',/wine|liquor|spirits|nhlc/i],
+ ['Personal care','Haircut',/haircut|hair ?cut|barber|great clips|supercuts|sport clips|hair (studio|salon|cuttery)/i],
+ ['Personal care','Skin and nails',/\bnails?\b|manicure|pedicure|facial|waxing/i],
+ ['Personal care','Cosmetics',/ulta|sephora|cosmetic|beauty/i],
+ ['Personal care','Massage and spa',/massage|\bspa\b/i],
+ ['Pets','Food and supplies',/petco|petsmart|chewy|pet supplies/i],['Pets','Vet',/veterinar|animal (hospital|clinic)|\bvet\b/i],['Pets','Grooming',/pet groom|dog groom/i],
+ ['Education','Tuition',/tuition|university|college/i],['Education','Courses',/udemy|coursera|skillshare|pluralsight|duolingo|\bcourse\b/i],['Education','Books',/textbook|bookstore/i],
+ ['Gifts and donations','Donations',/donat|charity|gofundme|red cross|unicef|church|tithe/i],['Gifts and donations','Gifts and flowers',/\bgift\b|florist|flowers/i]];
 function subList(cat){var m=S.subCats&&S.subCats[cat];return Array.isArray(m)?m:(DEFAULT_SUBS[cat]||[])}
 function cleanSubName(x){return String(x==null?'':x).replace(/[<>"&]/g,'').replace(/\s+/g,' ').trim().slice(0,32)}
 function parseSubList(text){var seen={},out=[];String(text||'').split(/[,\n]/).forEach(function(p){var n=cleanSubName(p);if(n&&!seen[n.toLowerCase()]){seen[n.toLowerCase()]=1;out.push(n)}});return out.slice(0,24)}
@@ -1839,7 +1855,7 @@ function monthlyStack(txns,nowKey,n){
 /*BUDGET-END*/
 /*PLAN-START*/
 // A plan for affording something: how big the gap is, what could close it (leftover money, trimming spending, earning more) and how long it takes.
-var TRIM_PCT={'Dining':.25,'Shopping':.30,'Entertainment':.30,'Travel':.35,'Cash and transfers':.15,'Subscriptions':.20,'Other':.15,'Groceries':.08,'Transport':.07,'Health':0,'Housing':0,'Debt and loans':0,'Income':0};
+var TRIM_PCT={'Personal care':.20,'Pets':.10,'Education':0,'Gifts and donations':.25,'Dining':.25,'Shopping':.30,'Entertainment':.30,'Travel':.35,'Cash and transfers':.15,'Subscriptions':.20,'Other':.15,'Groceries':.08,'Transport':.07,'Health':0,'Housing':0,'Debt and loans':0,'Income':0};
 var ESSENTIAL_CATS={'Groceries':1,'Transport':1};
 function round5(n){return Math.round(n/5)*5}
 function affordPlan(a){
@@ -2034,12 +2050,23 @@ function billsTile(){
   var sub=sum.count?money0(sum.paid)+' paid · '+sum.paidCount+' of '+sum.count+(sum.overdue?' · <span class="bad">'+sum.overdue+' overdue</span>':''):'Track what is due';
   return '<div class="tile" data-view="bills" role="link" tabindex="0" style="cursor:pointer" aria-label="Bills, open the Bills tab"><div class="l">Bills</div><div class="v num">'+body+'</div><div class="s">'+sub+'</div></div>';
 }
+// A name for a category made from the bill form: letters, numbers, spaces, & / -; reuses an existing category with the same name.
+function newCatName(raw){
+  var n=String(raw||'').trim().replace(/\s+/g,' ');
+  if(!n)return {err:'Type a name for the new category.'};
+  if(!/^[A-Za-z0-9][A-Za-z0-9 &\/\-]{0,23}$/.test(n))return {err:'Use letters, numbers, spaces, & / or - in the category name.'};
+  if(/^income$/i.test(n))return {err:'Income is not a bill category.'};
+  var ex=CATS.filter(function(c){return c.toLowerCase()===n.toLowerCase()})[0];
+  return {name:ex||n};
+}
 function billForm(b){
   var v=b||{};
   return '<form class="billform panel" data-id="'+(b?b.id:'')+'" style="margin:10px 0"><div class="form" style="align-items:end"><label>Name<input name="n" required maxlength="40" value="'+esc(v.name||'')+'" placeholder="e.g. Eversource electric"></label>'+
    '<label>Usual amount<input name="a" type="number" min="0" step="0.01" required value="'+(v.amount!==undefined?v.amount:'')+'"></label><label>Due day (1 to 31)<input name="d" type="number" min="0" max="31" value="'+(v.dueDay||'')+'"></label>'+
-   '<label>Category<select name="c">'+CATS.filter(function(c){return c!=='Income'}).map(function(c){return '<option'+(c===(v.cat||'Housing')?' selected':'')+'>'+esc(c)+'</option>'}).join('')+'</select></label>'+
-   '<label>Sub-category<select name="u">'+subOptions(v.cat||'Housing',v.sub||'')+'</select></label>'+
+   '<label>Category<select name="c">'+CATS.filter(function(c){return c!=='Income'}).map(function(c){return '<option'+(c===(v.cat||'Housing')?' selected':'')+'>'+esc(c)+'</option>'}).join('')+'<option value="__new">+ New category…</option></select></label>'+
+   '<label class="newc" style="display:none">New category name<input name="nc" maxlength="24" placeholder="e.g. Haircuts"></label>'+
+   '<label>Sub-category<select name="u">'+subOptions(v.cat||'Housing',v.sub||'')+'<option value="__new">+ New sub-category…</option></select></label>'+
+   '<label class="news" style="display:none">New sub-category name<input name="ns" maxlength="32" placeholder="e.g. Barber"></label>'+
    '<label>Words in the payment name<input name="m" maxlength="80" value="'+esc(v.match||'')+'" placeholder="e.g. eversource" style="width:170px"></label></div>'+
    '<p class="sub muted" style="margin:8px 0 0;font-size:12px">A payment counts toward this bill if its description has one of the words, or, when you pick a sub-category, if it is filed under that category and sub-category (for example Housing, Electric). Leave both out to mark it paid by hand.</p>'+
    '<div class="actions" style="justify-content:flex-start;margin-top:10px"><button class="btn primary small">'+(b?'Save changes':'Add bill')+'</button><button type="button" class="btn small" data-act="bill-cancel">Cancel</button></div></form>';
@@ -2966,10 +2993,17 @@ function thBind(m){
     if(!/^\d{4}-\d{2}$/.test(mo)||!(k>=0)||(c!==null&&!(c>=0)))return;
     S.energy=energyMerge(S.energy,[{month:mo,kwh:Math.round(k*10)/10,cost:c===null?null:Math.round(c*100)/100,days:Math.max(0,Math.round(parseFloat(g('d'))||0))}]).records;
     energyUI.adding=false;save();render();toast('Month saved.')}});
-  m.querySelectorAll('.billform').forEach(function(fm){var bc=fm.elements['c'],bu=fm.elements['u'];if(bc&&bu)bc.onchange=function(){bu.innerHTML=subOptions(bc.value,'')};fm.onsubmit=function(e){e.preventDefault();var g=function(n){return fm.elements[n].value},amt=parseFloat(g('a')),dd=parseInt(g('d'),10),id=fm.dataset.id;
+  m.querySelectorAll('.billform').forEach(function(fm){var bc=fm.elements['c'],bu=fm.elements['u'];var nc=fm.querySelector('.newc'),ns=fm.querySelector('.news'),newOpt='<option value="__new">+ New sub-category…</option>';
+    if(bc&&bu){bc.onchange=function(){bu.innerHTML=(bc.value==='__new'?'<option value="">None</option>':subOptions(bc.value,''))+newOpt;nc.style.display=bc.value==='__new'?'':'none';ns.style.display='none'};
+      bu.onchange=function(){ns.style.display=bu.value==='__new'?'':'none'}}
+    fm.onsubmit=function(e){e.preventDefault();var g=function(n){return fm.elements[n].value},amt=parseFloat(g('a')),dd=parseInt(g('d'),10),id=fm.dataset.id;
     if(!g('n').trim()||!(amt>=0))return;
+    var cat=g('c'),sub=fm.elements['u']?g('u'):'';
+    if(cat==='__new'){var nn=newCatName(g('nc'));if(nn.err){toast(nn.err);return}cat=nn.name;if(CATS.indexOf(cat)<0){if(S.customCats.length>=20){toast('You can have up to 20 custom categories.');return}S.customCats.push({name:cat,rules:[]});syncCats()}}
+    if(sub==='__new'){var sn=cleanSubName(g('ns'));if(!sn){toast('Type a name for the new sub-category.');return}
+      var sl=subList(cat).slice(),hit=sl.filter(function(x){return x.toLowerCase()===sn.toLowerCase()})[0];if(!hit){sl.push(sn);if(sl.length<=24){S.subCats[cat]=sl}}sub=hit||sn}
     var b=id?S.bills.filter(function(x){return x.id===id})[0]:null;if(!b){b={id:uid()};S.bills.push(b)}
-    b.name=g('n').trim().slice(0,40);b.amount=Math.round(amt*100)/100;b.dueDay=dd>=1&&dd<=31?dd:0;b.cat=g('c');b.sub=fm.elements['u']?g('u'):'';b.match=g('m').trim().slice(0,80);
+    b.name=g('n').trim().slice(0,40);b.amount=Math.round(amt*100)/100;b.dueDay=dd>=1&&dd<=31?dd:0;b.cat=cat;b.sub=sub;b.match=g('m').trim().slice(0,80);
     billUI.adding=false;billUI.edit='';save();render();toast(id?'Bill saved.':'Bill added.')}});
   m.querySelectorAll('.loanform').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();var g=function(n){return fm.elements[n].value},kind=fm.dataset.kind,id=fm.dataset.id,bal=parseFloat(g('b')),apr=parseFloat(g('a')),pay=parseFloat(g('p'));
     if(!(bal>=0)||!(apr>=0)||!(pay>=0)||!g('n').trim())return;
