@@ -2,6 +2,7 @@
 // Loads the addon in Electron, adds glass to a transparent window and lists the content view's subviews.
 const { app, BrowserWindow } = require('electron');
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+setTimeout(() => { console.log('GLASS {"ok":false,"error":"timed out"}'); app.exit(1); }, 60000);
 app.whenReady().then(async () => {
   const out = { os: process.getSystemVersion(), arch: process.arch };
   try {

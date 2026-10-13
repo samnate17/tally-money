@@ -23,7 +23,7 @@ jobs:
           sw_vers
           node node_modules/electron/install.js
           node_modules/.bin/electron --version
-          timeout 120 node_modules/.bin/electron test/glass.smoke.js out/arm64/glass.node 2>&1 | tee run.log
+          node_modules/.bin/electron test/glass.smoke.js out/arm64/glass.node 2>&1 | tee run.log
           grep GLASS run.log
 
   macos26:
@@ -40,7 +40,7 @@ jobs:
           sw_vers
           node node_modules/electron/install.js
           node_modules/.bin/electron --version
-          timeout 120 node_modules/.bin/electron test/glass.smoke.js out/arm64/glass.node 2>&1 | tee run.log
+          node_modules/.bin/electron test/glass.smoke.js out/arm64/glass.node 2>&1 | tee run.log
           grep GLASS run.log
           grep -q '"supported":true' run.log
           grep -q '"ok":true' run.log
