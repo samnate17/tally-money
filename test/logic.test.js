@@ -1537,3 +1537,49 @@ test('cash: ATM rows, receipt duplicates and receipt to transaction', () => {
   const bare = C.txnFromReceipt({ total: 4 }, { today: '2026-10-14', guess: () => 'Other' });
   assert.deepStrictEqual(bare, { date: '2026-10-14', name: 'Receipt', amount: -4, cat: 'Other' });
 });
+
+test('categories: fees, taxes, repairs and maintenance', () => {
+  const w = catWorld({ customCats: [], merchantCats: {}, merchantSubs: {}, subCats: {}, setAside: [], txns: [] });
+  const t = [['MA RMV VEHICLE REGISTRATION RENEWAL', 'Fees and taxes', 'Vehicle registration'], ['TOWN OF PETERBOROUGH PROPERTY TAX', 'Fees and taxes', 'Property tax'], ['NH DMV 603-227', 'Fees and taxes', 'Vehicle registration'],
+    ['LATE FEE', 'Fees and taxes', 'Late fees'], ['JIFFY LUBE #1234', 'Repairs and maintenance', 'Car repair and service'], ['AUTOZONE #44', 'Repairs and maintenance', 'Car parts'], ['COSTCO TIRE CENTER', 'Repairs and maintenance', 'Car repair and service'],
+    ['SMITH PLUMBING LLC', 'Repairs and maintenance', 'Home repair'], ['ABC ROOFING', 'Repairs and maintenance', 'Home repair'], ['ACME HVAC SERVICE', 'Repairs and maintenance', 'Appliance and HVAC'], ['HARLEY DAVIDSON SERVICE', 'Repairs and maintenance', 'Motorcycle and boat'],
+    ['STARBUCKS 123', 'Dining', 'Coffee and bakery'], ['EVERSOURCE ELECTRIC', 'Housing', '*']];
+  t.forEach(([n, c, s]) => { assert.strictEqual(w.guessCat(n), c, n); if (s !== '*') assert.strictEqual(w.guessSub(c, n), s, n + ' sub'); });
+});
+
+function assetWorld() { return new Function(srcBlock('/*ASSETS-START*/', '/*ASSETS-END*/') + '\nreturn {ASSET_KINDS, MAINT_PRESETS, assetRate, assetStats, meterPerDay, maintDue, maintBillItems, valueLookupUrl, cleanAsset};')(); }
+test('assets: depreciation rate comes from your numbers, then purchase, then a default', () => {
+  const A = assetWorld(), T = new Date(2026, 9, 14);
+  const hist = { balance: 30000, history: [{ date: '2025-10-14', balance: 34000 }, { date: '2026-10-14', balance: 30000 }], asset: { kind: 'car' } };
+  let r = A.assetRate(hist, T); assert.strictEqual(r.src, 'history'); assert.ok(Math.abs(r.rate - 0.1176) < 0.001);
+  r = A.assetRate({ balance: 36000, history: [{ date: '2026-10-14', balance: 36000 }], asset: { kind: 'car', purchasePrice: 40000, purchaseDate: '2025-10-14' } }, T); assert.strictEqual(r.src, 'purchase'); assert.ok(Math.abs(r.rate - 0.10) < 0.001);
+  r = A.assetRate({ balance: 36000, history: [{ date: '2026-10-14', balance: 36000 }], asset: { kind: 'boat', rate: 0.2 } }, T); assert.deepStrictEqual(r, { rate: 0.2, src: 'ai' });
+  r = A.assetRate({ balance: 5000, history: [], asset: { kind: 'motorcycle' } }, T); assert.deepStrictEqual(r, { rate: 0.08, src: 'default' });
+  const st = A.assetStats(hist, T); assert.strictEqual(Math.round(st.proj[0].value), 26471); assert.strictEqual(st.lost, null);
+  const st2 = A.assetStats({ balance: 30000, history: [], asset: { kind: 'car', purchasePrice: 40000, purchaseDate: '2024-10-14' } }, T); assert.strictEqual(st2.lost, 10000); assert.strictEqual(Math.round(st2.lostPct), 25); assert.ok(Math.abs(st2.ageYears - 2) < 0.02);
+});
+test('assets: maintenance is due by date or by usage, whichever comes first, and feeds the bills list', () => {
+  const A = assetWorld(), T = new Date(2026, 9, 14);
+  const car = { id: 'a1', name: 'Civic', balance: 30000, history: [], asset: { kind: 'car', meter: 35000, meterLog: [{ date: '2026-01-01', v: 30000 }, { date: '2026-10-14', v: 35000 }], maint: [
+    { id: 'm1', name: 'Oil', months: 6, meter: 5000, cost: 90, lastDate: '2026-05-01', lastMeter: 31000 },
+    { id: 'm2', name: 'Reg', months: 12, meter: 0, cost: 60, cat: 'Fees and taxes', sub: 'Vehicle registration', lastDate: '2025-09-01' },
+    { id: 'm3', name: 'Never done', months: 12, meter: 0, cost: 10 }] } };
+  const d1 = A.maintDue(car.asset.maint[0], car.asset, T); assert.strictEqual(d1.by, 'date'); assert.strictEqual(d1.days, 18); assert.strictEqual(d1.meterLeft, 1000);
+  const d2 = A.maintDue(car.asset.maint[1], car.asset, T); assert.strictEqual(d2.overdue, true); assert.strictEqual(d2.days, -43);
+  assert.strictEqual(A.maintDue(car.asset.maint[2], car.asset, T).due, null);
+  const byMiles = A.maintDue({ months: 12, meter: 5000, lastDate: '2026-09-01', lastMeter: 29500 }, car.asset, T); assert.strictEqual(byMiles.by, 'meter'); assert.strictEqual(byMiles.days, 0); assert.strictEqual(byMiles.meterLeft, -500);   // past its mileage: due today
+  assert.ok(A.meterPerDay(car.asset) > 15 && A.meterPerDay(car.asset) < 20);
+  assert.deepStrictEqual(A.maintBillItems([car], '2026-10', T).map((i) => i.id), ['maint:a1:m2']);                  // overdue shows in the current month
+  assert.deepStrictEqual(A.maintBillItems([car], '2026-11', T).map((i) => [i.id, i.dueDay, i.amount, i.source]), [['maint:a1:m1', 1, 90, 'maint']]);
+  assert.strictEqual(A.maintBillItems([car], '2026-12', T).length, 0);
+});
+test('assets: lookup links and the backup cleaner', () => {
+  const A = assetWorld(); let n = 0; const id = () => 'n' + (++n);
+  assert.match(A.valueLookupUrl({ kind: 'car', year: 2023, make: 'Honda', model: 'Civic' }).url, /^https:\/\/www\.kbb\.com\//);
+  assert.match(A.valueLookupUrl({ kind: 'boat', year: 2015, make: 'Sea Ray' }).url, /^https:\/\/duckduckgo\.com\/\?q=2015%20Sea%20Ray/);
+  const c = A.cleanAsset({ kind: 'plane', year: 1800, make: '<b>Honda</b>"', meter: -5, purchasePrice: 'x', rate: 9, loanId: 'a b', valueSource: 'hacker', maint: [{ name: '', months: 1 }, { id: 'ok1', name: 'Oil <i>', months: 999, meter: 5e9, cost: -3, lastDate: 'nope', cat: '' }], meterLog: [{ date: 'bad', v: 1 }, { date: '2026-01-01', v: 10 }] }, id);
+  assert.strictEqual(c.kind, 'other'); assert.strictEqual(c.year, undefined); assert.strictEqual(c.make, 'bHonda/b'); assert.strictEqual(c.meter, undefined); assert.strictEqual(c.rate, undefined); assert.strictEqual(c.loanId, undefined); assert.strictEqual(c.valueSource, undefined);
+  assert.strictEqual(c.maint.length, 1); assert.deepStrictEqual(c.maint[0], { id: 'ok1', name: 'Oil i', months: 240, meter: 1e6, cost: 0, cat: 'Repairs and maintenance', sub: '' });
+  assert.deepStrictEqual(c.meterLog, [{ date: '2026-01-01', v: 10 }]);
+  assert.strictEqual(A.cleanAsset('x', id), null);
+});

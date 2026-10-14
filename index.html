@@ -372,7 +372,7 @@ canvas.confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:non
 (function(){
 'use strict';
 /* ---------- helpers ---------- */
-var BASECATS=['Housing','Groceries','Dining','Transport','Subscriptions','Shopping','Health','Personal care','Entertainment','Pets','Education','Gifts and donations','Travel','Cash and transfers','Debt and loans'];
+var BASECATS=['Housing','Groceries','Dining','Transport','Subscriptions','Shopping','Health','Repairs and maintenance','Fees and taxes','Personal care','Entertainment','Pets','Education','Gifts and donations','Travel','Cash and transfers','Debt and loans'];
 var CATS=BASECATS.concat(['Other','Income']);
 var RULE_PRESETS={gas:['shell','chevron','exxon','mobil','bp','arco','valero','sunoco','speedway','texaco','marathon','citgo','fuel','gas station','costco gas','wawa','sheetz','circle k','pilot','caseys']};
 function syncCats(){var custom=(S&&Array.isArray(S.customCats)?S.customCats:[]).map(function(c){return c.name});CATS.length=0;var seen={};BASECATS.forEach(function(b){seen[b.toLowerCase()]=1});custom=custom.filter(function(c){return !seen[String(c).toLowerCase()]});   // a custom category that now matches a built-in one is shown once; its keyword rules still apply
@@ -388,6 +388,8 @@ var KEYWORDS=[
  ['Subscriptions',/t-?mobile|tmobile|xfinity mobile|comcast mobile|spectrum mobile|verizon(?! fios)|vzw|\bat ?& ?t ?(wireless|mobility)|\batt\*? ?(bill|wireless|payment)|sprint|mint mobile|visible (wireless|mobile)|cricket|metro ?pcs|metro by t|boost mobile|google fi|project fi|us mobile|ting mobile|tracfone|straight talk|consumer cellular|total wireless|simple mobile|ultra mobile|lyca ?mobile|h2o wireless|republic wireless|wireless|cellular/i],
  ['Travel',/hotel|resort|airbnb|agoda|booking\.com|expedia|hotels\.com|airline|airways|delta air|united air|american air|jetblue|southwest air|spirit air|flight|amtrak|greyhound|bullet train|shinkansen|suica|tokyo|japan|hostel|vacation|travel/i],
  ['Housing',/propane|heating oil|fuel oil|oil delivery|amerigas|ferrellgas/i],
+ ['Fees and taxes',/\b(dmv|rmv)\b|registry of motor|motor vehicles?\b|vehicle registration|registration (fee|renewal)|licen[sc]e (fee|renewal)|\bpermit\b|property tax|excise tax|tax collector|\bfee\b|annual fee|late fee|overdraft|service charge|notary|passport/i],
+ ['Repairs and maintenance',/auto ?(repair|body|service|care)|mechanic|\btires?\b|jiffy|valvoline|firestone|pep boys|meineke|midas|autozone|o'?reilly|advance auto|napa auto|oil change|\bbrakes?\b|collision|body shop|\bsmog\b|plumb|electrician|roofing|roofer|hvac|handyman|contractor|landscap|\blawn\b|pest control|exterminat|locksmith|appliance|garage door|gutter|chimney|restoration|boat (repair|service)|marine (service|repair)|harley|\brepairs?\b/i],
  ['Transport',/uber(?! ?eats)|lyft|shell oil|shell service|chevron|exxon|mobil\b|sunoco|\bbp\b|citgo|marathon|valero|gulf oil|speedway|\bfuel\b|\bgas\b|e-?zpass|toll|parking|\bmta\b|transit|metro|taxi|car ?wash|jiffy|autozone|o'?reilly|advance auto|midas|dmv|geico|progressive ins|state farm|allstate|auto insurance/i],
  ['Subscriptions',/netflix|spotify|hulu|disney|icloud|adobe|youtube|prime video|apple\.com|dropbox|patreon|audible|gym|fitness|membership|anthropic|openai|chatgpt|claude|github|notion|1password|peacock|paramount|hbo|itunes|google (one|storage|play)|microsoft 365|office 365|nytimes|wsj|substack|duolingo|mobile\b|wireless|t-mobile|mint mobile|visible/i],
  ['Housing',/\brent\b|mortgage|landlord|\bhoa\b|eversource|national grid|con ?ed|pg&e|duke energy|electric|utility|water (bill|dept)|sewer|trash|waste|internet|comcast|xfinity|spectrum|fios|centurylink|\bcox\b|renters? ins/i],
@@ -486,7 +488,7 @@ function defCredit(){return {scores:[],profile:{late:'unknown',inq:'unknown',old
 function migrate(){if(!S.payLinks||typeof S.payLinks!=='object'||Array.isArray(S.payLinks))S.payLinks={};if(!S.apple||typeof S.apple!=='object'||Array.isArray(S.apple))S.apple={};if(!S.billIgnore||typeof S.billIgnore!=='object'||Array.isArray(S.billIgnore))S.billIgnore={};if(S.cardPay!=='skip'&&S.cardPay!=='count')S.cardPay='auto';if(!S.home||typeof S.home!=='object'||Array.isArray(S.home))S.home={};if(!(S.debtMonthly>=0))S.debtMonthly=0;if(!Array.isArray(S.customCats))S.customCats=[];if(!Array.isArray(S.setAside))S.setAside=[];if(!S.merchantCats||typeof S.merchantCats!=='object'||Array.isArray(S.merchantCats))S.merchantCats={};if(!Array.isArray(S.energy))S.energy=[];if(!Array.isArray(S.bills))S.bills=[];if(!S.billMarks||typeof S.billMarks!=='object'||Array.isArray(S.billMarks))S.billMarks={};if(!S.subCats||typeof S.subCats!=='object'||Array.isArray(S.subCats))S.subCats={};if(!S.merchantSubs||typeof S.merchantSubs!=='object'||Array.isArray(S.merchantSubs))S.merchantSubs={};if(!Array.isArray(S.holdings))S.holdings=S.sample?sampleHoldings():[];if(!S.credit||!Array.isArray(S.credit.scores))S.credit=S.sample?sampleCredit():defCredit();if(!Array.isArray(S.plaidIgnored))S.plaidIgnored=[];if(!Array.isArray(S.accounts))S.accounts=S.sample?sampleAccounts():[];if(typeof S.extraPay!=='number')S.extraPay=S.sample?100:0}
 function ledger(){return ledgerOf(S.txns,S.cardPay)}
 function billCatOf(n){var c=guessCat(n);return {cat:c,sub:c==='Other'?'':(guessSub(c,n)||'')}}
-function allBillItems(mk){var base=billItems(S.bills,S.accounts,S.txns);return base.concat(autoBillItems(S.txns,base,mk,S.billIgnore,billCatOf))}
+function allBillItems(mk){var base=billItems(S.bills,S.accounts,S.txns);return base.concat(autoBillItems(S.txns,base,mk,S.billIgnore,billCatOf),maintBillItems(S.accounts,mk,TODAY))}
 // Undo: before each change is saved the app keeps the state it had. Changes made within 0.7 s of each other count as one step. Kept in memory only (up to 30 steps).
 var UNDO={stack:[],redo:[],cur:'',t:0,bytes:0};
 function undoInit(){try{UNDO={stack:[],redo:[],cur:JSON.stringify(S),t:0,bytes:0}}catch(e){}}
@@ -558,6 +560,7 @@ var ICON={
  mortgage:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>',
  assist:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>',
  dash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18a8 8 0 1 1 16 0"/><path d="M12 18l4-6"/><circle cx="12" cy="18" r="1.2"/></svg>',
+ assets:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 16V11l2-5h10l2 5v5"/><path d="M3 16h18v3H3z"/><path d="M8 12h8"/><circle cx="7.5" cy="19" r="1"/><circle cx="16.5" cy="19" r="1"/></svg>',
  bills:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg>',
  carloan:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 16V11l2-5h10l2 5v5"/><path d="M3 16h18v3H3z"/><circle cx="7.5" cy="19" r="1.2"/><circle cx="16.5" cy="19" r="1.2"/><path d="M5 11h14"/></svg>',
  student:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m2 9 10-5 10 5-10 5z"/><path d="M6 11v5c0 1.5 3 3 6 3s6-1.5 6-3v-5"/><path d="M22 9v6"/></svg>',
@@ -572,7 +575,7 @@ var ICON={
  budgets:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v9h9"/><path d="M20.5 15A9 9 0 1 1 9 3.5"/></svg>',
  transactions:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h13M13 3l4 4-4 4M20 17H7M11 13l-4 4 4 4"/></svg>',
  goals:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg>'};
-var TABS=[['overview','Overview'],['dash','Dashboard','Live'],['accounts','Accounts'],['subscriptions','Subscriptions','Subs'],['bills','Bills','Bills'],['budgets','Budgets'],['report','Monthly report','Report'],['afford','Can I afford it?','Afford'],['credit','Credit score','Score'],['invest','Investments','Invest'],['transactions','Transactions','Activity'],['goals','Goals'],['loans','Loans'],['mortgage','Mortgage','Home'],['assist','Assistant','Chat'],['look','Settings','Settings']];
+var TABS=[['overview','Overview'],['dash','Dashboard','Live'],['accounts','Accounts'],['assets','Assets'],['subscriptions','Subscriptions','Subs'],['bills','Bills','Bills'],['budgets','Budgets'],['report','Monthly report','Report'],['afford','Can I afford it?','Afford'],['credit','Credit score','Score'],['invest','Investments','Invest'],['transactions','Transactions','Activity'],['goals','Goals'],['loans','Loans'],['mortgage','Mortgage','Home'],['assist','Assistant','Chat'],['look','Settings','Settings']];
 function nav(){
   function items(short){return TABS.map(function(t){return '<button class="nav" data-view="'+t[0]+'"'+(view===t[0]?' aria-current="page"':'')+'>'+ICON[t[0]]+'<span>'+(short&&t[2]||t[1])+'</span></button>'}).join('')}
   var h=items(false);
@@ -594,7 +597,7 @@ function refreshAll(){
 }
 function render(){
   nav();
-  var f={bills:vBills,loans:vLoansHub,mortgage:vMortgage,carloan:function(){loanFilter='auto';return vLoansHub()},student:function(){loanFilter='student';return vLoansHub()},look:vLook,overview:vOverview,dash:vDash,assist:vAssist,accounts:vAccounts,afford:vAfford,credit:vCredit,invest:vInvest,report:vReport,subscriptions:vSubs,budgets:vBudgets,transactions:vTx,goals:vGoals}[view];
+  var f={bills:vBills,loans:vLoansHub,mortgage:vMortgage,carloan:function(){loanFilter='auto';return vLoansHub()},student:function(){loanFilter='student';return vLoansHub()},look:vLook,overview:vOverview,dash:vDash,assist:vAssist,accounts:vAccounts,assets:vAssets,afford:vAfford,credit:vCredit,invest:vInvest,report:vReport,subscriptions:vSubs,budgets:vBudgets,transactions:vTx,goals:vGoals}[view];
   var cb=HOSTED&&AUTH.conflict?'<div class="banner" id="conflict"><span><b>This account changed on another device.</b> Choose which version to keep.</span><span style="flex:0 0 auto;display:flex;gap:8px"><button class="btn small" data-act="cf-remote">Use the other version</button><button class="btn small primary" data-act="cf-local">Keep this device\'s version</button></span></div>':'';
   var banner=cb+updBanner()+(S.sample?'<div class="banner"><span><b>Example data.</b> These accounts and transactions are made up so you can try everything. Clear them to start with your own, or import a CSV from your bank.</span><button class="btn primary small" data-act="clear">Start fresh</button></div>':'');
   var body=f();
@@ -1286,6 +1289,97 @@ function autoBillItems(txns,items,mk,ignore,catOf){
   });
 }
 /*BILLS-END*/
+/*ASSETS-START*/
+// Things you own that lose value (cars, motorcycles, boats): value history, depreciation and maintenance due dates.
+var ASSET_KINDS={
+  car:{label:'Car or truck',unit:'miles',rate:0.12,mpy:12000},
+  motorcycle:{label:'Motorcycle',unit:'miles',rate:0.08,mpy:3000},
+  boat:{label:'Boat',unit:'hours',rate:0.09,mpy:60},
+  rv:{label:'RV or trailer',unit:'miles',rate:0.10,mpy:4000},
+  powersport:{label:'ATV, jet ski or snowmobile',unit:'hours',rate:0.10,mpy:50},
+  other:{label:'Other asset',unit:'',rate:0.05,mpy:0}};
+// Common upkeep and yearly fees. months and meter are how often; cost is a rough starting estimate you can edit.
+var MAINT_PRESETS={
+  car:[{name:'Oil and filter change',months:6,meter:5000,cost:90,cat:'Repairs and maintenance',sub:'Car repair and service'},{name:'Tire rotation',months:6,meter:7500,cost:40,cat:'Repairs and maintenance',sub:'Car repair and service'},{name:'Brake inspection',months:12,meter:0,cost:60,cat:'Repairs and maintenance',sub:'Car repair and service'},{name:'Engine air filter',months:12,meter:15000,cost:50,cat:'Repairs and maintenance',sub:'Car repair and service'},{name:'Registration renewal',months:12,meter:0,cost:0,cat:'Fees and taxes',sub:'Vehicle registration'},{name:'Safety or emissions inspection',months:12,meter:0,cost:35,cat:'Fees and taxes',sub:'Licenses and permits'}],
+  motorcycle:[{name:'Oil and filter change',months:12,meter:3000,cost:80,cat:'Repairs and maintenance',sub:'Motorcycle and boat'},{name:'Chain clean and lube',months:3,meter:1000,cost:0,cat:'Repairs and maintenance',sub:'Motorcycle and boat'},{name:'Tire check or replacement',months:24,meter:8000,cost:350,cat:'Repairs and maintenance',sub:'Motorcycle and boat'},{name:'Registration renewal',months:12,meter:0,cost:0,cat:'Fees and taxes',sub:'Vehicle registration'}],
+  boat:[{name:'Winterize and service',months:12,meter:0,cost:300,cat:'Repairs and maintenance',sub:'Motorcycle and boat'},{name:'Engine oil and impeller',months:12,meter:100,cost:200,cat:'Repairs and maintenance',sub:'Motorcycle and boat'},{name:'Registration renewal',months:12,meter:0,cost:0,cat:'Fees and taxes',sub:'Vehicle registration'},{name:'Bottom paint',months:24,meter:0,cost:600,cat:'Repairs and maintenance',sub:'Motorcycle and boat'}],
+  rv:[{name:'Roof and seal check',months:12,meter:0,cost:100,cat:'Repairs and maintenance',sub:'Car repair and service'},{name:'Wheel bearings and brakes',months:12,meter:12000,cost:250,cat:'Repairs and maintenance',sub:'Car repair and service'},{name:'Registration renewal',months:12,meter:0,cost:0,cat:'Fees and taxes',sub:'Vehicle registration'}],
+  powersport:[{name:'Oil and service',months:12,meter:50,cost:120,cat:'Repairs and maintenance',sub:'Motorcycle and boat'},{name:'Registration renewal',months:12,meter:0,cost:0,cat:'Fees and taxes',sub:'Vehicle registration'}],
+  other:[]};
+function assetKind(a){return ASSET_KINDS[a&&a.kind]?a.kind:'other'}
+function isoOf(d){return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2)}
+function parseISO(s){var p=String(s).split('-');return new Date(+p[0],+p[1]-1,+p[2])}
+function addMonthsISO(s,n){var d=parseISO(s),day=d.getDate();d.setDate(1);d.setMonth(d.getMonth()+n);var dim=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();d.setDate(Math.min(day,dim));return d}
+// How fast it loses value, as a yearly fraction. Your own recorded values are used first, then the price you paid, then the AI's figure, then a rule of thumb for that kind of asset.
+function assetRate(acct,today){
+  var a=acct.asset||{},h=(acct.history||[]).filter(function(x){return x.balance>0}),t=today.getTime(),r;
+  var clamp=function(v){return Math.max(-0.3,Math.min(0.6,v))};
+  if(h.length>=2){var f=h[0],l=h[h.length-1],days=(parseISO(l.date)-parseISO(f.date))/864e5;
+    if(days>=90&&f.balance>0){r=1-Math.pow(l.balance/f.balance,365/days);if(isFinite(r))return {rate:clamp(r),src:'history'}}}
+  if(a.purchasePrice>0&&/^\d{4}-\d{2}-\d{2}$/.test(a.purchaseDate||'')&&acct.balance>0){var d2=(t-parseISO(a.purchaseDate).getTime())/864e5;
+    if(d2>=180){r=1-Math.pow(acct.balance/a.purchasePrice,365/d2);if(isFinite(r))return {rate:clamp(r),src:'purchase'}}}
+  if(typeof a.rate==='number'&&isFinite(a.rate))return {rate:clamp(a.rate),src:'ai'};
+  return {rate:ASSET_KINDS[assetKind(a)].rate,src:'default'};
+}
+function assetStats(acct,today){
+  var a=acct.asset||{},v=acct.balance,rt=assetRate(acct,today),p=a.purchasePrice>0?a.purchasePrice:0;
+  var def=ASSET_KINDS[assetKind(a)].rate,slow=rt.rate>def?(rt.rate+def)/2:rt.rate;   // a fast early drop (the first years of a car) eases off, so later years use a rate between yours and the typical one
+  var lost=p>0?p-v:null,age=/^\d{4}-\d{2}-\d{2}$/.test(a.purchaseDate||'')?Math.max(0,(today-parseISO(a.purchaseDate))/864e5/365.25):null;
+  return {value:v,purchasePrice:p,lost:lost,lostPct:p>0?(p-v)/p*100:null,ageYears:age,rate:rt.rate,rateSrc:rt.src,perYear:v*rt.rate,perMonth:v*rt.rate/12,
+    proj:[1,3,5].map(function(y){return {years:y,value:Math.max(0,v*(1-rt.rate)*Math.pow(1-slow,y-1))}})};
+}
+// Usage per day from the readings you logged, else a typical figure for that kind of asset.
+function meterPerDay(a){
+  var log=(a.meterLog||[]).filter(function(x){return x&&x.v>=0}),k=ASSET_KINDS[assetKind(a)];
+  if(log.length>=2){var f=log[0],l=log[log.length-1],days=(parseISO(l.date)-parseISO(f.date))/864e5;if(days>=30&&l.v>f.v)return (l.v-f.v)/days}
+  return k.mpy/365;
+}
+// When a maintenance item is next due: by date, by usage, whichever comes first. due is null until you record when it was last done.
+function maintDue(m,a,today){
+  var best=null,by=null,t0=new Date(today.getFullYear(),today.getMonth(),today.getDate());
+  if(m.months>0&&/^\d{4}-\d{2}-\d{2}$/.test(m.lastDate||'')){best=addMonthsISO(m.lastDate,m.months);by='date'}
+  if(m.meter>0&&a.meter>=0&&typeof m.lastMeter==='number'&&m.lastMeter>=0&&a.meter>0){
+    var left=m.lastMeter+m.meter-a.meter,pd=meterPerDay(a),d;
+    if(pd>0||left<=0){d=left<=0?new Date(t0):new Date(t0.getTime()+Math.ceil(left/pd)*864e5);
+      if(!best||d<best){best=d;by='meter'}}}
+  if(!best)return {due:null,by:null,days:null,overdue:false,meterLeft:null};
+  var days=Math.round((best-t0)/864e5);
+  return {due:best,by:by,days:days,overdue:days<0,meterLeft:(m.meter>0&&typeof m.lastMeter==='number'&&a.meter>0)?m.lastMeter+m.meter-a.meter:null};
+}
+// Maintenance and yearly fees that fall due in month mk, as bill items. Overdue ones show in the current month.
+function maintBillItems(accounts,mk,today){
+  var out=[],nowK=isoOf(today).slice(0,7);
+  (accounts||[]).forEach(function(ac){var a=ac.asset;if(!a||!Array.isArray(a.maint))return;
+    a.maint.forEach(function(m){var d=maintDue(m,a,today);if(!d.due)return;
+      var k=isoOf(d.due).slice(0,7),show=k===mk||(mk===nowK&&d.overdue);if(!show)return;
+      var day=k===mk?d.due.getDate():1;
+      out.push({id:'maint:'+ac.id+':'+m.id,name:m.name+' · '+ac.name,amount:+m.cost||0,dueDay:day,source:'maint',cat:m.cat||'Repairs and maintenance',sub:m.sub||'',re:null,raw:m,acctId:ac.id,by:d.by})})});
+  return out;
+}
+// Where to look a value up. Kelley Blue Book has no public data feed, so the app opens their page for you to read the number yourself.
+function valueLookupUrl(a){
+  var q=[a.year,a.make,a.model,a.trim].filter(Boolean).join(' ').trim();
+  if(assetKind(a)==='car')return {label:'Open Kelley Blue Book',url:'https://www.kbb.com/whats-my-car-worth/'};
+  return {label:'Search for its value',url:'https://duckduckgo.com/?q='+encodeURIComponent((q||'')+' '+ASSET_KINDS[assetKind(a)].label+' value')};
+}
+// Keeps only fields the app understands, so a damaged backup cannot put junk in the page.
+function cleanAsset(raw,newId){
+  if(!raw||typeof raw!=='object'||Array.isArray(raw))return null;
+  var o={kind:ASSET_KINDS[raw.kind]?raw.kind:'other'},num=function(v,max){var n=+v;return isFinite(n)&&n>=0&&n<=max?Math.round(n*100)/100:null},str=function(v,n){return String(v==null?'':v).replace(/[<>"]/g,'').replace(/\s+/g,' ').trim().slice(0,n)},dre=/^\d{4}-\d{2}-\d{2}$/;
+  ['make','model','trim'].forEach(function(k){var s=str(raw[k],40);if(s)o[k]=s});
+  var y=Math.round(+raw.year);if(y>=1900&&y<=2100)o.year=y;
+  var mt=num(raw.meter,5e6);if(mt!==null)o.meter=mt;if(dre.test(raw.meterDate||''))o.meterDate=raw.meterDate;
+  var pp=num(raw.purchasePrice,1e9);if(pp!==null&&pp>0)o.purchasePrice=pp;if(dre.test(raw.purchaseDate||''))o.purchaseDate=raw.purchaseDate;
+  if(typeof raw.rate==='number'&&isFinite(raw.rate)&&raw.rate>=-0.3&&raw.rate<=0.6)o.rate=raw.rate;
+  if(/^[\w-]{1,40}$/.test(raw.loanId||''))o.loanId=raw.loanId;
+  if(['KBB','Dealer offer','My estimate','AI estimate','Purchase price'].indexOf(raw.valueSource)>-1)o.valueSource=raw.valueSource;
+  o.meterLog=(Array.isArray(raw.meterLog)?raw.meterLog:[]).filter(function(x){return x&&dre.test(x.date||'')&&num(x.v,5e6)!==null}).slice(-40).map(function(x){return {date:x.date,v:+x.v}});
+  o.maint=(Array.isArray(raw.maint)?raw.maint:[]).slice(0,40).map(function(m){if(!m||!str(m.name,60))return null;
+    var r={id:/^[\w-]{1,40}$/.test(m.id||'')?m.id:newId(),name:str(m.name,60),months:Math.min(240,Math.max(0,Math.round(+m.months)||0)),meter:Math.min(1e6,Math.max(0,Math.round(+m.meter)||0)),cost:Math.min(1e6,Math.max(0,Math.round((+m.cost||0)*100)/100)),cat:str(m.cat,40)||'Repairs and maintenance',sub:str(m.sub,40)};
+    if(dre.test(m.lastDate||''))r.lastDate=m.lastDate;if(num(m.lastMeter,5e6)!==null)r.lastMeter=+m.lastMeter;return r}).filter(Boolean);
+  return o;
+}
+/*ASSETS-END*/
 /*CASH-START*/
 // Cash and receipts: spending paid in cash, a wallet balance, and the checks that stop a receipt being counted twice.
 var ATM_RE=/\b(atm|cash withdrawal|withdrawal at|cash wd|cash out)\b/i;
@@ -1952,6 +2046,8 @@ var DEFAULT_SUBS={
  Housing:['Rent','Mortgage','Electric','Wi-Fi and internet','Propane and heating oil','Water and sewer','Trash','Repairs and supplies'],
  Groceries:['Supermarket','Convenience store','Wholesale club'],
  Dining:['Restaurants','Coffee and bakery','Takeout and delivery','Bars'],
+ 'Repairs and maintenance':['Car repair and service','Car parts','Home repair','Appliance and HVAC','Yard and pool','Pest and cleaning','Motorcycle and boat'],
+ 'Fees and taxes':['Vehicle registration','Licenses and permits','Property tax','Bank and card fees','Late fees','Other fees'],
  Transport:['Fuel','Car payment','Insurance','Maintenance','Tolls and parking','Rideshare and transit'],
  Subscriptions:['Streaming','Software and AI','Phone plan','Memberships'],
  Shopping:['Online','Clothing','Home and hardware','Alcohol'],
@@ -1965,6 +2061,8 @@ var DEFAULT_SUBS={
  'Cash and transfers':['ATM cash','Sent to people','Remittances'],
  'Debt and loans':['Car loan','Student loan','Credit card']};
 var SUBRULES=[
+ ['Fees and taxes','Vehicle registration',/registration|\bdmv\b|\brmv\b|motor vehicle/i],['Fees and taxes','Licenses and permits',/licen[sc]e|permit|inspection|passport|notary/i],['Fees and taxes','Property tax',/property tax|tax collector|excise/i],['Fees and taxes','Late fees',/late fee|penalty/i],['Fees and taxes','Bank and card fees',/overdraft|service charge|annual fee|monthly fee/i],
+ ['Repairs and maintenance','Car parts',/autozone|o'?reilly|advance auto|napa/i],['Repairs and maintenance','Motorcycle and boat',/harley|motorcycle|marine|boat/i],['Repairs and maintenance','Appliance and HVAC',/hvac|appliance|furnace|heating|air cond/i],['Repairs and maintenance','Yard and pool',/landscap|\blawn\b|\btree\b|\bpool\b|snow/i],['Repairs and maintenance','Pest and cleaning',/pest|exterminat|cleaning|\bmaid\b/i],['Repairs and maintenance','Home repair',/plumb|electrician|roofing|roofer|handyman|contractor|locksmith|gutter|chimney|restoration|garage door/i],['Repairs and maintenance','Car repair and service',/auto|\btires?\b|oil change|jiffy|valvoline|firestone|pep boys|meineke|midas|\bbrakes?\b|collision|body shop|mechanic|\bsmog\b|garage/i],
  ['Housing','Rent',/\brent\b|landlord/i],['Housing','Mortgage',/mortgage/i],
  ['Housing','Electric',/electric|eversource|national grid|con ?ed|duke energy|pg&e|power co/i],
  ['Housing','Wi-Fi and internet',/internet|wi-?fi|comcast|xfinity|spectrum|fios|centurylink|\bcox\b|starlink/i],
@@ -2802,6 +2900,7 @@ function vBills(){
     if(it.source==='bill'&&billUI.edit===it.id)return billForm(it.raw);
     var act=st.state==='paid'?'<button class="btn small" data-act="bill-undo" data-id="'+esc(it.id)+'">'+(st.manual?'Undo':'Not paid?')+'</button>':'<button class="btn small primary" data-act="bill-paid" data-id="'+esc(it.id)+'">Mark paid</button>';
     var more=it.source==='auto'?'<button class="btn small" data-act="bill-keep" data-id="'+esc(it.id)+'" title="Save it as your own bill so you can edit it">Keep</button><button class="btn small" data-act="bill-ignore" data-id="'+esc(it.id)+'" aria-label="Not a bill" title="This is not a bill. Stop showing it.">Not a bill</button>':it.source==='bill'?'<button class="btn small" data-act="bill-edit" data-id="'+esc(it.id)+'">Edit</button><button class="btn small" data-act="bill-del" data-id="'+esc(it.id)+'" aria-label="Remove">&times;</button>':'<span class="sub muted" style="font-size:12px">from your '+(it.kind==='credit'?'card':'loan')+'</span>';
+    if(it.source==='maint'){act='<button class="btn small primary" data-act="maint-done" data-id="'+esc(it.id)+'">Done</button>';more='<button class="btn small" data-view="assets">Open</button>'}
     var paidNote=(st.state==='paid'&&st.found&&Math.abs(st.found.amount-it.amount)>=1?' · paid '+money(st.found.amount):'')+(it.source==='loan'&&it.raw.pastDue>0?' · <span class="bad">past due '+money(it.raw.pastDue)+'</span>':'');
     return '<div class="row wrap">'+logo(it.name)+'<div class="grow" style="flex-basis:200px"><div class="nm">'+esc(it.name)+'</div><div class="sub">'+(it.dueDay?(it.dayGuessed?'Usually paid around the ':'Due on the ')+it.dueDay+ordinal(it.dueDay):'No due day')+(it.source==='auto'?' · <span class="pill good" style="font-size:11px">Found in your transactions</span>':'')+(it.cat?' · '+esc(it.cat)+(it.sub?' › '+esc(it.sub):''):'')+paidNote+'</div>'+(it.source==='bill'||it.source==='loan'?'<div style="margin-top:6px">'+payBtn(it.id.indexOf('loan:')===0||it.source==='bill'?(it.source==='bill'?'bill:'+it.id:it.id):it.id)+'</div>':'')+'</div>'+billPill(st)+'<div class="amt num">'+money(it.amount)+'</div><div class="actions" style="flex:none;flex-wrap:nowrap">'+act+more+'</div></div>';
   }).join('');
@@ -4226,6 +4325,100 @@ function phoneHook(){
   if(rcpt.phoneHooked||!(T&&T.phone&&T.phone.onImage))return;rcpt.phoneHooked=true;
   T.phone.onImage(function(m){if(m&&/^data:image\/(jpeg|png|webp);base64,/.test(m.dataUrl||''))receiptRead(m.dataUrl)});
 }
+// ---------- Assets: vehicles, boats and other things you own ----------
+var asUI={adding:false,ai:null,busy:'',msg:''};
+function assetAccts(){return S.accounts.filter(function(a){return a.type==='property'&&a.asset})}
+function asGuard(){if(S.sample){toast('You are still on the example data. Press Start fresh first, then add your assets.');return true}return false}
+function asById(id){return S.accounts.filter(function(a){return a.id===id&&a.asset})[0]||null}
+function asUnit(a){return ASSET_KINDS[assetKind(a.asset)].unit}
+function asName(f){var n=[f.year,f.make,f.model,f.trim].filter(Boolean).join(' ').trim();return (f.name||n||ASSET_KINDS[f.kind].label).slice(0,120)}
+function asSetValue(a,v,date,src){
+  v=Math.max(0,Math.round(v*100)/100);a.balance=v;
+  var h=a.history.filter(function(x){return x.date===date})[0];if(h)h.balance=v;else a.history.push({date:date,balance:v});
+  a.history.sort(function(x,y){return x.date<y.date?-1:1});
+  if(a.history[a.history.length-1].date!==date)a.balance=a.history[a.history.length-1].balance;
+  if(src)a.asset.valueSource=src;
+}
+function asDueText(d,unit){
+  if(!d.due)return 'Tell me when it was last done to get a due date';
+  var t=d.overdue?'<span class="bad">Overdue by '+(-d.days)+' day'+(d.days===-1?'':'s')+'</span>':'Due '+shortDate(isoOf(d.due))+' ('+(d.days===0?'today':'in '+d.days+' day'+(d.days===1?'':'s'))+')';
+  if(d.by==='meter'&&unit)t+=' · by '+unit;
+  return t;
+}
+function asMaintRow(a,m){
+  var d=maintDue(m,a.asset,TODAY),u=asUnit(a),every=[m.months?'every '+m.months+' month'+(m.months===1?'':'s'):'',m.meter?'every '+m.meter.toLocaleString('en-US')+' '+u:''].filter(Boolean).join(' or ');
+  return '<div class="row wrap"><div class="grow" style="flex-basis:220px"><div class="nm">'+esc(m.name)+(m.cat==='Fees and taxes'?' <span class="pill mute" style="font-size:11px">Fee</span>':'')+'</div><div class="sub" style="white-space:normal">'+every+(m.cost>0?' · about '+money0(m.cost):'')+' · '+asDueText(d,u)+(m.lastDate?' · last done '+shortDate(m.lastDate):'')+'</div></div>'+
+    '<form class="as-last form" data-id="'+esc(a.id)+'" data-m="'+esc(m.id)+'" style="gap:4px;align-items:center"><input type="date" name="d" value="'+esc(m.lastDate||'')+'" aria-label="Last done" style="width:140px">'+(u?'<input type="number" name="v" min="0" step="1" placeholder="'+u+'" value="'+(typeof m.lastMeter==='number'?m.lastMeter:'')+'" aria-label="'+u+' when last done" style="width:92px">':'')+'<button class="btn small">Save</button></form>'+
+    '<button class="btn small primary" data-act="as-done" data-id="'+esc(a.id)+'" data-m="'+esc(m.id)+'">Done today</button><button class="btn small" data-act="as-mdel" data-id="'+esc(a.id)+'" data-m="'+esc(m.id)+'" aria-label="Remove '+esc(m.name)+'">&times;</button></div>';
+}
+function assetCard(a){
+  var st=assetStats(a,TODAY),as=a.asset,k=ASSET_KINDS[assetKind(as)],u=k.unit,loan=as.loanId?S.accounts.filter(function(x){return x.id===as.loanId})[0]:null;
+  var last=a.history[a.history.length-1],age=last?dayDiff(parseD(last.date),TODAY):0;
+  var pts=a.history.map(function(h){return [parseD(h.date).getTime(),h.balance]});
+  var rateWhy={history:'from the values you recorded',purchase:'from what you paid and its value now',ai:'from the AI estimate',default:'a general rule of thumb for this kind of asset, not your numbers yet'}[st.rateSrc];
+  var lookup=valueLookupUrl(as),ai=asUI.ai&&asUI.ai.id===a.id?asUI.ai:null,hasAi=!!(T&&T.ai&&T.ai.assetValue),keyOk=!!(aiSt&&aiSt.hasKey);
+  var h='<section class="panel" id="asset-'+esc(a.id)+'"><h2>'+esc(a.name)+'<small>'+esc(k.label)+(as.valueSource?' · value from '+esc(as.valueSource):'')+'</small></h2>';
+  h+='<div class="grid tiles">'+tile('Worth now',money0(a.balance),age>120?'<span class="warn">Value is '+age+' days old</span>':'Updated '+shortDate(last.date))+
+    tile(st.lost!==null?(st.lost>=0?'Lost since you bought it':'Gained since you bought it'):'Loses about',st.lost!==null?'<span class="'+(st.lost>0?'bad':'good')+'">'+money0(Math.abs(st.lost))+'</span>':'<span class="bad">'+money0(st.perYear)+'/yr</span>',st.lost!==null?(st.lostPct>=0?st.lostPct.toFixed(0)+'% of the '+money0(st.purchasePrice)+' you paid':Math.abs(st.lostPct).toFixed(0)+'% above what you paid'):'Add what you paid for a real figure')+
+    tile('Depreciation',(st.rate*100).toFixed(1)+'%<span class="muted" style="font-size:14px"> a year</span>','about '+money0(st.perMonth)+' a month')+
+    (loan?tile('Your equity',money0(a.balance-loan.balance),'worth minus the '+money0(loan.balance)+' still owed'):tile('In 3 years','~'+money0(st.proj[1].value),'projected'))+'</div>';
+  h+='<p class="sub" style="margin:8px 0;white-space:normal">Rate '+rateWhy+'. In 1 year about <b>'+money0(st.proj[0].value)+'</b>, in 3 years about <b>'+money0(st.proj[1].value)+'</b>, in 5 years about <b>'+money0(st.proj[2].value)+'</b>. Years after the first assume the drop slows down. These are projections, not guarantees; mileage, condition and the market move real prices.</p>';
+  h+=pts.length>1?lineChart(pts,{money:true,label:'Value history of '+a.name,h:170}):'<div class="sub muted" style="margin:6px 0">Record its value every few months and the depreciation curve appears here.</div>';
+  // value update
+  h+='<h3 style="font-size:15px;margin:14px 0 6px">Update its value</h3><form class="form as-val" data-id="'+esc(a.id)+'" style="align-items:flex-end"><label>Value $<input name="v" type="number" min="0" step="1" required value="'+Math.round(a.balance)+'" style="width:120px"></label><label>As of<input name="d" type="date" required value="'+iso(TODAY)+'"></label><label>Where from<select name="s"><option>KBB</option><option>Dealer offer</option><option selected>My estimate</option></select></label><button class="btn primary">Save value</button></form>';
+  h+='<div class="actions" style="justify-content:flex-start;margin-top:8px;flex-wrap:wrap;align-items:center"><a class="btn small" href="'+esc(lookup.url)+'" target="_blank" rel="noopener noreferrer">'+esc(lookup.label)+'</a>'+(hasAi?'<button class="btn small" data-act="as-ai" data-id="'+esc(a.id)+'"'+(keyOk&&!asUI.busy?'':' disabled')+'>'+(asUI.busy===a.id?'Estimating…':'Estimate with AI')+'</button>':'')+'</div>';
+  h+='<p class="sub muted" style="margin:6px 0 0;font-size:12px;white-space:normal">Kelley Blue Book does not offer its prices to apps, so the app opens their page and you copy the number in. '+(hasAi?(keyOk?'The AI estimate comes from what Claude generally knows about prices, with no live market data, so treat it as a rough range (often off by 10 to 20 percent) and prefer a real KBB or dealer number.':'The AI estimate needs your Anthropic API key (Transactions tab).'):'')+'</p>';
+  if(asUI.msg&&ai===null&&asUI.msgId===a.id)h+='<div class="sub bad" role="alert" style="margin-top:6px;white-space:normal">'+esc(asUI.msg)+'</div>';
+  if(ai&&ai.res){var r=ai.res;h+='<div class="banner" style="margin-top:10px;display:block;white-space:normal">'+(r.mid>0?'<b>AI estimate: '+money0(r.low)+' to '+money0(r.high)+', most likely '+money0(r.mid)+'</b> ('+esc(r.confidence)+' confidence, about '+r.yearlyDepreciationPct+'% a year). '+esc(r.basis)+' <i>Not Kelley Blue Book.</i><div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn small primary" data-act="as-ai-use" data-id="'+esc(a.id)+'">Use '+money0(r.mid)+'</button><button class="btn small" data-act="as-ai-no" data-id="'+esc(a.id)+'">Dismiss</button></div>':'<b>The AI could not price this one.</b> '+esc(r.basis||'Add the year, make and model, then try again.')+'<div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn small" data-act="as-ai-no" data-id="'+esc(a.id)+'">Dismiss</button></div>')+'</div>'}
+  // usage
+  if(u)h+='<h3 style="font-size:15px;margin:16px 0 6px">'+(u==='miles'?'Mileage':'Engine hours')+'</h3><form class="form as-meter" data-id="'+esc(a.id)+'" style="align-items:flex-end"><label>Now ('+u+')<input name="v" type="number" min="0" step="1" required value="'+(as.meter>0?as.meter:'')+'" style="width:130px"></label><button class="btn small">Save</button></form><p class="sub muted" style="margin:4px 0 0;font-size:12px">'+(as.meterDate?'Last updated '+shortDate(as.meterDate)+'. ':'')+'Keeping this current lets the app predict when maintenance is due by '+u+', using how fast you actually use it (about '+Math.round(meterPerDay(as)*30).toLocaleString('en-US')+' '+u+' a month).</p>';
+  // maintenance
+  h+='<h3 style="font-size:15px;margin:16px 0 6px">Maintenance and yearly fees</h3>'+((as.maint||[]).length?(as.maint||[]).map(function(m){return asMaintRow(a,m)}).join(''):'<div class="sub muted">Nothing scheduled yet.</div>');
+  var missing=(MAINT_PRESETS[assetKind(as)]||[]).filter(function(p){return !(as.maint||[]).some(function(m){return m.name===p.name})});
+  h+='<div class="actions" style="justify-content:flex-start;margin-top:8px;flex-wrap:wrap">'+(missing.length?'<button class="btn small" data-act="as-presets" data-id="'+esc(a.id)+'">Add the common ones ('+missing.length+')</button>':'')+'</div>';
+  h+='<form class="form as-maint-add" data-id="'+esc(a.id)+'" style="align-items:flex-end;margin-top:8px"><label>Add one<input name="n" required maxlength="60" placeholder="e.g. Brake pads" style="width:170px"></label><label>Every (months)<input name="mo" type="number" min="0" step="1" placeholder="6" style="width:90px"></label>'+(u?'<label>Or every ('+u+')<input name="mt" type="number" min="0" step="1" placeholder="5000" style="width:100px"></label>':'')+'<label>Cost $<input name="c" type="number" min="0" step="1" placeholder="0" style="width:84px"></label><label>Last done<input name="d" type="date"></label><label>Type<select name="t"><option value="Repairs and maintenance">Upkeep</option><option value="Fees and taxes">Fee or tax</option></select></label><button class="btn small">Add</button></form>';
+  h+='<p class="sub muted" style="margin:6px 0 0;font-size:12px;white-space:normal">Anything due this month or later shows up on the Bills tab as an upcoming bill, so you can plan for it.</p>';
+  h+='<div class="actions" style="justify-content:flex-end;margin-top:12px"><button class="btn small danger" data-act="as-del" data-id="'+esc(a.id)+'">Remove this asset</button></div></section>';
+  return h;
+}
+function assetForm(){
+  var loans=S.accounts.filter(function(a){return a.type==='auto'||a.type==='loan'}),kinds=Object.keys(ASSET_KINDS).map(function(k){return '<option value="'+k+'">'+ASSET_KINDS[k].label+'</option>'}).join('');
+  return '<section class="panel"><h2>Add an asset</h2><form class="form" id="assetform" style="align-items:flex-end"><label>Kind<select name="kind">'+kinds+'</select></label><label>Year<input name="year" type="number" min="1900" max="2100" placeholder="2021" style="width:90px"></label><label>Make<input name="make" maxlength="40" placeholder="Honda" style="width:120px"></label><label>Model<input name="model" maxlength="40" placeholder="Civic" style="width:120px"></label><label>Trim or details<input name="trim" maxlength="40" placeholder="Type R" style="width:130px"></label><label>Name (optional)<input name="name" maxlength="60" placeholder="My Civic" style="width:140px"></label>'+
+    '<label>Miles or hours now<input name="meter" type="number" min="0" step="1" style="width:120px"></label><label>Bought on<input name="pd" type="date"></label><label>Price paid $<input name="pp" type="number" min="0" step="1" style="width:110px"></label><label>Worth now $<input name="v" type="number" min="0" step="1" required style="width:110px"></label>'+(loans.length?'<label>Loan on it<select name="loan"><option value="">None</option>'+loans.map(function(l){return '<option value="'+esc(l.id)+'">'+esc(l.name)+'</option>'}).join('')+'</select></label>':'')+'<button class="btn primary">Add asset</button></form></section>';
+}
+function vAssets(){
+  var list=assetAccts(),tot=0,lost=0,haveLost=false,yr=0,next=null;
+  list.forEach(function(a){var st=assetStats(a,TODAY);tot+=a.balance;yr+=st.perYear;if(st.lost!==null){lost+=st.lost;haveLost=true}
+    (a.asset.maint||[]).forEach(function(m){var d=maintDue(m,a.asset,TODAY);if(d.due&&(!next||d.due<next.d.due))next={m:m,a:a,d:d}})});
+  var head='<div class="top"><h1>Assets</h1></div>';
+  var tiles=list.length?'<div class="grid tiles">'+tile('Worth in total',money0(tot),list.length+' asset'+(list.length===1?'':'s')+', counted in your net worth')+tile('Losing about','<span class="bad">'+money0(yr)+'/yr</span>',money0(yr/12)+' a month')+tile(haveLost?'Lost since you bought them':'Lost since purchase',haveLost?'<span class="'+(lost>0?'bad':'good')+'">'+money0(Math.abs(lost))+'</span>':'n/a',haveLost?'':'Add what you paid')+tile('Next maintenance',next?esc(next.m.name):'None scheduled',next?(next.d.overdue?'<span class="bad">Overdue</span>':'Due '+shortDate(isoOf(next.d.due)))+' · '+esc(next.a.name):'Add upkeep to an asset')+'</div>':'';
+  var intro=list.length?'':'<section class="panel"><div class="empty">Add a car, motorcycle, boat or anything else you own that loses value. You will see what it is worth, how fast it is losing value, and when its maintenance and yearly fees are due.</div></section>';
+  var avoid='<p class="sub muted" style="margin:0 0 12px;font-size:12px;white-space:normal">If you already added one of these as an account on the Accounts tab, remove that account so it is not counted twice.</p>';
+  return head+tiles+intro+(asUI.adding||!list.length?assetForm():'<div class="actions" style="justify-content:flex-start;margin:0 0 12px"><button class="btn primary small" data-act="as-add">Add an asset</button></div>')+avoid+list.map(assetCard).join('');
+}
+function asBind(m){
+  var f=function(sel,fn){m.querySelectorAll(sel).forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();if(asGuard())return;fn(fm,fm.elements)}})};
+  f('#assetform',function(fm,el){
+    var v=parseFloat(el['v'].value);if(!(v>=0))return;
+    var raw={kind:el['kind'].value,year:el['year'].value,make:el['make'].value,model:el['model'].value,trim:el['trim'].value,meter:el['meter'].value,purchaseDate:el['pd'].value,purchasePrice:el['pp'].value,loanId:el['loan']?el['loan'].value:'',valueSource:'My estimate'};
+    var asset=cleanAsset(raw,uid),t0=iso(TODAY);if(!asset)return;
+    if(asset.meter>0){asset.meterLog=[{date:t0,v:asset.meter}];asset.meterDate=t0}
+    var ac={id:uid(),name:asName({kind:asset.kind,year:asset.year,make:asset.make,model:asset.model,trim:asset.trim,name:el['name'].value.replace(/[<>"]/g,'').trim()}),type:'property',balance:v,apr:0,minPay:0,history:[],asset:asset};
+    if(asset.purchasePrice>0&&asset.purchaseDate&&asset.purchaseDate<t0)ac.history.push({date:asset.purchaseDate,balance:asset.purchasePrice});
+    ac.history.push({date:t0,balance:v});S.accounts.push(ac);asUI.adding=false;save();render();toast('Added '+ac.name+'.');
+  });
+  f('.as-val',function(fm,el){var a=asById(fm.dataset.id),v=parseFloat(el['v'].value),d=el['d'].value;if(!a||!(v>=0)||!/^\d{4}-\d{2}-\d{2}$/.test(d))return;var was=a.balance;asSetValue(a,v,d,el['s'].value);save();render();toast('Value saved. '+(v<was?'Down ':'Up ')+money0(Math.abs(v-was))+'.')});
+  f('.as-meter',function(fm,el){var a=asById(fm.dataset.id),v=parseFloat(el['v'].value);if(!a||!(v>=0))return;var t0=iso(TODAY);a.asset.meter=v;a.asset.meterDate=t0;a.asset.meterLog=(a.asset.meterLog||[]).filter(function(x){return x.date!==t0});a.asset.meterLog.push({date:t0,v:v});a.asset.meterLog.sort(function(x,y){return x.date<y.date?-1:1});a.asset.meterLog=a.asset.meterLog.slice(-40);save();render();toast('Saved.')});
+  f('.as-last',function(fm,el){var a=asById(fm.dataset.id),mi=a&&a.asset.maint.filter(function(x){return x.id===fm.dataset.m})[0];if(!mi)return;var d=el['d'].value;if(!/^\d{4}-\d{2}-\d{2}$/.test(d))return;mi.lastDate=d;var v=el['v']?parseFloat(el['v'].value):NaN;if(v>=0)mi.lastMeter=v;else delete mi.lastMeter;save();render()});
+  f('.as-maint-add',function(fm,el){var a=asById(fm.dataset.id);if(!a)return;var mo=Math.max(0,Math.round(+el['mo'].value||0)),mt=el['mt']?Math.max(0,Math.round(+el['mt'].value||0)):0;
+    if(!mo&&!mt){toast('Say how often: every so many months, or every so many '+(asUnit(a)||'months')+'.');return}
+    var mi=cleanAsset({kind:a.asset.kind,maint:[{id:uid(),name:el['n'].value,months:mo,meter:mt,cost:el['c'].value,lastDate:el['d'].value,lastMeter:/^\d{4}-\d{2}-\d{2}$/.test(el['d'].value)&&a.asset.meter>0?a.asset.meter:undefined,cat:el['t'].value,sub:el['t'].value==='Fees and taxes'?'Other fees':''}]},uid).maint[0];
+    if(mi){a.asset.maint.push(mi);save();render()}});
+}
+function asAiRun(id){
+  var a=asById(id);if(!a||asUI.busy)return;asUI.busy=id;asUI.msg='';asUI.ai=null;render();
+  tcall(T.ai.assetValue({kind:a.asset.kind,year:a.asset.year||'',make:a.asset.make||'',model:a.asset.model||'',trim:a.asset.trim||'',mileage:a.asset.meter||'',condition:'',today:iso(TODAY)})).then(function(r){asUI.busy='';asUI.ai={id:id,res:r};render()}).catch(function(e){asUI.busy='';asUI.msg=(e&&e.message)||'Could not get an estimate.';asUI.msgId=id;render()});
+}
 // ---------- Credit score tab ----------
 var creditShot={msg:'',rows:null,busy:false};
 // A screenshot of a score screen, shrunk to a size the API takes, as a JPEG data URL.
@@ -4799,7 +4992,7 @@ function cleanBackup(j){
   var accounts=(Array.isArray(d.accounts)?d.accounts:[]).filter(function(x){return x&&x.name&&isFinite(x.balance)&&+x.balance>=0&&(ASSET_TYPES[x.type]||DEBT_TYPES[x.type])}).map(function(x){
     var hist=(Array.isArray(x.history)?x.history:[]).filter(function(h){return h&&dre.test(h.date)&&isFinite(h.balance)}).map(function(h){return {date:h.date,balance:+h.balance}}).sort(function(a,b){return a.date<b.date?-1:1});
     if(!hist.length)hist=[{date:iso(TODAY),balance:+x.balance}];
-    var ac={id:String(x.id||uid()),name:String(x.name).slice(0,120),type:x.type,balance:+x.balance,apr:DEBT_TYPES[x.type]?Math.max(0,+x.apr||0):0,minPay:DEBT_TYPES[x.type]?Math.max(0,+x.minPay||0):0,history:hist};if(x.type==='credit'&&+x.limit>0)ac.limit=+x.limit;if(x.type==='credit'&&x.closed===true)ac.closed=true;if(DEBT_TYPES[x.type]&&x.contract){var cc=cleanContract(x.contract);if(cc)ac.contract=cc}if(DEBT_TYPES[x.type]){if(photoOk(x.photo))ac.photo=x.photo;if(/^#[0-9a-f]{6}$/i.test(x.carColor||''))ac.carColor=x.carColor;if(CAR_TYPES[x.carType])ac.carType=x.carType;if(/^\d{4}-\d{2}(-\d{2})?$/.test(x.opened||''))ac.opened=x.opened;if(/^\d{4}$/.test(x.last4||''))ac.last4=x.last4;if(typeof x.carSvg==='string'){var csv=cleanCarSvg(x.carSvg);if(csv)ac.carSvg=csv}if(x.showPhoto===true)ac.showPhoto=true}if(DEBT_TYPES[x.type]){var dd=Math.round(+x.dueDay);if(dd>=1&&dd<=31)ac.dueDay=dd;if(+x.origBalance>0)ac.origBalance=+x.origBalance;if(typeof x.lender==='string'&&x.lender)ac.lender=cleanSubName(x.lender).slice(0,40);var stm=cleanStmt(x);Object.keys(stm).forEach(function(k){ac[k]=stm[k]})}if(x.plaid&&typeof x.plaid.accountId==='string')ac.plaid={itemId:String(x.plaid.itemId||'').slice(0,100),accountId:x.plaid.accountId.slice(0,100)};if(x.wallet===true&&x.type==='cash')ac.wallet=true;return ac});
+    var ac={id:String(x.id||uid()),name:String(x.name).slice(0,120),type:x.type,balance:+x.balance,apr:DEBT_TYPES[x.type]?Math.max(0,+x.apr||0):0,minPay:DEBT_TYPES[x.type]?Math.max(0,+x.minPay||0):0,history:hist};if(x.type==='credit'&&+x.limit>0)ac.limit=+x.limit;if(x.type==='credit'&&x.closed===true)ac.closed=true;if(DEBT_TYPES[x.type]&&x.contract){var cc=cleanContract(x.contract);if(cc)ac.contract=cc}if(DEBT_TYPES[x.type]){if(photoOk(x.photo))ac.photo=x.photo;if(/^#[0-9a-f]{6}$/i.test(x.carColor||''))ac.carColor=x.carColor;if(CAR_TYPES[x.carType])ac.carType=x.carType;if(/^\d{4}-\d{2}(-\d{2})?$/.test(x.opened||''))ac.opened=x.opened;if(/^\d{4}$/.test(x.last4||''))ac.last4=x.last4;if(typeof x.carSvg==='string'){var csv=cleanCarSvg(x.carSvg);if(csv)ac.carSvg=csv}if(x.showPhoto===true)ac.showPhoto=true}if(DEBT_TYPES[x.type]){var dd=Math.round(+x.dueDay);if(dd>=1&&dd<=31)ac.dueDay=dd;if(+x.origBalance>0)ac.origBalance=+x.origBalance;if(typeof x.lender==='string'&&x.lender)ac.lender=cleanSubName(x.lender).slice(0,40);var stm=cleanStmt(x);Object.keys(stm).forEach(function(k){ac[k]=stm[k]})}if(x.plaid&&typeof x.plaid.accountId==='string')ac.plaid={itemId:String(x.plaid.itemId||'').slice(0,100),accountId:x.plaid.accountId.slice(0,100)};if(x.wallet===true&&x.type==='cash')ac.wallet=true;if(x.type==='property'&&x.asset){var as1=cleanAsset(x.asset,uid);if(as1)ac.asset=as1}return ac});
   var home={};if(d.home&&typeof d.home==='object'&&!Array.isArray(d.home)){['purchasePrice','down','closing','origLoan','termYears','taxYear','insYear','hoaMonth','pmiMonth','maintPct','mgmtPct','vacancyPct','appreciation','ret','sellPct','rentGrowth','costGrowth','rentMonth','extra'].forEach(function(k){var n=parseFloat(d.home[k]);if(isFinite(n)&&n>=0&&n<1e9)home[k]=n});['purchaseDate','startDate'].forEach(function(k){if(/^\d{4}-\d{2}-\d{2}$/.test(d.home[k]||''))home[k]=d.home[k]});['mortId','valueId'].forEach(function(k){if(typeof d.home[k]==='string'&&/^[\w-]{1,40}$/.test(d.home[k])&&accounts.some(function(a){return a.id===d.home[k]}))home[k]=d.home[k]});if(d.home.setup===true&&home.valueId)home.setup=true;if(photoOk(d.home.photo))home.photo=d.home.photo}
   return {txns:txns,subs:subs,budgets:budgets,goals:goals,accounts:accounts,extraPay:Math.max(0,+d.extraPay||0),plaidIgnored:(Array.isArray(d.plaidIgnored)?d.plaidIgnored:[]).filter(function(x){return typeof x==='string'}).slice(0,200),credit:cleanCredit(d.credit),holdings:cleanHoldings(d.holdings),customCats:custom,setAside:setAside,merchantCats:merchantCats,subCats:subCats,merchantSubs:merchantSubs,bills:bills,billMarks:billMarks,energy:energy,home:home,debtMonthly:Math.max(0,+d.debtMonthly||0),billIgnore:(function(){var o={};if(d.billIgnore&&typeof d.billIgnore==='object'&&!Array.isArray(d.billIgnore))Object.keys(d.billIgnore).slice(0,500).forEach(function(k){if(k.length<=120&&k!=='__proto__')o[k]=1});return o})(),cardPay:d.cardPay==='skip'||d.cardPay==='count'?d.cardPay:'auto',apple:(function(){var a=d.apple||{},o={};if(typeof a.acct==='string'&&a.acct.length<=40)o.acct=a.acct;if(/^\d{4}-\d{2}-\d{2}$/.test(a.last||''))o.last=a.last;if(+a.count>=0)o.count=Math.min(1e6,Math.round(+a.count));return o})(),payLinks:cleanPayLinks(d.payLinks)};
 }
@@ -4836,6 +5029,7 @@ function bindView(){
   m.querySelectorAll('[data-cs]').forEach(function(i){i.onchange=function(){if(cardStmt.card)cardStmt.card[i.dataset.cs]=i.value}});
   var cssel=$('#cs-sel',m);if(cssel)cssel.onchange=function(){cardStmt.sel=cssel.value;var a=S.accounts.filter(function(x){return x.id===cssel.value})[0];if(a&&cardStmt.card){cardStmt.card.name=a.name;cardPrefill(cardStmt.card,a)}render()};
   var cstx=$('#cs-tx',m);if(cstx)cstx.onchange=function(){cardStmt.importTx=cstx.checked};
+  asBind(m);
   m.querySelectorAll('.walletform').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();var v=parseFloat(fm.elements['v'].value);if(!(v>=0))return;if(S.sample){toast('Press Start fresh first, then set your wallet cash.');return}walletSet(v);save();render();toast('Wallet cash set to '+money(v)+'.')}});
   m.querySelectorAll('.walletadd').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();var v=parseFloat(fm.elements['v'].value);if(!(v>0))return;walletAdd(v);save();render();toast('Added '+money(v)+' to your wallet.')}});
   m.querySelectorAll('.cashform').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();
@@ -4949,6 +5143,14 @@ document.addEventListener('click',function(e){
   else if(a==='ph-start'){
     rcpt.phone.msg='';tcall(T.phone.start()).then(function(r){rcpt.phone={on:true,url:r.url,qr:r.qr,msg:'',expires:r.expires};render()}).catch(function(e){rcpt.phone={on:false,url:'',qr:'',msg:(e&&e.message)||'Could not start.',expires:0};render()});return}
   else if(a==='ph-stop'){tcall(T.phone.stop()).catch(function(){});rcpt.phone={on:false,url:'',qr:'',msg:'',expires:0}}
+  else if(a==='as-add'){asUI.adding=true}
+  else if(a==='as-ai'){asAiRun(id);return}
+  else if(a==='as-ai-no'){asUI.ai=null}
+  else if(a==='as-ai-use'){var aa=asById(id);if(aa&&asUI.ai&&asUI.ai.res&&asUI.ai.res.mid>0){if(asGuard())return;asSetValue(aa,asUI.ai.res.mid,iso(TODAY),'AI estimate');aa.asset.rate=Math.max(-0.3,Math.min(0.6,asUI.ai.res.yearlyDepreciationPct/100));asUI.ai=null;toast('Value set to the AI estimate.')}}
+  else if(a==='as-presets'){var ap=asById(id);if(ap){var add=(MAINT_PRESETS[assetKind(ap.asset)]||[]).filter(function(p){return !ap.asset.maint.some(function(m){return m.name===p.name})}).map(function(p){return {id:uid(),name:p.name,months:p.months,meter:p.meter,cost:p.cost,cat:p.cat,sub:p.sub}});ap.asset.maint=ap.asset.maint.concat(cleanAsset({kind:ap.asset.kind,maint:add},uid).maint)}}
+  else if(a==='as-done'||a==='maint-done'){var ids=a==='maint-done'?String(id).split(':'):['',id,b.dataset.m],ad=asById(ids[1]),am=ad&&ad.asset.maint.filter(function(x){return x.id===ids[2]})[0];if(am){am.lastDate=iso(TODAY);if(ad.asset.meter>0)am.lastMeter=ad.asset.meter;var nd=maintDue(am,ad.asset,TODAY);toast(am.name+' marked done.'+(nd.due?' Next due '+shortDate(isoOf(nd.due))+'.':''))}}
+  else if(a==='as-mdel'){var ax=asById(id);if(ax)ax.asset.maint=ax.asset.maint.filter(function(x){return x.id!==b.dataset.m})}
+  else if(a==='as-del'){S.accounts=S.accounts.filter(function(x){return x.id!==id});toast('Removed. Undo is at the top if that was a mistake.')}
   else if(a==='cs-save'){cardStmtSave();return}
   else if(a==='cs-cancel'){cardStmt={stage:'idle',msg:'',err:'',card:null,sel:'',rows:[],importTx:true}}
   else if(a==='shot-cancel'){creditShot={msg:'',rows:null,busy:false}}
