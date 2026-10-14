@@ -412,3 +412,8 @@ In **Settings → App updates**, when a newer release exists the Windows app sho
 ## Settings tab
 
 The former Appearance tab is now **Settings**. It holds Appearance (look, colour, type and motion), App updates, and **Backup** (Download backup / Restore from file), which moved here from Transactions. Security (the password and moving to another computer) is a section of Settings too.
+
+## Pay now links, and your own car in the payoff race
+
+- **Pay now.** The app never moves money or sees your lender login. For each bill, loan, card and the mortgage, press **Add pay link** and paste the address of your lender's payment page (open their site, sign in, go to where you make a payment, copy the address). From then on **Pay now** opens that page in your browser; the lender's site is shown next to the button so you can see where it goes. Only plain `https://` addresses are accepted (no `javascript:`, no logins inside the address, no IP addresses). Links are saved with your data and included in backups and transfer files. Press the pencil to change or remove one. After paying, use **Mark paid** on the Bills tab.
+- **Your car in the payoff race.** When the car loan has a photo with a plain light background (a dealer or manufacturer picture), the car that drives along the payoff road is cut out of that photo, so it is your real car. Photos with busy backgrounds fall back to the drawn car.

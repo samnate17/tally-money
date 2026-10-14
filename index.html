@@ -477,7 +477,7 @@ var VLT={on:false,locked:false,key:null,salt:'',it:0,busy:false,dirty:false,min:
 try{var _lk=JSON.parse(localStorage.getItem('tally-lock-v1')||'{}');if(_lk&&_lk.min>=0&&_lk.min<=240)VLT.min=+_lk.min}catch(e){}
 function load(){try{if(localStorage.getItem('tally-vault-v1')){VLT.on=true;VLT.locked=true;S=sample();migrate();syncCats();return}}catch(e){}try{var j=localStorage.getItem('tally-money-v1');if(j){S=JSON.parse(j);migrate();syncCats();return}}catch(e){}S=sample();migrate();syncCats()}
 function defCredit(){return {scores:[],profile:{late:'unknown',inq:'unknown',oldest:'',derog:'unknown'}}}
-function migrate(){if(!S.apple||typeof S.apple!=='object'||Array.isArray(S.apple))S.apple={};if(!S.billIgnore||typeof S.billIgnore!=='object'||Array.isArray(S.billIgnore))S.billIgnore={};if(S.cardPay!=='skip'&&S.cardPay!=='count')S.cardPay='auto';if(!S.home||typeof S.home!=='object'||Array.isArray(S.home))S.home={};if(!(S.debtMonthly>=0))S.debtMonthly=0;if(!Array.isArray(S.customCats))S.customCats=[];if(!Array.isArray(S.setAside))S.setAside=[];if(!S.merchantCats||typeof S.merchantCats!=='object'||Array.isArray(S.merchantCats))S.merchantCats={};if(!Array.isArray(S.energy))S.energy=[];if(!Array.isArray(S.bills))S.bills=[];if(!S.billMarks||typeof S.billMarks!=='object'||Array.isArray(S.billMarks))S.billMarks={};if(!S.subCats||typeof S.subCats!=='object'||Array.isArray(S.subCats))S.subCats={};if(!S.merchantSubs||typeof S.merchantSubs!=='object'||Array.isArray(S.merchantSubs))S.merchantSubs={};if(!Array.isArray(S.holdings))S.holdings=S.sample?sampleHoldings():[];if(!S.credit||!Array.isArray(S.credit.scores))S.credit=S.sample?sampleCredit():defCredit();if(!Array.isArray(S.plaidIgnored))S.plaidIgnored=[];if(!Array.isArray(S.accounts))S.accounts=S.sample?sampleAccounts():[];if(typeof S.extraPay!=='number')S.extraPay=S.sample?100:0}
+function migrate(){if(!S.payLinks||typeof S.payLinks!=='object'||Array.isArray(S.payLinks))S.payLinks={};if(!S.apple||typeof S.apple!=='object'||Array.isArray(S.apple))S.apple={};if(!S.billIgnore||typeof S.billIgnore!=='object'||Array.isArray(S.billIgnore))S.billIgnore={};if(S.cardPay!=='skip'&&S.cardPay!=='count')S.cardPay='auto';if(!S.home||typeof S.home!=='object'||Array.isArray(S.home))S.home={};if(!(S.debtMonthly>=0))S.debtMonthly=0;if(!Array.isArray(S.customCats))S.customCats=[];if(!Array.isArray(S.setAside))S.setAside=[];if(!S.merchantCats||typeof S.merchantCats!=='object'||Array.isArray(S.merchantCats))S.merchantCats={};if(!Array.isArray(S.energy))S.energy=[];if(!Array.isArray(S.bills))S.bills=[];if(!S.billMarks||typeof S.billMarks!=='object'||Array.isArray(S.billMarks))S.billMarks={};if(!S.subCats||typeof S.subCats!=='object'||Array.isArray(S.subCats))S.subCats={};if(!S.merchantSubs||typeof S.merchantSubs!=='object'||Array.isArray(S.merchantSubs))S.merchantSubs={};if(!Array.isArray(S.holdings))S.holdings=S.sample?sampleHoldings():[];if(!S.credit||!Array.isArray(S.credit.scores))S.credit=S.sample?sampleCredit():defCredit();if(!Array.isArray(S.plaidIgnored))S.plaidIgnored=[];if(!Array.isArray(S.accounts))S.accounts=S.sample?sampleAccounts():[];if(typeof S.extraPay!=='number')S.extraPay=S.sample?100:0}
 function ledger(){return ledgerOf(S.txns,S.cardPay)}
 function billCatOf(n){var c=guessCat(n);return {cat:c,sub:c==='Other'?'':(guessSub(c,n)||'')}}
 function allBillItems(mk){var base=billItems(S.bills,S.accounts,S.txns);return base.concat(autoBillItems(S.txns,base,mk,S.billIgnore,billCatOf))}
@@ -2474,6 +2474,42 @@ function vAfford(){
 
 /* ---------- Bills ---------- */
 var billUI={edit:'',adding:false};
+/*PAYLINK-START*/
+// Pay now: the app never moves money. It opens the lender's own payment page, using an https address you saved once.
+function cleanPayUrl(t){
+  t=String(t||'').trim();if(!t||t.length>300||/\s/.test(t))return '';
+  if(!/^[a-z][a-z0-9+.-]*:/i.test(t))t='https://'+t;
+  var u;try{u=new URL(t)}catch(e){return ''}
+  if(u.protocol!=='https:'||u.username||u.password)return '';
+  if(!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(u.hostname)||/^\d+(\.\d+){3}$/.test(u.hostname))return '';
+  return u.href;
+}
+function payHost(u){try{return new URL(u).hostname.replace(/^www\./,'')}catch(e){return ''}}
+function cleanPayLinks(o){
+  var out={},n=0;if(!o||typeof o!=='object'||Array.isArray(o))return out;
+  Object.keys(o).forEach(function(k){if(n>=200||!/^(home|bill:[\w.-]{1,60}|loan:[\w.-]{1,60}|loan:grp:[^\n\r]{1,120})$/.test(k))return;var u=cleanPayUrl(o[k]);if(u){out[k]=u;n++}});
+  return out;
+}
+/*PAYLINK-END*/
+var payUI={edit:''};
+// One saved link can serve several keys: a grouped student loan, or the mortgage on the Mortgage page and in Loans.
+function payKeys(key){
+  var ks=[key];
+  if(/^loan:grp:/.test(key)){var lender=key.slice(9).split('|')[0];S.accounts.forEach(function(a){if(a.type==='student'&&String(a.lender||'').toLowerCase()===lender)ks.push('loan:'+a.id)})}
+  else if(/^loan:/.test(key)){if(S.home&&S.home.mortId===key.slice(5))ks.push('home')}
+  else if(key==='home'&&S.home&&S.home.mortId)ks.push('loan:'+S.home.mortId);
+  return ks;
+}
+function payUrl(key){var ks=payKeys(key),i;for(i=0;i<ks.length;i++)if(S.payLinks&&S.payLinks[ks[i]])return S.payLinks[ks[i]];return ''}
+function paySet(key,url){if(!S.payLinks)S.payLinks={};payKeys(key).forEach(function(k){if(url)S.payLinks[k]=url;else delete S.payLinks[k]})}
+function payBtn(key){
+  var u=payUrl(key),k=esc(key);
+  if(payUI.edit===key)return '<form class="payform" data-k="'+k+'" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"><input type="text" name="u" inputmode="url" autocomplete="off" placeholder="https://… your lender\'s payment page" value="'+esc(u)+'" aria-label="Payment page address" style="flex:1 1 260px" autofocus><button class="btn small primary">Save</button>'+(u?'<button type="button" class="btn small" data-act="pay-remove" data-k="'+k+'">Remove</button>':'')+'<button type="button" class="btn small" data-act="pay-cancel">Cancel</button><span class="sub muted" style="flex-basis:100%;font-size:12px;white-space:normal">Open your lender\'s website, sign in, go to the page where you make a payment and paste its address here. Tally never sees your login or moves money: you pay on their site.</span></form>';
+  if(!u)return '<button class="btn small" data-act="pay-edit" data-k="'+k+'">Add pay link</button>';
+  var h=esc(payHost(u));
+  return '<span style="display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap"><a class="btn small primary" href="'+esc(u)+'" target="_blank" rel="noopener noreferrer" data-pay="1" data-host="'+h+'" title="Opens '+h+' in your browser">Pay now</a><span class="sub" style="font-size:12px">'+h+'</span><button class="btn small" data-act="pay-edit" data-k="'+k+'" aria-label="Change pay link" title="Change pay link">&#9998;</button></span>';
+}
+
 function billsTile(){
   var items=allBillItems(month),sum=billsSummary(items,month,S.txns,S.billMarks,TODAY);
   var body=sum.count?money0(sum.pending)+'<span class="muted" style="font-size:14px"> pending</span>':'<span class="muted">Add bills</span>';
@@ -2519,7 +2555,7 @@ function vBills(){
     var act=st.state==='paid'?'<button class="btn small" data-act="bill-undo" data-id="'+esc(it.id)+'">'+(st.manual?'Undo':'Not paid?')+'</button>':'<button class="btn small primary" data-act="bill-paid" data-id="'+esc(it.id)+'">Mark paid</button>';
     var more=it.source==='auto'?'<button class="btn small" data-act="bill-keep" data-id="'+esc(it.id)+'" title="Save it as your own bill so you can edit it">Keep</button><button class="btn small" data-act="bill-ignore" data-id="'+esc(it.id)+'" aria-label="Not a bill" title="This is not a bill. Stop showing it.">Not a bill</button>':it.source==='bill'?'<button class="btn small" data-act="bill-edit" data-id="'+esc(it.id)+'">Edit</button><button class="btn small" data-act="bill-del" data-id="'+esc(it.id)+'" aria-label="Remove">&times;</button>':'<span class="sub muted" style="font-size:12px">from your '+(it.kind==='credit'?'card':'loan')+'</span>';
     var paidNote=(st.state==='paid'&&st.found&&Math.abs(st.found.amount-it.amount)>=1?' · paid '+money(st.found.amount):'')+(it.source==='loan'&&it.raw.pastDue>0?' · <span class="bad">past due '+money(it.raw.pastDue)+'</span>':'');
-    return '<div class="row wrap">'+logo(it.name)+'<div class="grow" style="flex-basis:200px"><div class="nm">'+esc(it.name)+'</div><div class="sub">'+(it.dueDay?(it.dayGuessed?'Usually paid around the ':'Due on the ')+it.dueDay+ordinal(it.dueDay):'No due day')+(it.source==='auto'?' · <span class="pill good" style="font-size:11px">Found in your transactions</span>':'')+(it.cat?' · '+esc(it.cat)+(it.sub?' › '+esc(it.sub):''):'')+paidNote+'</div></div>'+billPill(st)+'<div class="amt num">'+money(it.amount)+'</div><div class="actions" style="flex:none;flex-wrap:nowrap">'+act+more+'</div></div>';
+    return '<div class="row wrap">'+logo(it.name)+'<div class="grow" style="flex-basis:200px"><div class="nm">'+esc(it.name)+'</div><div class="sub">'+(it.dueDay?(it.dayGuessed?'Usually paid around the ':'Due on the ')+it.dueDay+ordinal(it.dueDay):'No due day')+(it.source==='auto'?' · <span class="pill good" style="font-size:11px">Found in your transactions</span>':'')+(it.cat?' · '+esc(it.cat)+(it.sub?' › '+esc(it.sub):''):'')+paidNote+'</div>'+(it.source==='bill'||it.source==='loan'?'<div style="margin-top:6px">'+payBtn(it.id.indexOf('loan:')===0||it.source==='bill'?(it.source==='bill'?'bill:'+it.id:it.id):it.id)+'</div>':'')+'</div>'+billPill(st)+'<div class="amt num">'+money(it.amount)+'</div><div class="actions" style="flex:none;flex-wrap:nowrap">'+act+more+'</div></div>';
   }).join('');
   var list='<section class="panel"><h2>'+monthLabel(month)+'<small>'+sum.paidCount+' of '+sum.count+' paid</small></h2>'+(rows||'<div class="empty">No bills yet. Add rent, electricity, internet, insurance and anything else due every month.</div>')+
     '<div class="actions" style="justify-content:flex-start;margin-top:10px"><button class="btn small primary" data-act="bill-add">Add a bill</button></div>'+(billUI.adding?billForm(null):'')+
@@ -2866,7 +2902,7 @@ function homeHero(h,mo,eq,sim){
   var right='<div class="herosec" style="flex:1 1 200px"><div class="sub">Monthly payment to the bank</div><div class="num herobig">'+(h.pi>0?money0(h.pi):'\u2014')+'</div><div class="sub">'+(nd?'Next due '+monthLabelDay(iso(nd)):'Principal and interest')+'. All-in cost of owning: '+money0(mo.cash)+' a month.</div></div>';
   var chips='<div class="herochips">'+chip('Interest rate',h.balance>0?h.apr+'%':'')+chip('Loan paid off',paid!==null?Math.round(paid*100)+'%':'')+chip('Mortgage-free',h.balance>0?(sim.ok?monthYear(addMonths(TODAY,sim.months)):'payment too small'):'Done')+chip('Interest still to pay',h.balance>0&&sim.ok?money0(sim.interest):'')+chip('Gone for good each month',money0(mo.cost))+chip('If you sold today',money0(eq.proceeds))+'</div>';
   var bar=paid!==null?'<div style="margin:12px 0 0"><div class="bar"><i style="width:'+Math.max(1,Math.round(paid*100))+'%"></i></div><div class="sub" style="margin-top:4px">'+Math.round(paid*100)+'% of the original loan is paid off.</div></div>':'';
-  return '<section class="panel hero"><div class="herohead"><div><div class="sub">Your home</div><h2 style="margin:0;font-size:22px">Mortgage and equity</h2></div></div><div class="herorow"><div class="herosec">'+art+'</div>'+mid+right+'</div>'+bar+chips+'<div class="qa">'+qaBtn(QI.plus,'Extra payment','#hm-try')+qaBtn(QI.swap,'Keep, rent or sell','#hm-horizon')+qaBtn(QI.chart,'Charts','.visuals')+qaBtn(QI.home,'Refinance','#rf-rate')+'</div>'+photoControls('home','home',!!(H.photo&&photoOk(H.photo)))+'</section>';
+  return '<section class="panel hero"><div class="herohead"><div><div class="sub">Your home</div><h2 style="margin:0;font-size:22px">Mortgage and equity</h2></div><div>'+payBtn('home')+'</div></div><div class="herorow"><div class="herosec">'+art+'</div>'+mid+right+'</div>'+bar+chips+'<div class="qa">'+qaBtn(QI.plus,'Extra payment','#hm-try')+qaBtn(QI.swap,'Keep, rent or sell','#hm-horizon')+qaBtn(QI.chart,'Charts','.visuals')+qaBtn(QI.home,'Refinance','#rf-rate')+'</div>'+photoControls('home','home',!!(H.photo&&photoOk(H.photo)))+'</section>';
 }
 function homeHintsPanel(h,mo){
   var hh=homeHints(S.txns,NOWKEY),rows=[];
@@ -2993,7 +3029,7 @@ function loanCard(kind,l){
   var meta=esc(l.lender||'')+(l.lender?' · ':'')+l.apr+'% APR · '+money0(l.minPay)+'/mo'+(due?' · next due '+shortDate(iso(due)):'');
   var line=base.ok?(base.months?'Paid off <b>'+monthYear(addMonths(TODAY,base.months))+'</b> ('+dur(base.months)+') · about '+money0(base.interest)+' interest still to pay':'Paid off'):(base.reason==='never'?'<span class="bad">The payment does not cover the interest (about '+money0(base.needed)+' a month), so the balance would grow.</span>':'<span class="warn">Add a monthly payment to see a payoff date.</span>');
   if(loanUI[kind].edit===l.id)return loanForm(kind,l);
-  return '<div class="row wrap" style="align-items:flex-start">'+logo(l.name)+'<div class="grow" style="flex-basis:220px"><div class="nm">'+esc(l.name)+(l.closed?' <span class="pill mute">Closed</span>':'')+(l.plaid?' <span class="pill good">Linked</span>':'')+'</div><div class="sub">'+meta+'</div><div class="sub" style="margin-top:3px;white-space:normal">'+line+'</div>'+loanStmtBlock(l)+(pct!==null?'<div class="bar" style="margin-top:6px;max-width:320px"><i style="width:'+pct+'%"></i></div><div class="sub">'+pct.toFixed(0)+'% paid off of '+money0(l.origBalance)+'</div>':'')+'</div><div class="amt num">'+money(l.balance)+'</div><div class="actions" style="flex:none;flex-wrap:nowrap"><button class="btn small" data-act="loan-edit" data-kind="'+kind+'" data-id="'+l.id+'">Edit</button><button class="btn small" data-act="acct-del" data-id="'+l.id+'" aria-label="Remove">&times;</button></div></div>';
+  return '<div class="row wrap" style="align-items:flex-start">'+logo(l.name)+'<div class="grow" style="flex-basis:220px"><div class="nm">'+esc(l.name)+(l.closed?' <span class="pill mute">Closed</span>':'')+(l.plaid?' <span class="pill good">Linked</span>':'')+'</div><div class="sub">'+meta+'</div><div class="sub" style="margin-top:3px;white-space:normal">'+line+'</div>'+loanStmtBlock(l)+(l.balance>0&&!l.closed?'<div style="margin-top:8px">'+payBtn('loan:'+l.id)+'</div>':'')+(pct!==null?'<div class="bar" style="margin-top:6px;max-width:320px"><i style="width:'+pct+'%"></i></div><div class="sub">'+pct.toFixed(0)+'% paid off of '+money0(l.origBalance)+'</div>':'')+'</div><div class="amt num">'+money(l.balance)+'</div><div class="actions" style="flex:none;flex-wrap:nowrap"><button class="btn small" data-act="loan-edit" data-kind="'+kind+'" data-id="'+l.id+'">Edit</button><button class="btn small" data-act="acct-del" data-id="'+l.id+'" aria-label="Remove">&times;</button></div></div>';
 }
 function vLoans(kind,hub){
   var K=LOANKIND[kind],U=loanUI[kind],loans=S.accounts.filter(function(a){return a.type===kind});
@@ -3067,18 +3103,70 @@ function carArt(type,color){
   var P=CAR_PATHS[type]||CAR_PATHS.sedan,r=P.r||(type==='suv'||type==='pickup'?16:14),wy=74,wheel=function(cx){return '<g transform="translate('+cx+','+wy+')"><circle r="'+(r+3)+'" fill="#12141c" stroke="#3a3f4b" stroke-width="1"/><circle r="'+r+'" fill="#1c1f2b"/>'+(P.caliper?'<path d="M-11,-10 A14,14 0 0 1 11,-10 L8,-5 A10,10 0 0 0 -8,-5 Z" fill="#e11d2e"/>':'')+'<g class="wheelspin"><circle r="'+(r-6)+'" fill="'+(P.caliper?'#2a2d36':'#cfd4de')+'"/><path d="M0,-'+(r-6)+' L0,'+(r-6)+' M-'+(r-6)+',0 L'+(r-6)+',0 M-5,-5 L5,5 M-5,5 L5,-5" stroke="#6b7280" stroke-width="1.3"/></g><circle r="2.6" fill="#6b7280"/></g>'};
   return '<g class="carbody"><ellipse cx="121" cy="90" rx="108" ry="4.5" fill="#000" opacity=".18"/>'+wheel(62)+wheel(182)+'<path d="'+P.body+'" fill="'+color+'"/><path d="'+P.body+'" fill="url(#carshine)" opacity=".55"/>'+P.win.map(function(w){return '<path d="'+w+'" fill="#dbe7f3" opacity=".92"/>'}).join('')+(P.extra||'')+'<path d="M121,'+(type==='pickup'?30:34)+' L121,66" stroke="#000" stroke-opacity=".18" stroke-width="1.2"/><rect x="226" y="56" width="8" height="5" rx="2.5" fill="#fff6c2"/><rect x="6" y="56" width="6" height="5" rx="2.5" fill="#ff4d4d"/><path d="M8,68 L234,68" stroke="#000" stroke-opacity=".16" stroke-width="1.4"/></g>';
 }
+/*CUTOUT-START*/
+// Lifts a car out of a studio photo (plain light background) so it can drive along the payoff road. d is RGBA pixel data.
+// Only background connected to the picture's edge is removed, so white highlights on the car stay. Returns {ok, box}.
+function cutoutBg(d,w,h){
+  var N=w*h,bg=new Uint8Array(N),stack=[],x,y,p,border=0,borderBg=0;
+  function isBg(q){var r=d[q*4],g=d[q*4+1],b=d[q*4+2],mn=Math.min(r,g,b),mx=Math.max(r,g,b);return mn>=185&&mx-mn<=22}
+  function seed(q){border++;if(isBg(q)){borderBg++;if(!bg[q]){bg[q]=1;stack.push(q)}}}
+  for(x=0;x<w;x++){seed(x);seed((h-1)*w+x)}
+  for(y=1;y<h-1;y++){seed(y*w);seed(y*w+w-1)}
+  if(!border||borderBg/border<0.85)return {ok:false};
+  while(stack.length){
+    p=stack.pop();x=p%w;y=(p-x)/w;
+    if(x>0&&!bg[p-1]&&isBg(p-1)){bg[p-1]=1;stack.push(p-1)}
+    if(x<w-1&&!bg[p+1]&&isBg(p+1)){bg[p+1]=1;stack.push(p+1)}
+    if(y>0&&!bg[p-w]&&isBg(p-w)){bg[p-w]=1;stack.push(p-w)}
+    if(y<h-1&&!bg[p+w]&&isBg(p+w)){bg[p+w]=1;stack.push(p+w)}
+  }
+  var x0=w,y0=h,x1=-1,y1=-1,keep=0;
+  for(p=0;p<N;p++){
+    if(bg[p]){d[p*4+3]=0;continue}
+    x=p%w;y=(p-x)/w;keep++;
+    if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y;
+    var edge=(x>0&&bg[p-1])||(x<w-1&&bg[p+1])||(y>0&&bg[p-w])||(y<h-1&&bg[p+w]);
+    if(edge&&Math.min(d[p*4],d[p*4+1],d[p*4+2])>140)d[p*4+3]=150;   // soften the light fringe
+  }
+  if(keep<N*0.06||x1<0)return {ok:false};
+  return {ok:true,box:[x0,y0,x1,y1]};
+}
+/*CUTOUT-END*/
+var CUT={};
+// The cut-out is computed in the background; until it is ready (or if the photo is not a studio shot) the drawn car is used.
+function carCutout(photo){
+  var k=photo.length+':'+photo.slice(-48),c=CUT[k];
+  if(c&&c!=='busy')return c==='no'?null:c;
+  if(c==='busy')return null;
+  CUT[k]='busy';
+  var im=new Image();
+  im.onload=function(){
+    try{
+      var sc=Math.min(1,560/im.width),w=Math.max(1,Math.round(im.width*sc)),h=Math.max(1,Math.round(im.height*sc)),cv=document.createElement('canvas');cv.width=w;cv.height=h;
+      var cx=cv.getContext('2d');cx.drawImage(im,0,0,w,h);var id=cx.getImageData(0,0,w,h),r=cutoutBg(id.data,w,h);
+      if(!r.ok){CUT[k]='no';return}
+      cx.putImageData(id,0,0);var bw=r.box[2]-r.box[0]+1,bh=r.box[3]-r.box[1]+1,o=document.createElement('canvas');o.width=bw;o.height=bh;
+      o.getContext('2d').drawImage(cv,r.box[0],r.box[1],bw,bh,0,0,bw,bh);
+      CUT[k]={url:o.toDataURL('image/png'),w:bw,h:bh};
+      if(view==='loans')render();
+    }catch(e){CUT[k]='no'}
+  };
+  im.onerror=function(){CUT[k]='no'};
+  im.src=photo;
+  return null;
+}
 function carDefs(){return '<defs><linearGradient id="carshine" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".55"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".25"/></linearGradient></defs>'}
 // The car drives along a road from the day you signed to the day the loan ends. flag labels: from and to.
 function carScene(a,pct,o){
   o=o||{};var type=a.carType&&CAR_TYPES[a.carType]?a.carType:carType((a.contract&&a.contract.vehicle)||a.name),color=/^#[0-9a-f]{6}$/i.test(a.carColor||'')?a.carColor:carDefaultColor(type),p=Math.max(0,Math.min(1,pct||0)),W=640,H=170,x0=44,x1=480,scale=0.5,dx=(x1-x0)*p/scale;
-  var ticks='',years=o.years||0,i;if(years>0)for(i=1;i<years;i++)ticks+='<circle cx="'+(x0+60+(x1+60-x0-60)*i/years)+'" cy="146" r="2" fill="var(--muted)" opacity=".6"/>';
+  var cut=a.photo&&photoOk(a.photo)?carCutout(a.photo):null,ticks='',years=o.years||0,i;if(years>0)for(i=1;i<years;i++)ticks+='<circle cx="'+(x0+60+(x1+60-x0-60)*i/years)+'" cy="146" r="2" fill="var(--muted)" opacity=".6"/>';
   var trailX=x0+60+(x1-x0)*p;
   return '<svg class="carscene" viewBox="0 0 '+W+' '+H+'" width="100%" style="max-width:720px" role="img" aria-label="'+esc(o.label||'Loan progress')+': '+Math.round(p*100)+' percent of the way">'+carDefs()+
     '<rect x="0" y="146" width="'+W+'" height="4" fill="none"/><path d="M0,128 L'+W+',128" stroke="var(--line)" stroke-width="30" stroke-linecap="butt"/><path class="roadline" d="M0,128 L'+W+',128" stroke="var(--bg)" stroke-width="2" stroke-dasharray="18 16" opacity=".8"/>'+
     '<path d="M'+(x0+10)+',116 L'+trailX+',116" stroke="var(--accent)" stroke-width="4" stroke-linecap="round" opacity=".9"/>'+
     '<g transform="translate('+(x0-4)+',70)"><path d="M0,0 L0,54" stroke="var(--ink)" stroke-width="2"/><path d="M0,2 L26,10 L0,20 Z" fill="var(--good)"/></g><text x="'+(x0-4)+'" y="66" font-size="11" font-weight="700" style="fill:var(--ink)">'+esc(o.from||'Start')+'</text>'+
     '<g transform="translate('+(W-50)+',70)"><path d="M0,0 L0,54" stroke="var(--ink)" stroke-width="2"/><rect x="0" y="2" width="27" height="18" fill="#fff"/><path d="M0,2h9v6H0zM18,2h9v6h-9zM9,8h9v6H9zM0,14h9v6H0zM18,14h9v6h-9z" fill="#111"/></g><text x="'+(W-8)+'" y="66" text-anchor="end" font-size="11" font-weight="700" style="fill:var(--ink)">'+esc(o.to||'Paid off')+'</text>'+ticks+
-    '<g transform="translate('+x0+',85) scale('+scale+')"><g class="drive" style="--carx:'+dx+'px">'+carArt(type,color)+'</g></g></svg>';
+    '<g transform="translate('+x0+',85) scale('+scale+')"><g class="drive" style="--carx:'+dx+'px">'+(cut?'<g class="carbody"><ellipse cx="124" cy="90" rx="108" ry="4.5" fill="#000" opacity=".18"/><image href="'+cut.url+'" x="0" y="'+(92-Math.min(86,250*cut.h/cut.w))+'" width="250" height="'+Math.min(86,250*cut.h/cut.w)+'" preserveAspectRatio="xMidYMax meet" transform="translate(250,0) scale(-1,1)"/></g>':carArt(type,color))+'</g></g></svg>';
 }
 // The house fills from the bottom as the share you own grows.
 function houseSVG(pct,o){
@@ -3195,7 +3283,7 @@ function autoHero(a){
   var qa='<div class="qa">'+qaBtn(QI.pay,'Payoff','.contractpanel')+qaBtn(QI.chart,'Charts','.visuals')+qaBtn(QI.plus,'Extra payment','.fasterpanel')+qaBtn(QI.swap,'Refinance','#cf-rate')+qaBtn(QI.list,'Payments','.histpanel')+qaBtn(QI.doc,'Contract','.contractpanel details')+'</div>';
   var art=(a.photo&&photoOk(a.photo)?'<div class="photoframe carphoto"><img alt="'+esc(c&&c.vehicle||a.name)+'" src="'+a.photo+'"></div>':'')+'<div style="margin-top:12px">'+carScene(a,pct||0,{from:c&&sch?'Signed '+monthLabelDay(sch.contractDate).replace(/ \d+,/,''):'Start',to:maturity?'Paid off '+monthLabelDay(maturity).replace(/ \d+,/,''):'Paid off',years:term?Math.round(term/12):0,label:'Loan progress'})+'</div>'+
     '<div class="actions" style="justify-content:flex-start;gap:10px;margin-top:6px;flex-wrap:wrap;align-items:center"><span class="sub">Car</span><select data-cartype="'+esc(a.id)+'" aria-label="Body style">'+Object.keys(CAR_TYPES).map(function(k){return '<option value="'+k+'"'+(k===type?' selected':'')+'>'+CAR_TYPES[k]+'</option>'}).join('')+'</select><span class="sub">Color</span>'+CAR_COLORS.map(function(cl){return '<button class="btn small" data-act="car-color" data-id="'+esc(a.id)+'" data-c="'+cl+'" aria-label="Color '+cl+'" style="width:22px;height:22px;padding:0;border-radius:50%;background:'+cl+';border:'+(cl===curCol?'3px solid var(--ink)':'1px solid var(--line)')+'"></button>'}).join('')+'</div>'+photoControls('car',a.id,!!(a.photo&&photoOk(a.photo)));
-  return '<section class="panel hero"><div class="herohead"><div><div class="sub">Your car loan</div><h2 style="margin:0;font-size:22px">'+title+'</h2>'+(sub?'<div class="sub">'+esc(sub)+'</div>':'')+'</div></div>'+stage+'<div class="herorow">'+left1+mid+right+'</div>'+bar+chips+qa+art+'</section>';
+  return '<section class="panel hero"><div class="herohead"><div><div class="sub">Your car loan</div><h2 style="margin:0;font-size:22px">'+title+'</h2>'+(sub?'<div class="sub">'+esc(sub)+'</div>':'')+'</div><div>'+(a.balance>0?payBtn('loan:'+a.id):'')+'</div></div>'+stage+'<div class="herorow">'+left1+mid+right+'</div>'+bar+chips+qa+art+'</section>';
 }
 
 /* ---------- Car loan contract: payoff today, progress, maturity, cost ---------- */
@@ -3922,7 +4010,7 @@ function backupPanel(){
   return '<section class="panel"><h2>Backup<small>save or restore everything</small></h2><div class="actions" style="justify-content:flex-start"><button class="btn primary" data-act="exp">Download backup</button><label class="btn" style="cursor:pointer">Restore from file<input id="bk" type="file" accept=".json,application/json" hidden></label></div><p class="sub muted" style="margin:10px 0 0;font-size:13px">Your data lives only on this computer. Download a backup now and then, and use it to recover after clearing site data. To move to another computer, use <b>Move to another computer</b> above, which can protect the file with a password.</p>'+pendBanner()+'</section>';
 }
 function backupPayload(){
-  return {app:'tally-money',version:1,exported:new Date().toISOString(),data:{txns:S.txns,subs:S.subs,budgets:S.budgets,goals:S.goals,accounts:S.accounts,extraPay:S.extraPay,plaidIgnored:S.plaidIgnored,credit:S.credit,holdings:S.holdings,customCats:S.customCats,setAside:S.setAside,merchantCats:S.merchantCats,subCats:S.subCats,merchantSubs:S.merchantSubs,bills:S.bills,billMarks:S.billMarks,energy:S.energy,home:S.home,debtMonthly:S.debtMonthly,billIgnore:S.billIgnore,cardPay:S.cardPay,apple:S.apple}};
+  return {app:'tally-money',version:1,exported:new Date().toISOString(),data:{txns:S.txns,subs:S.subs,budgets:S.budgets,goals:S.goals,accounts:S.accounts,extraPay:S.extraPay,plaidIgnored:S.plaidIgnored,credit:S.credit,holdings:S.holdings,customCats:S.customCats,setAside:S.setAside,merchantCats:S.merchantCats,subCats:S.subCats,merchantSubs:S.merchantSubs,bills:S.bills,billMarks:S.billMarks,energy:S.energy,home:S.home,debtMonthly:S.debtMonthly,billIgnore:S.billIgnore,cardPay:S.cardPay,apple:S.apple,payLinks:S.payLinks}};
 }
 // Saves a file: through the desktop app's Save dialog when there is one (reliable on both Mac and Windows), else as a normal download.
 function saveFile(name,text,done){
@@ -4083,7 +4171,7 @@ function cleanBackup(j){
     if(!hist.length)hist=[{date:iso(TODAY),balance:+x.balance}];
     var ac={id:String(x.id||uid()),name:String(x.name).slice(0,120),type:x.type,balance:+x.balance,apr:DEBT_TYPES[x.type]?Math.max(0,+x.apr||0):0,minPay:DEBT_TYPES[x.type]?Math.max(0,+x.minPay||0):0,history:hist};if(x.type==='credit'&&+x.limit>0)ac.limit=+x.limit;if(x.type==='credit'&&x.closed===true)ac.closed=true;if(DEBT_TYPES[x.type]&&x.contract){var cc=cleanContract(x.contract);if(cc)ac.contract=cc}if(DEBT_TYPES[x.type]){if(photoOk(x.photo))ac.photo=x.photo;if(/^#[0-9a-f]{6}$/i.test(x.carColor||''))ac.carColor=x.carColor;if(CAR_TYPES[x.carType])ac.carType=x.carType}if(DEBT_TYPES[x.type]){var dd=Math.round(+x.dueDay);if(dd>=1&&dd<=31)ac.dueDay=dd;if(+x.origBalance>0)ac.origBalance=+x.origBalance;if(typeof x.lender==='string'&&x.lender)ac.lender=cleanSubName(x.lender).slice(0,40);var stm=cleanStmt(x);Object.keys(stm).forEach(function(k){ac[k]=stm[k]})}if(x.plaid&&typeof x.plaid.accountId==='string')ac.plaid={itemId:String(x.plaid.itemId||'').slice(0,100),accountId:x.plaid.accountId.slice(0,100)};return ac});
   var home={};if(d.home&&typeof d.home==='object'&&!Array.isArray(d.home)){['purchasePrice','down','closing','origLoan','termYears','taxYear','insYear','hoaMonth','pmiMonth','maintPct','mgmtPct','vacancyPct','appreciation','ret','sellPct','rentGrowth','costGrowth','rentMonth','extra'].forEach(function(k){var n=parseFloat(d.home[k]);if(isFinite(n)&&n>=0&&n<1e9)home[k]=n});['purchaseDate','startDate'].forEach(function(k){if(/^\d{4}-\d{2}-\d{2}$/.test(d.home[k]||''))home[k]=d.home[k]});['mortId','valueId'].forEach(function(k){if(typeof d.home[k]==='string'&&/^[\w-]{1,40}$/.test(d.home[k])&&accounts.some(function(a){return a.id===d.home[k]}))home[k]=d.home[k]});if(d.home.setup===true&&home.valueId)home.setup=true;if(photoOk(d.home.photo))home.photo=d.home.photo}
-  return {txns:txns,subs:subs,budgets:budgets,goals:goals,accounts:accounts,extraPay:Math.max(0,+d.extraPay||0),plaidIgnored:(Array.isArray(d.plaidIgnored)?d.plaidIgnored:[]).filter(function(x){return typeof x==='string'}).slice(0,200),credit:cleanCredit(d.credit),holdings:cleanHoldings(d.holdings),customCats:custom,setAside:setAside,merchantCats:merchantCats,subCats:subCats,merchantSubs:merchantSubs,bills:bills,billMarks:billMarks,energy:energy,home:home,debtMonthly:Math.max(0,+d.debtMonthly||0),billIgnore:(function(){var o={};if(d.billIgnore&&typeof d.billIgnore==='object'&&!Array.isArray(d.billIgnore))Object.keys(d.billIgnore).slice(0,500).forEach(function(k){if(k.length<=120&&k!=='__proto__')o[k]=1});return o})(),cardPay:d.cardPay==='skip'||d.cardPay==='count'?d.cardPay:'auto',apple:(function(){var a=d.apple||{},o={};if(typeof a.acct==='string'&&a.acct.length<=40)o.acct=a.acct;if(/^\d{4}-\d{2}-\d{2}$/.test(a.last||''))o.last=a.last;if(+a.count>=0)o.count=Math.min(1e6,Math.round(+a.count));return o})()};
+  return {txns:txns,subs:subs,budgets:budgets,goals:goals,accounts:accounts,extraPay:Math.max(0,+d.extraPay||0),plaidIgnored:(Array.isArray(d.plaidIgnored)?d.plaidIgnored:[]).filter(function(x){return typeof x==='string'}).slice(0,200),credit:cleanCredit(d.credit),holdings:cleanHoldings(d.holdings),customCats:custom,setAside:setAside,merchantCats:merchantCats,subCats:subCats,merchantSubs:merchantSubs,bills:bills,billMarks:billMarks,energy:energy,home:home,debtMonthly:Math.max(0,+d.debtMonthly||0),billIgnore:(function(){var o={};if(d.billIgnore&&typeof d.billIgnore==='object'&&!Array.isArray(d.billIgnore))Object.keys(d.billIgnore).slice(0,500).forEach(function(k){if(k.length<=120&&k!=='__proto__')o[k]=1});return o})(),cardPay:d.cardPay==='skip'||d.cardPay==='count'?d.cardPay:'auto',apple:(function(){var a=d.apple||{},o={};if(typeof a.acct==='string'&&a.acct.length<=40)o.acct=a.acct;if(/^\d{4}-\d{2}-\d{2}$/.test(a.last||''))o.last=a.last;if(+a.count>=0)o.count=Math.min(1e6,Math.round(+a.count));return o})(),payLinks:cleanPayLinks(d.payLinks)};
 }
 
 /* ---------- Goals ---------- */
@@ -4154,6 +4242,7 @@ function bindView(){
   var af=$('#acctform',m);
   if(af){var tp=$('#af-type',af),sync=function(){var d=!!DEBT_TYPES[tp.value];af.querySelectorAll('.debtonly').forEach(function(x){x.hidden=!d});af.querySelectorAll('.creditonly').forEach(function(x){x.hidden=tp.value!=='credit'})};tp.onchange=sync;sync();
     af.onsubmit=function(e){e.preventDefault();var t=tp.value,bal=parseFloat($('#af-bal').value),debt=!!DEBT_TYPES[t];S.accounts.push({id:uid(),name:$('#af-name').value.trim(),type:t,balance:bal,apr:debt?(parseFloat($('#af-apr').value)||0):0,minPay:debt?(parseFloat($('#af-min').value)||0):0,limit:t==='credit'?(parseFloat($('#af-limit').value)||0):0,closed:t==='credit'&&$('#af-closed').checked,dueDay:debt&&parseInt($('#af-due').value,10)>=1&&parseInt($('#af-due').value,10)<=31?parseInt($('#af-due').value,10):0,history:[{date:iso(TODAY),balance:bal}]});save();render();toast('Account added.')}}
+  m.querySelectorAll('.payform').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();var u=cleanPayUrl(fm.elements['u'].value);if(!u){toast('That needs to be a full https:// address, for example https://www.yourlender.com/pay.');return}paySet(fm.dataset.k,u);payUI.edit='';save();render();toast('Pay link saved.')}});
   m.querySelectorAll('.balform').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();var a=S.accounts.filter(function(x){return x.id===fm.dataset.id})[0],v=parseFloat(fm.querySelector('input').value);if(!a||!(v>=0))return;a.balance=v;var t=iso(TODAY),h=a.history.filter(function(x){return x.date===t})[0];if(h)h.balance=v;else a.history.push({date:t,balance:v});a.history.sort(function(p,q){return p.date<q.date?-1:1});save();render();toast(a.name+' updated.')}});
   var ex=$('#extra',m);if(ex)ex.onchange=function(){S.extraPay=Math.max(0,parseFloat(ex.value)||0);save();render()};
   var st=$('#strategy',m);if(st)st.onchange=function(){strategy=st.value;render()};
@@ -4161,7 +4250,8 @@ function bindView(){
   if(view==='look')secBind(m);
 }
 document.addEventListener('click',function(e){
-  var v=e.target.closest('[data-view]');if(v){view=v.dataset.view;if(view==='carloan'||view==='student'){loanFilter=view==='student'?'student':'auto';view='loans'}pendingImport=null;pendingEnc=null;secMsg='';editTx='';render();window.scrollTo(0,0);return}
+  var v=e.target.closest('[data-view]');if(v){view=v.dataset.view;if(view==='carloan'||view==='student'){loanFilter=view==='student'?'student':'auto';view='loans'}pendingImport=null;pendingEnc=null;secMsg='';payUI.edit='';editTx='';render();window.scrollTo(0,0);return}
+  var pl=e.target.closest('a[data-pay]');if(pl){toast('Opening '+pl.dataset.host+' in your browser. Come back and mark it paid when you are done.');return}
   var b=e.target.closest('[data-act]');if(!b)return;
   var a=b.dataset.act,id=b.dataset.id,s=S.subs.filter(function(x){return x.id===id})[0];
   if(a==='mprev')month=shiftMonth(month,-1);
@@ -4182,8 +4272,11 @@ document.addEventListener('click',function(e){
   else if(a==='sub-adddet'){var d=detect()[+b.dataset.i];if(d)S.subs.push({id:uid(),name:d.name,amount:d.amount,cycle:d.cycle,next:d.next,status:'active'})}
   else if(a==='tx-del'){S.txns=S.txns.filter(function(x){return x.id!==id})}
   else if(a==='exp'){exportData();return}
-  else if(a==='imp-ok'){S={sample:false,customCats:pendingImport.customCats,txns:pendingImport.txns,subs:pendingImport.subs,budgets:pendingImport.budgets,goals:pendingImport.goals,accounts:pendingImport.accounts,extraPay:pendingImport.extraPay,plaidIgnored:pendingImport.plaidIgnored,credit:pendingImport.credit,holdings:pendingImport.holdings,setAside:pendingImport.setAside||[],merchantCats:pendingImport.merchantCats||{},subCats:pendingImport.subCats||{},merchantSubs:pendingImport.merchantSubs||{},bills:pendingImport.bills||[],billMarks:pendingImport.billMarks||{},energy:pendingImport.energy||[],home:pendingImport.home||{},debtMonthly:pendingImport.debtMonthly||0,billIgnore:pendingImport.billIgnore||{},cardPay:pendingImport.cardPay||'auto',apple:pendingImport.apple||{}};pendingImport=null;migrate();syncCats();Object.keys(PL.items).forEach(function(k){PL.items[k].cursor=''});savePL();toast('Backup restored.')}
+  else if(a==='imp-ok'){S={sample:false,customCats:pendingImport.customCats,txns:pendingImport.txns,subs:pendingImport.subs,budgets:pendingImport.budgets,goals:pendingImport.goals,accounts:pendingImport.accounts,extraPay:pendingImport.extraPay,plaidIgnored:pendingImport.plaidIgnored,credit:pendingImport.credit,holdings:pendingImport.holdings,setAside:pendingImport.setAside||[],merchantCats:pendingImport.merchantCats||{},subCats:pendingImport.subCats||{},merchantSubs:pendingImport.merchantSubs||{},bills:pendingImport.bills||[],billMarks:pendingImport.billMarks||{},energy:pendingImport.energy||[],home:pendingImport.home||{},debtMonthly:pendingImport.debtMonthly||0,billIgnore:pendingImport.billIgnore||{},cardPay:pendingImport.cardPay||'auto',apple:pendingImport.apple||{},payLinks:pendingImport.payLinks||{}};pendingImport=null;migrate();syncCats();Object.keys(PL.items).forEach(function(k){PL.items[k].cursor=''});savePL();toast('Backup restored.')}
   else if(a==='imp-no'){pendingImport=null;pendingEnc=null;secMsg=''}
+  else if(a==='pay-edit'){payUI.edit=b.dataset.k}
+  else if(a==='pay-cancel'){payUI.edit=''}
+  else if(a==='pay-remove'){paySet(b.dataset.k,'');payUI.edit='';toast('Pay link removed.')}
   else if(a==='enc-open'){
     var pw=($('#enc-pw')||{}).value||'',env=pendingEnc;
     vaultOpen(env,pw).then(function(t){var c=cleanBackup(JSON.parse(t));if(!c)throw new Error('bad');pendingEnc=null;pendingImport=c;secMsg='';render()}).catch(function(){secMsg='Wrong password, or the file is damaged.';render()});

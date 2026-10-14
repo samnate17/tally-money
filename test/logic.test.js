@@ -1384,3 +1384,29 @@ test('transfer file: password-protected when a password is given, plain JSON oth
   assert.deepStrictEqual(JSON.parse(await V.vaultOpen(locked, 'a long enough password')), payload);
   await assert.rejects(V.vaultOpen(locked, 'another password here'));
 });
+
+test('pay links: only plain https addresses are accepted, and the saved map is cleaned', () => {
+  const P = new Function(block('PAYLINK') + '\nreturn {cleanPayUrl, payHost, cleanPayLinks};')();
+  assert.strictEqual(P.cleanPayUrl('https://www.hondafinancialservices.com/pay'), 'https://www.hondafinancialservices.com/pay');
+  assert.strictEqual(P.cleanPayUrl('  mortgage.example-bank.com/pay?id=7 '), 'https://mortgage.example-bank.com/pay?id=7');   // a bare address gets https
+  for (const bad of ['javascript:alert(1)', 'http://pay.example.com', 'ftp://a.example.com', 'https://user:pw@pay.example.com', 'https://localhost/pay', 'https://192.168.1.5/pay', 'https://nodot/pay', 'not a url', '', null, 'data:text/html,hi', 'https://a.example.com/' + 'x'.repeat(400)]) assert.strictEqual(P.cleanPayUrl(bad), '', String(bad));
+  assert.strictEqual(P.payHost('https://www.nelnet.net/pay'), 'nelnet.net');
+  const m = P.cleanPayLinks({ 'loan:abc1': 'https://a.example.com/pay', 'home': 'b.example.com', 'bill:x9': 'javascript:1', 'weird key': 'https://c.example.com', 'loan:grp:nelnet inc|student': 'https://d.example.com/p', '__proto__': 'https://e.example.com' });
+  assert.deepStrictEqual(m, { 'loan:abc1': 'https://a.example.com/pay', home: 'https://b.example.com/', 'loan:grp:nelnet inc|student': 'https://d.example.com/p' });
+  assert.deepStrictEqual(P.cleanPayLinks([1, 2]), {}); assert.deepStrictEqual(P.cleanPayLinks(null), {});
+});
+
+test('car cut-out: removes the studio background around the car, keeps highlights inside it, refuses busy photos', () => {
+  const C = new Function(block('CUTOUT') + '\nreturn {cutoutBg};')();
+  const W = 40, H = 24, mk = (fn) => { const d = new Uint8ClampedArray(W * H * 4); for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const [r, g, b] = fn(x, y); const i = (y * W + x) * 4; d[i] = r; d[i + 1] = g; d[i + 2] = b; d[i + 3] = 255; } return d; };
+  const car = (x, y) => (x >= 8 && x < 32 && y >= 6 && y < 18) ? ((x >= 16 && x < 20 && y >= 9 && y < 12) ? [252, 252, 252] : [30, 110, 230]) : (y > 19 ? [205, 207, 210] : [252, 252, 252]);   // blue car, white glare inside, grey floor shadow
+  const d = mk(car); const r = C.cutoutBg(d, W, H);
+  assert.ok(r.ok); assert.deepStrictEqual(r.box, [8, 6, 31, 17]);
+  assert.strictEqual(d[(2 * W + 2) * 4 + 3], 0);                      // background gone
+  assert.strictEqual(d[(21 * W + 5) * 4 + 3], 0);                     // light floor shadow gone
+  assert.strictEqual(d[(10 * W + 17) * 4 + 3], 255);                  // glare inside the car stays
+  assert.strictEqual(d[(10 * W + 25) * 4 + 3], 255);                  // body stays
+  const busy = mk((x, y) => [(x * 37 + y * 11) % 200, (x * 13) % 180, (y * 29) % 160]);   // not a studio shot
+  assert.strictEqual(C.cutoutBg(busy, W, H).ok, false);
+  assert.strictEqual(C.cutoutBg(mk(() => [250, 250, 250]), W, H).ok, false);   // nothing in it
+});
