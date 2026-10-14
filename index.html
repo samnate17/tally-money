@@ -463,7 +463,7 @@ function sample(){
    budgets:{Groceries:450,Dining:300,Transport:100,Gas:120,Shopping:200,Entertainment:80,Health:100,Subscriptions:130},
    goals:[{id:uid(),name:'Emergency fund',target:6000,saved:2150},{id:uid(),name:'Japan trip',target:3500,saved:900}]};
 }
-var S,month=NOWKEY,view='overview',filter={q:'',cat:''},editBudgets=false;
+var S,month=NOWKEY,view='overview',filter={q:'',cat:'',kind:'',acct:'',from:'',to:'',min:'',max:'',sort:'new',limit:150,bulk:'',bulkCat:'',open:false},editBudgets=false;
 /*VAULT-START*/
 // Password protection. The password is stretched with PBKDF2 (SHA-256, 600,000 rounds) into an AES-GCM key; the data is stored only as ciphertext.
 // There is no recovery: nobody, including this app, can open the data without the password.
@@ -485,7 +485,8 @@ var VLT={on:false,locked:false,key:null,salt:'',it:0,busy:false,dirty:false,min:
 try{var _lk=JSON.parse(localStorage.getItem('tally-lock-v1')||'{}');if(_lk&&_lk.min>=0&&_lk.min<=240)VLT.min=+_lk.min}catch(e){}
 function load(){try{if(localStorage.getItem('tally-vault-v1')){VLT.on=true;VLT.locked=true;S=sample();migrate();syncCats();return}}catch(e){}try{var j=localStorage.getItem('tally-money-v1');if(j){S=JSON.parse(j);migrate();syncCats();undoInit();return}}catch(e){}S=sample();migrate();syncCats();undoInit()}
 function defCredit(){return {scores:[],profile:{late:'unknown',inq:'unknown',oldest:'',derog:'unknown'}}}
-function migrate(){S.hideWords=cleanHideWords(S.hideWords);if(!Array.isArray(S.imports))S.imports=[];if(!S.payLinks||typeof S.payLinks!=='object'||Array.isArray(S.payLinks))S.payLinks={};if(!S.apple||typeof S.apple!=='object'||Array.isArray(S.apple))S.apple={};if(!S.billIgnore||typeof S.billIgnore!=='object'||Array.isArray(S.billIgnore))S.billIgnore={};if(S.cardPay!=='skip'&&S.cardPay!=='count')S.cardPay='auto';if(!S.home||typeof S.home!=='object'||Array.isArray(S.home))S.home={};if(!(S.debtMonthly>=0))S.debtMonthly=0;if(!Array.isArray(S.customCats))S.customCats=[];if(!Array.isArray(S.setAside))S.setAside=[];if(!S.merchantCats||typeof S.merchantCats!=='object'||Array.isArray(S.merchantCats))S.merchantCats={};if(!Array.isArray(S.energy))S.energy=[];if(!Array.isArray(S.bills))S.bills=[];if(!S.billMarks||typeof S.billMarks!=='object'||Array.isArray(S.billMarks))S.billMarks={};if(!S.subCats||typeof S.subCats!=='object'||Array.isArray(S.subCats))S.subCats={};if(!S.merchantSubs||typeof S.merchantSubs!=='object'||Array.isArray(S.merchantSubs))S.merchantSubs={};if(!Array.isArray(S.holdings))S.holdings=S.sample?sampleHoldings():[];if(!S.credit||!Array.isArray(S.credit.scores))S.credit=S.sample?sampleCredit():defCredit();if(!Array.isArray(S.plaidIgnored))S.plaidIgnored=[];if(!Array.isArray(S.accounts))S.accounts=S.sample?sampleAccounts():[];if(typeof S.extraPay!=='number')S.extraPay=S.sample?100:0}
+function syncXfer(){setXferContext(S.accounts.filter(function(a){return a.type==='credit'}).map(function(a){return a.id}),S.xferLearn)}
+function migrate(){if(!S.xferLearn||typeof S.xferLearn!=='object'||Array.isArray(S.xferLearn))S.xferLearn={};S.hideWords=cleanHideWords(S.hideWords);if(!Array.isArray(S.imports))S.imports=[];if(!S.payLinks||typeof S.payLinks!=='object'||Array.isArray(S.payLinks))S.payLinks={};if(!S.apple||typeof S.apple!=='object'||Array.isArray(S.apple))S.apple={};if(!S.billIgnore||typeof S.billIgnore!=='object'||Array.isArray(S.billIgnore))S.billIgnore={};if(S.cardPay!=='skip'&&S.cardPay!=='count')S.cardPay='auto';if(!S.home||typeof S.home!=='object'||Array.isArray(S.home))S.home={};if(!(S.debtMonthly>=0))S.debtMonthly=0;if(!Array.isArray(S.customCats))S.customCats=[];if(!Array.isArray(S.setAside))S.setAside=[];if(!S.merchantCats||typeof S.merchantCats!=='object'||Array.isArray(S.merchantCats))S.merchantCats={};if(!Array.isArray(S.energy))S.energy=[];if(!Array.isArray(S.bills))S.bills=[];if(!S.billMarks||typeof S.billMarks!=='object'||Array.isArray(S.billMarks))S.billMarks={};if(!S.subCats||typeof S.subCats!=='object'||Array.isArray(S.subCats))S.subCats={};if(!S.merchantSubs||typeof S.merchantSubs!=='object'||Array.isArray(S.merchantSubs))S.merchantSubs={};if(!Array.isArray(S.holdings))S.holdings=S.sample?sampleHoldings():[];if(!S.credit||!Array.isArray(S.credit.scores))S.credit=S.sample?sampleCredit():defCredit();if(!Array.isArray(S.plaidIgnored))S.plaidIgnored=[];if(!Array.isArray(S.accounts))S.accounts=S.sample?sampleAccounts():[];if(typeof S.extraPay!=='number')S.extraPay=S.sample?100:0}
 function ledger(){return ledgerOf(S.txns,S.cardPay)}
 function billCatOf(n){var c=guessCat(n);return {cat:c,sub:c==='Other'?'':(guessSub(c,n)||'')}}
 var showHidden=false;
@@ -598,7 +599,7 @@ function refreshAll(){
   p.catch(function(e){return 'Refreshed, but the bank sync failed: '+e.message}).then(function(m){refreshing=false;render();toast(m)});
 }
 function render(){
-  nav();
+  syncXfer();nav();
   var f={bills:vBills,loans:vLoansHub,mortgage:vMortgage,carloan:function(){loanFilter='auto';return vLoansHub()},student:function(){loanFilter='student';return vLoansHub()},look:vLook,overview:vOverview,dash:vDash,assist:vAssist,accounts:vAccounts,assets:vAssets,afford:vAfford,credit:vCredit,invest:vInvest,report:vReport,subscriptions:vSubs,budgets:vBudgets,transactions:vTx,goals:vGoals}[view];
   var cb=HOSTED&&AUTH.conflict?'<div class="banner" id="conflict"><span><b>This account changed on another device.</b> Choose which version to keep.</span><span style="flex:0 0 auto;display:flex;gap:8px"><button class="btn small" data-act="cf-remote">Use the other version</button><button class="btn small primary" data-act="cf-local">Keep this device\'s version</button></span></div>':'';
   var banner=cb+updBanner()+(S.sample?'<div class="banner"><span><b>Example data.</b> These accounts and transactions are made up so you can try everything. Clear them to start with your own, or import a CSV from your bank.</span><button class="btn primary small" data-act="clear">Start fresh</button></div>':'');
@@ -1017,16 +1018,16 @@ function vBudgets(){
 
 /* ---------- Transactions ---------- */
 function vTx(){
-  var q=filter.q.toLowerCase(),list=S.txns.filter(function(x){return (!q||x.name.toLowerCase().indexOf(q)>-1)&&(!filter.cat||x.cat===filter.cat)});
-  var shown=list.slice(0,150),xinf=transferInfo(S.txns,S.cardPay),nx=S.txns.filter(function(x){return isTransfer(x,xinf)}).length;
+  var xinf=transferInfo(S.txns,S.cardPay),list=filterTxns(S.txns,filter,xinf);
+  var shown=list.slice(0,filter.limit||150),nx=S.txns.filter(function(x){return isTransfer(x,xinf)}).length;
   var rows=shown.map(function(x){
     if(editTx===x.id)return txEditForm(x);
-    return '<div class="row">'+logo(x.name)+'<div class="grow"><div class="nm">'+esc(x.name)+'</div><div class="sub">'+shortDate(x.date)+(x.sub?' \u00b7 '+esc(x.sub):'')+(isTransfer(x,xinf)?' \u00b7 <span class="pill mute" style="font-size:11px" title="Money moving between your own accounts. It is not counted as spending or income.">Transfer, not counted</span>':'')+(isCashback(x)?' \u00b7 <span class="pill good" style="font-size:11px" title="A reward from a credit card. It is not counted as income; see Loans, Credit cards, Cash back.">Cash back</span>':'')+(x.cash?' \u00b7 <span class="pill mute" style="font-size:11px">Paid in cash</span>':'')+(x.note?'<div class="sub" style="white-space:normal;font-size:12px">'+esc(x.note)+'</div>':'')+'</div></div><select data-cat="'+x.id+'" aria-label="Category for '+esc(x.name)+'" class="hide-s">'+CATS.map(function(c){return '<option'+(c===x.cat?' selected':'')+'>'+c+'</option>'}).join('')+'</select><div class="amt num '+(x.amount>0?'good':'')+'">'+(x.amount>0?'+':'')+money(x.amount)+'</div><div class="actions" style="flex:none;flex-wrap:nowrap"><button class="btn small" data-act="tx-edit" data-id="'+x.id+'" aria-label="Edit '+esc(x.name)+'">Edit</button><button class="btn small" data-act="tx-xfer" data-id="'+x.id+'" title="'+(isTransfer(x,xinf)?'Count this as real spending or income':'This only moved money between my own accounts. Do not count it.')+'">'+(isTransfer(x,xinf)?'Count it':'Transfer')+'</button>'+(x.amount>0&&!isTransfer(x,xinf)?'<button class="btn small" data-act="tx-cb" data-id="'+x.id+'" title="'+(isCashback(x)?'This is not cash back. Count it normally.':'This is cash back or a card reward. Keep it out of income.')+'">'+(isCashback(x)?'Not cash back':'Cash back')+'</button>':'')+'<button class="btn small" data-act="tx-aside" data-id="'+x.id+'" title="This money was not mine. Remove it from all my numbers; you can restore it later." aria-label="Not mine">Not mine</button><button class="btn small" data-act="tx-del" data-id="'+x.id+'" aria-label="Delete">&times;</button></div></div>';
+    return '<div class="row">'+logo(x.name)+'<div class="grow"><div class="nm">'+esc(x.name)+'</div><div class="sub">'+shortDate(x.date)+(x.sub?' \u00b7 '+esc(x.sub):'')+(isTransfer(x,xinf)?' \u00b7 <span class="pill mute" style="font-size:11px" title="Money moving between your own accounts. It is not counted as spending or income.">'+(txKind(x,xinf)==='cardpay'?'Card payment':'Transfer')+', not counted</span>':'')+(isCashback(x)?' \u00b7 <span class="pill good" style="font-size:11px" title="A reward from a credit card. It is not counted as income; see Loans, Credit cards, Cash back.">Cash back</span>':'')+(x.cash?' \u00b7 <span class="pill mute" style="font-size:11px">Paid in cash</span>':'')+(x.note?'<div class="sub" style="white-space:normal;font-size:12px">'+esc(x.note)+'</div>':'')+'</div></div><select data-cat="'+x.id+'" aria-label="Category for '+esc(x.name)+'" class="hide-s">'+CATS.map(function(c){return '<option'+(c===x.cat?' selected':'')+'>'+c+'</option>'}).join('')+'</select><div class="amt num '+(x.amount>0?'good':'')+'">'+(x.amount>0?'+':'')+money(x.amount)+'</div><div class="actions" style="flex:none;flex-wrap:nowrap"><button class="btn small" data-act="tx-edit" data-id="'+x.id+'" aria-label="Edit '+esc(x.name)+'">Edit</button><button class="btn small" data-act="tx-xfer" data-id="'+x.id+'" title="'+(isTransfer(x,xinf)?'Count this as real spending or income':'This only moved money between my own accounts. Do not count it.')+'">'+(isTransfer(x,xinf)?'Count it':'Transfer')+'</button>'+(x.amount>0&&!isTransfer(x,xinf)?'<button class="btn small" data-act="tx-cb" data-id="'+x.id+'" title="'+(isCashback(x)?'This is not cash back. Count it normally.':'This is cash back or a card reward. Keep it out of income.')+'">'+(isCashback(x)?'Not cash back':'Cash back')+'</button>':'')+'<button class="btn small" data-act="tx-aside" data-id="'+x.id+'" title="This money was not mine. Remove it from all my numbers; you can restore it later." aria-label="Not mine">Not mine</button><button class="btn small" data-act="tx-del" data-id="'+x.id+'" aria-label="Delete">&times;</button></div></div>';
   }).join('');
   var xpanel='<section class="panel"><h2>Not double counted<small>'+nx+' transfer'+(nx===1?'':'s')+' left out of your numbers</small></h2><p class="sub muted" style="margin:0 0 8px;font-size:13px">Paying a credit card from checking moves money you already counted when you made the purchases, and "payment thank you" on a card statement is not income. Transfers between your own accounts are skipped too. Press <b>Transfer</b> on any row the app got wrong.</p><label style="font-size:13px">Payments to my credit cards <select id="cardpay"><option value="auto"'+(S.cardPay==='auto'?' selected':'')+'>Skip when my card purchases are here too (recommended)</option><option value="skip"'+(S.cardPay==='skip'?' selected':'')+'>Always skip</option><option value="count"'+(S.cardPay==='count'?' selected':'')+'>Count them as spending</option></select></label></section>';
   return '<div class="top"><h1>Transactions</h1></div>'+catTools()+xpanel+importsPanel()+cashPanel()+
    '<section class="panel"><form class="form" id="txform"><label>Date<input id="tf-date" type="date" required value="'+iso(TODAY)+'"></label><label>Description<input id="tf-name" required placeholder="e.g. Trader Joe\'s"></label><label>Amount<input id="tf-amt" type="number" step="0.01" required placeholder="-24.50"></label><label>Category<select id="tf-cat"><option value="">Auto</option>'+CATS.map(function(c){return '<option>'+c+'</option>'}).join('')+'</select></label><button class="btn primary">Add</button></form><p class="sub muted" style="margin:10px 0 0;font-size:13px">Spending is negative, income is positive. CSV needs columns for date, description and amount.</p></section>'+appleCardPanel()+pdfShell()+aiShell()+
-   '<section class="panel"><div class="form" style="margin-bottom:8px"><input id="q" class="search" type="search" placeholder="Search transactions" value="'+esc(filter.q)+'" aria-label="Search"><select id="fcat" aria-label="Filter by category"><option value="">All categories</option>'+CATS.map(function(c){return '<option'+(c===filter.cat?' selected':'')+'>'+c+'</option>'}).join('')+'</select></div>'+(rows||'<div class="empty">No transactions match.</div>')+(list.length>150?'<div class="empty">Showing the latest 150 of '+list.length+'.</div>':'')+'</section>'+asidePanel()+accountPanel();
+   refinePanel(list,xinf,rows,shown.length)+asidePanel()+accountPanel();
 }
 /* ---------- Accounts and debts ---------- */
 var ASSET_TYPES={checking:'Checking',savings:'Savings',cash:'Cash',investment:'Investments',property:'Property or other asset'};
@@ -1413,6 +1414,11 @@ function cleanImports(raw,newId){
 /*IMPORTS-END*/
 /*HIDE-START*/
 // Bills whose names you keep out of sight: any bill whose name contains one of the words. The amounts still count everywhere.
+function cleanXferLearn(raw){
+  var o={},n=0;if(!raw||typeof raw!=='object'||Array.isArray(raw))return o;
+  Object.keys(raw).forEach(function(k){if(n<300&&/^.{1,100}\|(in|out)$/.test(k)&&k.indexOf('__proto__')<0&&(raw[k]==='transfer'||raw[k]==='cardpay'||raw[k]==='count')){o[k]=raw[k];n++}});
+  return o;
+}
 function cleanHideWords(raw){
   var seen={},out=[];
   (Array.isArray(raw)?raw:String(raw||'').split(/[,\n]/)).forEach(function(w){
@@ -1423,6 +1429,51 @@ function cleanHideWords(raw){
 }
 function isHiddenName(name,words){var n=String(name||'').toLowerCase();return (words||[]).some(function(w){return w&&n.indexOf(w)>-1})}
 /*HIDE-END*/
+/*TXFILTER-START*/
+// Narrowing the transaction list: text, category, kind, account, dates, amounts and order.
+function filterActive(f){return !!(f.q||f.cat||f.kind||f.acct||f.from||f.to||(f.min!==''&&f.min!==undefined&&isFinite(parseFloat(f.min)))||(f.max!==''&&f.max!==undefined&&isFinite(parseFloat(f.max))))}
+function filterTxns(txns,f,info){
+  var q=String(f.q||'').toLowerCase().trim(),mn=parseFloat(f.min),mx=parseFloat(f.max);
+  var out=txns.filter(function(x){
+    if(q&&String(x.name||'').toLowerCase().indexOf(q)<0&&String(x.note||'').toLowerCase().indexOf(q)<0&&String(x.sub||'').toLowerCase().indexOf(q)<0)return false;
+    if(f.cat&&x.cat!==f.cat)return false;
+    if(f.from&&x.date<f.from)return false;
+    if(f.to&&x.date>f.to)return false;
+    var a=Math.abs(x.amount);
+    if(isFinite(mn)&&a<mn)return false;
+    if(isFinite(mx)&&a>mx)return false;
+    if(f.acct==='none'){if(x.acct)return false}else if(f.acct&&x.acct!==f.acct)return false;
+    if(f.kind){
+      var tr=isTransfer(x,info),k=txKind(x,info);
+      if(f.kind==='spend'&&!(x.amount<0&&!tr))return false;
+      if(f.kind==='income'&&!(x.amount>0&&k==='count'))return false;
+      if(f.kind==='notcounted'&&!tr)return false;
+      if(f.kind==='cardpay'&&k!=='cardpay')return false;
+      if(f.kind==='transfer'&&k!=='transfer')return false;
+      if(f.kind==='cashback'&&k!=='cashback')return false;
+      if(f.kind==='cash'&&!x.cash)return false;
+      if(f.kind==='other'&&!(x.cat==='Other'&&!tr))return false;
+    }
+    return true;
+  });
+  var so=f.sort||'new';
+  if(so!=='new')out=out.slice().sort(function(a,b){return so==='old'?(a.date<b.date?-1:a.date>b.date?1:0):so==='big'?Math.abs(b.amount)-Math.abs(a.amount):Math.abs(a.amount)-Math.abs(b.amount)});
+  return out;
+}
+function filterTotals(list,info){
+  var t={n:list.length,inn:0,out:0,skipped:0};
+  list.forEach(function(x){if(isTransfer(x,info)||isCashback(x)&&x.amount>0){t.skipped++;return}if(x.amount>0)t.inn+=x.amount;else t.out+=-x.amount});
+  return t;
+}
+function rangeDates(r,today){
+  var y=today.getFullYear(),m=today.getMonth(),p=function(n){return ('0'+n).slice(-2)},d=function(a){return a.getFullYear()+'-'+p(a.getMonth()+1)+'-'+p(a.getDate())};
+  if(r==='month')return {from:d(new Date(y,m,1)),to:d(new Date(y,m+1,0))};
+  if(r==='last')return {from:d(new Date(y,m-1,1)),to:d(new Date(y,m,0))};
+  if(r==='30')return {from:d(new Date(y,m,today.getDate()-30)),to:d(today)};
+  if(r==='year')return {from:y+'-01-01',to:y+'-12-31'};
+  return {from:'',to:''};
+}
+/*TXFILTER-END*/
 /*CASH-START*/
 // Cash and receipts: spending paid in cash, a wallet balance, and the checks that stop a receipt being counted twice.
 var ATM_RE=/\b(atm|cash withdrawal|withdrawal at|cash wd|cash out)\b/i;
@@ -1458,19 +1509,34 @@ function txnFromReceipt(rec,o){
 // Money that only moves between your own accounts is not spending or income. Without this a card purchase is counted once on the card
 // and again when you pay the card from checking, and "payment thank you" credits on a card statement look like pay.
 var XFER_IN=/payment[ ,\-]*(received|thank)|thank you.*payment|autopay.*(received|thank)|^payment$/i;
+// Broader wording for money arriving on a card or account that is really a payment you made: "autopay payment", "online payment", "ACH deposit internet transfer from account ending in 1234". Never for pay, refunds, rewards or person-to-person money.
+var XFER_IN2=/(^|\b)(payment|pmt|pymt)\b.*\b(thank|received|recvd|web|online|mobile|ach|autopay|auto|electronic|crcardpmt|directpay)|\b(autopay|auto-?pay|automatic|online|mobile|web|electronic|ach|e-?pay|epay|recurring)\b.{0,12}\b(payment|pmt|pymt)\b|^(payment|pmt|pymt|pay)\b.{0,25}$|crcardpmt|\bcard (pmt|payment)|credit card (pmt|payment)|\bdirect ?pay\b|internet transfer from account|ach deposit internet|thank you/i;
+var XFER_IN_NOT=/payroll|salary|wages|refund|reward|cash ?back|dividend|interest|insurance|claim|venmo|zelle|paypal|cash ?app|rebate|reimburs|reversal|unemploy|social security|pension|\btax\b|\birs\b|treas|direct dep/i;
+var XFER_CARDWORD=/\b(pay|payment|pmt|pymt|autopay|thank|ach|transfer|epay|web|online|mobile|electronic)\b/i;
+// What you told the app: cards your transactions are linked to, and merchants you marked as payments or as real money.
+var XFER_CARDS={},XFER_LEARN={};
+function xferLK(x){return xferKey(x.name)+(x.amount>0?'|in':'|out')}
+function xferKey(n){return String(n||'').toLowerCase().replace(/[#\d*]+/g,'').replace(/\s+/g,' ').trim()}
+function setXferContext(cardIds,learn){XFER_CARDS={};(cardIds||[]).forEach(function(i){XFER_CARDS[i]=1});XFER_LEARN=learn&&typeof learn==='object'?learn:{}}
 var XFER_OWN=/\b(online|internal|mobile|recurring|scheduled)? ?(transfer|xfer) (to|from|between)\b|transfer (to|from) (savings|checking|sav|chk)|from (savings|checking)|to (savings|checking)\b|between accounts|ach transfer (to|from) (savings|checking)/i;
 var XFER_CARD=/credit card (pmt|payment)|card (pmt|payment|autopay)|(visa|mastercard|amex|discover|chase|citi|capital one|barclays|synchrony|bank of america|wells fargo|us bank|apple card|bilt|amazon) .*(pmt|payment|autopay|epay)|(autopay|epay|online pmt|payment).*(chase|citi|capital one|amex|discover|barclays|synchrony|apple card|bilt)|gsbankpayment|crd ?(epay|pmt)/i;
 // mode: 'auto' skips money paid to a card only when the card's own purchases are in the app too; 'skip' always; 'count' never.
 function transferInfo(txns,mode){
   var m=mode||'auto',cardSide=false;
-  if(m==='auto')for(var i=0;i<txns.length;i++)if(txns[i].amount>0&&(txns[i].cardPay===true||XFER_IN.test(txns[i].name))){cardSide=true;break}   // cardPay: a payment imported from the card's own statement, so its purchases are in the app
+  if(m==='auto')for(var i=0;i<txns.length;i++)if(txns[i].amount>0&&(txns[i].cardPay===true||XFER_IN.test(txns[i].name)||XFER_LEARN[xferLK(txns[i])]==='cardpay')){cardSide=true;break}   // cardPay: a payment imported from the card's own statement, so its purchases are in the app
   return {mode:m,cardSide:cardSide};
 }
 function isTransfer(x,info){
   if(x.transfer===false)return false;
   if(x.transfer===true)return true;
-  var n=x.name||'';
-  if(x.amount>0)return XFER_IN.test(n)||XFER_OWN.test(n);
+  var n=x.name||'',lr=XFER_LEARN[xferLK(x)];
+  if(lr==='transfer'||lr==='cardpay')return true;
+  if(lr==='count')return false;
+  if(x.amount>0){
+    if(XFER_IN.test(n)||XFER_OWN.test(n))return true;
+    if(XFER_IN_NOT.test(n))return false;
+    return XFER_IN2.test(n)||(!!x.acct&&!!XFER_CARDS[x.acct]&&XFER_CARDWORD.test(n));
+  }
   if(XFER_OWN.test(n))return true;
   if(XFER_CARD.test(n)&&!/mortgage|\bloan\b|\bauto\b|student|\brent\b|\bhome\b|insurance/i.test(n)){var m=info?info.mode:'auto';return m==='skip'||(m==='auto'&&!!(info&&info.cardSide))}
   return false;
@@ -1481,6 +1547,19 @@ function isCashback(x){
   if(x.cashback===true)return true;
   if(x.cashback===false)return false;
   return CASHBACK_RE.test(x.name||'')&&!/\b(refund|reversal|chargeback)\b/i.test(x.name||'');
+}
+// What a transaction is, in the words the Edit form uses: count (real spending or income), cardpay, transfer or cashback.
+function txKind(x,info){
+  if(isTransfer(x,info)){var n=x.name||'';if(XFER_LEARN[xferLK(x)]==='cardpay')return 'cardpay';if(XFER_LEARN[xferLK(x)]==='transfer')return 'transfer';return (x.cardPay===true||XFER_CARD.test(n)||XFER_IN.test(n)||XFER_IN2.test(n))?'cardpay':'transfer'}
+  if(x.amount>0&&isCashback(x))return 'cashback';
+  return 'count';
+}
+// Writes the flags that make a transaction behave as that kind, whatever the name looks like.
+function applyKind(t,kind){
+  if(kind==='count'){t.transfer=false;delete t.cardPay;t.cashback=false}
+  else if(kind==='cardpay'){t.transfer=true;if(t.amount>0)t.cardPay=true;else delete t.cardPay;t.cashback=false}
+  else if(kind==='transfer'){t.transfer=true;delete t.cardPay;t.cashback=false}
+  else if(kind==='cashback'){t.cashback=true;t.transfer=false;delete t.cardPay}
 }
 function ledgerOf(txns,mode){var inf=transferInfo(txns,mode);return txns.filter(function(x){return !isTransfer(x,inf)&&!isCashback(x)})}
 /*TRANSFER-END*/
@@ -2018,7 +2097,7 @@ function pdfReviewRows(files,opts){
   var have={},seen={},out=[],cardStmt=!!(opts&&opts.card);
   if(!S.sample)S.txns.concat(S.setAside||[]).forEach(function(x){var k=x.date+'|'+x.amount.toFixed(2)+'|'+aiKey(x.name);(have[k]=have[k]||[]).push(x)}); // example data is replaced on import, so it is never a duplicate; money you set aside is not brought back
   files.forEach(function(f,fi){(f.rows||[]).forEach(function(r){
-    var k=r.date+'|'+r.amount.toFixed(2)+'|'+aiKey(r.name),dup=false,kp=/^payment/.test(r.kind||''),tr=!!r.transfer||kp,card=tr&&r.amount>0&&(kp||cardStmt);   // a payment to a card is a record of money you already counted when it left checking: kept, but flagged so it is not income
+    var k=r.date+'|'+r.amount.toFixed(2)+'|'+aiKey(r.name),dup=false,kp=/^payment/.test(r.kind||'')||(cardStmt&&r.amount>0&&typeof isTransfer==='function'&&isTransfer({name:r.name,amount:r.amount},null)),tr=!!r.transfer||kp,card=tr&&r.amount>0&&(kp||cardStmt);   // a payment to a card is a record of money you already counted when it left checking: kept, but flagged so it is not income
     var dupId='';if(have[k]&&have[k].length){dupId=have[k].shift().id;dup=true}else if(seen[k]!==undefined&&seen[k]!==fi)dup=true;
     if(seen[k]===undefined)seen[k]=fi;
     out.push({fi:fi,date:r.date,name:r.name,amount:r.amount,cat:(r.cat&&CATS.indexOf(r.cat)>-1&&!(r.amount>0&&r.cat!=='Income'))?r.cat:(r.amount>0&&/^(credit|adjustment|reversal|refund|return)/.test(r.kind||'')?'Other':pdfCategory(r.name,r.amount)),uncertain:!!r.uncertain,dup:dup,dupId:dupId,transfer:tr,card:card,on:!dup&&(!tr||card)});
@@ -2192,7 +2271,7 @@ function editTxn(id,patch,applySimilar){
   if(applySimilar){
     learnMerchant(t.name,t.cat);learnSub(t.name,t.sub||'');
     var k=aiKey(t.name);
-    S.txns.forEach(function(x){if(x.id!==id&&aiKey(x.name)===k&&!(x.amount>0&&t.cat!=='Income')){var was=x.cat+'|'+(x.sub||'');x.cat=t.cat;if(t.sub)x.sub=t.sub;else delete x.sub;if(was!==x.cat+'|'+(x.sub||''))changed++}});
+    S.txns.forEach(function(x){if(x.id!==id&&aiKey(x.name)===k&&!(x.amount>0&&t.cat!=='Income')&&!(x.amount<0&&t.cat==='Income')){var was=x.cat+'|'+(x.sub||'');x.cat=t.cat;if(t.sub)x.sub=t.sub;else delete x.sub;if(was!==x.cat+'|'+(x.sub||''))changed++}});
   }
   sortTxns();
   return {txn:t,changed:changed};
@@ -4900,7 +4979,7 @@ function backupPanel(){
   return '<section class="panel"><h2>Backup<small>save or restore everything</small></h2><div class="actions" style="justify-content:flex-start"><button class="btn primary" data-act="exp">Download backup</button><label class="btn" style="cursor:pointer">Restore from file<input id="bk" type="file" accept=".json,application/json" hidden></label></div><p class="sub muted" style="margin:10px 0 0;font-size:13px">Your data lives only on this computer. Download a backup now and then, and use it to recover after clearing site data. To move to another computer, use <b>Move to another computer</b> above, which can protect the file with a password.</p>'+pendBanner()+'</section>';
 }
 function backupPayload(){
-  return {app:'tally-money',version:1,exported:new Date().toISOString(),data:{txns:S.txns,subs:S.subs,budgets:S.budgets,goals:S.goals,accounts:S.accounts,extraPay:S.extraPay,plaidIgnored:S.plaidIgnored,credit:S.credit,holdings:S.holdings,customCats:S.customCats,setAside:S.setAside,merchantCats:S.merchantCats,subCats:S.subCats,merchantSubs:S.merchantSubs,bills:S.bills,billMarks:S.billMarks,imports:S.imports,hideWords:S.hideWords,energy:S.energy,home:S.home,debtMonthly:S.debtMonthly,billIgnore:S.billIgnore,cardPay:S.cardPay,apple:S.apple,payLinks:S.payLinks}};
+  return {app:'tally-money',version:1,exported:new Date().toISOString(),data:{txns:S.txns,subs:S.subs,budgets:S.budgets,goals:S.goals,accounts:S.accounts,extraPay:S.extraPay,plaidIgnored:S.plaidIgnored,credit:S.credit,holdings:S.holdings,customCats:S.customCats,setAside:S.setAside,merchantCats:S.merchantCats,subCats:S.subCats,merchantSubs:S.merchantSubs,bills:S.bills,billMarks:S.billMarks,xferLearn:S.xferLearn,imports:S.imports,hideWords:S.hideWords,energy:S.energy,home:S.home,debtMonthly:S.debtMonthly,billIgnore:S.billIgnore,cardPay:S.cardPay,apple:S.apple,payLinks:S.payLinks}};
 }
 // Saves a file: through the desktop app's Save dialog when there is one (reliable on both Mac and Windows), else as a normal download.
 function saveFile(name,text,done){
@@ -5078,7 +5157,7 @@ function cleanBackup(j){
     if(!hist.length)hist=[{date:iso(TODAY),balance:+x.balance}];
     var ac={id:String(x.id||uid()),name:String(x.name).slice(0,120),type:x.type,balance:+x.balance,apr:DEBT_TYPES[x.type]?Math.max(0,+x.apr||0):0,minPay:DEBT_TYPES[x.type]?Math.max(0,+x.minPay||0):0,history:hist};if(x.type==='credit'&&+x.limit>0)ac.limit=+x.limit;if(x.type==='credit'&&x.closed===true)ac.closed=true;if(DEBT_TYPES[x.type]&&x.contract){var cc=cleanContract(x.contract);if(cc)ac.contract=cc}if(DEBT_TYPES[x.type]){if(photoOk(x.photo))ac.photo=x.photo;if(/^#[0-9a-f]{6}$/i.test(x.carColor||''))ac.carColor=x.carColor;if(CAR_TYPES[x.carType])ac.carType=x.carType;if(/^\d{4}-\d{2}(-\d{2})?$/.test(x.opened||''))ac.opened=x.opened;if(/^\d{4}$/.test(x.last4||''))ac.last4=x.last4;if(typeof x.carSvg==='string'){var csv=cleanCarSvg(x.carSvg);if(csv)ac.carSvg=csv}if(x.showPhoto===true)ac.showPhoto=true}if(DEBT_TYPES[x.type]){var dd=Math.round(+x.dueDay);if(dd>=1&&dd<=31)ac.dueDay=dd;if(+x.origBalance>0)ac.origBalance=+x.origBalance;if(typeof x.lender==='string'&&x.lender)ac.lender=cleanSubName(x.lender).slice(0,40);var stm=cleanStmt(x);Object.keys(stm).forEach(function(k){ac[k]=stm[k]})}if(x.plaid&&typeof x.plaid.accountId==='string')ac.plaid={itemId:String(x.plaid.itemId||'').slice(0,100),accountId:x.plaid.accountId.slice(0,100)};if(x.wallet===true&&x.type==='cash')ac.wallet=true;if(x.autopay===true&&DEBT_TYPES[x.type])ac.autopay=true;if(x.type==='property'&&x.asset){var as1=cleanAsset(x.asset,uid);if(as1)ac.asset=as1}return ac});
   var home={};if(d.home&&typeof d.home==='object'&&!Array.isArray(d.home)){['purchasePrice','down','closing','origLoan','termYears','taxYear','insYear','hoaMonth','pmiMonth','maintPct','mgmtPct','vacancyPct','appreciation','ret','sellPct','rentGrowth','costGrowth','rentMonth','extra'].forEach(function(k){var n=parseFloat(d.home[k]);if(isFinite(n)&&n>=0&&n<1e9)home[k]=n});['purchaseDate','startDate'].forEach(function(k){if(/^\d{4}-\d{2}-\d{2}$/.test(d.home[k]||''))home[k]=d.home[k]});['mortId','valueId'].forEach(function(k){if(typeof d.home[k]==='string'&&/^[\w-]{1,40}$/.test(d.home[k])&&accounts.some(function(a){return a.id===d.home[k]}))home[k]=d.home[k]});if(d.home.setup===true&&home.valueId)home.setup=true;if(photoOk(d.home.photo))home.photo=d.home.photo}
-  return {hideWords:cleanHideWords(d.hideWords),imports:cleanImports(d.imports,uid),txns:txns,subs:subs,budgets:budgets,goals:goals,accounts:accounts,extraPay:Math.max(0,+d.extraPay||0),plaidIgnored:(Array.isArray(d.plaidIgnored)?d.plaidIgnored:[]).filter(function(x){return typeof x==='string'}).slice(0,200),credit:cleanCredit(d.credit),holdings:cleanHoldings(d.holdings),customCats:custom,setAside:setAside,merchantCats:merchantCats,subCats:subCats,merchantSubs:merchantSubs,bills:bills,billMarks:billMarks,energy:energy,home:home,debtMonthly:Math.max(0,+d.debtMonthly||0),billIgnore:(function(){var o={};if(d.billIgnore&&typeof d.billIgnore==='object'&&!Array.isArray(d.billIgnore))Object.keys(d.billIgnore).slice(0,500).forEach(function(k){if(k.length<=120&&k!=='__proto__')o[k]=1});return o})(),cardPay:d.cardPay==='skip'||d.cardPay==='count'?d.cardPay:'auto',apple:(function(){var a=d.apple||{},o={};if(typeof a.acct==='string'&&a.acct.length<=40)o.acct=a.acct;if(/^\d{4}-\d{2}-\d{2}$/.test(a.last||''))o.last=a.last;if(+a.count>=0)o.count=Math.min(1e6,Math.round(+a.count));return o})(),payLinks:cleanPayLinks(d.payLinks)};
+  return {xferLearn:cleanXferLearn(d.xferLearn),hideWords:cleanHideWords(d.hideWords),imports:cleanImports(d.imports,uid),txns:txns,subs:subs,budgets:budgets,goals:goals,accounts:accounts,extraPay:Math.max(0,+d.extraPay||0),plaidIgnored:(Array.isArray(d.plaidIgnored)?d.plaidIgnored:[]).filter(function(x){return typeof x==='string'}).slice(0,200),credit:cleanCredit(d.credit),holdings:cleanHoldings(d.holdings),customCats:custom,setAside:setAside,merchantCats:merchantCats,subCats:subCats,merchantSubs:merchantSubs,bills:bills,billMarks:billMarks,energy:energy,home:home,debtMonthly:Math.max(0,+d.debtMonthly||0),billIgnore:(function(){var o={};if(d.billIgnore&&typeof d.billIgnore==='object'&&!Array.isArray(d.billIgnore))Object.keys(d.billIgnore).slice(0,500).forEach(function(k){if(k.length<=120&&k!=='__proto__')o[k]=1});return o})(),cardPay:d.cardPay==='skip'||d.cardPay==='count'?d.cardPay:'auto',apple:(function(){var a=d.apple||{},o={};if(typeof a.acct==='string'&&a.acct.length<=40)o.acct=a.acct;if(/^\d{4}-\d{2}-\d{2}$/.test(a.last||''))o.last=a.last;if(+a.count>=0)o.count=Math.min(1e6,Math.round(+a.count));return o})(),payLinks:cleanPayLinks(d.payLinks)};
 }
 
 /* ---------- Goals ---------- */
@@ -5099,7 +5178,7 @@ function bindView(){
   m.querySelectorAll('[data-budget]').forEach(function(i){i.onchange=function(){var v=parseFloat(i.value);if(v>0)S.budgets[i.dataset.budget]=v;else delete S.budgets[i.dataset.budget];save();render()}});
   m.querySelectorAll('[data-cat]').forEach(function(s){s.onchange=function(){S.txns.filter(function(x){return x.id===s.dataset.cat})[0].cat=s.value;save();toast('Category updated.')}});
   var q=$('#q',m);if(q)q.oninput=function(){filter.q=q.value;var pos=q.selectionStart;render();var n=$('#q');n.focus();n.setSelectionRange(pos,pos)};
-  var fc=$('#fcat',m);if(fc)fc.onchange=function(){filter.cat=fc.value;render()};
+  m.querySelectorAll('[data-f]').forEach(function(el){el.onchange=function(){var k=el.dataset.f;if(k==='bulkkind'){filter.bulkKind=el.value;if(el.value)filter.bulkCat='';filter.bulk='';filter.bulkOpen=true;render();return}if(k==='bulkCat'){filter.bulkCat=el.value;if(el.value)filter.bulkKind='';filter.bulk='';filter.bulkOpen=true;render();return}filter[k]=el.value;filter.limit=150;filter.bulk='';filter.bulkOpen=false;filter.open=true;render()}});
   m.querySelectorAll('[data-photo]').forEach(function(inp){inp.onchange=function(){var f=inp.files[0],k=String(inp.dataset.photo).split(':');if(!f)return;photoToData(f,function(url){if(!url){toast('That photo could not be read or is too large.');return}if(k[0]==='home')S.home.photo=url;else{var pa=S.accounts.filter(function(x){return x.id===k[1]})[0];if(pa)pa.photo=url}save();render();toast('Photo saved on this device.')});inp.value=''}});
   m.querySelectorAll('[data-cartype]').forEach(function(sel){sel.onchange=function(){var ca=S.accounts.filter(function(x){return x.id===sel.dataset.cartype})[0];if(ca&&CAR_TYPES[sel.value]){ca.carType=sel.value;save();render()}}});
   var apf=$('#apple-file',m);if(apf)apf.onchange=function(){var fl=Array.prototype.slice.call(apf.files);if(!fl.length)return;pdf.apple=true;pdf.type='credit';stmtRead(fl);apf.value='';var pp=$('#pdfpanel');if(pp)pp.scrollIntoView({behavior:'smooth',block:'start'})};
@@ -5218,7 +5297,7 @@ document.addEventListener('click',function(e){
   else if(a==='sub-adddet'){var d=detect()[+b.dataset.i];if(d)S.subs.push({id:uid(),name:d.name,amount:d.amount,cycle:d.cycle,next:d.next,status:'active'})}
   else if(a==='tx-del'){S.txns=S.txns.filter(function(x){return x.id!==id})}
   else if(a==='exp'){exportData();return}
-  else if(a==='imp-ok'){S={sample:false,customCats:pendingImport.customCats,txns:pendingImport.txns,subs:pendingImport.subs,budgets:pendingImport.budgets,goals:pendingImport.goals,accounts:pendingImport.accounts,extraPay:pendingImport.extraPay,plaidIgnored:pendingImport.plaidIgnored,credit:pendingImport.credit,holdings:pendingImport.holdings,setAside:pendingImport.setAside||[],merchantCats:pendingImport.merchantCats||{},subCats:pendingImport.subCats||{},merchantSubs:pendingImport.merchantSubs||{},bills:pendingImport.bills||[],imports:pendingImport.imports||[],hideWords:pendingImport.hideWords||[],billMarks:pendingImport.billMarks||{},energy:pendingImport.energy||[],home:pendingImport.home||{},debtMonthly:pendingImport.debtMonthly||0,billIgnore:pendingImport.billIgnore||{},cardPay:pendingImport.cardPay||'auto',apple:pendingImport.apple||{},payLinks:pendingImport.payLinks||{}};pendingImport=null;migrate();syncCats();Object.keys(PL.items).forEach(function(k){PL.items[k].cursor=''});savePL();toast('Backup restored.')}
+  else if(a==='imp-ok'){S={sample:false,customCats:pendingImport.customCats,txns:pendingImport.txns,subs:pendingImport.subs,budgets:pendingImport.budgets,goals:pendingImport.goals,accounts:pendingImport.accounts,extraPay:pendingImport.extraPay,plaidIgnored:pendingImport.plaidIgnored,credit:pendingImport.credit,holdings:pendingImport.holdings,setAside:pendingImport.setAside||[],merchantCats:pendingImport.merchantCats||{},subCats:pendingImport.subCats||{},merchantSubs:pendingImport.merchantSubs||{},bills:pendingImport.bills||[],xferLearn:pendingImport.xferLearn||{},imports:pendingImport.imports||[],hideWords:pendingImport.hideWords||[],billMarks:pendingImport.billMarks||{},energy:pendingImport.energy||[],home:pendingImport.home||{},debtMonthly:pendingImport.debtMonthly||0,billIgnore:pendingImport.billIgnore||{},cardPay:pendingImport.cardPay||'auto',apple:pendingImport.apple||{},payLinks:pendingImport.payLinks||{}};pendingImport=null;migrate();syncCats();Object.keys(PL.items).forEach(function(k){PL.items[k].cursor=''});savePL();toast('Backup restored.')}
   else if(a==='imp-no'){pendingImport=null;pendingEnc=null;secMsg=''}
   else if(a==='undo'){undoStep('undo');return}
   else if(a==='redo'){undoStep('redo');return}
@@ -5248,6 +5327,17 @@ document.addEventListener('click',function(e){
     else if(ik.indexOf('d:')===0){var dk=ik.slice(2),dg=dupGroups(S.txns,aiKey).filter(function(g){return g.key===dk})[0];if(dg)dg.extra.slice(0,1).forEach(function(x){ids.push(x.id)})}
     if(ids.length)S.txns=removeTxns(S.txns,ids);
     impUI.confirm='';toast(ids.length?'Removed '+ids.length+' transaction'+(ids.length===1?'':'s')+'. Undo is at the top if that was a mistake.':'Nothing to remove.');
+  }
+  else if(a==='f-clear'){filter.q='';filter.cat='';filter.kind='';filter.acct='';filter.from='';filter.to='';filter.min='';filter.max='';filter.sort='new';filter.limit=150;filter.bulk='';filter.bulkOpen=false;filter.bulkKind='';filter.bulkCat=''}
+  else if(a==='f-range'){var rg=rangeDates(b.dataset.r,TODAY);filter.from=rg.from;filter.to=rg.to;filter.limit=150;filter.bulk='';filter.open=true}
+  else if(a==='f-more'){filter.limit=(filter.limit||150)+250}
+  else if(a==='bulk-ask'){if(filter.bulkKind)filter.bulk='kind:'+filter.bulkKind;else if(filter.bulkCat)filter.bulk='cat:'+filter.bulkCat}
+  else if(a==='bulk-no'){filter.bulk=''}
+  else if(a==='bulk-yes'){
+    var bi=transferInfo(S.txns,S.cardPay),bl=filterTxns(S.txns,filter,bi),bn=0,ba=filter.bulk;
+    if(ba.indexOf('kind:')===0){var bk=ba.slice(5);bl.forEach(function(t){if(txKind(t,transferInfo(S.txns,S.cardPay))!==bk){applyKind(t,bk);bn++}})}
+    else if(ba.indexOf('cat:')===0){var bc=ba.slice(4);if(CATS.indexOf(bc)>-1)bl.forEach(function(t){if(t.cat!==bc){t.cat=bc;var sb=subFor(bc,t.name,'');if(sb)t.sub=sb;else delete t.sub;bn++}})}
+    filter.bulk='';filter.bulkKind='';filter.bulkCat='';filter.bulkOpen=false;syncXfer();toast(bn?bn+' transaction'+(bn===1?'':'s')+' changed. Undo is at the top if that was a mistake.':'Nothing needed changing.');
   }
   else if(a==='cs-save'){cardStmtSave();return}
   else if(a==='cs-cancel'){cardStmt={stage:'idle',msg:'',err:'',card:null,sel:'',rows:[],importTx:true}}
@@ -5455,7 +5545,7 @@ function thClick(a,b){
   saveTheme();applyTheme();render();return true;
 }
 function thBind(m){
-  m.querySelectorAll('.txedit').forEach(function(fm){var cs=fm.elements['c'],us=fm.elements['u'];if(cs&&us)cs.onchange=function(){us.innerHTML=subOptions(cs.value,'')};fm.onsubmit=function(e){e.preventDefault();var g=function(n){return fm.elements[n]};var r=editTxn(fm.dataset.id,{date:g('d').value,name:g('n').value,amount:parseFloat(g('a').value),cat:g('c').value,sub:g('u').value},g('s').checked);editTx='';catMsg='';save();render();toast(r?(r.changed?'Saved. Also updated '+r.changed+' similar transaction'+(r.changed===1?'':'s')+'.':'Saved.'):'Could not save.')}});
+  m.querySelectorAll('.txedit').forEach(function(fm){var cs=fm.elements['c'],us=fm.elements['u'];if(cs&&us)cs.onchange=function(){us.innerHTML=subOptions(cs.value,'')};fm.onsubmit=function(e){e.preventDefault();var g=function(n){return fm.elements[n]};var r=editTxn(fm.dataset.id,{date:g('d').value,name:g('n').value,amount:parseFloat(g('a').value),cat:g('c').value,sub:g('u').value},g('s').checked);if(r)r.changed+=editTxnExtras(fm.dataset.id,g('k').value,g('ac').value,g('nt').value,g('s').checked);editTx='';catMsg='';save();render();toast(r?(r.changed?'Saved. Also updated '+r.changed+' similar transaction'+(r.changed===1?'':'s')+'.':'Saved.'):'Could not save.')}});
   m.querySelectorAll('[data-subs]').forEach(function(i){i.onchange=function(){var l=parseSubList(i.value);if(!S.subCats)S.subCats={};if(l.length)S.subCats[i.dataset.subs]=l;else delete S.subCats[i.dataset.subs];save();render();toast('Sub-categories for '+i.dataset.subs+' saved.')}});
   m.querySelectorAll('[data-loanfile]').forEach(function(inp){inp.onchange=function(){
     var kind=inp.dataset.loanfile,how=inp.dataset.how||'ai',f=inp.files[0];if(!f)return;
@@ -5583,9 +5673,51 @@ function subOptions(cat,cur){
   var l=subList(cat).slice();if(cur&&l.indexOf(cur)<0)l.push(cur);
   return '<option value="">None</option>'+l.map(function(n){return '<option'+(n===cur?' selected':'')+'>'+esc(n)+'</option>'}).join('');
 }
+function refinePanel(list,xinf,rows,shownN){
+  var f=filter,act=filterActive(f),tot=filterTotals(list,xinf),cards=S.accounts.filter(function(a){return S.txns.some(function(t){return t.acct===a.id})});
+  var sel=function(k,opts,cur){return '<select data-f="'+k+'" aria-label="'+k+'">'+opts.map(function(o){return '<option value="'+esc(o[0])+'"'+(String(cur)===String(o[0])?' selected':'')+'>'+esc(o[1])+'</option>'}).join('')+'</select>'};
+  var chip=function(r,l){return '<button class="btn small" data-act="f-range" data-r="'+r+'">'+l+'</button>'};
+  var more=f.from||f.to||f.acct||f.min!==''||f.max!==''||f.sort!=='new'||f.open;
+  var h='<section class="panel" id="refine"><div class="form" style="margin-bottom:8px;align-items:center"><input id="q" class="search" type="search" placeholder="Search name, note or sub-category" value="'+esc(f.q)+'" aria-label="Search">'+
+    '<select data-f="cat" aria-label="Category"><option value="">All categories</option>'+CATS.map(function(c){return '<option'+(c===f.cat?' selected':'')+'>'+esc(c)+'</option>'}).join('')+'</select>'+
+    sel('kind',[['','Everything'],['spend','Spending'],['income','Income'],['cardpay','Card payments'],['transfer','Transfers'],['notcounted','Not counted (payments and transfers)'],['cashback','Cash back'],['cash','Paid in cash'],['other','Uncategorized']],f.kind)+
+    (act?'<button class="btn small" data-act="f-clear">Clear filters</button>':'')+'</div>'+
+    '<details id="morefilters"'+(more?' open':'')+' style="margin:0 0 8px"><summary class="sub" style="cursor:pointer">More filters and sorting</summary><div class="form" style="align-items:flex-end;margin-top:8px">'+
+    '<label>From<input data-f="from" type="date" value="'+esc(f.from)+'"></label><label>To<input data-f="to" type="date" value="'+esc(f.to)+'"></label>'+
+    '<label>Amount at least $<input data-f="min" type="number" min="0" step="1" value="'+esc(f.min)+'" style="width:100px"></label><label>at most $<input data-f="max" type="number" min="0" step="1" value="'+esc(f.max)+'" style="width:100px"></label>'+
+    '<label>Account<select data-f="acct"><option value="">All</option><option value="none"'+(f.acct==='none'?' selected':'')+'>Not linked to a card</option>'+cards.map(function(a){return '<option value="'+esc(a.id)+'"'+(f.acct===a.id?' selected':'')+'>'+esc(a.name)+'</option>'}).join('')+'</select></label>'+
+    '<label>Order'+sel('sort',[['new','Newest first'],['old','Oldest first'],['big','Largest first'],['small','Smallest first']],f.sort)+'</label></div>'+
+    '<div class="actions" style="justify-content:flex-start;margin-top:8px;flex-wrap:wrap">'+chip('month','This month')+chip('last','Last month')+chip('30','Last 30 days')+chip('year','This year')+chip('all','Any date')+'</div></details>'+
+    '<p class="sub" style="margin:0 0 8px;white-space:normal">'+(act?'<b>'+list.length.toLocaleString('en-US')+'</b> match':'<b>'+list.length.toLocaleString('en-US')+'</b> transactions')+' · in '+money0(tot.inn)+' · out '+money0(tot.out)+(tot.skipped?' · '+tot.skipped+' not counted (payments, transfers, cash back)':'')+'</p>';
+  if(act&&list.length){
+    var ask=f.bulk,kindLab={cardpay:'card payments (not counted)',transfer:'transfers (not counted)',count:'real spending or income',cashback:'cash back'};
+    h+='<details style="margin:0 0 8px"'+(ask||f.bulkOpen?' open':'')+'><summary class="sub" style="cursor:pointer">Fix all '+list.length+' at once</summary><div class="form" style="align-items:flex-end;margin-top:8px"><label>Mark them as'+sel('bulkkind',[['','Choose…'],['cardpay','Card payment (not counted)'],['transfer','Transfer between my accounts (not counted)'],['count','Real spending or income (counted)'],['cashback','Cash back']],f.bulkKind||'')+'</label><label>or set category'+'<select data-f="bulkCat"><option value="">Choose…</option>'+CATS.map(function(c){return '<option'+(c===f.bulkCat?' selected':'')+'>'+esc(c)+'</option>'}).join('')+'</select></label></div>';
+    if(ask)h+='<div class="banner" style="margin-top:8px;display:block;white-space:normal"><b>Change '+list.length+' transaction'+(list.length===1?'':'s')+' to '+(ask.indexOf('kind:')===0?kindLab[ask.slice(5)]:'the category '+esc(ask.slice(4)))+'?</b> Undo is at the top if that is a mistake.<div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn small danger" data-act="bulk-yes">Yes, change them</button><button class="btn small" data-act="bulk-no">Cancel</button></div></div>';
+    else h+='<div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn small" data-act="bulk-ask"'+((f.bulkKind||f.bulkCat)?'':' disabled')+'>Apply</button></div>';
+    h+='</details>';
+  }
+  return h+(rows||'<div class="empty">No transactions match.</div>')+(list.length>shownN?'<div class="empty">Showing '+shownN+' of '+list.length.toLocaleString('en-US')+'. <button class="btn small" data-act="f-more">Show more</button></div>':'')+'</section>';
+}
+function editTxnExtras(id,kind,acct,note,similar){
+  var t=S.txns.filter(function(x){return x.id===id})[0];if(!t)return 0;
+  var det=txKind(t,transferInfo(S.txns,S.cardPay)),n=0;
+  if(acct&&S.accounts.some(function(a){return a.id===acct}))t.acct=acct;else delete t.acct;
+  var nn=String(note||'').trim().slice(0,200);if(nn)t.note=nn;else delete t.note;
+  if(kind&&kind!==det){
+    applyKind(t,kind);
+    if(similar){
+      var lk=xferLK(t);
+      if(kind==='count'||kind==='cardpay'||kind==='transfer')S.xferLearn[lk]=kind;
+      S.txns.forEach(function(x){if(x.id!==id&&xferLK(x)===lk){if(kind==='cashback'){if(x.amount>0)x.cashback=true}else{delete x.transfer;delete x.cardPay}n++}});
+    }
+    syncXfer();
+  }
+  return n;
+}
 function txEditForm(x){
   return '<form class="txedit panel" data-id="'+x.id+'" style="margin:8px 0"><div class="form" style="align-items:end"><label>Date<input name="d" type="date" required value="'+esc(x.date)+'"></label><label style="flex:1 1 200px">Description<input name="n" required value="'+esc(x.name)+'" maxlength="120"></label><label>Amount<input name="a" type="number" step="0.01" required value="'+x.amount+'"></label><label>Category<select name="c">'+CATS.map(function(c){return '<option'+(c===x.cat?' selected':'')+'>'+esc(c)+'</option>'}).join('')+'</select></label><label>Sub-category<select name="u">'+subOptions(x.cat,x.sub)+'</select></label></div>'+
-   '<label style="display:flex;gap:8px;align-items:center;margin:10px 0 4px;font-size:13px"><input name="s" type="checkbox" checked> Use this category for every similar transaction, and remember it for future imports</label><p class="sub muted" style="margin:0 0 10px;font-size:12px">Amount: negative is money out, positive is money in.</p>'+
+   '<div class="form" style="align-items:end;margin-top:8px"><label>This is<select name="k">'+[['count','Real spending or income (counted)'],['cardpay','Credit card payment (not counted)'],['transfer','Transfer between my accounts (not counted)'],['cashback','Cash back or reward']].map(function(o){return '<option value="'+o[0]+'"'+(txKind(x,transferInfo(S.txns,S.cardPay))===o[0]?' selected':'')+'>'+o[1]+'</option>'}).join('')+'</select></label><label>Linked card<select name="ac"><option value="">None</option>'+S.accounts.filter(function(a){return a.type==='credit'||a.type==='checking'||a.type==='savings'}).map(function(a){return '<option value="'+esc(a.id)+'"'+(x.acct===a.id?' selected':'')+'>'+esc(a.name)+'</option>'}).join('')+'</select></label><label style="flex:1 1 200px">Note<input name="nt" maxlength="200" value="'+esc(x.note||'')+'"></label></div>'+
+   '<label style="display:flex;gap:8px;align-items:center;margin:10px 0 4px;font-size:13px"><input name="s" type="checkbox" checked> Do the same for every similar transaction (category, and payment or not), and remember it for future imports</label><p class="sub muted" style="margin:0 0 10px;font-size:12px">Amount: negative is money out, positive is money in.</p>'+
    '<div class="actions" style="justify-content:flex-start"><button class="btn primary small">Save</button><button type="button" class="btn small" data-act="tx-cancel">Cancel</button></div></form>';
 }
 function asidePanel(){

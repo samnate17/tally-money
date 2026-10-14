@@ -1625,3 +1625,40 @@ test('hidden bills: keywords are cleaned and matched against bill names', () => 
   assert.strictEqual(H.isHiddenName('Anything', []), false);
   assert.strictEqual(H.isHiddenName('Anything', undefined), false);
 });
+
+function xferWorld() { return new Function(srcBlock('/*TRANSFER-START*/', '/*TRANSFER-END*/') + srcBlock('/*TXFILTER-START*/', '/*TXFILTER-END*/') + '\nreturn {isTransfer, transferInfo, txKind, applyKind, setXferContext, xferLK, filterTxns, filterActive, filterTotals, rangeDates};')(); }
+test('card payments: more wording is recognised, income is not, and what you teach the app sticks', () => {
+  const X = xferWorld(), t = (name, amount, extra) => Object.assign({ id: name, date: '2026-10-01', name, amount, cat: 'Other' }, extra || {});
+  const inf = X.transferInfo([], 'auto');
+  ['AUTOMATIC PAYMENT - THANK YOU', 'ONLINE PAYMENT, THANK YOU', 'AUTOPAY PAYMENT', 'MOBILE PAYMENT', 'ACH DEPOSIT INTERNET TRANSFER FROM ACCOUNT ENDING IN 1234', 'CRCARDPMT', 'Payment', 'PAYMENT RECEIVED', 'ELECTRONIC PAYMENT'].forEach((n) => assert.strictEqual(X.isTransfer(t(n, 100), inf), true, n));
+  ['PAYROLL ACME', 'VENMO PAYMENT FROM JOE', 'ZELLE PAYMENT FROM JOE', 'AMAZON REFUND', 'INTEREST PAID', 'TARGET', 'DAILY CASH', 'IRS TREAS 310 TAX REF'].forEach((n) => assert.strictEqual(X.isTransfer(t(n, 100), inf), false, n));
+  // a card-linked credit only counts as a payment when the name says so; a refund named after the shop does not
+  X.setXferContext(['card1'], {});
+  assert.strictEqual(X.isTransfer(t('WEB PMT', 50, { acct: 'card1' }), inf), true);
+  assert.strictEqual(X.isTransfer(t('TARGET', 20, { acct: 'card1' }), inf), false);
+  // kinds
+  assert.strictEqual(X.txKind(t('AUTOPAY PAYMENT', 50), inf), 'cardpay'); assert.strictEqual(X.txKind(t('TRANSFER FROM SAVINGS', 50), inf), 'transfer'); assert.strictEqual(X.txKind(t('DAILY CASH', 2), inf), 'cashback'); assert.strictEqual(X.txKind(t('SHAWS', -5), inf), 'count');
+  const p = t('Odd name 77', 100); assert.strictEqual(X.isTransfer(p, inf), false);
+  X.applyKind(p, 'cardpay'); assert.deepStrictEqual([p.transfer, p.cardPay, X.isTransfer(p, inf), X.txKind(p, inf)], [true, true, true, 'cardpay']);
+  X.applyKind(p, 'count'); assert.strictEqual(X.isTransfer(p, inf), false);
+  const q = t('AUTOPAY PAYMENT', 50); X.applyKind(q, 'count'); assert.strictEqual(X.isTransfer(q, inf), false);        // you can say a payment-looking row is real money
+  // learned by merchant and direction: teaching the payments does not touch the same merchant's purchases
+  X.setXferContext([], { [X.xferLK(t('Odd name 5', 1))]: 'cardpay' });
+  assert.strictEqual(X.isTransfer(t('Odd name 9', 80), inf), true); assert.strictEqual(X.txKind(t('Odd name 9', 80), inf), 'cardpay'); assert.strictEqual(X.isTransfer(t('Odd name 9', -80), inf), false);
+  X.setXferContext([], { [X.xferLK(t('AUTOPAY PAYMENT 1', 1))]: 'count' }); assert.strictEqual(X.isTransfer(t('AUTOPAY PAYMENT 3', 50), inf), false);
+  X.setXferContext([], {});
+});
+test('transaction filters: text, kind, dates, amounts, account, order and totals', () => {
+  const X = xferWorld(), inf = X.transferInfo([], 'auto');
+  const rows = [{ id: '1', date: '2026-10-01', name: 'SHAWS', amount: -50, cat: 'Groceries' }, { id: '2', date: '2026-10-03', name: 'AUTOPAY PAYMENT', amount: 300, cat: 'Other', acct: 'c1' }, { id: '3', date: '2026-09-20', name: 'PAYROLL', amount: 2000, cat: 'Income' }, { id: '4', date: '2026-10-05', name: 'Cafe', amount: -4.5, cat: 'Dining', cash: true, note: 'tip incl' }, { id: '5', date: '2026-10-06', name: 'Mystery', amount: -80, cat: 'Other' }, { id: '6', date: '2026-10-07', name: 'DAILY CASH', amount: 2, cat: 'Other' }];
+  const f = (o) => Object.assign({ q: '', cat: '', kind: '', acct: '', from: '', to: '', min: '', max: '', sort: 'new' }, o || {});
+  const ids = (o) => X.filterTxns(rows, f(o), inf).map((x) => x.id).join(',');
+  assert.strictEqual(ids(), '1,2,3,4,5,6'); assert.strictEqual(X.filterActive(f()), false); assert.strictEqual(X.filterActive(f({ min: '5' })), true);
+  assert.strictEqual(ids({ q: 'tip' }), '4'); assert.strictEqual(ids({ cat: 'Dining' }), '4');
+  assert.strictEqual(ids({ kind: 'spend' }), '1,4,5'); assert.strictEqual(ids({ kind: 'income' }), '3'); assert.strictEqual(ids({ kind: 'cardpay' }), '2'); assert.strictEqual(ids({ kind: 'notcounted' }), '2');
+  assert.strictEqual(ids({ kind: 'cashback' }), '6'); assert.strictEqual(ids({ kind: 'cash' }), '4'); assert.strictEqual(ids({ kind: 'other' }), '5,6');
+  assert.strictEqual(ids({ from: '2026-10-01', to: '2026-10-05' }), '1,2,4'); assert.strictEqual(ids({ min: '60' }), '2,3,5'); assert.strictEqual(ids({ max: '10' }), '4,6'); assert.strictEqual(ids({ acct: 'c1' }), '2'); assert.strictEqual(ids({ acct: 'none' }), '1,3,4,5,6');
+  assert.strictEqual(ids({ sort: 'big' }), '3,2,5,1,4,6'); assert.strictEqual(ids({ sort: 'old' }), '3,1,2,4,5,6'); assert.strictEqual(ids({ sort: 'small' }), '6,4,1,5,2,3');
+  const tot = X.filterTotals(rows, inf); assert.deepStrictEqual([tot.n, tot.inn, tot.out, tot.skipped], [6, 2000, 134.5, 2]);                // the payment and the cash back are not counted
+  const R = X.rangeDates('month', new Date(2026, 9, 14)); assert.deepStrictEqual(R, { from: '2026-10-01', to: '2026-10-31' }); assert.deepStrictEqual(X.rangeDates('last', new Date(2026, 9, 14)), { from: '2026-09-01', to: '2026-09-30' }); assert.deepStrictEqual(X.rangeDates('all', new Date()), { from: '', to: '' });
+});
