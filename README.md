@@ -305,6 +305,8 @@ Change the assumptions (growth, return on investments, selling cost, rent, upkee
 - **Nothing is counted twice.** Paying a credit card from checking, "payment thank you" credits on a card statement, and moves between your own accounts are left out of spending, income, budgets, reports and "Can I afford it?". Card payments are only skipped when your card purchases are in the app too (otherwise the payment is the only record of that money); change this on the Transactions tab. Press **Transfer** or **Count it** on any row to override the app. Loan and mortgage payments always count, because they are real spending.
 - Everything here runs on your device with plain rules. It does not need the local assistant or an API key.
 
+- **Nelnet / Department of Education statements** that show one "Account Snapshot" column per loan group (AA, AB, AC...) are read group by group: each group becomes its own loan with its rate, balance (principal plus accrued interest), payment, amount due and past due. The groups add up to the totals on the statement. On the Bills tab those groups from one lender appear as one student-loan bill, because you pay them together.
+
 ## Windows
 
 A Windows installer (`Tally.Money-Setup-<version>.exe`, 64-bit; it also runs on Windows on ARM) is built by the same GitHub Actions workflow and attached to each release, after the Mac files. Run it, and if Windows SmartScreen says it protected your PC, choose **More info**, then **Run anyway** (the installer is not signed, which would need a paid certificate). Your data lives on that computer only; to move it from the Mac use Download backup on the Mac and Restore from file on Windows, or use the hosted version.

@@ -41,3 +41,26 @@ test('loan reader: a credit card statement, and nothing found', () => {
   const none = parseLoanText('Dear customer, thank you for banking with us.', 'auto');
   assert.deepStrictEqual(none.loans, []);
 });
+
+test('servicer statement with one Account Snapshot column per loan group: each group becomes its own loan and the totals add up', () => {
+  const text = [
+    'Account A1 Statement Date 10/6/2026',
+    'Current Balance $1,500.00', 'Regular Monthly Payment Amount $60.00', 'Past Due Amount (if applicable) + $20.00', 'Current Amount Due $80.00', 'Current Statement Due Date 10/28/2026',
+    'Nelnet Contact Us:',
+    'Account Snapshot: Account Snapshot for: Group AA Account Snapshot for: Group AB',
+    'Loan Type Loan TypeDIRECT SUB Loan TypeDIRECT UNSUB',
+    'Original Principal Amount Original Principal Amount$1,000.00 Original Principal Amount$900.00',
+    'Interest Rate Interest Rate is5.050% Interest Rate is2.750%',
+    'Accrued Interest on 10/6/2026 $10.00 Accrued Interest on 10/6/2026 . $5.00',
+    'Regular Monthly Payment Amount $40.00 Regular Monthly Payment Amount $20.00',
+    'Outstanding Principal Balance* on 10/28/2026 $900.00 Outstanding Principal Balance* on 10/28/2026 . $585.00',
+    'Past Due Amount $12.00 Past Due Amount $8.00',
+    'Amount Due $52.00 Amount Due $28.00',
+  ].join('\n');
+  const { loans } = parseLoanText(text, 'student');
+  assert.strictEqual(loans.length, 2);
+  assert.deepStrictEqual(loans.map((l) => [l.name, l.apr, l.balance, l.minPay, l.origBalance, l.amountDue, l.pastDue, l.dueDay, l.accruedInterest]),
+    [['Direct subsidized loan, group AA', 5.05, 910, 40, 1000, 52, 12, 28, 10], ['Direct unsubsidized loan, group AB', 2.75, 590, 20, 900, 28, 8, 28, 5]]);
+  assert.strictEqual(loans[0].lender, 'Nelnet');
+  assert.strictEqual(loans.reduce((a, l) => a + l.balance, 0), 1500);
+});

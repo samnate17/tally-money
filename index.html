@@ -893,6 +893,15 @@ function billItems(bills,accounts,txns){
     var re=a.type==='credit'?cardMatchRe(a):loanMatchRe(a),day=+a.dueDay>0?+a.dueDay:0,guessed=false;
     if(!day&&re&&txns){var ds=txns.filter(function(x){return x.amount<0&&re.test(x.name)}).map(function(x){return +x.date.slice(8)}).sort(function(p,q){return p-q});if(ds.length){day=ds[Math.floor(ds.length/2)];guessed=true}}   // no due day set: use the day your payments usually land
     out.push({id:'loan:'+a.id,name:a.name,amount:a.minPay,dueDay:day,dayGuessed:guessed,source:'loan',kind:a.type,cat:'Debt and loans',sub:a.type==='credit'?'Credit card':(a.type==='auto'?'Car loan':(a.type==='student'?'Student loan':'')),re:re,raw:a})}});
+  // Several loans from one lender (a student loan split into groups) are paid as one payment, so they are one bill.
+  var grp={};out.forEach(function(it){if(it.source==='loan'&&it.kind==='student'&&it.raw.lender){var k=String(it.raw.lender).toLowerCase()+'|'+it.kind;(grp[k]=grp[k]||[]).push(it)}});
+  Object.keys(grp).forEach(function(k){
+    var g=grp[k];if(g.length<2)return;
+    var days={},best=g[0],top=0,total=0,past=0;
+    g.forEach(function(it){total+=it.amount;past+=+it.raw.pastDue||0;if(it.dueDay){days[it.dueDay]=(days[it.dueDay]||0)+1;if(days[it.dueDay]>top){top=days[it.dueDay];best=it}}});
+    var merged={id:'loan:grp:'+k,name:g[0].raw.lender+' student loans ('+g.length+')',amount:Math.round(total*100)/100,dueDay:best.dueDay,dayGuessed:best.dayGuessed,source:'loan',kind:'student',cat:'Debt and loans',sub:'Student loan',re:g[0].re,raw:{lender:g[0].raw.lender,pastDue:past}};
+    out=out.filter(function(it){return g.indexOf(it)<0});out.push(merged);
+  });
   return out;
 }
 function dueDateFor(dueDay,mk){
@@ -3428,7 +3437,7 @@ function thBind(m){
       loanUI[kind].imp={stage:'busy',msg:'Reading '+f.name+'…'};render();
       tcall(T.loan.readFile(rd.result,f.name)).then(function(r){loanUI[kind].imp.msg=how==='free'?'Looking for the loan details…':how==='local'?'Asking your local assistant to find the loans. This can take a minute…':'Asking Claude to find the loans…';render();return how==='free'?tcall(T.loan.parse(r.textId,kind)):how==='local'?tcall(T.localAi.loans({textId:r.textId,kind:kind,model:ASSIST.model})):tcall(T.ai.loans(r.textId,kind))}).then(function(res){
         var rows=(res.loans||[]).map(function(l){
-          var ex=S.accounts.filter(function(a){return a.type===kind&&(a.name.toLowerCase()===l.name.toLowerCase()||(l.apr>0&&a.apr===l.apr&&(!l.lender||(a.lender||'').toLowerCase()===l.lender.toLowerCase())&&Math.abs(a.balance-l.balance)<a.balance*0.5))})[0];
+          var ex=S.accounts.filter(function(a){return a.type===kind&&(a.name.toLowerCase()===l.name.toLowerCase()||(l.apr>0&&!/group [a-z]{1,3}$/i.test(l.name)&&a.apr===l.apr&&(!l.lender||(a.lender||'').toLowerCase()===l.lender.toLowerCase())&&Math.abs(a.balance-l.balance)<a.balance*0.5))})[0];
           return {on:true,match:ex?ex.id:'',name:l.name,lender:l.lender,balance:l.balance,apr:l.apr,minPay:l.minPay,dueDay:l.dueDay,origBalance:l.origBalance,note:l.note,amountDue:l.amountDue,pastDue:l.pastDue,dueDate:l.dueDate,accruedInterest:l.accruedInterest,principal:l.principal,lastPayAmt:l.lastPayAmt,lastPayDate:l.lastPayDate,asOf:l.asOf};
         });
         loanUI[kind].imp=rows.length?{stage:'review',rows:rows,notes:res.notes,file:f.name,by:how}:{stage:'idle',msg:'No loan details were found in '+f.name+(how==='free'?'. The free reader needs the usual labels (Amount Due, Interest Rate and so on). Try the other reading options, or press Add a loan and type it in.':'. Check that it is a loan statement, or add the loan by hand.')};render();

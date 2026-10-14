@@ -1209,3 +1209,14 @@ test('app wiring: spending, income, budgets and reports read the ledger; transfe
   assert.match(src, /t\.transfer=x\.transfer/);
   assert.match(src, /billIgnore:S\.billIgnore,cardPay:S\.cardPay/);
 });
+
+test('bills: student loan groups from one lender are one bill that adds up and carries the past-due total', () => {
+  const B = billsWorld();
+  const mk = (id, pay, past) => ({ id, type: 'student', name: 'Direct loan, group ' + id, lender: 'Nelnet', balance: 1000, minPay: pay, dueDay: 28, pastDue: past });
+  const items = B.billItems([], [mk('AA', 37.65, 10), mk('AB', 34.54, 5), { id: 'x', type: 'auto', name: 'Car', lender: 'Honda', balance: 5000, minPay: 300, dueDay: 5 }]);
+  assert.strictEqual(items.length, 2);
+  const g = items.find((i) => /Nelnet/.test(i.name));
+  assert.deepStrictEqual([g.name, g.amount, g.dueDay, g.raw.pastDue], ['Nelnet student loans (2)', 72.19, 28, 15]);
+  const st = B.billStatus(g, '2026-10', [{ date: '2026-10-27', name: 'DEPT EDUCATION NELNET PMT', amount: -72.19 }], {}, new Date(2026, 9, 28));
+  assert.strictEqual(st.state, 'paid');
+});

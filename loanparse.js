@@ -139,6 +139,44 @@ function parseTable(lines) {
   return out;
 }
 
+// Servicers such as Nelnet print one "Account Snapshot" column per loan group (AA, AB, ...), each with its own rate, balance, payment and amount due.
+// Every field repeats once per group in the same order, so the nth match of a label belongs to the nth group.
+function parseGroups(text, f) {
+  const flat = String(text || '').replace(/\s+/g, ' ');
+  const names = [...flat.matchAll(/Account Snapshot for:? Group ([A-Z]{1,3})\b/g)].map((m) => m[1]);
+  if (!names.length) return null;
+  const at = flat.search(/Account Snapshot/i), body = flat.slice(at);
+  const money = '\\$\\s?(-?[\\d,]+\\.\\d{2})';
+  const all = (re, conv) => [...body.matchAll(re)].map((m) => conv(m));
+  const num = (m) => parseFloat(m[1].replace(/,/g, ''));
+  const col = (label, extra) => all(new RegExp('(?:' + label + '[^$\\d]{0,40}?)+' + (extra || '') + money, 'gi'), num);
+  const n = names.length;
+  const lists = {
+    orig: col('Original Principal Amount'),
+    rate: all(/Interest Rate(?: is)?\s*([\d.]+)\s*%/gi, (m) => parseFloat(m[1])),
+    accrued: all(/Accrued Interest on [\d/]+[^$\d]{0,6}\$\s?([\d,]+\.\d{2})/gi, num),
+    pay: all(/Regular Monthly Payment Amount\s*\$\s?([\d,]+\.\d{2})/gi, num),
+    principal: all(/Outstanding Principal Balance\*? on [\d/]+[^$\d]{0,6}\$\s?([\d,]+\.\d{2})/gi, num),
+    past: all(/Past Due Amount\s*\$\s?([\d,]+\.\d{2})/gi, num),
+    due: all(/(?<!Current )Amount Due\s*\$\s?([\d,]+\.\d{2})/gi, num),
+    type: all(/((?:DIRECT|FFEL|FEDERAL|PERKINS)[A-Z ]{0,24}?(?:UNSUBSIDIZED|SUBSIDIZED|UNSUB|SUB|PLUS|CONSOLIDATION|STAFFORD))\b/g, (m) => m[1]),
+  };
+  if (!(lists.rate.length === n && lists.principal.length === n)) return null;   // the columns did not line up: let the other readers try
+  const ok = (k) => lists[k].length === n;
+  const kindName = (t) => { const u = String(t || ''); const nice = /UNSUB/.test(u) ? 'Unsubsidized' : /SUB/.test(u) ? 'Subsidized' : /PLUS/.test(u) ? 'PLUS' : /CONSOL/.test(u) ? 'Consolidation' : ''; return nice; };
+  const dueDate = f.dueDate || '';
+  return names.map((g, i) => {
+    const acc = ok('accrued') ? lists.accrued[i] : 0, pr = lists.principal[i];
+    const kn = ok('type') ? kindName(lists.type[i]) : '';
+    return {
+      name: 'Direct ' + (kn ? kn.toLowerCase() + ' ' : '') + 'loan, group ' + g,
+      balance: Math.round((pr + acc) * 100) / 100, apr: lists.rate[i], monthlyPayment: ok('pay') ? lists.pay[i] : 0, dueDay: dueDate ? +dueDate.slice(8) : 0,
+      originalAmount: ok('orig') ? lists.orig[i] : 0, amountDue: ok('due') ? lists.due[i] : 0, pastDue: ok('past') ? lists.past[i] : 0, dueDate,
+      accruedInterest: acc, principal: pr, lastPaymentAmount: 0, lastPaymentDate: '', asOfDate: f.asOf || '', note: 'group ' + g,
+    };
+  });
+}
+
 function parseLoanStatement(text, kind, clean) {
   const lines = String(text || '').split(/\r?\n/).map((l) => l.replace(/\s+/g, ' ').trim()).filter((l, i, a) => l || (a[i - 1] && a[i - 1] !== ''));
   const f = parseFields(lines), lender = lenderIn(text), notes = [];
@@ -147,7 +185,14 @@ function parseLoanStatement(text, kind, clean) {
   const dayOf = (iso) => (iso ? +iso.slice(8) : 0);
   const rows = kind === 'student' || /interest\s+rate/i.test(lines.join('\n')) ? parseTable(lines) : [];
   let loans;
-  if (rows.length > 1 || (rows.length === 1 && kind === 'student')) {
+  const grp = kind === 'student' || kind === 'loan' ? parseGroups(text, f) : null;
+  if (grp && grp.length) {
+    loans = grp.map((g) => ({ ...g, lender }));
+    const tot = [];
+    if (f.balance) tot.push('statement balance ' + f.balance.toFixed(2));
+    if (f.lastPaymentAmount) tot.push('last payment ' + f.lastPaymentAmount.toFixed(2) + (f.lastPaymentDate ? ' on ' + f.lastPaymentDate : '') + ' (not split between groups)');
+    notes.push('Found ' + grp.length + ' loan groups, each with its own rate, balance and payment' + (tot.length ? ' (' + tot.join(', ') + ')' : '') + '. Balance = principal plus interest accrued so far.');
+  } else if (rows.length > 1 || (rows.length === 1 && kind === 'student')) {
     loans = rows.map((r) => ({
       name: r.name, lender, balance: r.balance || 0, apr: r.apr, monthlyPayment: r.payment || 0, dueDay: 0, originalAmount: 0, note: '',
       amountDue: 0, pastDue: 0, dueDate: '', accruedInterest: r.interest || 0, principal: r.principal || 0, lastPaymentAmount: 0, lastPaymentDate: '', asOfDate: f.asOf || '',
