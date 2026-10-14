@@ -1135,3 +1135,10 @@ test('debt advice: recommends by the numbers and flags the real problems', () =>
   assert.ok(/Your monthly amount is below your minimum/.test(mk(300, 0).map((i) => i.title).join('|')));
   assert.deepStrictEqual(P.debtAdvice({ debts: [], monthly: 0, minTotal: 0, surplus: 0 }), []);
 });
+
+test('Loans hub and Mortgage tab are wired in, old tab names still open the hub, and backups carry the new data', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  assert.ok(src.includes("['loans','Loans']") && src.includes("['mortgage','Mortgage'") && src.includes('loans:vLoansHub,mortgage:vMortgage'));
+  assert.ok(!src.includes("['carloan','Car loan'") && src.includes("loanFilter=view==='student'?'student':'auto';view='loans'"));
+  assert.ok(src.includes('home:S.home,debtMonthly:S.debtMonthly') && src.includes('home:home,debtMonthly:') && src.includes('home:pendingImport.home||{}'));
+});

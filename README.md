@@ -274,6 +274,29 @@ On the loan pages, "Update from a statement" now has three ways to read the file
 
 Honest limits: the free reader is tested on typical layouts I wrote from how these statements are usually worded, not on your real Honda or Nelnet files. If it misses something on yours, send me the statement text with the numbers hidden and I will teach it that wording.
 
+## Loans (everything you owe) and the payoff strategy
+
+The **Loans** tab groups all your debts: All loans, Student, Car, Credit cards and Other loans. Each group has its own page with the loans, the "pay it off faster" tools and statement reading; **All loans** is the strategy page:
+
+- Enter the total you can pay a month (and any one-time extra) and it compares **minimums only**, **highest rate first** (avalanche, least interest) and **smallest balance first** (snowball, fewest debts soonest): debt-free date, interest, interest saved, and how many debts are left after 1, 2 and 3 years. Freed-up payments roll into the next debt automatically.
+- It lists the **order to pay them**, draws the balance over time, and tells you what monthly amount you need to be **debt-free by a date**.
+- **Would one new loan help?** compares a consolidation loan, refinance or 0% transfer (rate, months, fee) with your current plan at the same monthly amount.
+- "My read" points out the most expensive debt, what credit cards cost you in interest each month, low-rate debts not worth rushing, and the trade-offs for student loans.
+- The old Car loan and Student loans tabs are now filters inside Loans. Your mortgage has its own tab and can be included in the strategy with a tick.
+
+## Mortgage and home
+
+The **Mortgage** tab takes your home value, mortgage (balance, rate, principal-and-interest payment, original loan), taxes, insurance, HOA, PMI and what you paid for it. It creates a Home (property) and a Mortgage account so both appear in your net worth and debts, then works out:
+
+- what owning costs each month and how much of it does not come back (everything except principal), your equity, and what you would keep if you sold after selling costs;
+- **whether to pay extra**: payoff date, time and interest saved for several extra amounts, set against investing the same money at the return you assume, with a plain verdict;
+- **keep it, rent it out or sell it**: your net worth over 5 to 30 years in four choices (keep and sell later, sell now and rent a similar home, rent it out and sell later, sell now and invest) with a chart and the break-even point for each;
+- as a rental: cash flow after vacancy, management, tax, insurance and upkeep, cap rate, cash return, the 1% rule and the rent that would break even;
+- **since you bought**: purchase price, closing costs, interest paid so far and estimated running costs against what a sale would bring, whether you are ahead or behind, and when you break even (also counting the rent you did not pay);
+- **refinancing**: new payment, monthly saving, months to recover the closing costs and the lifetime difference (a longer term can lower the payment and still cost more overall).
+
+Change the assumptions (growth, return on investments, selling cost, rent, upkeep, vacancy, management) and everything updates. It is a model, not a prediction, and it leaves out income-tax effects such as the mortgage-interest deduction and capital gains tax on a sale or rental; ask a tax professional about those.
+
 ## Windows
 
 A Windows installer (`Tally.Money-Setup-<version>.exe`, 64-bit; it also runs on Windows on ARM) is built by the same GitHub Actions workflow and attached to each release, after the Mac files. Run it, and if Windows SmartScreen says it protected your PC, choose **More info**, then **Run anyway** (the installer is not signed, which would need a paid certificate). Your data lives on that computer only; to move it from the Mac use Download backup on the Mac and Restore from file on Windows, or use the hosted version.

@@ -352,7 +352,7 @@ function sample(){
 var S,month=NOWKEY,view='overview',filter={q:'',cat:''},editBudgets=false;
 function load(){try{var j=localStorage.getItem('tally-money-v1');if(j){S=JSON.parse(j);migrate();syncCats();return}}catch(e){}S=sample();migrate();syncCats()}
 function defCredit(){return {scores:[],profile:{late:'unknown',inq:'unknown',oldest:'',derog:'unknown'}}}
-function migrate(){if(!Array.isArray(S.customCats))S.customCats=[];if(!Array.isArray(S.setAside))S.setAside=[];if(!S.merchantCats||typeof S.merchantCats!=='object'||Array.isArray(S.merchantCats))S.merchantCats={};if(!Array.isArray(S.energy))S.energy=[];if(!Array.isArray(S.bills))S.bills=[];if(!S.billMarks||typeof S.billMarks!=='object'||Array.isArray(S.billMarks))S.billMarks={};if(!S.subCats||typeof S.subCats!=='object'||Array.isArray(S.subCats))S.subCats={};if(!S.merchantSubs||typeof S.merchantSubs!=='object'||Array.isArray(S.merchantSubs))S.merchantSubs={};if(!Array.isArray(S.holdings))S.holdings=S.sample?sampleHoldings():[];if(!S.credit||!Array.isArray(S.credit.scores))S.credit=S.sample?sampleCredit():defCredit();if(!Array.isArray(S.plaidIgnored))S.plaidIgnored=[];if(!Array.isArray(S.accounts))S.accounts=S.sample?sampleAccounts():[];if(typeof S.extraPay!=='number')S.extraPay=S.sample?100:0}
+function migrate(){if(!S.home||typeof S.home!=='object'||Array.isArray(S.home))S.home={};if(!(S.debtMonthly>=0))S.debtMonthly=0;if(!Array.isArray(S.customCats))S.customCats=[];if(!Array.isArray(S.setAside))S.setAside=[];if(!S.merchantCats||typeof S.merchantCats!=='object'||Array.isArray(S.merchantCats))S.merchantCats={};if(!Array.isArray(S.energy))S.energy=[];if(!Array.isArray(S.bills))S.bills=[];if(!S.billMarks||typeof S.billMarks!=='object'||Array.isArray(S.billMarks))S.billMarks={};if(!S.subCats||typeof S.subCats!=='object'||Array.isArray(S.subCats))S.subCats={};if(!S.merchantSubs||typeof S.merchantSubs!=='object'||Array.isArray(S.merchantSubs))S.merchantSubs={};if(!Array.isArray(S.holdings))S.holdings=S.sample?sampleHoldings():[];if(!S.credit||!Array.isArray(S.credit.scores))S.credit=S.sample?sampleCredit():defCredit();if(!Array.isArray(S.plaidIgnored))S.plaidIgnored=[];if(!Array.isArray(S.accounts))S.accounts=S.sample?sampleAccounts():[];if(typeof S.extraPay!=='number')S.extraPay=S.sample?100:0}
 function save(){try{localStorage.setItem('tally-money-v1',JSON.stringify(S))}catch(e){}if(HOSTED)schedulePush();widgetPush()}
 
 /* ---------- derived ---------- */
@@ -384,6 +384,8 @@ function detect(){
 
 /* ---------- icons + shell ---------- */
 var ICON={
+ loans:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 3 8l9 5 9-5-9-5z"/><path d="M3 13l9 5 9-5"/><path d="M3 17.5l9 5 9-5" opacity=".5"/></svg>',
+ mortgage:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>',
  assist:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>',
  dash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18a8 8 0 1 1 16 0"/><path d="M12 18l4-6"/><circle cx="12" cy="18" r="1.2"/></svg>',
  bills:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg>',
@@ -400,7 +402,7 @@ var ICON={
  budgets:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v9h9"/><path d="M20.5 15A9 9 0 1 1 9 3.5"/></svg>',
  transactions:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h13M13 3l4 4-4 4M20 17H7M11 13l-4 4 4 4"/></svg>',
  goals:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg>'};
-var TABS=[['overview','Overview'],['dash','Dashboard','Live'],['accounts','Accounts'],['subscriptions','Subscriptions','Subs'],['bills','Bills','Bills'],['budgets','Budgets'],['report','Monthly report','Report'],['afford','Can I afford it?','Afford'],['credit','Credit'],['invest','Investments','Invest'],['transactions','Transactions','Activity'],['goals','Goals'],['carloan','Car loan','Car'],['student','Student loans','Student'],['assist','Assistant','Chat'],['look','Appearance','Look']];
+var TABS=[['overview','Overview'],['dash','Dashboard','Live'],['accounts','Accounts'],['subscriptions','Subscriptions','Subs'],['bills','Bills','Bills'],['budgets','Budgets'],['report','Monthly report','Report'],['afford','Can I afford it?','Afford'],['credit','Credit'],['invest','Investments','Invest'],['transactions','Transactions','Activity'],['goals','Goals'],['loans','Loans'],['mortgage','Mortgage','Home'],['assist','Assistant','Chat'],['look','Appearance','Look']];
 function nav(){
   function items(short){return TABS.map(function(t){return '<button class="nav" data-view="'+t[0]+'"'+(view===t[0]?' aria-current="page"':'')+'>'+ICON[t[0]]+'<span>'+(short&&t[2]||t[1])+'</span></button>'}).join('')}
   var h=items(false);
@@ -422,7 +424,7 @@ function refreshAll(){
 }
 function render(){
   nav();
-  var f={bills:vBills,carloan:function(){return vLoans('auto')},student:function(){return vLoans('student')},look:vLook,overview:vOverview,dash:vDash,assist:vAssist,accounts:vAccounts,afford:vAfford,credit:vCredit,invest:vInvest,report:vReport,subscriptions:vSubs,budgets:vBudgets,transactions:vTx,goals:vGoals}[view];
+  var f={bills:vBills,loans:vLoansHub,mortgage:vMortgage,carloan:function(){loanFilter='auto';return vLoansHub()},student:function(){loanFilter='student';return vLoansHub()},look:vLook,overview:vOverview,dash:vDash,assist:vAssist,accounts:vAccounts,afford:vAfford,credit:vCredit,invest:vInvest,report:vReport,subscriptions:vSubs,budgets:vBudgets,transactions:vTx,goals:vGoals}[view];
   var cb=HOSTED&&AUTH.conflict?'<div class="banner" id="conflict"><span><b>This account changed on another device.</b> Choose which version to keep.</span><span style="flex:0 0 auto;display:flex;gap:8px"><button class="btn small" data-act="cf-remote">Use the other version</button><button class="btn small primary" data-act="cf-local">Keep this device\'s version</button></span></div>':'';
   var banner=cb+updBanner()+(S.sample?'<div class="banner"><span><b>Example data.</b> These accounts and transactions are made up so you can try everything. Clear them to start with your own, or import a CSV from your bank.</span><button class="btn primary small" data-act="clear">Start fresh</button></div>':'');
   var body=f();
@@ -2307,12 +2309,12 @@ function homeExtra(h,extras){
   var base=homeSim(h,0),r=growthPerMonth(h.ret);
   return extras.map(function(e){
     var a=homeSim(h,e),T=base.months,fv=function(pay,n){return n<=0?0:(r>0?pay*(Math.pow(1+r,n)-1)/r:pay*n)};
-    var fvPay=fv(h.pi+e,T-a.months),fvInvest=fv(e,T),diff=fvPay-fvInvest;
+    var fvPay=fv(h.pi+h.extra+e,T-a.months),fvInvest=fv(e,T),diff=fvPay-fvInvest;
     return {extra:e,months:a.months,monthsSaved:base.months-a.months,interestSaved:base.interest-a.interest,interest:a.interest,fvPay:fvPay,fvInvest:fvInvest,better:Math.abs(diff)<Math.max(50,fvInvest*0.01)?'tie':(diff>0?'pay':'invest')};
   });
 }
 function homeSim(h,extra){
-  var bal=h.balance,m=0,interest=0,pay=h.pi+(+extra||0);
+  var bal=h.balance,m=0,interest=0,pay=h.pi+h.extra+(+extra||0);
   if(!(bal>0))return {months:0,interest:0,ok:true};
   if(!(pay>0))return {months:1200,interest:0,ok:false};
   while(bal>0.005&&m<1200){m++;var st=mortStep(bal,h.apr,pay);interest+=st.interest;bal=st.bal}
@@ -2358,18 +2360,153 @@ function homeAdvice(h,r){
 }
 /*HOME-END*/
 
+/* ---------- Loans: everything you owe, one strategy ---------- */
+var loanFilter='all';
+var debtUI={monthly:'',lump:'',strat:'avalanche',incl:false,years:'',cRate:'',cMonths:'60',cFee:'0'};
+var LOANFILTERS=[['all','All loans'],['student','Student'],['auto','Car'],['credit','Credit cards'],['loan','Other loans']];
+function debtList(incl){return S.accounts.filter(function(a){return isDebt(a)&&a.balance>0&&(incl||a.type!=='mortgage')}).map(function(a){return {id:a.id,name:a.name,type:a.type,balance:a.balance,apr:a.apr||0,minPay:a.minPay||0,closed:!!a.closed}})}
+function vLoansHub(){
+  if(!LOANKIND[loanFilter]&&loanFilter!=='all')loanFilter='all';
+  var chips=LOANFILTERS.map(function(f){var n=f[0]==='all'?debtList(false).length:S.accounts.filter(function(a){return a.type===f[0]}).length;
+    return '<button class="btn small'+(loanFilter===f[0]?' primary':'')+'" data-act="loan-filter" data-f="'+f[0]+'"'+(loanFilter===f[0]?' aria-current="true"':'')+'>'+f[1]+(n?' ('+n+')':'')+'</button>'}).join('');
+  var head='<div class="top"><h1>Loans</h1></div><div class="actions" style="justify-content:flex-start;margin:4px 0 14px;flex-wrap:wrap">'+chips+'</div>';
+  if(loanFilter!=='all')return head+vLoans(loanFilter,true);
+  return head+vDebtStrategy();
+}
+function vDebtStrategy(){
+  var debts=debtList(debtUI.incl);
+  if(!debts.length)return '<section class="panel"><div class="empty">No loans yet. Use the buttons above to add your student loans, car loans, credit cards or other loans. This page then shows the order to pay them in, how much faster extra money makes it, and what to expect.</div></section>';
+  var total=debts.reduce(function(a,d){return a+d.balance},0),mins=debts.reduce(function(a,d){return a+d.minPay},0),wapr=total>0?debts.reduce(function(a,d){return a+d.balance*d.apr},0)/total:0;
+  var monthly=debtUI.monthly!==''?Math.max(0,parseFloat(debtUI.monthly)||0):(S.debtMonthly>0?S.debtMonthly:mins+(S.extraPay||0)),lump=Math.max(0,parseFloat(debtUI.lump)||0);
+  var pm=payoffPlan(debts,mins,'minimum'),av=payoffPlan(debts,monthly,'avalanche',{lump:lump}),sn=payoffPlan(debts,monthly,'snowball',{lump:lump}),cur=debtUI.strat==='snowball'?sn:av;
+  var when=function(pl){return pl.ok?(pl.months?monthYear(addMonths(TODAY,pl.months)):'Done'):'Never'};
+  var tiles='<div class="grid tiles">'+tile('You owe',money0(total),debts.length+' debt'+(debts.length===1?'':'s'))+tile('Average rate',wapr.toFixed(2)+'%','Weighted by balance')+tile('Minimums',money0(mins)+'<span class="muted" style="font-size:14px">/mo</span>',pm.ok?'Done '+when(pm)+' at minimums':'Minimums alone never clear it')+
+    tile('Debt-free','<span class="good">'+when(cur)+'</span>',cur.ok?dur(cur.months)+' · '+money0(cur.interest)+' interest':(cur.reason==='below'?'Raise the monthly amount':'Not possible at this amount'))+'</div>';
+  var ctrl='<section class="panel"><h2>Build your plan</h2><div class="form" style="align-items:end"><label>I can pay this much a month in total<input id="dp-monthly" type="number" min="0" step="10" value="'+(Math.round(monthly*100)/100)+'"></label><label>One-time extra now<input id="dp-lump" type="number" min="0" step="100" value="'+(debtUI.lump||'')+'" placeholder="0"></label>'+
+    '<label>Pay off first<select id="dp-strat"><option value="avalanche"'+(debtUI.strat==='avalanche'?' selected':'')+'>Highest interest rate (least interest)</option><option value="snowball"'+(debtUI.strat==='snowball'?' selected':'')+'>Smallest balance (fewest debts, soonest)</option></select></label>'+
+    '<label style="flex-direction:row;gap:6px;align-items:center"><input id="dp-incl" type="checkbox"'+(debtUI.incl?' checked':'')+'> Include my mortgage</label></div>'+
+    '<p class="sub muted" style="margin:6px 0 0;font-size:13px;white-space:normal">Your minimums add up to <b>'+money0(mins)+'</b> a month'+(monthly>=mins?', so <b>'+money0(monthly-mins)+'</b> a month goes on top. As each debt is paid off, its payment rolls into the next one.':'. The amount above is lower than that, so it cannot work. Raise it to at least '+money0(mins)+'.')+'</p></section>';
+  var row=function(label,pl){var left=function(m){return pl.ok&&pl.left&&pl.left.length>m?pl.left[m]:(pl.ok?0:'—')};return '<tr><td><b>'+label+'</b></td><td class="num">'+when(pl)+'</td><td class="num">'+(pl.ok?dur(pl.months):'—')+'</td><td class="num">'+(pl.ok?money0(pl.interest):'—')+'</td><td class="num">'+(pl.ok&&pm.ok?money0(pm.interest-pl.interest):'—')+'</td><td class="num">'+left(12)+' / '+left(24)+' / '+left(36)+'</td></tr>'};
+  var cmp='<section class="panel"><h2>Which order?</h2><div style="overflow-x:auto"><table class="maptable" style="width:100%"><thead><tr><th>Strategy</th><th>Debt-free</th><th>Time</th><th>Interest</th><th>Saved vs minimums</th><th>Debts left after 1 / 2 / 3 years</th></tr></thead><tbody>'+row('Minimums only',pm)+row('Highest rate first',av)+row('Smallest balance first',sn)+'</tbody></table></div></section>';
+  var advice=debtAdvice({debts:debts,monthly:monthly,minTotal:mins,min:pm,av:av,sn:sn,surplus:(function(){var q=loanSurplus();return q&&q.surplus>0?q.surplus:0})(),plusExtra:av.ok?{extra:100,plan:payoffPlan(debts,monthly+100,'avalanche',{lump:lump})}:null});
+  var adv='<section class="panel"><h2>My read<small>from your numbers</small></h2>'+advice.map(function(x){return '<div class="row" style="align-items:flex-start"><span class="pill '+(x.k==='warn'?'warn':x.k==='good'?'good':'mute')+'" style="flex:none;min-width:58px;text-align:center">'+(x.k==='warn'?'Look at':x.k==='good'?'Do this':'Note')+'</span><div class="grow" style="white-space:normal"><div class="nm" style="white-space:normal">'+esc(x.title)+'</div><div class="sub" style="white-space:normal">'+esc(x.detail)+'</div></div></div>'}).join('')+'<p class="sub muted" style="margin:10px 0 0;font-size:12px;white-space:normal">Assumes fixed rates, no new charges and that each debt\'s payment rolls into the next when it is paid off. Real statements differ by a few dollars. This is arithmetic from the figures you entered, not financial advice.</p></section>';
+  var order=cur.ok?'<section class="panel"><h2>The order to pay them<small>'+(debtUI.strat==='snowball'?'smallest balance first':'highest rate first')+'</small></h2>'+cur.order.map(function(d,i){return '<div class="row"><div class="grow"><div class="nm">'+(i+1)+'. '+esc(d.name)+'</div><div class="sub">'+money0(d.start)+' at '+d.apr+'% · '+money0(d.interest)+' interest paid</div></div><div class="num muted">paid off '+monthYear(addMonths(TODAY,d.paid))+'</div></div>'}).join('')+'<div style="margin-top:12px">'+(pm.ok?loanChart(pm,cur):'')+'</div></section>':'';
+  var yrs=parseFloat(debtUI.years)>0?Math.round(parseFloat(debtUI.years)*12):0,tgt='';
+  if(yrs){var need=monthlyForMonths(debts,yrs,debtUI.strat,lump);tgt=need===null?'<p style="margin:10px 0 0">That is faster than is possible. Try a longer time.</p>':'<p style="margin:10px 0 0">To be debt-free by <b>'+monthYear(addMonths(TODAY,yrs))+'</b> you would pay <b>'+money0(need)+'</b> a month in total'+(need>monthly?', which is '+money0(need-monthly)+' more than you entered.':', which is within what you entered.')+'</p>'}
+  var deadline='<section class="panel"><h2>Debt-free by a date</h2><div class="form"><label>In how many years<input id="dp-years" type="number" min="0.5" step="0.5" value="'+(debtUI.years||'')+'" placeholder="e.g. 5"></label></div>'+tgt+'</section>';
+  var co=parseFloat(debtUI.cRate)>=0&&debtUI.cRate!==''?consolidationOffer(debts,parseFloat(debtUI.cRate),Math.max(1,parseInt(debtUI.cMonths,10)||60),parseFloat(debtUI.cFee)||0):null;
+  var cons='<section class="panel"><h2>Would one new loan help?<small>consolidation, refinance or a balance transfer</small></h2><div class="form"><label>New rate (%)<input id="dp-crate" type="number" min="0" step="0.01" value="'+esc(debtUI.cRate)+'" placeholder="e.g. 9"></label><label>Months to repay<input id="dp-cmonths" type="number" min="1" step="1" value="'+esc(debtUI.cMonths)+'"></label><label>Fee (% of amount)<input id="dp-cfee" type="number" min="0" step="0.1" value="'+esc(debtUI.cFee)+'"></label></div>'+
+    (co?'<p style="margin:10px 0 0;white-space:normal">One loan of <b>'+money0(co.principal)+'</b> ('+(co.fee>0?'including a '+money0(co.fee)+' fee, ':'')+'covering all '+debts.length+' debts) would cost <b>'+money0(co.pay)+'</b> a month for '+co.monthsNew+' months and '+money0(co.newInterest)+' in interest. '+(co.nowOk?'Paying the same amount a month the highest-rate-first way you would owe '+money0(co.nowInterest)+' in interest'+(co.nowMonths<co.monthsNew?' and be done in '+dur(co.nowMonths)+'.':'.')+' <b class="'+(co.saving>0?'good':'bad')+'">'+(co.saving>0?'The new loan would save about '+money0(co.saving)+'.':'The new loan would cost about '+money0(-co.saving)+' more.')+'</b>':'')+'</p><p class="sub muted" style="margin:6px 0 0;font-size:12px;white-space:normal">Be careful with federal student loans: moving them to a private loan gives up income-driven plans, deferment and forgiveness. Only compare loans you could actually get.</p>':'<p class="sub muted" style="margin:10px 0 0;font-size:13px;white-space:normal">Enter the rate and term of an offer you have (a personal loan, a 0% transfer card with its fee, a refinance) to see whether it beats your current plan.</p>')+'</section>';
+  var groups=LOANFILTERS.slice(1).map(function(f){var ds=debts.filter(function(d){return d.type===f[0]});if(!ds.length)return '';var t=ds.reduce(function(a,d){return a+d.balance},0),mn=ds.reduce(function(a,d){return a+d.minPay},0),w=ds.reduce(function(a,d){return a+d.balance*d.apr},0)/t;
+    return '<div class="row"><div class="grow"><div class="nm">'+f[1]+'</div><div class="sub">'+ds.length+' debt'+(ds.length===1?'':'s')+' · '+w.toFixed(2)+'% average · '+money0(mn)+'/mo</div></div><div class="amt num">'+money0(t)+'</div><button class="btn small" data-act="loan-filter" data-f="'+f[0]+'">Open</button></div>'}).join('');
+  var byGroup='<section class="panel"><h2>What you owe, by kind</h2>'+groups+(debtUI.incl?'':'<p class="sub muted" style="margin:10px 0 0;font-size:12px">Your mortgage is left out of this plan. It has its own tab.</p>')+'</section>';
+  return tiles+ctrl+cmp+adv+order+deadline+cons+byGroup;
+}
+/* ---------- Mortgage and home ---------- */
+var mortUI={edit:false,horizon:10,refi:{rate:'',years:'30',cost:''},tryExtra:''};
+function homeSet(){var H=S.home||{};return !!(H.setup&&H.valueId&&S.accounts.some(function(a){return a.id===H.valueId}))}
+function homeFrom(){
+  var H=S.home||{},ma=S.accounts.filter(function(a){return a.id===H.mortId})[0],va=S.accounts.filter(function(a){return a.id===H.valueId})[0],o={};
+  Object.keys(H).forEach(function(k){o[k]=H[k]});
+  o.value=va?va.balance:0;o.balance=ma?ma.balance:0;o.apr=ma?ma.apr:0;o.pi=ma?ma.minPay:0;
+  return homeNorm(o);
+}
+function acctSetBalance(a,v){a.balance=v;var t=iso(TODAY),h=a.history.filter(function(x){return x.date===t})[0];if(h)h.balance=v;else a.history.push({date:t,balance:v})}
+function saveHome(v){
+  var H=S.home=S.home||{},va=S.accounts.filter(function(a){return a.id===H.valueId})[0],ma=S.accounts.filter(function(a){return a.id===H.mortId})[0];
+  if(!va){va={id:uid(),name:'Home',type:'property',balance:0,apr:0,minPay:0,history:[]};S.accounts.push(va);H.valueId=va.id}
+  acctSetBalance(va,v.value);
+  if(v.balance>0||ma){
+    if(!ma){ma={id:uid(),name:'Mortgage',type:'mortgage',balance:0,apr:0,minPay:0,history:[]};S.accounts.push(ma);H.mortId=ma.id}
+    ma.apr=v.apr;ma.minPay=v.pi;ma.dueDay=v.dueDay>=1&&v.dueDay<=31?v.dueDay:0;ma.origBalance=v.origLoan>0?v.origLoan:0;acctSetBalance(ma,v.balance);
+  }
+  ['purchasePrice','down','closing','origLoan','termYears','taxYear','insYear','hoaMonth','pmiMonth'].forEach(function(k){H[k]=v[k]});
+  H.purchaseDate=v.purchaseDate||'';H.startDate=v.startDate||'';H.setup=true;
+}
+function monthsSinceDate(iso0){var m=/^(\d{4})-(\d{2})/.exec(iso0||'');if(!m)return null;return Math.max(0,(TODAY.getFullYear()-(+m[1]))*12+(TODAY.getMonth()+1-(+m[2])))}
+function homeFormPanel(){
+  var H=S.home||{},h=homeFrom(),set=homeSet(),v=function(k){return h[k]?h[k]:''};
+  var f=function(label,name,val,step,ph,extra){return '<label>'+label+'<input name="'+name+'" type="'+(extra==='date'?'date':'number')+'" '+(extra==='date'?'':'step="'+(step||'0.01')+'" min="0" ')+'value="'+esc(val===undefined||val===0?'':val)+'"'+(ph?' placeholder="'+ph+'"':'')+'></label>'};
+  return '<section class="panel"><h2>'+(set?'Edit your home':'Tell me about your home')+'<small>'+(set?'saved on this device':'a few minutes, and you can change it any time')+'</small></h2>'+
+   (set?'':'<p class="sub" style="margin:0 0 10px;white-space:normal">Enter what you know. The mortgage and the home appear in your net worth and debts, and everything below is worked out from these figures. Leave a box empty if you do not have it.</p>')+
+   '<form id="homeform" class="form" style="align-items:end">'+
+   f('Home value now','value',h.value||'','1','e.g. 420000')+f('Purchase price','purchasePrice',v('purchasePrice'),'1')+f('Purchase date','purchaseDate',H.purchaseDate||'',null,null,'date')+f('Down payment','down',v('down'),'1')+f('Closing costs you paid','closing',v('closing'),'1')+
+   f('Mortgage balance now','balance',h.balance||'','0.01','0 if paid off')+f('Interest rate (APR %)','apr',h.apr||'','0.001','e.g. 6.25')+f('Monthly payment (principal and interest only)','pi',h.pi||'','0.01')+f('Payment due day (1 to 31)','dueDay',(S.accounts.filter(function(a){return a.id===H.mortId})[0]||{}).dueDay||'','1')+
+   f('Original loan amount','origLoan',v('origLoan'),'1')+f('Loan term (years)','termYears',H.termYears||30,'1')+f('Property tax per year','taxYear',v('taxYear'),'1')+f('Home insurance per year','insYear',v('insYear'),'1')+f('HOA per month','hoaMonth',v('hoaMonth'),'1')+f('PMI per month (if any)','pmiMonth',v('pmiMonth'),'1')+
+   '<div style="flex:1 1 100%"><button class="btn primary">'+(set?'Save changes':'Save my home')+'</button> '+(set?'<button type="button" class="btn" data-act="mort-cancel">Cancel</button>':'')+'</div></form>'+
+   '<p class="sub muted" style="margin:10px 0 0;font-size:12px;white-space:normal">Your lender\'s statement shows the balance, rate and payment. Tax and insurance are on your tax bill and policy (or on your escrow statement). The payment to enter is principal and interest only, not the escrow total.</p></section>';
+}
+function homeChart(rows,series){
+  var W=520,H=200,pl=8,pr=8,pt=14,pb=24,all=[];rows.forEach(function(r){series.forEach(function(s2){all.push(r[s2.k])})});
+  var mn=Math.min.apply(null,all.concat([0])),mx=Math.max.apply(null,all.concat([1]));if(mx===mn)mx=mn+1;var pad=(mx-mn)*0.08;mx+=pad;if(mn<0)mn-=pad;
+  var X=function(i){return pl+i*(W-pl-pr)/Math.max(1,rows.length-1)},Y=function(v){return pt+(mx-v)/(mx-mn)*(H-pt-pb)},g='',t;
+  for(t=0;t<3;t++){var gv=mn+(mx-mn)*t/2.2,gy=Y(gv);g+='<line x1="0" x2="'+W+'" y1="'+gy+'" y2="'+gy+'" stroke="var(--line)"/><text x="2" y="'+(gy-3)+'" font-size="10">'+money0(gv)+'</text>'}
+  if(mn<0&&mx>0)g+='<line x1="0" x2="'+W+'" y1="'+Y(0)+'" y2="'+Y(0)+'" stroke="var(--muted)" stroke-dasharray="3 3"/>';
+  var lines=series.map(function(s2){return '<polyline points="'+rows.map(function(r,i){return X(i)+','+Y(r[s2.k])}).join(' ')+'" fill="none" stroke="'+s2.c+'" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"'+(s2.d?' stroke-dasharray="5 4"':'')+'/>'}).join('');
+  var ticks=[0,Math.floor((rows.length-1)/2),rows.length-1].filter(function(v,i,a){return a.indexOf(v)===i}).map(function(i){return '<text x="'+X(i)+'" y="'+(H-7)+'" text-anchor="'+(i===0?'start':i===rows.length-1?'end':'middle')+'" font-size="11">Year '+rows[i].year+'</text>'}).join('');
+  return '<svg viewBox="0 0 '+W+' '+H+'" width="100%" style="max-width:640px" role="img" aria-label="Net worth in each choice over the years">'+g+lines+ticks+'</svg><div class="legend" style="flex-direction:row;flex-wrap:wrap;gap:6px 16px;margin-top:4px">'+series.map(function(s2){return '<div><span style="display:inline-block;width:16px;border-top:3px '+(s2.d?'dashed':'solid')+' '+s2.c+'"></span> '+s2.label+'</div>'}).join('')+'</div>';
+}
+function vMortgage(){
+  var set=homeSet(),head='<div class="top"><h1>Mortgage and home</h1>'+(set&&!mortUI.edit?'<button class="btn small" data-act="mort-edit">Edit details</button>':'')+'</div>';
+  if(!set||mortUI.edit)return head+homeFormPanel();
+  var H=S.home,h=homeFrom(),mo=homeMonthly(h),eq=homeEquity(h),sim=homeSim(h,0),horizon=Math.max(5,Math.min(30,+mortUI.horizon||10)),cmp=homeCompare(h,horizon),ro=h.rentMonth>0?homeRentOut(h):null;
+  var since=monthsSinceDate(H.purchaseDate),sb=h.purchasePrice>0&&since!==null?homeSinceBuy(h,since):null;
+  var tryE=parseFloat(mortUI.tryExtra),extras=[100,250,500,1000];if(tryE>0&&extras.indexOf(tryE)<0)extras.unshift(tryE);
+  var ex=h.balance>0?homeExtra(h,extras):[];
+  var advice=homeAdvice(h,{mo:mo,eq:eq,cmp:cmp,ro:ro,sb:sb,ex:ex});
+  var yrs=function(n){return n>=24?(n/12).toFixed(1).replace(/\.0$/,'')+' years':n+' months'};
+  var tiles='<div class="grid tiles">'+tile('Home value',money0(h.value),h.purchasePrice>0?'Bought for '+money0(h.purchasePrice)+' ('+(h.value>=h.purchasePrice?'+':'-')+money0(Math.abs(h.value-h.purchasePrice))+')':'Update it from time to time')+
+    tile('Mortgage',money0(h.balance),h.balance>0?h.apr+'% · '+(sim.ok?'paid off '+monthYear(addMonths(TODAY,sim.months)):'payment too small'):'No mortgage')+
+    tile('Your equity','<span class="good">'+money0(eq.equity)+'</span>',(100-eq.ltv).toFixed(0)+'% of the home')+
+    tile('It costs you',money0(mo.cash)+'<span class="muted" style="font-size:14px">/mo</span>',money0(mo.cost)+' of that does not come back')+
+    tile('If you sold today',money0(eq.proceeds),'after '+money0(eq.sellCosts)+' selling costs and the loan')+'</div>';
+  var adv='<section class="panel"><h2>My read<small>worked out from your figures and the assumptions below</small></h2>'+advice.map(function(x){return '<div class="row" style="align-items:flex-start"><span class="pill '+(x.k==='warn'?'warn':x.k==='good'?'good':'mute')+'" style="flex:none;min-width:58px;text-align:center">'+(x.k==='warn'?'Look at':x.k==='good'?'Good':'Note')+'</span><div class="grow" style="white-space:normal"><div class="nm" style="white-space:normal">'+esc(x.title)+'</div><div class="sub" style="white-space:normal">'+esc(x.detail)+'</div></div></div>'}).join('')+'</section>';
+  var ai=function(label,key,step,hint){return '<label>'+label+'<input data-ha="'+key+'" type="number" min="0" step="'+step+'" value="'+(h[key]===0?'0':h[key])+'"'+(hint?' title="'+hint+'"':'')+'></label>'};
+  var assum='<section class="panel"><h2>Assumptions<small>change them and everything updates</small></h2><div class="form" style="align-items:end">'+
+    '<label>Home value now<input data-hv="value" type="number" min="0" step="1000" value="'+Math.round(h.value)+'"></label><label>Mortgage balance now<input data-hv="balance" type="number" min="0" step="100" value="'+Math.round(h.balance*100)/100+'"></label>'+
+    ai('Value growth per year (%)','appreciation','0.1','Long-run US home prices have risen roughly 3 to 4% a year, but it varies by place and year')+ai('Return if I invest the money (% a year)','ret','0.1','After tax and fees. Be cautious: this is a guess')+ai('Cost to sell (%)','sellPct','0.1','Agent fees plus closing costs, commonly 6 to 8%')+
+    ai('Rent for a similar home (per month)','rentMonth','10','What you would pay to rent a similar home. Needed for the keep, rent and sell comparison')+ai('Rent growth per year (%)','rentGrowth','0.1')+ai('Upkeep per year (% of value)','maintPct','0.1','1% is a common rule of thumb')+
+    ai('Extra I pay on the mortgage per month','extra','10')+ai('Vacancy if rented out (%)','vacancyPct','0.5','Share of the year the home would sit empty')+ai('Management fee if rented out (%)','mgmtPct','0.5','Often 8 to 10% of the rent; 0 if you would manage it yourself')+'</div></section>';
+  var rowC=function(label,val,note){return '<div class="row"><div class="grow"><div class="nm">'+label+'</div>'+(note?'<div class="sub">'+note+'</div>':'')+'</div><div class="amt num">'+money0(val)+'</div></div>'};
+  var cost='<section class="panel"><h2>What it costs each month<small>'+money0(mo.cash)+' in all</small></h2>'+rowC('Principal',mo.principal,'builds your equity, so it comes back')+rowC('Interest',mo.interest,'the cost of the loan')+rowC('Property tax',mo.tax)+rowC('Insurance',mo.ins)+(mo.hoa>0?rowC('HOA',mo.hoa):'')+(mo.pmi>0?rowC('PMI',mo.pmi,'can usually be removed at 80% loan-to-value'):'')+rowC('Upkeep set aside',mo.maint,h.maintPct+'% of the value a year; not a bill, but real')+
+    '<p class="sub muted" style="margin:10px 0 0;font-size:13px;white-space:normal">About '+money0(mo.cost)+' a month is gone for good (everything except principal). '+(h.rentMonth>0?'A similar home would rent for about '+money0(h.rentMonth)+'.':'Enter a rent for a similar home above to compare.')+'</p></section>';
+  var exRows=ex.map(function(e){var fm=function(v){return money0(v)};return '<tr><td><b>+'+money0(e.extra)+'/mo</b></td><td class="num">'+monthYear(addMonths(TODAY,e.months))+'</td><td class="num">'+yrs(e.monthsSaved)+'</td><td class="num">'+money0(e.interestSaved)+'</td><td class="num">'+(e.better==='pay'?'<b class="good">Pay the loan</b> by '+fm(e.fvPay-e.fvInvest):e.better==='invest'?'<b class="warn">Invest</b> by '+fm(e.fvInvest-e.fvPay):'About equal')+'</td></tr>'}).join('');
+  var extra=h.balance>0?'<section class="panel"><h2>Should you pay extra on the mortgage?</h2><p class="sub" style="margin:0 0 8px;white-space:normal">Your loan costs '+((Math.pow(1+h.apr/1200,12)-1)*100).toFixed(2)+'% a year. The last column compares paying the loan off sooner and then investing the freed-up payment, against investing the extra money from the start at '+h.ret+'% a year, over the same time.</p>'+
+    '<div style="overflow-x:auto"><table class="maptable" style="width:100%"><thead><tr><th>Extra</th><th>Paid off</th><th>Sooner by</th><th>Interest saved</th><th>Better use (difference at the end)</th></tr></thead><tbody>'+exRows+'</tbody></table></div><div class="form" style="margin-top:10px"><label>Try another amount<input id="hm-try" type="number" min="0" step="50" value="'+esc(mortUI.tryExtra)+'" placeholder="e.g. 300"></label></div>'+
+    '<p class="sub muted" style="margin:8px 0 0;font-size:12px;white-space:normal">Paying extra is a sure return equal to your rate; investing is a guess. Keep an emergency fund first. Ask your lender that extra goes to principal. Lowering the required payment is only possible by refinancing or recasting (see below).</p></section>':'';
+  var years=[1,5,10,15,20,30].filter(function(y){return y<=horizon});if(years.indexOf(horizon)<0)years.push(horizon);
+  var tr=years.map(function(y){var r=cmp.rows[y-1];if(!r)return '';return '<tr><td><b>Year '+y+'</b></td><td class="num">'+money0(r.keep)+'</td>'+(cmp.hasRent?'<td class="num">'+money0(r.sellLive)+'</td><td class="num">'+money0(r.landlord)+'</td>':'')+'<td class="num">'+money0(r.sellInvest)+'</td></tr>'}).join('');
+  var hsel='<select id="hm-horizon">'+[5,10,15,20,30].map(function(y){return '<option value="'+y+'"'+(y===horizon?' selected':'')+'>'+y+' years</option>'}).join('')+'</select>';
+  var series=[{k:'keep',c:'var(--accent)',label:'Keep it and sell later'}].concat(cmp.hasRent?[{k:'sellLive',c:'var(--muted)',label:'Sell now, invest, rent a similar home',d:true},{k:'landlord',c:'var(--good)',label:'Keep it and rent it out'}]:[]).concat([{k:'sellInvest',c:'var(--warn)',label:'Sell now and invest the proceeds',d:true}]);
+  var beSentence=function(n,what){return n===0?'is ahead of '+what+' from the start':n===null?'does not get ahead of '+what+' within '+horizon+' years':'pulls ahead of '+what+' after about '+yrs(n)};
+  var decide='<section class="panel"><h2>Keep it, rent it out, or sell it?<small>net worth in each choice</small></h2><div class="form"><label>Look ahead<span>'+hsel+'</span></label></div><div style="overflow-x:auto;margin-top:8px"><table class="maptable" style="width:100%"><thead><tr><th>When</th><th>Keep it, then sell</th>'+(cmp.hasRent?'<th>Sell now, rent a similar home</th><th>Rent it out, then sell</th>':'')+'<th>Sell now and invest</th></tr></thead><tbody>'+tr+'</tbody></table></div>'+
+    '<div style="margin-top:12px">'+homeChart(cmp.rows,series)+'</div>'+(cmp.hasRent?'<p style="margin:10px 0 0;white-space:normal"><b>Break-even:</b> living in it '+beSentence(cmp.beLive,'selling and renting a similar home')+'; renting it out '+beSentence(cmp.beLandlord,'selling and investing')+'.</p>':'<p class="sub" style="margin:10px 0 0;white-space:normal">Enter the rent for a similar home in the assumptions to compare keeping it with selling and renting, and to see what it would earn as a rental.</p>')+
+    '<p class="sub muted" style="margin:8px 0 0;font-size:12px;white-space:normal">Each figure is what you would be worth in that choice if everything went as assumed, with the home sold at that point (selling costs included). Taxes are not included.</p></section>';
+  var rental=ro?'<section class="panel"><h2>If you rented it out<small>per month, today</small></h2>'+rowC('Rent collected after vacancy',ro.collected)+rowC('Management',-ro.mgmt)+rowC('Tax, insurance, HOA and upkeep',-(mo.tax+mo.ins+mo.hoa+mo.maint))+rowC('Mortgage payment (principal and interest)',-mo.pi)+'<div class="row"><div class="grow"><div class="nm"><b>Left over</b></div></div><div class="amt num '+(ro.cashFlow>=0?'good':'bad')+'">'+(ro.cashFlow<0?'-':'')+money0(Math.abs(ro.cashFlow))+'</div></div>'+
+    '<div class="grid tiles" style="margin-top:12px">'+tile('Cap rate',ro.capRate.toFixed(1)+'%','Net rent after costs, before the mortgage, over the value')+tile('Cash return',ro.cashOnCash===null?'—':ro.cashOnCash.toFixed(1)+'%','On the '+money0(ro.equityInvested)+' you would have tied up')+tile('Rent to value',ro.ruleOfOne.toFixed(2)+'%','The "1% rule" looks for 1% a month')+tile('Break-even rent',ro.breakEvenRent===null?'—':money0(ro.breakEvenRent),'Rent needed to cover everything')+'</div></section>':'';
+  var sinceP=sb?'<section class="panel"><h2>Since you bought<small>'+yrs(sb.months)+' ago</small></h2>'+rowC('Selling today would bring (after selling costs)',sb.sellNow)+rowC('Purchase price',-sb.price)+rowC('Closing costs you paid',-sb.closing)+rowC('Interest paid so far',-sb.cumInterest,'worked out from your loan')+rowC('Tax, insurance, HOA and upkeep so far',-sb.otherCosts,'estimated from today\'s monthly figures')+
+    '<div class="row"><div class="grow"><div class="nm"><b>'+(sb.gain>=0?'Ahead by':'Behind by')+'</b></div></div><div class="amt num '+(sb.gain>=0?'good':'bad')+'">'+money0(Math.abs(sb.gain))+'</div></div>'+
+    '<p style="margin:10px 0 0;white-space:normal"><b>Break-even:</b> '+(sb.beMonths===0?'you are past it.':sb.beMonths===null?'not within 30 years on these assumptions.':'about '+yrs(sb.beMonths)+' from now.')+(h.rentMonth>0?' Counting the rent you did not pay ('+money0(sb.rentSaved)+' so far), you are '+(sb.gainWithRent>=0?money0(sb.gainWithRent)+' ahead':money0(-sb.gainWithRent)+' behind')+(sb.beMonthsWithRent===null?'.':sb.beMonthsWithRent===0?', past break-even.':', break-even in about '+yrs(sb.beMonthsWithRent)+'.'):'')+'</p></section>':
+    '<section class="panel"><h2>Since you bought</h2><p class="sub" style="margin:0">Add the purchase price and date (Edit details) to see whether you are ahead or behind and when you break even.</p></section>';
+  var rf=mortUI.refi,rr=h.balance>0&&parseFloat(rf.rate)>=0&&rf.rate!==''?homeRefi(h,{rate:parseFloat(rf.rate),years:parseFloat(rf.years)||30,cost:parseFloat(rf.cost)||0}):null;
+  var refi=h.balance>0?'<section class="panel"><h2>Refinance or lower the payment<small>what a new loan would do</small></h2><div class="form"><label>New rate (%)<input id="rf-rate" type="number" min="0" step="0.01" value="'+esc(rf.rate)+'" placeholder="e.g. 5.5"></label><label>New term (years)<input id="rf-years" type="number" min="1" step="1" value="'+esc(rf.years)+'"></label><label>Closing costs<input id="rf-cost" type="number" min="0" step="100" value="'+esc(rf.cost)+'" placeholder="e.g. 5000"></label></div>'+
+    (rr?'<p style="margin:10px 0 0;white-space:normal">New payment <b>'+money0(rr.newPay)+'</b> a month against '+money0(h.pi)+' now ('+(rr.monthlySaving>=0?'<b class="good">'+money0(rr.monthlySaving)+' less</b>':'<b class="bad">'+money0(-rr.monthlySaving)+' more</b>')+'). '+(rr.breakEvenMonths!==null?'The closing costs are paid back in <b>'+yrs(rr.breakEvenMonths)+'</b>, so it only pays if you stay longer than that. ':'It never pays back the closing costs. ')+'Interest left on your current loan is '+money0(rr.oldInterest)+' ('+yrs(rr.oldMonths)+' left); the new loan would cost '+money0(rr.newInterest)+' over '+yrs(rr.newMonths)+'. '+(rr.lifetimeSaving>=0?'<b class="good">After closing costs the new loan saves '+money0(rr.lifetimeSaving)+' over the full term.</b>':'<b class="bad">Over the full term the new loan costs '+money0(-rr.lifetimeSaving)+' more.</b>')+(rr.extendsBy>12?' Note that it stretches payments out by '+yrs(rr.extendsBy)+', which is why a lower payment can cost more overall.':'')+'</p>':'<p class="sub muted" style="margin:10px 0 0;font-size:13px">Enter a rate you were quoted to compare. A lower payment from a longer term usually means more interest overall.</p>')+'</section>':'';
+  return head+tiles+adv+assum+cost+extra+decide+rental+sinceP+refi+'<p class="sub muted" style="margin:14px 0 0;font-size:12px;white-space:normal">This is a model built from the figures and assumptions above. It is not a prediction and not tax, legal or investment advice, and it leaves out income tax effects, repairs beyond the upkeep percentage and market swings.</p>';
+}
 /* ---------- Car loan and student loans ---------- */
 var LOANKIND={
   auto:{tab:'carloan',title:'Car loan',lender:'Honda Financial',example:'e.g. Honda Civic loan',what:'car loan'},
-  student:{tab:'student',title:'Student loans',lender:'Nelnet',example:'e.g. Direct Unsubsidized 2019',what:'student loans'}};
-var loanUI={auto:{extra:'',lump:'',years:'',bi:false,edit:'',adding:false,msg:''},student:{extra:'',lump:'',years:'',bi:false,edit:'',adding:false,msg:''}};
+  student:{tab:'student',title:'Student loans',lender:'Nelnet',example:'e.g. Direct Unsubsidized 2019',what:'student loans'},
+  credit:{tab:'loans',title:'Credit cards',lender:'Chase',example:'e.g. Chase Sapphire',what:'credit cards'},
+  loan:{tab:'loans',title:'Other loans',lender:'',example:'e.g. Personal loan',what:'other loans'}};
+var loanUI={};['auto','student','credit','loan'].forEach(function(k){loanUI[k]={extra:'',lump:'',years:'',bi:false,edit:'',adding:false,msg:''}});
 function loanForm(kind,l){
   var K=LOANKIND[kind],v=l||{};
   return '<form class="loanform panel" data-kind="'+kind+'" data-id="'+(l?l.id:'')+'" style="margin:10px 0"><div class="form" style="align-items:end">'+
    '<label>Name<input name="n" required maxlength="60" value="'+esc(v.name||'')+'" placeholder="'+K.example+'"></label><label>Lender<input name="l" maxlength="40" value="'+esc(v.lender||'')+'" placeholder="'+K.lender+'"></label>'+
    '<label>Balance owed<input name="b" type="number" step="0.01" min="0" required value="'+(v.balance!==undefined?v.balance:'')+'"></label><label>Interest rate (APR %)<input name="a" type="number" step="0.001" min="0" max="40" required value="'+(v.apr!==undefined?v.apr:'')+'"></label>'+
    '<label>Monthly payment<input name="p" type="number" step="0.01" min="0" required value="'+(v.minPay!==undefined?v.minPay:'')+'"></label><label>Due day (1 to 31)<input name="d" type="number" min="1" max="31" value="'+(v.dueDay||'')+'"></label>'+
-   '<label>Original amount (optional)<input name="o" type="number" step="0.01" min="0" value="'+(v.origBalance||'')+'"></label></div>'+
+   '<label>Original amount (optional)<input name="o" type="number" step="0.01" min="0" value="'+(v.origBalance||'')+'"></label>'+(kind==='credit'?'<label>Credit limit (leave empty if closed)<input name="lm" type="number" step="1" min="0" value="'+(v.limit||'')+'"></label><label style="flex-direction:row;gap:6px;align-items:center"><input name="cl" type="checkbox"'+(v.closed?' checked':'')+'> Closed, but I still owe a balance</label>':'')+'</div>'+
    '<details style="margin-top:10px"'+(v.asOf||v.amountDue||v.pastDue||v.accruedInterest||v.lastPayAmt?' open':'')+'><summary class="sub" style="cursor:pointer">Statement details (optional)</summary><div class="form" style="align-items:end;margin-top:8px">'+
    '<label>Amount due<input name="sa" type="number" step="0.01" min="0" value="'+(v.amountDue||'')+'"></label><label>Past due<input name="sp" type="number" step="0.01" min="0" value="'+(v.pastDue||'')+'"></label><label>Due date<input name="sd" type="date" value="'+esc(v.dueDate||'')+'"></label>'+
    '<label>Unpaid accrued interest<input name="si" type="number" step="0.01" min="0" value="'+(v.accruedInterest||'')+'"></label><label>Principal balance<input name="sr" type="number" step="0.01" min="0" value="'+(v.principal||'')+'"></label>'+
@@ -2388,7 +2525,12 @@ function loanChart(cur,fast){
   return '<svg viewBox="0 0 '+W+' '+H+'" width="100%" style="max-width:600px" role="img" aria-label="Balance owed over time, current plan and faster plan">'+g+line(cur.sched,'var(--muted)',true)+(fast!==cur?line(fast.sched,'var(--accent)'):'')+ticks+'</svg><div class="legend" style="flex-direction:row;gap:16px;margin-top:4px"><div><span style="display:inline-block;width:16px;border-top:2px dashed var(--muted)"></span> Current plan</div>'+(fast!==cur?'<div><span style="display:inline-block;width:16px;border-top:3px solid var(--accent)"></span> With your changes</div>':'')+'</div>';
 }
 function loanTips(kind){
-  var t=kind==='auto'?[
+  var t=kind==='credit'?[
+    'Pay more than the minimum whenever you can: card interest is charged on the full balance every month, and the minimum is mostly interest.',
+    'A 0% balance transfer can pause interest for a while. Count the transfer fee (often 3 to 5%) and what the rate becomes when the offer ends. The Loans page can compare it.',
+    'Closing a card does not erase the debt, and the payment history stays on your credit report. Mark it closed here so it stops counting as available credit.']:kind==='loan'?[
+    'Ask whether extra payments go to principal and whether there is a prepayment penalty.',
+    'If the rate is high and your credit has improved, compare a refinance. Add the fees to the cost before deciding.']:kind==='auto'?[
     'Tell the lender that extra money should go to <b>principal</b>. Some lenders apply it to the next payment instead, which saves nothing.',
     'Most car loans charge simple interest, so paying earlier in the month can trim the interest a little.',
     'If your credit has improved since you signed, a refinance could lower the rate. Compare a few quotes before changing anything.']:[
@@ -2415,13 +2557,13 @@ function loanCard(kind,l){
   var meta=esc(l.lender||'')+(l.lender?' · ':'')+l.apr+'% APR · '+money0(l.minPay)+'/mo'+(due?' · next due '+shortDate(iso(due)):'');
   var line=base.ok?(base.months?'Paid off <b>'+monthYear(addMonths(TODAY,base.months))+'</b> ('+dur(base.months)+') · about '+money0(base.interest)+' interest still to pay':'Paid off'):(base.reason==='never'?'<span class="bad">The payment does not cover the interest (about '+money0(base.needed)+' a month), so the balance would grow.</span>':'<span class="warn">Add a monthly payment to see a payoff date.</span>');
   if(loanUI[kind].edit===l.id)return loanForm(kind,l);
-  return '<div class="row wrap" style="align-items:flex-start">'+logo(l.name)+'<div class="grow" style="flex-basis:220px"><div class="nm">'+esc(l.name)+(l.plaid?' <span class="pill good">Linked</span>':'')+'</div><div class="sub">'+meta+'</div><div class="sub" style="margin-top:3px;white-space:normal">'+line+'</div>'+loanStmtBlock(l)+(pct!==null?'<div class="bar" style="margin-top:6px;max-width:320px"><i style="width:'+pct+'%"></i></div><div class="sub">'+pct.toFixed(0)+'% paid off of '+money0(l.origBalance)+'</div>':'')+'</div><div class="amt num">'+money(l.balance)+'</div><div class="actions" style="flex:none;flex-wrap:nowrap"><button class="btn small" data-act="loan-edit" data-kind="'+kind+'" data-id="'+l.id+'">Edit</button><button class="btn small" data-act="acct-del" data-id="'+l.id+'" aria-label="Remove">&times;</button></div></div>';
+  return '<div class="row wrap" style="align-items:flex-start">'+logo(l.name)+'<div class="grow" style="flex-basis:220px"><div class="nm">'+esc(l.name)+(l.closed?' <span class="pill mute">Closed</span>':'')+(l.plaid?' <span class="pill good">Linked</span>':'')+'</div><div class="sub">'+meta+'</div><div class="sub" style="margin-top:3px;white-space:normal">'+line+'</div>'+loanStmtBlock(l)+(pct!==null?'<div class="bar" style="margin-top:6px;max-width:320px"><i style="width:'+pct+'%"></i></div><div class="sub">'+pct.toFixed(0)+'% paid off of '+money0(l.origBalance)+'</div>':'')+'</div><div class="amt num">'+money(l.balance)+'</div><div class="actions" style="flex:none;flex-wrap:nowrap"><button class="btn small" data-act="loan-edit" data-kind="'+kind+'" data-id="'+l.id+'">Edit</button><button class="btn small" data-act="acct-del" data-id="'+l.id+'" aria-label="Remove">&times;</button></div></div>';
 }
-function vLoans(kind){
+function vLoans(kind,hub){
   var K=LOANKIND[kind],U=loanUI[kind],loans=S.accounts.filter(function(a){return a.type===kind});
-  var head='<div class="top"><h1>'+K.title+'</h1><button class="btn small" data-act="loan-add" data-kind="'+kind+'">Add a loan</button></div>';
+  var head=hub?'<div class="actions" style="justify-content:flex-end;margin:0 0 10px"><button class="btn small primary" data-act="loan-add" data-kind="'+kind+'">'+(kind==='credit'?'Add a card':'Add a loan')+'</button></div>':'<div class="top"><h1>'+K.title+'</h1><button class="btn small" data-act="loan-add" data-kind="'+kind+'">Add a loan</button></div>';
   var msg=U.msg?'<div class="banner"><span>'+esc(U.msg)+'</span></div>':'';
-  var adding=U.adding?'<section class="panel"><h2>Add a '+(kind==='auto'?'car loan':'student loan')+'</h2>'+loanForm(kind,null)+'<p class="sub muted" style="margin:0;font-size:12px">The balance, rate and payment are on your lender\'s website or monthly statement'+(kind==='student'?'. Federal loans often come as several separate loans with different rates, so add each one':'')+'.</p></section>':'';
+  var adding=U.adding?'<section class="panel"><h2>Add '+({auto:'a car loan',student:'a student loan',credit:'a credit card',loan:'a loan'}[kind])+'</h2>'+loanForm(kind,null)+'<p class="sub muted" style="margin:0;font-size:12px">The balance, rate and payment are on your lender\'s website or monthly statement'+(kind==='student'?'. Federal loans often come as several separate loans with different rates, so add each one':'')+'.</p></section>':'';
   if(!loans.length)return head+msg+adding+(U.adding?'':'<section class="panel"><div class="empty">No '+K.what+' yet. Add what you owe, the rate and the payment to see when it will be paid off and how to pay it off sooner.<div style="margin-top:12px"><button class="btn primary" data-act="loan-add" data-kind="'+kind+'">Add a loan</button></div></div></section>')+loanImportPanel(kind);
   var total=loans.reduce(function(a,l){return a+l.balance},0),mins=loans.reduce(function(a,l){return a+l.minPay},0),wapr=total>0?loans.reduce(function(a,l){return a+l.balance*l.apr},0)/total:0;
   var cur=portfolio(loans,0,0),dues=loans.map(function(l){return nextDue(l.dueDay,TODAY)}).filter(Boolean).sort(function(a,b){return a-b});
@@ -2519,7 +2661,7 @@ function loanImportPanel(kind){
     '<p class="sub muted" style="margin:6px 0 0;font-size:12px;white-space:normal">The file is read on this computer and account numbers are masked. Only <b>Read it with Claude</b> sends the text to Claude. You can also press Add a loan at the top and type the numbers in.</p>';
   // Plaid: student loans only, and only when keys are set up
   if(kind==='student'){
-    if(!plSt&&!plLoading){plLoading=true;tcall(T.plaid.status()).then(function(st){plSt=st;if(view==='student')render()}).catch(function(){})}
+    if(!plSt&&!plLoading){plLoading=true;tcall(T.plaid.status()).then(function(st){plSt=st;if(view==='student'||view==='loans')render()}).catch(function(){})}
     var loanItems=Object.keys(PL.items).filter(function(id){return PL.items[id].loan});
     if(plSt&&plSt.configured)h+='<div style="margin-top:16px;border-top:1px solid var(--line);padding-top:12px"><div class="nm" style="margin-bottom:6px">Link your servicer with Plaid</div><p class="sub" style="margin:0 0 8px;white-space:normal">Plaid can read loan balances, rates and payments from supported servicers. Whether Nelnet is available for your Plaid account is something only Plaid can confirm, and it needs Plaid\'s loan data access on your account.</p><div class="actions" style="justify-content:flex-start"><button class="btn" data-act="loan-plink"'+(plBusy?' disabled':'')+'>Link a loan servicer</button>'+(loanItems.length?'<button class="btn" data-act="loan-prefresh"'+(plBusy?' disabled':'')+'>Refresh linked loans</button>':'')+'</div>'+(plMsg?'<p class="sub" style="margin:8px 0 0">'+esc(plMsg.m)+'</p>':'')+'</div>';
     else if(plSt)h+='<p class="sub muted" style="margin:14px 0 0;font-size:12px">To link a servicer with Plaid, add your Plaid keys under Bank sync on the Accounts tab first.</p>';
@@ -2967,7 +3109,7 @@ function backupPanel(){
   return '<section class="panel"><h2>Backup<small>save or restore everything</small></h2><div class="actions" style="justify-content:flex-start"><button class="btn primary" data-act="exp">Download backup</button><label class="btn" style="cursor:pointer">Restore from file<input id="bk" type="file" accept=".json,application/json" hidden></label></div><p class="sub muted" style="margin:10px 0 0;font-size:13px">Your data lives only in this browser. Download a backup now and then, and use it to move to another device or recover after clearing site data.</p>'+pend+'</section>';
 }
 function exportData(){
-  var payload={app:'tally-money',version:1,exported:new Date().toISOString(),data:{txns:S.txns,subs:S.subs,budgets:S.budgets,goals:S.goals,accounts:S.accounts,extraPay:S.extraPay,plaidIgnored:S.plaidIgnored,credit:S.credit,holdings:S.holdings,customCats:S.customCats,setAside:S.setAside,merchantCats:S.merchantCats,subCats:S.subCats,merchantSubs:S.merchantSubs,bills:S.bills,billMarks:S.billMarks,energy:S.energy}};
+  var payload={app:'tally-money',version:1,exported:new Date().toISOString(),data:{txns:S.txns,subs:S.subs,budgets:S.budgets,goals:S.goals,accounts:S.accounts,extraPay:S.extraPay,plaidIgnored:S.plaidIgnored,credit:S.credit,holdings:S.holdings,customCats:S.customCats,setAside:S.setAside,merchantCats:S.merchantCats,subCats:S.subCats,merchantSubs:S.merchantSubs,bills:S.bills,billMarks:S.billMarks,energy:S.energy,home:S.home,debtMonthly:S.debtMonthly}};
   var url=URL.createObjectURL(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}));
   var a=document.createElement('a');a.href=url;a.download='tally-backup-'+iso(TODAY)+'.json';document.body.appendChild(a);a.click();a.remove();
   setTimeout(function(){URL.revokeObjectURL(url)},1000);toast('Backup downloaded.');
@@ -3016,7 +3158,8 @@ function cleanBackup(j){
     var hist=(Array.isArray(x.history)?x.history:[]).filter(function(h){return h&&dre.test(h.date)&&isFinite(h.balance)}).map(function(h){return {date:h.date,balance:+h.balance}}).sort(function(a,b){return a.date<b.date?-1:1});
     if(!hist.length)hist=[{date:iso(TODAY),balance:+x.balance}];
     var ac={id:String(x.id||uid()),name:String(x.name).slice(0,120),type:x.type,balance:+x.balance,apr:DEBT_TYPES[x.type]?Math.max(0,+x.apr||0):0,minPay:DEBT_TYPES[x.type]?Math.max(0,+x.minPay||0):0,history:hist};if(x.type==='credit'&&+x.limit>0)ac.limit=+x.limit;if(x.type==='credit'&&x.closed===true)ac.closed=true;if(DEBT_TYPES[x.type]){var dd=Math.round(+x.dueDay);if(dd>=1&&dd<=31)ac.dueDay=dd;if(+x.origBalance>0)ac.origBalance=+x.origBalance;if(typeof x.lender==='string'&&x.lender)ac.lender=cleanSubName(x.lender).slice(0,40);var stm=cleanStmt(x);Object.keys(stm).forEach(function(k){ac[k]=stm[k]})}if(x.plaid&&typeof x.plaid.accountId==='string')ac.plaid={itemId:String(x.plaid.itemId||'').slice(0,100),accountId:x.plaid.accountId.slice(0,100)};return ac});
-  return {txns:txns,subs:subs,budgets:budgets,goals:goals,accounts:accounts,extraPay:Math.max(0,+d.extraPay||0),plaidIgnored:(Array.isArray(d.plaidIgnored)?d.plaidIgnored:[]).filter(function(x){return typeof x==='string'}).slice(0,200),credit:cleanCredit(d.credit),holdings:cleanHoldings(d.holdings),customCats:custom,setAside:setAside,merchantCats:merchantCats,subCats:subCats,merchantSubs:merchantSubs,bills:bills,billMarks:billMarks,energy:energy};
+  var home={};if(d.home&&typeof d.home==='object'&&!Array.isArray(d.home)){['purchasePrice','down','closing','origLoan','termYears','taxYear','insYear','hoaMonth','pmiMonth','maintPct','mgmtPct','vacancyPct','appreciation','ret','sellPct','rentGrowth','costGrowth','rentMonth','extra'].forEach(function(k){var n=parseFloat(d.home[k]);if(isFinite(n)&&n>=0&&n<1e9)home[k]=n});['purchaseDate','startDate'].forEach(function(k){if(/^\d{4}-\d{2}-\d{2}$/.test(d.home[k]||''))home[k]=d.home[k]});['mortId','valueId'].forEach(function(k){if(typeof d.home[k]==='string'&&/^[\w-]{1,40}$/.test(d.home[k])&&accounts.some(function(a){return a.id===d.home[k]}))home[k]=d.home[k]});if(d.home.setup===true&&home.valueId)home.setup=true}
+  return {txns:txns,subs:subs,budgets:budgets,goals:goals,accounts:accounts,extraPay:Math.max(0,+d.extraPay||0),plaidIgnored:(Array.isArray(d.plaidIgnored)?d.plaidIgnored:[]).filter(function(x){return typeof x==='string'}).slice(0,200),credit:cleanCredit(d.credit),holdings:cleanHoldings(d.holdings),customCats:custom,setAside:setAside,merchantCats:merchantCats,subCats:subCats,merchantSubs:merchantSubs,bills:bills,billMarks:billMarks,energy:energy,home:home,debtMonthly:Math.max(0,+d.debtMonthly||0)};
 }
 
 /* ---------- Goals ---------- */
@@ -3078,7 +3221,7 @@ function bindView(){
   var bk=$('#bk',m);if(bk)bk.onchange=function(){var file=bk.files[0];if(!file)return;var rd=new FileReader();rd.onload=function(){var c=null;try{c=cleanBackup(JSON.parse(String(rd.result)))}catch(e){}if(!c){toast('That file is not a Tally backup.');return}pendingImport=c;render()};rd.readAsText(file)};
 }
 document.addEventListener('click',function(e){
-  var v=e.target.closest('[data-view]');if(v){view=v.dataset.view;pendingImport=null;editTx='';render();window.scrollTo(0,0);return}
+  var v=e.target.closest('[data-view]');if(v){view=v.dataset.view;if(view==='carloan'||view==='student'){loanFilter=view==='student'?'student':'auto';view='loans'}pendingImport=null;editTx='';render();window.scrollTo(0,0);return}
   var b=e.target.closest('[data-act]');if(!b)return;
   var a=b.dataset.act,id=b.dataset.id,s=S.subs.filter(function(x){return x.id===id})[0];
   if(a==='mprev')month=shiftMonth(month,-1);
@@ -3099,7 +3242,7 @@ document.addEventListener('click',function(e){
   else if(a==='sub-adddet'){var d=detect()[+b.dataset.i];if(d)S.subs.push({id:uid(),name:d.name,amount:d.amount,cycle:d.cycle,next:d.next,status:'active'})}
   else if(a==='tx-del'){S.txns=S.txns.filter(function(x){return x.id!==id})}
   else if(a==='exp'){exportData();return}
-  else if(a==='imp-ok'){S={sample:false,customCats:pendingImport.customCats,txns:pendingImport.txns,subs:pendingImport.subs,budgets:pendingImport.budgets,goals:pendingImport.goals,accounts:pendingImport.accounts,extraPay:pendingImport.extraPay,plaidIgnored:pendingImport.plaidIgnored,credit:pendingImport.credit,holdings:pendingImport.holdings,setAside:pendingImport.setAside||[],merchantCats:pendingImport.merchantCats||{},subCats:pendingImport.subCats||{},merchantSubs:pendingImport.merchantSubs||{},bills:pendingImport.bills||[],billMarks:pendingImport.billMarks||{},energy:pendingImport.energy||[]};pendingImport=null;migrate();syncCats();Object.keys(PL.items).forEach(function(k){PL.items[k].cursor=''});savePL();toast('Backup restored.')}
+  else if(a==='imp-ok'){S={sample:false,customCats:pendingImport.customCats,txns:pendingImport.txns,subs:pendingImport.subs,budgets:pendingImport.budgets,goals:pendingImport.goals,accounts:pendingImport.accounts,extraPay:pendingImport.extraPay,plaidIgnored:pendingImport.plaidIgnored,credit:pendingImport.credit,holdings:pendingImport.holdings,setAside:pendingImport.setAside||[],merchantCats:pendingImport.merchantCats||{},subCats:pendingImport.subCats||{},merchantSubs:pendingImport.merchantSubs||{},bills:pendingImport.bills||[],billMarks:pendingImport.billMarks||{},energy:pendingImport.energy||[],home:pendingImport.home||{},debtMonthly:pendingImport.debtMonthly||0};pendingImport=null;migrate();syncCats();Object.keys(PL.items).forEach(function(k){PL.items[k].cursor=''});savePL();toast('Backup restored.')}
   else if(a==='imp-no'){pendingImport=null}
   else if(a==='inv-refresh'){invRefresh();return}
   else if(a==='inv-range'){invRange=+b.dataset.d}
@@ -3150,6 +3293,9 @@ document.addEventListener('click',function(e){
     })},'Waiting for the servicer window…').then(function(){render()});return;
   }
   else if(a==='loan-prefresh'){plRun(function(){return plSyncIds(Object.keys(PL.items).filter(function(id){return PL.items[id].loan}))},'Refreshing…').then(function(){render()});return}
+  else if(a==='mort-edit'){mortUI.edit=true}
+  else if(a==='mort-cancel'){mortUI.edit=false}
+  else if(a==='loan-filter'){loanFilter=b.dataset.f}
   else if(a==='loan-add'){loanUI[b.dataset.kind].adding=true;loanUI[b.dataset.kind].edit=''}
   else if(a==='loan-cancel'){loanUI[b.dataset.kind].adding=false;loanUI[b.dataset.kind].edit=''}
   else if(a==='loan-edit'){loanUI[b.dataset.kind].edit=id;loanUI[b.dataset.kind].adding=false}
@@ -3250,9 +3396,24 @@ function thBind(m){
   m.querySelectorAll('[data-due]').forEach(function(i){i.onchange=function(){var a=S.accounts.filter(function(x){return x.id===i.dataset.due})[0],v=parseInt(i.value,10);if(!a)return;if(v>=1&&v<=31)a.dueDay=v;else delete a.dueDay;save();render();toast(v>=1&&v<=31?'Due day saved.':'Due day cleared.')}});
   m.querySelectorAll('[data-minpay]').forEach(function(i){i.onchange=function(){var a=S.accounts.filter(function(x){return x.id===i.dataset.minpay})[0],v=parseFloat(i.value);if(!a||!(v>=0))return;a.minPay=Math.round(v*100)/100;save();render();toast('Minimum payment saved.')}});
   var da=$('#dash-auto',m);if(da)da.onchange=function(){DASH.auto=da.checked;DASH.last=0;dashSave()};
+  var hf=$('#homeform',m);if(hf)hf.onsubmit=function(e){e.preventDefault();
+    var g=function(n){return parseFloat(hf.elements[n].value)||0},v={value:g('value'),purchasePrice:g('purchasePrice'),down:g('down'),closing:g('closing'),balance:g('balance'),apr:g('apr'),pi:g('pi'),dueDay:Math.round(g('dueDay')),origLoan:g('origLoan'),termYears:g('termYears')||30,taxYear:g('taxYear'),insYear:g('insYear'),hoaMonth:g('hoaMonth'),pmiMonth:g('pmiMonth'),purchaseDate:hf.elements['purchaseDate'].value,startDate:''};
+    if(!(v.value>0)){toast('Enter what the home is worth now.');return}
+    if(v.apr>40||v.balance<0){toast('Check the rate and balance.');return}
+    if(v.balance>0&&!(v.pi>0)){toast('Enter your monthly principal-and-interest payment so the payoff can be worked out.');return}
+    saveHome(v);mortUI.edit=false;save();render();toast('Saved.')};
+  m.querySelectorAll('[data-ha]').forEach(function(i){i.onchange=function(){var v=parseFloat(i.value);if(!(v>=0))return;S.home[i.dataset.ha]=v;save();render()}});
+  m.querySelectorAll('[data-hv]').forEach(function(i){i.onchange=function(){var v=parseFloat(i.value);if(!(v>=0))return;var H=S.home,a=S.accounts.filter(function(x){return x.id===(i.dataset.hv==='value'?H.valueId:H.mortId)})[0];if(!a)return;acctSetBalance(a,v);save();render()}});
+  var hmh=$('#hm-horizon',m);if(hmh)hmh.onchange=function(){mortUI.horizon=+hmh.value;render()};
+  var hmt=$('#hm-try',m);if(hmt)hmt.onchange=function(){mortUI.tryExtra=hmt.value;render()};
+  [['rf-rate','rate'],['rf-years','years'],['rf-cost','cost']].forEach(function(p){var el=$('#'+p[0],m);if(el)el.onchange=function(){mortUI.refi[p[1]]=el.value;render()}});
+  var dpm=$('#dp-monthly',m);if(dpm)dpm.onchange=function(){debtUI.monthly=dpm.value;S.debtMonthly=Math.max(0,parseFloat(dpm.value)||0);save();render()};
+  [['dp-lump','lump'],['dp-years','years'],['dp-crate','cRate'],['dp-cmonths','cMonths'],['dp-cfee','cFee']].forEach(function(p){var el=$('#'+p[0],m);if(el)el.onchange=function(){debtUI[p[1]]=el.value;render()}});
+  var dps=$('#dp-strat',m);if(dps)dps.onchange=function(){debtUI.strat=dps.value;render()};
+  var dpi=$('#dp-incl',m);if(dpi)dpi.onchange=function(){debtUI.incl=dpi.checked;render()};
   var ar=$('#af-rate',m);if(ar)ar.onchange=function(){aff.rate=parseFloat(ar.value)||0;render()};
   m.querySelectorAll('[data-lr]').forEach(function(i2){i2.onchange=function(){
-    var kind=view==='student'?'student':'auto',r=loanUI[kind].imp&&loanUI[kind].imp.rows&&loanUI[kind].imp.rows[+i2.dataset.i];if(!r)return;
+    var kind=LOANKIND[loanFilter]?loanFilter:'auto',r=loanUI[kind].imp&&loanUI[kind].imp.rows&&loanUI[kind].imp.rows[+i2.dataset.i];if(!r)return;
     var f=i2.dataset.lr;if(f==='on')r.on=i2.checked;else if(f==='name'||f==='lender'||f==='dueDate'||f==='lastPayDate'||f==='asOf')r[f]=i2.value;else r[f]=parseFloat(i2.value)||0;
     if(f==='on')render();
   }});
@@ -3279,6 +3440,7 @@ function thBind(m){
     var dd=parseInt(g('d'),10),orig=parseFloat(g('o')),a=id?S.accounts.filter(function(x){return x.id===id})[0]:null;
     if(!a){a={id:uid(),type:kind,history:[]};S.accounts.push(a)}
     a.name=g('n').trim().slice(0,60);a.lender=g('l').trim().slice(0,40);a.apr=apr;a.minPay=pay;a.dueDay=dd>=1&&dd<=31?dd:0;a.origBalance=orig>0?orig:0;
+    if(kind==='credit'){var lim=parseFloat(g('lm'));if(lim>0)a.limit=lim;else delete a.limit;if(fm.elements['cl'].checked)a.closed=true;else delete a.closed}
     STMT_NUMS.concat(STMT_DATES).forEach(function(k){delete a[k]});applyStmt(a,{amountDue:g('sa'),pastDue:g('sp'),dueDate:g('sd'),accruedInterest:g('si'),principal:g('sr'),lastPayAmt:g('sl'),lastPayDate:g('sld'),asOf:g('sas')});
     if(a.balance!==bal||!a.history.length){a.balance=bal;var t=iso(TODAY),h=a.history.filter(function(x){return x.date===t})[0];if(h)h.balance=bal;else a.history.push({date:t,balance:bal})}
     loanUI[kind].adding=false;loanUI[kind].edit='';loanUI[kind].msg='';if(S.sample&&S.accounts.length){}save();render();toast(id?'Loan saved.':'Loan added.')}});
