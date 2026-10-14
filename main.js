@@ -10,6 +10,8 @@ const { createWidget } = require('./widget');
 const glassLib = require('./glass');
 const { createUpdater } = require('./updater');
 const { createLocalAI } = require('./local-ai');
+const { parseLoanText } = require('./loanparse');
+const aiMod = require('./ai');
 const { spawn } = require('child_process');
 
 let localAi = null;
@@ -237,10 +239,27 @@ function wireIpc() {
     while (statementText.size > 12) statementText.delete(statementText.keys().next().value);
     return { textId, chars: masked.length, name: String(name || '').slice(0, 80) };
   });
+  // Reading a loan statement without a paid key: by matching labels (always), or with a model running on this computer.
+  const loanKind = (k) => (['student', 'auto', 'credit', 'loan'].includes(k) ? k : 'auto');
+  handle('loan:parse', (textId, kind) => {
+    const text = statementText.get(String(textId));
+    if (!text) throw new Error('That file is no longer in memory. Choose it again.');
+    return parseLoanText(text, loanKind(kind));
+  });
+  ipcMain.handle('localai:loans', async (e, r) => {
+    if (!mainWin || mainWin.isDestroyed() || e.sender !== mainWin.webContents || !localAi) return { ok: false, error: 'Blocked.' };
+    try {
+      const text = statementText.get(String(r && r.textId));
+      if (!text) throw new Error('That file is no longer in memory. Choose it again.');
+      const kind = loanKind(r.kind);
+      const out = await localAi.chat({ id: 'loans' + Date.now(), model: r.model, messages: [{ role: 'system', content: aiMod.LOANS_LOCAL_SYSTEM }, { role: 'user', content: 'Kind of loan: ' + kind + '\n\n' + text.slice(0, 14000) }] });
+      return { ok: true, data: aiMod.parseLocalLoans(out.text) };
+    } catch (err) { return { ok: false, error: (err && err.message) || 'Something went wrong.' }; }
+  });
   handle('ai:loans', (textId, kind) => {
     const text = statementText.get(String(textId));
     if (!text) throw new Error('That file is no longer in memory. Choose it again.');
-    return ai.loansFromText(text, kind === 'student' ? 'student' : 'auto');
+    return ai.loansFromText(text, loanKind(kind) === 'student' ? 'student' : loanKind(kind) === 'auto' ? 'auto' : loanKind(kind));
   });
   handle('ai:statementPdf', (textId, type) => {
     const buf = statementBytes.get(String(textId));

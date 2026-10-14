@@ -330,7 +330,7 @@ function createAI({ store, clientFactory }) {
         max_tokens: 8000,
         system: LOANS_SYSTEM,
         output_config: { effort: 'medium', format: { type: 'json_schema', schema: LOANS_SCHEMA } },
-        messages: [{ role: 'user', content: JSON.stringify({ expected: kind === 'student' ? 'student loans' : 'a car loan', text: t }) }],
+        messages: [{ role: 'user', content: JSON.stringify({ expected: kind === 'student' ? 'student loans' : kind === 'credit' ? 'a credit card' : kind === 'loan' ? 'a loan' : 'a car loan', text: t }) }],
       });
       msg = await stream.finalMessage();
     } catch (err) {
@@ -400,5 +400,15 @@ function createAI({ store, clientFactory }) {
   return { status, saveKey, clearKey, analyze, categorize, loansFromText, statement, statementPdf, testKey };
 }
 
+// For a model running on this computer: the same job as the Claude version, but it must answer with plain JSON text.
+const LOANS_LOCAL_SYSTEM = LOANS_SYSTEM + '\nAnswer with ONLY one JSON object and nothing else, in exactly this shape: {"loans":[{"name":"","lender":"","balance":0,"apr":0,"monthlyPayment":0,"dueDay":0,"originalAmount":0,"note":"","amountDue":0,"pastDue":0,"dueDate":"","accruedInterest":0,"principal":0,"lastPaymentAmount":0,"lastPaymentDate":"","asOfDate":""}],"notes":""}';
+function parseLocalLoans(reply) {
+  const t = String(reply || '');
+  const i = t.indexOf('{'), j = t.lastIndexOf('}');
+  let parsed = null;
+  if (i >= 0 && j > i) { try { parsed = JSON.parse(t.slice(i, j + 1)); } catch (e) { parsed = null; } }
+  if (!parsed || !Array.isArray(parsed.loans)) throw new Error('The local assistant did not answer in a form I can read. Try again, use the free reader, or type the loan in by hand.');
+  return cleanLoans(parsed);
+}
 module.exports = {
-  cleanLoans, createAI, cleanResult, cleanStatement, friendlyError, detailOf, MODEL, SCHEMA, schemaFor, SYSTEM, MAX_STATEMENT_CHARS };
+  LOANS_LOCAL_SYSTEM, parseLocalLoans, cleanLoans, createAI, cleanResult, cleanStatement, friendlyError, detailOf, MODEL, SCHEMA, schemaFor, SYSTEM, MAX_STATEMENT_CHARS };

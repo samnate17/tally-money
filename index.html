@@ -504,8 +504,8 @@ function assistLoad(){
       if(names.indexOf(ASSIST.model)<0&&names.indexOf(ASSIST.model+':latest')>-1){ASSIST.model=ASSIST.model+':latest';assistSave()}
       if(names.length&&names.indexOf(ASSIST.model)<0){var pref=['qwen2.5','llama3.1','llama3.2','gemma','mistral','phi'],pick=null;pref.forEach(function(p){if(!pick)pick=names.filter(function(n){return n.indexOf(p)===0})[0]||null});ASSIST.model=pick||names[0];assistSave()}}
     else ASSIST.st={running:false,models:[]};
-    if(view==='assist')render();
-  },function(){ASSIST.loading=false;ASSIST.st={running:false,models:[]};if(view==='assist')render()});
+    if(view==='assist'||view==='student'||view==='carloan'||view==='loans')render();
+  },function(){ASSIST.loading=false;ASSIST.st={running:false,models:[]};if(view==='assist'||view==='student'||view==='carloan'||view==='loans')render()});
 }
 var assistTokenBound=false;
 function assistBind(){
@@ -2201,6 +2201,30 @@ function consolidationOffer(debts,rate,months,feePct){
   var newInterest=Math.max(0,pay*months-principal);
   return {pay:pay,principal:principal,fee:principal-total,newInterest:newInterest,nowOk:now.ok,nowMonths:now.ok?now.months:null,nowInterest:now.ok?now.interest:null,saving:now.ok?now.interest-newInterest:null,monthsNew:months,minTotal:minT};
 }
+// Advice from the plans. `p` = {debts, monthly, minTotal, min, av, sn, surplus}. Each item: {k:'good'|'warn'|'info', title, detail}.
+function debtAdvice(p){
+  var m0=function(v){return '$'+Math.round(v).toLocaleString('en-US')},out=[],debts=p.debts,av=p.av,sn=p.sn,mo=function(n){return n>=24?(n/12).toFixed(1).replace(/\.0$/,'')+' years':n+' month'+(n===1?'':'s')};
+  if(!debts.length)return out;
+  if(p.monthly<p.minTotal-0.005)out.push({k:'warn',title:'Your monthly amount is below your minimum payments',detail:'The minimums add up to '+m0(p.minTotal)+' a month, but you entered '+m0(p.monthly)+'. Missing minimums brings late fees and can hurt your credit, so raise it to at least '+m0(p.minTotal)+' before comparing strategies.'});
+  if(av&&av.ok&&sn&&sn.ok){
+    var diff=sn.interest-av.interest,first=function(pl){var i=pl.left.findIndex(function(n){return n<pl.left[0]});return i<0?0:i},fa=first(av),fs=first(sn);
+    var recAv=diff>=100;
+    out.push({k:'good',title:recAv?'Pay the highest interest rate first (avalanche)':'Either order works; smallest balance first is easier to stick with (snowball)',
+      detail:'Highest rate first finishes in '+mo(av.months)+' and costs '+m0(av.interest)+' in interest. Smallest balance first finishes in '+mo(sn.months)+' and costs '+m0(sn.interest)+'. '+(diff>=1?'Highest rate first saves about '+m0(diff)+(sn.months>av.months?' and finishes '+mo(sn.months-av.months)+' sooner':'')+'. ':'They cost about the same. ')+'Smallest first clears your first debt in '+mo(fs)+' (highest rate first: '+mo(fa)+'), which is the part that helps motivation.'+(recAv?'':' Because the difference is small, pick the one you will actually follow.')});
+  }
+  var top=debts.slice().sort(function(a,b){return b.apr-a.apr||b.balance-a.balance})[0];
+  if(top&&top.apr>0&&av&&av.ok&&p.plusExtra){
+    out.push({k:'info',title:'Your most expensive debt is '+top.name+' at '+top.apr+'%',detail:'It costs about '+m0(top.balance*top.apr/1200)+' in interest every month. Adding '+m0(p.plusExtra.extra)+' a month to your total payment would save about '+m0(av.interest-p.plusExtra.plan.interest)+' in interest and finish '+mo(av.months-p.plusExtra.plan.months)+' sooner.'});
+  }
+  var cards=debts.filter(function(d){return d.type==='credit'&&d.apr>=12});
+  if(cards.length){var cost=cards.reduce(function(a,d){return a+d.balance*d.apr/1200},0);
+    out.push({k:'warn',title:'Your credit cards cost about '+m0(cost)+' a month in interest',detail:'Card rates are usually the highest you pay. Avoid new charges on them while you pay them down. A 0% balance transfer, or a personal loan at a lower rate, can cut the interest: try the consolidation box below with the rate and fee you are offered. Transfer fees (often 3 to 5%) and the end date of a 0% offer matter.'})}
+  var low=debts.filter(function(d){return d.apr>0&&d.apr<4&&debts.some(function(o){return o.apr>=d.apr+3})});
+  if(low.length)out.push({k:'info',title:'Low-rate debts are not worth rushing',detail:low.map(function(d){return d.name+' ('+d.apr+'%)'}).join(', ')+' cost little in interest. Paying only the minimum there and putting the extra toward higher rates, an emergency fund or investing is usually the better use of money. It is your call if you prefer to be debt-free.'});
+  if(debts.some(function(d){return d.type==='student'}))out.push({k:'info',title:'About your student loans',detail:'Federal loans can be consolidated into one payment, but the new rate is roughly the average of the old ones, so it does not save interest; it only simplifies. Refinancing with a private lender can lower the rate, but you lose federal protections such as income-driven plans and forgiveness programs. Paying the highest-rate loan first saves the most.'});
+  if(p.surplus>0&&p.minTotal>0){var extra=Math.max(0,p.monthly-p.minTotal);out.push({k:'info',title:'Your usual leftover money is about '+m0(p.surplus)+' a month',detail:extra>0?'You plan to add '+m0(extra)+' a month above the minimums, which is '+Math.round(extra/p.surplus*100)+'% of that.':'You are paying only the minimums, so there is room to add some. Even '+m0(Math.min(50,Math.floor(p.surplus/2/5)*5||5))+' a month shortens the plan.'})}
+  return out;
+}
 /*DEBTPLAN-END*/
 
 /*HOME-START*/
@@ -2299,6 +2323,38 @@ function homeRefi(h,o){
   var n=Math.round((+o.years||0)*12);if(!(h.balance>0)||!(n>0))return null;
   var old=homeSim(h,0),pay=requiredPayment(h.balance,+o.rate||0,n),newInt=Math.max(0,pay*n-h.balance),saving=h.pi-pay,cost=+o.cost||0;
   return {newPay:pay,monthlySaving:saving,breakEvenMonths:saving>0.005?Math.ceil(cost/saving):null,oldMonths:old.months,newMonths:n,oldInterest:old.interest,newInterest:newInt,lifetimeSaving:old.interest-newInt-cost,extendsBy:n-old.months};
+}
+// Plain-language reading of the numbers above. `r` holds what the UI computed: {mo, eq, cmp, ro, sb, ex, years}.
+function homeAdvice(h,r){
+  var m0=function(v){return (v<0?'-':'')+'$'+Math.round(Math.abs(v)).toLocaleString('en-US')},out=[],yrs=function(mo){return mo>=24?(mo/12).toFixed(1).replace(/\.0$/,'')+' years':mo+' months'};
+  var mo=r.mo,eq=r.eq,cmp=r.cmp,ro=r.ro,sb=r.sb,ex=r.ex;
+  out.push({k:'info',title:'You own '+(100-eq.ltv).toFixed(0)+'% of the home: '+m0(eq.equity)+' of equity',detail:'If you sold today you would keep about '+m0(eq.proceeds)+' after about '+m0(eq.sellCosts)+' in selling costs ('+h.sellPct+'% of the value) and paying off the loan.'});
+  out.push({k:'info',title:'Owning costs about '+m0(mo.cash)+' a month, and about '+m0(mo.cost)+' of that does not come back',detail:'The payment includes '+m0(mo.principal)+' of principal, which builds your equity. The rest is interest ('+m0(mo.interest)+'), property tax ('+m0(mo.tax)+'), insurance ('+m0(mo.ins)+')'+(mo.hoa>0?', HOA ('+m0(mo.hoa)+')':'')+(mo.pmi>0?', PMI ('+m0(mo.pmi)+')':'')+' and upkeep set aside at '+h.maintPct+'% of the value a year ('+m0(mo.maint)+').'+(h.rentMonth>0?' A similar home would rent for about '+m0(h.rentMonth)+'.':'')});
+  if(mo.pmi>0&&h.value>0){var need=h.balance-0.8*h.value;out.push({k:'warn',title:'You are paying '+m0(mo.pmi)+' a month for mortgage insurance (PMI)',detail:'It can usually be dropped once the loan is 80% of the home\'s value or less, which is '+m0(0.8*h.value)+' for you. You need to pay down about '+m0(Math.max(0,need))+' more, or have the home re-appraised if its value has risen. Ask your lender how to request removal; that would save about '+m0(mo.pmi*12)+' a year.'})}
+  if(h.balance>0&&ex&&ex.length){
+    var eff=(Math.pow(1+h.apr/1200,12)-1)*100,e=ex[Math.min(1,ex.length-1)];
+    if(eff>h.ret+0.5)out.push({k:'good',title:'Paying extra on the mortgage looks better than investing the money',detail:'Your loan costs '+eff.toFixed(2)+'% a year and you assumed '+h.ret+'% from investing, so each extra dollar saves more than it would likely earn, with no risk. '+m0(e.extra)+' extra a month would clear the loan '+yrs(e.monthsSaved)+' sooner and save about '+m0(e.interestSaved)+' in interest. Keep an emergency fund first, because money in the house is hard to get back out.'});
+    else if(eff<h.ret-0.5)out.push({k:'info',title:'Investing the extra money is expected to beat paying down the mortgage',detail:'Your loan costs '+eff.toFixed(2)+'% a year and you assumed '+h.ret+'% from investing. On those numbers '+m0(e.extra)+' a month invested ends up about '+m0(e.fvInvest-e.fvPay)+' ahead of paying the loan off '+yrs(e.monthsSaved)+' sooner. The investment return is a guess and the mortgage saving is certain, so many people split it.'});
+    else out.push({k:'info',title:'Paying extra and investing come out about equal',detail:'Your loan costs '+eff.toFixed(2)+'% a year and you assumed '+h.ret+'% from investing. Paying extra is guaranteed; investing is not. If you value being debt-free sooner ('+yrs(e.monthsSaved)+' sooner with '+m0(e.extra)+' extra a month), paying extra is the safer choice.'});
+    out.push({k:'info',title:'About paying less each month',detail:'Your required payment is set by the loan, so you cannot simply lower it. The ways to lower it are refinancing to a lower rate or a longer term, or asking your lender about a recast after a large lump-sum payment. A lower payment usually means more total interest, so compare in the refinance box below.'});
+  }
+  if(cmp&&cmp.hasRent){
+    var be=cmp.beLive,yrsTxt=cmp.months/12;
+    if(be===0)out.push({k:'good',title:'Living in it beats selling and renting a similar home',detail:'With a rent of '+m0(h.rentMonth)+' a month, keeping the home leaves you better off than selling now, investing the proceeds at '+h.ret+'% and renting, at every point over the next '+yrsTxt+' years.'});
+    else if(be===null)out.push({k:'warn',title:'Selling and renting a similar home comes out ahead over '+yrsTxt+' years',detail:'On these assumptions (value growth '+h.appreciation+'% a year, '+h.ret+'% from investing, '+h.sellPct+'% to sell, rent '+m0(h.rentMonth)+' a month) the money from selling, invested, beats the equity you build and the home\'s growth. Rent and growth are big levers: change them above to see how sensitive this is.'});
+    else out.push({k:'info',title:'Keeping the home pulls ahead of selling after about '+yrs(be),detail:'Before that, selling today, investing the proceeds and renting a similar home would leave you better off. After that point the equity you build and the home\'s growth win. If you might move sooner than that, selling costs of '+h.sellPct+'% are hard to earn back.'});
+  }
+  if(ro&&h.rentMonth>0){
+    var good=ro.cashOnCash!==null&&ro.cashOnCash>=h.ret;
+    out.push({k:ro.cashFlow>=0?'good':'warn',title:'As a rental it would '+(ro.cashFlow>=0?'bring in about '+m0(ro.cashFlow)+' a month after the mortgage and costs':'cost you about '+m0(-ro.cashFlow)+' a month on top of the rent'),detail:'Rent '+m0(h.rentMonth)+' less vacancy ('+h.vacancyPct+'%), management ('+h.mgmtPct+'%), tax, insurance, HOA and upkeep gives '+m0(ro.noi)+' a month before the mortgage payment. The cap rate is '+ro.capRate.toFixed(1)+'%'+(ro.cashOnCash!==null?' and the return on the '+m0(ro.equityInvested)+' you would have tied up is '+ro.cashOnCash.toFixed(1)+'% a year in cash, before growth and principal paydown, against the '+h.ret+'% you assumed'+(good?': a good sign.':'.'):'.')+' The rent that would break even each month is about '+m0(ro.breakEvenRent)+'. Rent is '+ro.ruleOfOne.toFixed(2)+'% of the value a month (the "1% rule" looks for 1%).'});
+    if(cmp&&cmp.hasRent&&cmp.beLandlord!==undefined){var bl=cmp.beLandlord;out.push({k:bl===null?'warn':'info',title:bl===0?'Renting it out beats selling and investing from the start':bl===null?'Selling and investing beats renting it out over '+cmp.months/12+' years':'Renting it out pulls ahead of selling after about '+yrs(bl),detail:'This counts the monthly rent after costs and the mortgage, the principal you pay down and the home\'s growth, against the proceeds of a sale invested at '+h.ret+'%.'})}
+  }
+  if(sb){
+    var beTxt=sb.beMonths===0?'You are already past break-even on these figures.':sb.beMonths===null?'On these assumptions you would not get your money back within 30 years if you sold.':'On these assumptions you reach break-even in about '+yrs(sb.beMonths)+'.';
+    out.push({k:sb.gain>=0?'good':'warn',title:sb.gain>=0?'Since you bought, selling today would leave you about '+m0(sb.gain)+' ahead':'Since you bought, selling today would leave you about '+m0(-sb.gain)+' behind',detail:'Counting the purchase price ('+m0(sb.price)+'), closing costs ('+m0(sb.closing)+'), about '+m0(sb.cumInterest)+' of interest paid so far and about '+m0(sb.otherCosts)+' of taxes, insurance, HOA and upkeep, against '+m0(sb.sellNow)+' from a sale. '+beTxt+(h.rentMonth>0?' Counting the rent you did not pay, you are '+(sb.gainWithRent>=0?m0(sb.gainWithRent)+' ahead':m0(-sb.gainWithRent)+' behind')+(sb.beMonthsWithRent>0&&sb.beMonthsWithRent!==null?', break-even in about '+yrs(sb.beMonthsWithRent)+'.':'.'):'')});
+  }
+  out.push({k:'info',title:'What this does not include',detail:'Income tax effects (the mortgage-interest deduction, capital gains tax on a sale, and depreciation if you rent it out), repairs beyond the upkeep percentage, and market swings. A home you lived in for two of the last five years can exclude a large part of the gain from tax, and renting it out for a long time can change that. A tax professional can tell you what applies.'});
+  return out;
 }
 /*HOME-END*/
 
@@ -2434,6 +2490,13 @@ function applyLoans(res,itemId){
     upsertLoan('student',{match:man?man.id:'',accountId:l.accountId,itemId:itemId,name:man?'':l.name,lender:(PL.items[itemId]&&PL.items[itemId].name)||'',balance:l.balance,apr:l.apr,minPay:l.minPay,dueDay:l.dueDay,origBalance:l.origBalance,dueDate:l.dueDate,accruedInterest:l.accruedInterest,lastPayAmt:l.lastPayAmt,lastPayDate:l.lastPayDate,asOf:l.asOf});n++});
   return n;
 }
+// Three ways to read a statement: by labels (free, always), with a model on this computer, or with Claude (needs a key).
+function loanReadChoices(kind,hasKey){
+  var local=!!(window.tally&&window.tally.localAi&&ASSIST.st&&ASSIST.st.running&&ASSIST.st.models&&ASSIST.st.models.length&&ASSIST.model);
+  if(window.tally&&window.tally.localAi&&!ASSIST.st&&!ASSIST.loading)assistLoad();
+  function pick(how,label,hint,primary){return '<div style="margin:0 0 10px"><label class="btn'+(primary?' primary':'')+'" style="cursor:pointer;display:inline-block">'+label+'<input type="file" data-loanfile="'+kind+'" data-how="'+how+'" accept=".pdf,.txt,.csv,application/pdf,text/plain" hidden></label><span class="sub muted" style="margin-left:8px;font-size:12px;white-space:normal">'+hint+'</span></div>'}
+  return pick('free','Read it for free','Looks for the usual labels on the statement. Nothing is sent anywhere and no key is needed.',true)+(local?pick('local','Read it with my local assistant','Uses the model from your Assistant tab ('+esc(ASSIST.model)+'). Free and private, a little slower.',false):'')+(hasKey?pick('ai','Read it with Claude','Best on unusual layouts. Uses your Anthropic key.',false):'');
+}
 function loanImportPanel(kind){
   var K=LOANKIND[kind],U=loanUI[kind],I=U.imp||{stage:'idle'};
   if(!(window.tally&&window.tally.loan))return '<section class="panel"><h2>Update from a statement</h2><p class="sub muted" style="margin:0">Reading a lender statement with AI works in the Mac app. Here you can add and edit loans by hand.</p></section>';
@@ -2448,12 +2511,12 @@ function loanImportPanel(kind){
        '<div class="form" style="flex:1 1 100%;margin-left:28px;align-items:end"><label>Amount due<input data-lr="amountDue" data-i="'+i+'" type="number" step="0.01" value="'+(r.amountDue||'')+'" style="width:96px"></label><label>Past due<input data-lr="pastDue" data-i="'+i+'" type="number" step="0.01" value="'+(r.pastDue||'')+'" style="width:96px"></label><label>Due date<input data-lr="dueDate" data-i="'+i+'" type="date" value="'+esc(r.dueDate||'')+'"></label><label>Unpaid interest<input data-lr="accruedInterest" data-i="'+i+'" type="number" step="0.01" value="'+(r.accruedInterest||'')+'" style="width:96px"></label><label>Last payment<input data-lr="lastPayAmt" data-i="'+i+'" type="number" step="0.01" value="'+(r.lastPayAmt||'')+'" style="width:96px"></label><label>Paid on<input data-lr="lastPayDate" data-i="'+i+'" type="date" value="'+esc(r.lastPayDate||'')+'"></label><label>As of<input data-lr="asOf" data-i="'+i+'" type="date" value="'+esc(r.asOf||'')+'"></label></div>'+
        '<div class="sub" style="flex:1 1 100%;margin-left:28px">'+(r.match?'<span class="pill good">Updates your existing loan</span>':'<span class="pill mute">New loan</span>')+(r.note?' <span class="warn">'+esc(r.note)+'</span>':'')+((r.apr===0||r.minPay===0||r.balance===0)?' <span class="warn">A zero here usually means the statement did not show it. Fill it in or leave it and it will be kept as is.</span>':'')+'</div></div>'}).join('');
     var n=I.rows.filter(function(r){return r.on}).length;
-    return h+(I.notes?'<p class="sub" style="margin:0 0 8px">'+esc(I.notes)+'</p>':'')+'<p class="sub muted" style="margin:0 0 8px;font-size:13px">Claude read '+I.rows.length+' loan'+(I.rows.length===1?'':'s')+' from '+esc(I.file)+'. Check every number against the document before saving.</p>'+rows+'<div class="actions" style="justify-content:flex-start;margin-top:12px"><button class="btn primary" data-act="loan-imp-ok" data-kind="'+kind+'"'+(n?'':' disabled')+'>Save '+n+' loan'+(n===1?'':'s')+'</button><button class="btn" data-act="loan-imp-cancel" data-kind="'+kind+'">Cancel</button></div></section>';
+    return h+(I.notes?'<p class="sub" style="margin:0 0 8px">'+esc(I.notes)+'</p>':'')+'<p class="sub muted" style="margin:0 0 8px;font-size:13px">'+({free:'The free reader',local:'Your local assistant',ai:'Claude'}[I.by]||'The reader')+' found '+I.rows.length+' loan'+(I.rows.length===1?'':'s')+' in '+esc(I.file)+'. Check every number against the document before saving, and fill in anything left blank.</p>'+rows+'<div class="actions" style="justify-content:flex-start;margin-top:12px"><button class="btn primary" data-act="loan-imp-ok" data-kind="'+kind+'"'+(n?'':' disabled')+'>Save '+n+' loan'+(n===1?'':'s')+'</button><button class="btn" data-act="loan-imp-cancel" data-kind="'+kind+'">Cancel</button></div></section>';
   }
   if(I.msg)h+='<div class="banner" style="margin-bottom:12px"><span>'+esc(I.msg)+'</span></div>';
-  h+='<p class="sub" style="margin:0 0 10px;white-space:normal">Choose a statement or account summary from '+(kind==='auto'?'Honda Financial (a PDF from your online account)':'Nelnet (a PDF statement), or the loan data download from studentaid.gov, which lists each federal loan')+'. Claude reads it and fills in the balance, rate and payment for you to check.</p>'+
-    (hasKey?'<label class="btn" style="cursor:pointer;display:inline-block">Choose a file<input type="file" data-loanfile="'+kind+'" accept=".pdf,.txt,.csv,application/pdf,text/plain" hidden></label>':'<p class="sub" style="margin:0">Reading a statement needs an Anthropic API key (AI analysis, on the Transactions tab). <b>Without one, press Add a loan at the top of this page and type the numbers from your statement</b>; the form has an optional Statement details section for the amount due, past due, unpaid interest and last payment.</p>')+
-    '<p class="sub muted" style="margin:10px 0 0;font-size:12px">The file is read on this computer. Account and card numbers are masked, then the text is sent to Claude with your API key. Nothing is saved until you confirm.</p>';
+  h+='<p class="sub" style="margin:0 0 10px;white-space:normal">Choose a statement or account summary from '+(kind==='auto'?'Honda Financial (a PDF from your online account)':kind==='student'?'Nelnet (a PDF statement), or the loan data download from studentaid.gov, which lists each federal loan':'your lender (a PDF from your online account)')+'. It fills in the balance, rate, payment and statement details for you to check before anything is saved.</p>'+
+    loanReadChoices(kind,hasKey)+
+    '<p class="sub muted" style="margin:6px 0 0;font-size:12px;white-space:normal">The file is read on this computer and account numbers are masked. Only <b>Read it with Claude</b> sends the text to Claude. You can also press Add a loan at the top and type the numbers in.</p>';
   // Plaid: student loans only, and only when keys are set up
   if(kind==='student'){
     if(!plSt&&!plLoading){plLoading=true;tcall(T.plaid.status()).then(function(st){plSt=st;if(view==='student')render()}).catch(function(){})}
@@ -3167,15 +3230,15 @@ function thBind(m){
   m.querySelectorAll('.txedit').forEach(function(fm){var cs=fm.elements['c'],us=fm.elements['u'];if(cs&&us)cs.onchange=function(){us.innerHTML=subOptions(cs.value,'')};fm.onsubmit=function(e){e.preventDefault();var g=function(n){return fm.elements[n]};var r=editTxn(fm.dataset.id,{date:g('d').value,name:g('n').value,amount:parseFloat(g('a').value),cat:g('c').value,sub:g('u').value},g('s').checked);editTx='';catMsg='';save();render();toast(r?(r.changed?'Saved. Also updated '+r.changed+' similar transaction'+(r.changed===1?'':'s')+'.':'Saved.'):'Could not save.')}});
   m.querySelectorAll('[data-subs]').forEach(function(i){i.onchange=function(){var l=parseSubList(i.value);if(!S.subCats)S.subCats={};if(l.length)S.subCats[i.dataset.subs]=l;else delete S.subCats[i.dataset.subs];save();render();toast('Sub-categories for '+i.dataset.subs+' saved.')}});
   m.querySelectorAll('[data-loanfile]').forEach(function(inp){inp.onchange=function(){
-    var kind=inp.dataset.loanfile,f=inp.files[0];if(!f)return;
+    var kind=inp.dataset.loanfile,how=inp.dataset.how||'ai',f=inp.files[0];if(!f)return;
     var rd=new FileReader();rd.onload=function(){
       loanUI[kind].imp={stage:'busy',msg:'Reading '+f.name+'…'};render();
-      tcall(T.loan.readFile(rd.result,f.name)).then(function(r){loanUI[kind].imp.msg='Asking Claude to find the loans…';render();return tcall(T.ai.loans(r.textId,kind))}).then(function(res){
+      tcall(T.loan.readFile(rd.result,f.name)).then(function(r){loanUI[kind].imp.msg=how==='free'?'Looking for the loan details…':how==='local'?'Asking your local assistant to find the loans. This can take a minute…':'Asking Claude to find the loans…';render();return how==='free'?tcall(T.loan.parse(r.textId,kind)):how==='local'?tcall(T.localAi.loans({textId:r.textId,kind:kind,model:ASSIST.model})):tcall(T.ai.loans(r.textId,kind))}).then(function(res){
         var rows=(res.loans||[]).map(function(l){
           var ex=S.accounts.filter(function(a){return a.type===kind&&(a.name.toLowerCase()===l.name.toLowerCase()||(l.apr>0&&a.apr===l.apr&&(!l.lender||(a.lender||'').toLowerCase()===l.lender.toLowerCase())&&Math.abs(a.balance-l.balance)<a.balance*0.5))})[0];
           return {on:true,match:ex?ex.id:'',name:l.name,lender:l.lender,balance:l.balance,apr:l.apr,minPay:l.minPay,dueDay:l.dueDay,origBalance:l.origBalance,note:l.note,amountDue:l.amountDue,pastDue:l.pastDue,dueDate:l.dueDate,accruedInterest:l.accruedInterest,principal:l.principal,lastPayAmt:l.lastPayAmt,lastPayDate:l.lastPayDate,asOf:l.asOf};
         });
-        loanUI[kind].imp=rows.length?{stage:'review',rows:rows,notes:res.notes,file:f.name}:{stage:'idle',msg:'Claude could not find any loans in '+f.name+'. Check that it is a loan statement, or add the loan by hand.'};render();
+        loanUI[kind].imp=rows.length?{stage:'review',rows:rows,notes:res.notes,file:f.name,by:how}:{stage:'idle',msg:'No loan details were found in '+f.name+(how==='free'?'. The free reader needs the usual labels (Amount Due, Interest Rate and so on). Try the other reading options, or press Add a loan and type it in.':'. Check that it is a loan statement, or add the loan by hand.')};render();
       }).catch(function(e){loanUI[kind].imp={stage:'idle',msg:e.message};render()});
     };rd.readAsArrayBuffer(f);inp.value='';
   }});

@@ -264,6 +264,16 @@ Each loan can keep what its statement says: **amount due** and its due date, **p
 
 Three ways to fill them in: read a statement with AI (Mac or Windows app, needs your Anthropic key; every figure is shown in an editable table before anything is saved), type them into the **Statement details (optional)** section of the Add a loan form (no key needed), or link a student loan servicer with Plaid, which supplies the due date, last payment and outstanding interest when the servicer reports them. A newer statement replaces the older figures, so a past-due amount clears once you are caught up; a statement that is older than what you have is ignored; figures more than 45 days old are marked as out of date. Backups keep all of it.
 
+## Reading statements without paying for an API key
+
+On the loan pages, "Update from a statement" now has three ways to read the file you choose, all showing the same editable table before anything is saved:
+
+- **Read it for free** (always available in the desktop app): finds the usual labels on the statement (Amount Due, Past Due, Interest Rate, Principal, Accrued Interest, Last Payment, Due Date, Statement Date and so on) and takes the figure beside each. It also understands a table of several federal student loans (one loan per row). Nothing is sent anywhere. It works on ordinary statements and misses unusual layouts, so a blank or zero means the label was not found: fill it in or leave it.
+- **Read it with my local assistant**: uses the model you set up in the Assistant tab (Ollama). Free and private, a little slower, and as accurate as the model.
+- **Read it with Claude**: the most accurate on odd layouts, needs your Anthropic key.
+
+Honest limits: the free reader is tested on typical layouts I wrote from how these statements are usually worded, not on your real Honda or Nelnet files. If it misses something on yours, send me the statement text with the numbers hidden and I will teach it that wording.
+
 ## Windows
 
 A Windows installer (`Tally.Money-Setup-<version>.exe`, 64-bit; it also runs on Windows on ARM) is built by the same GitHub Actions workflow and attached to each release, after the Mac files. Run it, and if Windows SmartScreen says it protected your PC, choose **More info**, then **Run anyway** (the installer is not signed, which would need a paid certificate). Your data lives on that computer only; to move it from the Mac use Download backup on the Mac and Restore from file on Windows, or use the hosted version.

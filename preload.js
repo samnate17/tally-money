@@ -12,11 +12,13 @@ contextBridge.exposeInMainWorld('tally', {
   },
   loan: {
     readFile: inv('loan:text'),
+    parse: inv('loan:parse'),
   },
   localAi: {
     status: inv('localai:status'),
     chat: inv('localai:chat'),
     pull: inv('localai:pull'),
+    loans: inv('localai:loans'),
     cancel: inv('localai:cancel'),
     onProgress: (cb) => ipcRenderer.on('localai:progress', (_e, m) => cb(m)),
     onToken: (cb) => ipcRenderer.on('localai:token', (_e, m) => cb(m)),

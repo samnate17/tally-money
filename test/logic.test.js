@@ -1110,3 +1110,28 @@ test('home: since you bought, extra payments versus investing, and refinancing',
   assert.ok(Math.abs(rf.newPay - 1610.46) < 0.01 && rf.breakEvenMonths === Math.ceil(6000 / (h.pi - rf.newPay)) && rf.lifetimeSaving > 50000);
   assert.strictEqual(P.homeRefi(h, { rate: 7, years: 30, cost: 0 }).breakEvenMonths, null);       // a higher rate never pays back
 });
+
+test('home advice: reads the numbers into plain statements, with the right verdicts', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const P = new Function(srcBlock('/*LOAN-START*/', '/*LOAN-END*/') + srcBlock('/*HOME-START*/', '/*HOME-END*/') + '\nreturn {requiredPayment, homeNorm, homeMonthly, homeEquity, homeCompare, homeRentOut, homeSinceBuy, homeExtra, homeAdvice};')();
+  const pi = P.requiredPayment(300000, 6, 360);
+  const run = (over) => { const h = P.homeNorm({ value: 400000, balance: 300000, apr: 6, pi, taxYear: 4800, insYear: 1200, rentMonth: 2600, purchasePrice: 340000, down: 40000, closing: 8000, ...over });
+    return { h, items: P.homeAdvice(h, { mo: P.homeMonthly(h), eq: P.homeEquity(h), cmp: P.homeCompare(h, 10), ro: P.homeRentOut(h), sb: P.homeSinceBuy(h, 36), ex: P.homeExtra(h, [100, 250, 500]) }) }; };
+  const low = run({ ret: 3 }).items.map((i) => i.title).join('|');
+  assert.ok(/Paying extra on the mortgage looks better than investing/.test(low));
+  assert.ok(/Investing the extra money is expected to beat/.test(run({ ret: 12 }).items.map((i) => i.title).join('|')));
+  assert.ok(/mortgage insurance \(PMI\)/.test(run({ balance: 360000, pmiMonth: 150, pi: P.requiredPayment(360000, 6, 360) }).items.map((i) => i.title).join('|')));
+  const t = run({}).items; assert.ok(t.length >= 6 && t.every((i) => i.title && i.detail && ['good', 'warn', 'info'].includes(i.k)));
+  assert.ok(!run({ rentMonth: 0 }).items.some((i) => /rental|rent it|selling and renting/i.test(i.title)));
+});
+
+test('debt advice: recommends by the numbers and flags the real problems', () => {
+  const P = new Function(srcBlock('/*LOAN-START*/', '/*LOAN-END*/') + srcBlock('/*DEBTPLAN-START*/', '/*DEBTPLAN-END*/') + '\nreturn {payoffPlan, debtAdvice};')();
+  const debts = [{ id: 'a', name: 'Visa', type: 'credit', balance: 4000, apr: 24, minPay: 100 }, { id: 'b', name: 'Car', type: 'auto', balance: 9000, apr: 3, minPay: 250 }, { id: 'c', name: 'Direct Loan', type: 'student', balance: 6000, apr: 6, minPay: 70 }];
+  const minT = 420, plans = (monthly) => ({ min: P.payoffPlan(debts, minT, 'minimum'), av: P.payoffPlan(debts, monthly, 'avalanche'), sn: P.payoffPlan(debts, monthly, 'snowball') });
+  const mk = (monthly, surplus) => { const pl = plans(monthly); return P.debtAdvice({ debts, monthly, minTotal: minT, surplus, ...pl, plusExtra: { extra: 100, plan: P.payoffPlan(debts, monthly + 100, 'avalanche') } }); };
+  const items = mk(700, 300), titles = items.map((i) => i.title).join('|');
+  assert.ok(/Pay the highest interest rate first|Either order works/.test(titles) && /Your most expensive debt is Visa at 24%/.test(titles) && /credit cards cost about \$80 a month/.test(titles) && /Low-rate debts/.test(titles) && /student loans/.test(titles) && /leftover money/.test(titles));
+  assert.ok(/Your monthly amount is below your minimum/.test(mk(300, 0).map((i) => i.title).join('|')));
+  assert.deepStrictEqual(P.debtAdvice({ debts: [], monthly: 0, minTotal: 0, surplus: 0 }), []);
+});

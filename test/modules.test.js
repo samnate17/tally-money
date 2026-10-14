@@ -459,3 +459,13 @@ test('ai: loan statement details are cleaned (amounts, dates, past due, last pay
   const b = out.loans[1];
   assert.deepStrictEqual([b.amountDue, b.pastDue, b.dueDate, b.lastPayDate, b.asOf], [0, 0, '', '', '']);
 });
+
+test('ai: a local model reply is turned into loans, even with chatter around the JSON, and bad replies are refused', () => {
+  const { parseLocalLoans, LOANS_LOCAL_SYSTEM } = require('../ai');
+  assert.ok(/ONLY one JSON object/.test(LOANS_LOCAL_SYSTEM) && /pastDue/.test(LOANS_LOCAL_SYSTEM));
+  const reply = 'Sure! Here you go:\n```json\n{"loans":[{"name":"Civic","lender":"Honda Financial","balance":9600.12,"apr":7.2,"monthlyPayment":310.45,"dueDay":21,"originalAmount":18000,"note":"","amountDue":310.45,"pastDue":0,"dueDate":"2026-10-21","accruedInterest":0,"principal":0,"lastPaymentAmount":310.45,"lastPaymentDate":"2026-09-18","asOfDate":"2026-10-01"}],"notes":"ok"}\n```\nHope that helps.';
+  const out = parseLocalLoans(reply);
+  assert.deepStrictEqual([out.loans.length, out.loans[0].balance, out.loans[0].minPay, out.loans[0].dueDate, out.loans[0].lastPayDate], [1, 9600.12, 310.45, '2026-10-21', '2026-09-18']);
+  assert.throws(() => parseLocalLoans('I could not find any loans.'), /did not answer in a form I can read/);
+  assert.throws(() => parseLocalLoans('{"loans": "none"}'), /did not answer/);
+});
