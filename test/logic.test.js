@@ -1276,8 +1276,10 @@ test('apple card: CSV (purchases positive, Type column) is flipped, payments bec
   assert.ok(det.ok); assert.strictEqual(det.flip, true);
   const rows = F.csvBuild(det.rows, det.headerIdx, det.map, { order: det.order, flip: det.flip }).rows;
   assert.deepStrictEqual(rows.map((r) => [r.date, r.amount]), [['2026-10-01', -54.2], ['2026-10-03', -23.99], ['2026-10-05', 300], ['2026-10-06', 1.5]]);
-  const rev = F.pdfReviewRows([{ rows }]);
-  assert.deepStrictEqual(rev.map((r) => [r.transfer, r.on]), [[false, true], [false, true], [true, false], [false, true]]);   // the payment is skipped, so it is not income
+  const rev = F.pdfReviewRows([{ rows }], { card: true });
+  assert.deepStrictEqual(rev.map((r) => [r.transfer, r.card, r.on]), [[false, false, true], [false, false, true], [true, true, true], [false, false, true]]);   // the payment is kept as a card payment (a transfer), so it is never income
+  const own = F.pdfReviewRows([{ rows: [{ date: '2026-10-05', name: 'TRANSFER FROM SAVINGS', amount: 50, transfer: true }] }]);
+  assert.deepStrictEqual(own.map((r) => [r.transfer, r.card, r.on]), [[true, false, false]]);                          // an ordinary transfer between your own accounts stays unchecked
   assert.strictEqual(rev[3].cat, 'Other');                                                                                   // Daily Cash is a credit, not pay
   const ofx = 'OFXHEADER:100\n<OFX><CREDITCARDMSGSRSV1><CCSTMTTRNRS><CCSTMTRS><BANKTRANLIST>\n<STMTTRN><TRNTYPE>DEBIT<DTPOSTED>20261001120000[-5:EST]<TRNAMT>-54.20<NAME>SHAWS &amp; CO\n</STMTTRN>\n<STMTTRN><TRNTYPE>PAYMENT<DTPOSTED>20261005<TRNAMT>300.00<NAME>PAYMENT THANK YOU\n</STMTTRN></BANKTRANLIST><LEDGERBAL><BALAMT>-1234.56<DTASOF>20261006</LEDGERBAL></CCSTMTRS></CCSTMTTRNRS></CREDITCARDMSGSRSV1></OFX>';
   const o = F.ofxParse(ofx);
@@ -1427,4 +1429,16 @@ test('car drawing from AI: only plain shapes survive, and cleaning twice changes
   assert.strictEqual(C.cleanCarSvg('not a drawing'), ''); assert.strictEqual(C.cleanCarSvg(''), ''); assert.strictEqual(C.cleanCarSvg(null), '');
   assert.strictEqual(C.cleanCarSvg('<svg>' + shapes + '</svg>'.padEnd(200000, ' ')), '');                 // far too big
   assert.strictEqual(C.cleanCarSvg('<svg>' + shapes.replace('fill="#336699"', 'fill="url(#x);evil"') + '</svg>').includes('evil'), false);
+});
+
+test('card payments imported from a card statement are transfers, and make the checking-side payment count only once', () => {
+  const { ledgerOf, transferInfo, isTransfer } = new Function(srcBlock('/*TRANSFER-START*/', '/*TRANSFER-END*/') + '\nreturn {ledgerOf, transferInfo, isTransfer};')();
+  const card = [{ id: 'a', date: '2026-10-01', name: 'SHAWS', amount: -54.2, cat: 'Groceries' }, { id: 'b', date: '2026-10-05', name: 'ACH DEPOSIT INTERNET TRANSFER FROM ACCOUNT ENDING IN 1234', amount: 300, cat: 'Other', transfer: true, cardPay: true }];
+  const checking = { id: 'c', date: '2026-10-05', name: 'APPLE CARD GSBANKPAYMENT', amount: -300, cat: 'Debt and loans' };
+  assert.strictEqual(transferInfo(card, 'auto').cardSide, true);
+  assert.deepStrictEqual(ledgerOf(card, 'auto').map((x) => x.id), ['a']);                    // the payment is not income
+  assert.deepStrictEqual(ledgerOf(card.concat([checking]), 'auto').map((x) => x.id), ['a']);   // and the payment from checking is not spent again
+  assert.strictEqual(transferInfo([card[0], checking], 'auto').cardSide, false);              // no card payments imported: the checking payment is the real spending
+  assert.strictEqual(isTransfer({ amount: 25, name: 'FROM SAVINGS', transfer: true }, transferInfo([], 'auto')), true);
+  assert.strictEqual(transferInfo([{ amount: 25, name: 'FROM SAVINGS', transfer: true }], 'auto').cardSide, false);            // an ordinary transfer is not card evidence
 });

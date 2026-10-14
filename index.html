@@ -1263,7 +1263,7 @@ var XFER_CARD=/credit card (pmt|payment)|card (pmt|payment|autopay)|(visa|master
 // mode: 'auto' skips money paid to a card only when the card's own purchases are in the app too; 'skip' always; 'count' never.
 function transferInfo(txns,mode){
   var m=mode||'auto',cardSide=false;
-  if(m==='auto')for(var i=0;i<txns.length;i++)if(txns[i].amount>0&&XFER_IN.test(txns[i].name)){cardSide=true;break}
+  if(m==='auto')for(var i=0;i<txns.length;i++)if(txns[i].amount>0&&(txns[i].cardPay===true||XFER_IN.test(txns[i].name))){cardSide=true;break}   // cardPay: a payment imported from the card's own statement, so its purchases are in the app
   return {mode:m,cardSide:cardSide};
 }
 function isTransfer(x,info){
@@ -1757,14 +1757,15 @@ function pdfCategory(name,amount){
   if(amount>0)return /refund|return/i.test(name)?'Other':'Income';
   var g=guessCat(name);return g==='Income'?'Other':g;
 }
-function pdfReviewRows(files){
-  var have={},seen={},out=[];
+// opts.card: these files are credit card statements, so money coming in is a payment you made to the card.
+function pdfReviewRows(files,opts){
+  var have={},seen={},out=[],cardStmt=!!(opts&&opts.card);
   if(!S.sample)S.txns.concat(S.setAside||[]).forEach(function(x){var k=x.date+'|'+x.amount.toFixed(2)+'|'+aiKey(x.name);have[k]=(have[k]||0)+1}); // example data is replaced on import, so it is never a duplicate; money you set aside is not brought back
   files.forEach(function(f,fi){(f.rows||[]).forEach(function(r){
-    var k=r.date+'|'+r.amount.toFixed(2)+'|'+aiKey(r.name),dup=false;
+    var k=r.date+'|'+r.amount.toFixed(2)+'|'+aiKey(r.name),dup=false,kp=/^payment/.test(r.kind||''),tr=!!r.transfer||kp,card=tr&&r.amount>0&&(kp||cardStmt);   // a payment to a card is a record of money you already counted when it left checking: kept, but flagged so it is not income
     if(have[k]>0){have[k]--;dup=true}else if(seen[k]!==undefined&&seen[k]!==fi)dup=true;
     if(seen[k]===undefined)seen[k]=fi;
-    out.push({fi:fi,date:r.date,name:r.name,amount:r.amount,cat:(r.cat&&CATS.indexOf(r.cat)>-1&&!(r.amount>0&&r.cat!=='Income'))?r.cat:(r.amount>0&&/^(credit|adjustment|reversal|refund|return)/.test(r.kind||'')?'Other':pdfCategory(r.name,r.amount)),uncertain:!!r.uncertain,dup:dup,transfer:!!r.transfer||/^payment/.test(r.kind||''),on:!dup&&!r.transfer&&!/^payment/.test(r.kind||'')});
+    out.push({fi:fi,date:r.date,name:r.name,amount:r.amount,cat:(r.cat&&CATS.indexOf(r.cat)>-1&&!(r.amount>0&&r.cat!=='Income'))?r.cat:(r.amount>0&&/^(credit|adjustment|reversal|refund|return)/.test(r.kind||'')?'Other':pdfCategory(r.name,r.amount)),uncertain:!!r.uncertain,dup:dup,transfer:tr,card:card,on:!dup&&(!tr||card)});
   })});
   return out;
 }
@@ -3602,13 +3603,13 @@ function pdfInner(){
     if(pdf.showText===i&&f.preview)extra+='<pre class="pdfpre">'+esc(f.preview.join('\n')||'(nothing)')+'</pre><button class="btn small" data-pdf="copy" data-i="'+i+'">Copy this text (numbers masked)</button>';
     return '<div class="row wrap" style="align-items:flex-start"><div class="grow" style="flex-basis:220px"><div class="nm">'+esc(f.name)+'</div><div class="sub" style="white-space:normal">'+why+'</div>'+(acts?'<div class="actions" style="justify-content:flex-start;margin-top:6px">'+acts+'</div>':'')+extra+'</div>'+st+'</div>';
   }).join('');
-  var on=pdf.rows.filter(function(r){return r.on}).length,dups=pdf.rows.filter(function(r){return r.dup}).length,trs=pdf.rows.filter(function(r){return r.transfer&&!r.dup}).length,unc=pdf.rows.filter(function(r){return r.uncertain&&r.on}).length;
+  var on=pdf.rows.filter(function(r){return r.on}).length,dups=pdf.rows.filter(function(r){return r.dup}).length,cps=pdf.rows.filter(function(r){return r.card&&!r.dup}).length,trs=pdf.rows.filter(function(r){return r.transfer&&!r.card&&!r.dup}).length,unc=pdf.rows.filter(function(r){return r.uncertain&&r.on}).length;
   var list=pdf.showAll?pdf.rows:pdf.rows.slice(0,300);
   var cats=CATS;
-  var rows=list.map(function(r){var i=pdf.rows.indexOf(r);return '<div class="row wrap pdfrow"><input type="checkbox" data-pc="on" data-i="'+i+'"'+(r.on?' checked':'')+' aria-label="Include"><input type="date" data-pc="date" data-i="'+i+'" value="'+r.date+'" aria-label="Date"><input type="text" class="grow" style="flex-basis:140px" data-pc="name" data-i="'+i+'" value="'+esc(r.name)+'" aria-label="Description"><select data-pc="cat" data-i="'+i+'" aria-label="Category">'+cats.map(function(c){return '<option'+(c===r.cat?' selected':'')+'>'+c+'</option>'}).join('')+'</select>'+(r.ai?'<span class="pill '+(r.ai==='high'?'good':r.ai==='medium'?'warn':'mute')+'" title="Predicted by Claude ('+r.ai+' confidence). Change it if it is wrong.">AI</span>':'')+'<button class="btn small" data-pdf="flip" data-i="'+i+'" title="Switch between money in and money out" aria-label="Flip sign">'+(r.uncertain?'\u26a0 ':'')+'<span class="num '+(r.amount>0?'good':'')+'">'+(r.amount>0?'+':'-')+money(Math.abs(r.amount))+'</span></button>'+(r.dup?'<span class="pill mute">Already have</span>':'')+'</div>'}).join('');
+  var rows=list.map(function(r){var i=pdf.rows.indexOf(r);return '<div class="row wrap pdfrow"><input type="checkbox" data-pc="on" data-i="'+i+'"'+(r.on?' checked':'')+' aria-label="Include"><input type="date" data-pc="date" data-i="'+i+'" value="'+r.date+'" aria-label="Date"><input type="text" class="grow" style="flex-basis:140px" data-pc="name" data-i="'+i+'" value="'+esc(r.name)+'" aria-label="Description"><select data-pc="cat" data-i="'+i+'" aria-label="Category">'+cats.map(function(c){return '<option'+(c===r.cat?' selected':'')+'>'+c+'</option>'}).join('')+'</select>'+(r.ai?'<span class="pill '+(r.ai==='high'?'good':r.ai==='medium'?'warn':'mute')+'" title="Predicted by Claude ('+r.ai+' confidence). Change it if it is wrong.">AI</span>':'')+'<button class="btn small" data-pdf="flip" data-i="'+i+'" title="Switch between money in and money out" aria-label="Flip sign">'+(r.uncertain?'\u26a0 ':'')+'<span class="num '+(r.amount>0&&!r.transfer?'good':'')+'">'+(r.amount>0&&!r.transfer?'+':r.transfer?'':'-')+money(Math.abs(r.amount))+'</span></button>'+(r.card&&!r.dup?'<span class="pill good" title="Money you paid to the card. It is kept, but not counted as income or spending.">Card payment</span>':r.transfer&&!r.dup?'<span class="pill mute" title="Moves money between your own accounts. Not counted as income or spending.">Transfer</span>':'')+(r.dup?'<span class="pill mute">Already have</span>':'')+'</div>'}).join('');
   var bal=pdf.files.map(function(f,i){if(!(f.meta&&f.meta.endBalance>0))return '';
     return '<div class="row wrap" style="align-items:center"><div class="grow" style="flex-basis:240px"><div class="nm">'+esc(f.name)+' shows a closing balance of '+money(f.meta.endBalance)+'</div><div class="sub" style="white-space:normal">Bring an account up to date with it (optional).</div></div><select data-pdfbal="'+i+'" aria-label="Account to update">'+S.accounts.map(function(a){return '<option value="'+esc(a.id)+'">'+esc(a.name)+'</option>'}).join('')+'</select><button class="btn small" data-pdf="setbal" data-i="'+i+'"'+(S.accounts.length?'':' disabled')+'>Set balance</button></div>'}).join('');
-  return h+note+pick+files+bal+(pdf.rows.length?'<p style="margin:14px 0 8px"><b>'+pdf.rows.length+'</b> transaction'+(pdf.rows.length===1?'':'s')+' found'+(dups?', '+dups+' already in the app (unchecked)':'')+(trs?', '+trs+' look like transfers between your own accounts (unchecked, so they are not counted as spending or income)':'')+'. '+(unc?'<b class="warn">'+unc+' have a guessed sign</b> (marked \u26a0). Check them, and use the amount button to flip money in and out.':'Check the amounts and signs before importing.')+'</p><div class="pdfscroll">'+rows+'</div>'+(pdf.rows.length>300&&!pdf.showAll?'<div class="empty"><button class="btn small" data-pdf="all">Show all '+pdf.rows.length+'</button></div>':'')+'<div class="actions" style="justify-content:flex-start;margin-top:12px"><button class="btn primary" data-pdf="import"'+(on?'':' disabled')+'>Import '+on+' transaction'+(on===1?'':'s')+'</button>'+(window.tally&&window.tally.ai&&aiSt&&aiSt.hasKey&&pdf.rows.some(function(r){return r.on&&r.cat==='Other'})?'<button class="btn" data-pdf="aicat"'+(pdf.aiBusy?' disabled':'')+'>'+(pdf.aiBusy?'Asking Claude…':'Predict categories with AI')+'</button>':'')+'<button class="btn" data-pdf="cancel">Cancel</button></div>':'<div class="actions" style="justify-content:flex-start;margin-top:12px"><button class="btn" data-pdf="cancel">Done</button></div>');
+  return h+note+pick+files+bal+(pdf.rows.length?'<p style="margin:14px 0 8px"><b>'+pdf.rows.length+'</b> transaction'+(pdf.rows.length===1?'':'s')+' found'+(dups?', '+dups+' already in the app (unchecked)':'')+(cps?', '+cps+' '+(cps===1?'is a payment':'are payments')+' you made to the card (imported as transfers, so they are not counted as income or spending)':'')+(trs?', '+trs+' look like transfers between your own accounts (unchecked, so they are not counted as spending or income)':'')+'. '+(unc?'<b class="warn">'+unc+' have a guessed sign</b> (marked \u26a0). Check them, and use the amount button to flip money in and out.':'Check the amounts and signs before importing.')+'</p><div class="pdfscroll">'+rows+'</div>'+(pdf.rows.length>300&&!pdf.showAll?'<div class="empty"><button class="btn small" data-pdf="all">Show all '+pdf.rows.length+'</button></div>':'')+'<div class="actions" style="justify-content:flex-start;margin-top:12px"><button class="btn primary" data-pdf="import"'+(on?'':' disabled')+'>Import '+on+' transaction'+(on===1?'':'s')+'</button>'+(window.tally&&window.tally.ai&&aiSt&&aiSt.hasKey&&pdf.rows.some(function(r){return r.on&&r.cat==='Other'})?'<button class="btn" data-pdf="aicat"'+(pdf.aiBusy?' disabled':'')+'>'+(pdf.aiBusy?'Asking Claude…':'Predict categories with AI')+'</button>':'')+'<button class="btn" data-pdf="cancel">Cancel</button></div>':'<div class="actions" style="justify-content:flex-start;margin-top:12px"><button class="btn" data-pdf="cancel">Done</button></div>');
 }
 function renderPdf(){
   var el=$('#pdfpanel');if(!el)return;el.innerHTML=pdfInner();
@@ -3641,7 +3642,7 @@ function stmtRead(fileList){
     return file.arrayBuffer().then(function(buf){return tcall(T.pdf.parse(buf,pdf.type==='auto'?null:pdf.type))}).then(function(r){pdf.files.push({name:file.name,file:file,rows:r.rows,meta:r.meta,textId:r.textId,chars:r.chars,preview:r.preview||[]})}).catch(function(e){pdf.files.push({name:file.name,file:file,rows:[],error:e.message})});
   })});
   return chain.then(function(){
-    pdf.busy='';pdf.stage='review';pdf.rows=pdfReviewRows(pdf.files);
+    pdf.busy='';pdf.stage='review';pdf.rows=pdfReviewRows(pdf.files,{card:pdf.type==='credit'||!!pdf.apple});
     pdf.mapIdx=-1;pdf.files.forEach(function(f,i){if(f.csv&&!f.csvOk&&pdf.mapIdx<0)pdf.mapIdx=i});
     var n=pdf.rows.length,needs=pdf.mapIdx>-1;
     pdf.msg=n||needs||pdf.files.some(function(f){return f.error})?'':'No transactions were recognised. For PDFs, try the other statement type, use “Show what was read” to see the text the app found, or read the file with AI.';
@@ -3679,13 +3680,13 @@ function pdfClick(b){
       pdf.aiBusy=false;pdf.msg=n?'Claude placed '+n+' transaction'+(n===1?'':'s')+'. Rows marked AI are predictions, so check them and change any that are wrong.':'Claude could not place any of them with confidence.';renderPdf();
     }).catch(function(e){pdf.aiBusy=false;pdf.msg=e.message;renderPdf()});return}
   if(a==='map'){pdf.mapIdx=pdf.mapIdx===i?-1:i;renderPdf();return}
-  if(a==='csvflip'){var cf2=pdf.files[i];if(cf2&&cf2.csv){cf2.csv.flip=!cf2.csv.flip;var bb=csvBuild(cf2.csv.rows,cf2.csv.headerIdx,cf2.csv.map,{order:cf2.csv.order,flip:cf2.csv.flip});cf2.rows=bb.rows;cf2.bad=bb.bad;pdf.rows=pdfReviewRows(pdf.files)}renderPdf();return}
+  if(a==='csvflip'){var cf2=pdf.files[i];if(cf2&&cf2.csv){cf2.csv.flip=!cf2.csv.flip;var bb=csvBuild(cf2.csv.rows,cf2.csv.headerIdx,cf2.csv.map,{order:cf2.csv.order,flip:cf2.csv.flip});cf2.rows=bb.rows;cf2.bad=bb.bad;pdf.rows=pdfReviewRows(pdf.files,{card:pdf.type==='credit'||!!pdf.apple})}renderPdf();return}
   if(a==='map-apply'){
     var mf=pdf.files[i],mc=mf&&mf.csv;if(!mc)return;
     if(!csvRolesOk(mc.map)){pdf.msg='Choose a Date column, a Description column and either an Amount column or Money out and Money in columns.';renderPdf();return}
     var mb=csvBuild(mc.rows,mc.headerIdx,mc.map,{order:mc.order,flip:mc.flip});
     if(!mb.rows.length){pdf.msg='No rows could be read with these columns. Check the Date column, the date format and the first data row.';renderPdf();return}
-    mf.rows=mb.rows;mf.bad=mb.bad;mf.csvOk=true;pdf.mapIdx=-1;pdf.msg='';pdf.rows=pdfReviewRows(pdf.files);renderPdf();return;
+    mf.rows=mb.rows;mf.bad=mb.bad;mf.csvOk=true;pdf.mapIdx=-1;pdf.msg='';pdf.rows=pdfReviewRows(pdf.files,{card:pdf.type==='credit'||!!pdf.apple});renderPdf();return;
   }
   if(a==='flip'){var r=pdf.rows[i];if(r){r.amount=-r.amount;r.cat=pdfCategory(r.name,r.amount);r.uncertain=false}renderPdf();return}
   if(a==='ai'){pdf.aiConfirm=i;renderPdf();return}
@@ -3696,19 +3697,19 @@ function pdfClick(b){
   if(a==='aipdf'){pdf.aiPdfConfirm=i;pdf.aiConfirm=-1;renderPdf();return}
   if(a==='aipdf-go'){
     var pf=pdf.files[i];pdf.aiPdfConfirm=-1;pdf.busy='Claude is reading '+pf.name+'\u2026 (scans can take a few minutes)';renderPdf();
-    tcall(T.ai.statementPdf(pf.textId,pf.meta&&pf.meta.type)).then(function(r){pf.rows=r.rows;pf.ai=true;pf.aiPdf=true;pf.notes=r.notes;pdf.rows=pdfReviewRows(pdf.files);pdf.msg=r.rows.length?'':'Claude did not find any transactions in this file.'}).catch(function(e){pdf.msg=e.message}).then(function(){pdf.busy='';renderPdf()});
+    tcall(T.ai.statementPdf(pf.textId,pf.meta&&pf.meta.type)).then(function(r){pf.rows=r.rows;pf.ai=true;pf.aiPdf=true;pf.notes=r.notes;pdf.rows=pdfReviewRows(pdf.files,{card:pdf.type==='credit'||!!pdf.apple});pdf.msg=r.rows.length?'':'Claude did not find any transactions in this file.'}).catch(function(e){pdf.msg=e.message}).then(function(){pdf.busy='';renderPdf()});
     return;
   }
   if(a==='ai-go'){
     var f=pdf.files[i];pdf.aiConfirm=-1;pdf.busy='Claude is reading '+f.name+'\u2026';renderPdf();
-    tcall(T.ai.statement(f.textId,f.meta&&f.meta.type)).then(function(r){f.rows=r.rows;f.ai=true;f.notes=r.notes;pdf.rows=pdfReviewRows(pdf.files);pdf.msg=r.rows.length?'':'Claude did not find any transactions in this file.'}).catch(function(e){pdf.msg=e.message}).then(function(){pdf.busy='';renderPdf()});
+    tcall(T.ai.statement(f.textId,f.meta&&f.meta.type)).then(function(r){f.rows=r.rows;f.ai=true;f.notes=r.notes;pdf.rows=pdfReviewRows(pdf.files,{card:pdf.type==='credit'||!!pdf.apple});pdf.msg=r.rows.length?'':'Claude did not find any transactions in this file.'}).catch(function(e){pdf.msg=e.message}).then(function(){pdf.busy='';renderPdf()});
     return;
   }
   if(a==='import'){
     var take=pdf.rows.filter(function(r){return r.on});if(!take.length)return;
     if(S.sample){S.txns=[];S.subs=[];S.goals=[];S.accounts=[];S.budgets={};S.extraPay=0;S.credit=defCredit();S.holdings=[];S.sample=false}
     var wasApple=!!pdf.apple;
-    take.forEach(function(r){var t={id:uid(),date:r.date,name:r.name,amount:Math.round(r.amount*100)/100,cat:r.cat},sb=subFor(r.cat,r.name,r.sub);if(sb)t.sub=sb;S.txns.push(t)});
+    take.forEach(function(r){var t={id:uid(),date:r.date,name:r.name,amount:Math.round(r.amount*100)/100,cat:r.cat},sb=subFor(r.cat,r.name,r.sub);if(sb)t.sub=sb;if(r.transfer){t.transfer=true;if(r.card)t.cardPay=true}S.txns.push(t)});
     if(wasApple){var ac=S.accounts.filter(function(a){return a.type==='credit'&&/apple/i.test(a.name)})[0];if(!ac){ac={id:uid(),name:'Apple Card',type:'credit',balance:0,apr:0,minPay:0,lender:'Apple Card',history:[]};S.accounts.push(ac)}S.apple={acct:ac.id,last:iso(TODAY),count:((S.apple&&S.apple.count)||0)+take.length}}
     S.txns.sort(function(x,y){return x.date<y.date?1:-1});save();
     var n=take.length;pdf={stage:'idle',type:pdf.type,files:[],rows:[],msg:n+' transaction'+(n===1?'':'s')+' imported.',busy:'',aiConfirm:-1,aiPdfConfirm:-1,showText:-1,mapIdx:-1,showAll:false};
@@ -4257,7 +4258,7 @@ function cleanCustomCats(c){
 function cleanBackup(j){
   var d=j&&j.data?j.data:j,dre=/^\d{4}-\d{2}-\d{2}$/,custom=cleanCustomCats(d&&d.customCats),allowed=BASECATS.concat(custom.map(function(c){return c.name}),['Other','Income']);
   if(!d||!Array.isArray(d.txns)||!Array.isArray(d.subs)||!Array.isArray(d.goals)||!d.budgets||typeof d.budgets!=='object')return null;
-  var cleanTx=function(x){var t={id:String(x.id||uid()),date:x.date,name:String(x.name).slice(0,120),amount:+x.amount,cat:allowed.indexOf(x.cat)>-1?x.cat:'Other'};if(typeof x.plaidId==='string'&&x.plaidId)t.plaidId=x.plaidId.slice(0,100);if(dre.test(x.asideAt||''))t.asideAt=x.asideAt;if(x.transfer===true||x.transfer===false)t.transfer=x.transfer;var sb=cleanSubName(x.sub);if(sb)t.sub=sb;return t};
+  var cleanTx=function(x){var t={id:String(x.id||uid()),date:x.date,name:String(x.name).slice(0,120),amount:+x.amount,cat:allowed.indexOf(x.cat)>-1?x.cat:'Other'};if(typeof x.plaidId==='string'&&x.plaidId)t.plaidId=x.plaidId.slice(0,100);if(dre.test(x.asideAt||''))t.asideAt=x.asideAt;if(x.transfer===true||x.transfer===false)t.transfer=x.transfer;if(x.cardPay===true)t.cardPay=true;var sb=cleanSubName(x.sub);if(sb)t.sub=sb;return t};
   var okTx=function(x){return x&&dre.test(x.date)&&isFinite(x.amount)&&x.name};
   var txns=d.txns.filter(okTx).map(cleanTx);
   var setAside=(Array.isArray(d.setAside)?d.setAside:[]).filter(okTx).slice(0,5000).map(cleanTx);
