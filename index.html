@@ -829,6 +829,22 @@ function nextDue(dueDay,today){
   if(c<new Date(y,m,today.getDate())){var n=new Date(y,m+1,1);c=new Date(n.getFullYear(),n.getMonth(),Math.min(d,dim(n.getFullYear(),n.getMonth())))}
   return c;
 }
+// Statement details kept on a loan: what is due, what is past due, interest still unpaid, the last payment and the date it was all true.
+var STMT_NUMS=['amountDue','pastDue','accruedInterest','principal','lastPayAmt'],STMT_DATES=['dueDate','lastPayDate','asOf'];
+function cleanStmt(r){
+  var o={};
+  STMT_NUMS.forEach(function(k){var n=+(r&&r[k]);if(isFinite(n)&&n>0&&n<1e8)o[k]=Math.round(n*100)/100});
+  STMT_DATES.forEach(function(k){var d=String((r&&r[k])||'');if(/^\d{4}-\d{2}-\d{2}$/.test(d)&&!isNaN(Date.parse(d)))o[k]=d});
+  return o;
+}
+// A newer statement replaces the old details (so "past due" clears once you have caught up); one without a date only fills in what it shows; an older one is ignored.
+function applyStmt(a,r){
+  var n=cleanStmt(r),all=STMT_NUMS.concat(STMT_DATES);
+  if(n.asOf&&a.asOf&&n.asOf<a.asOf)return false;
+  if(n.asOf)all.forEach(function(k){delete a[k]});
+  all.forEach(function(k){if(n[k]!==undefined)a[k]=n[k]});
+  return true;
+}
 function loanMatchRe(l){
   var skip=/^(loan|loans|direct|federal|unsubsidized|subsidized|financial|services|service|auto|student|plus|stafford|consolidation|finance|account|payment|group|american|national)$/;
   var words=(String(l.lender||'')+' '+String(l.name||'')).toLowerCase().replace(/[^a-z0-9 ]/g,' ').split(/\s+/).filter(function(w){return w.length>=4&&!skip.test(w)&&!/^\d+$/.test(w)});
@@ -2101,7 +2117,7 @@ function vBills(){
     if(it.source==='bill'&&billUI.edit===it.id)return billForm(it.raw);
     var act=st.state==='paid'?'<button class="btn small" data-act="bill-undo" data-id="'+esc(it.id)+'">'+(st.manual?'Undo':'Not paid?')+'</button>':'<button class="btn small primary" data-act="bill-paid" data-id="'+esc(it.id)+'">Mark paid</button>';
     var more=it.source==='bill'?'<button class="btn small" data-act="bill-edit" data-id="'+esc(it.id)+'">Edit</button><button class="btn small" data-act="bill-del" data-id="'+esc(it.id)+'" aria-label="Remove">&times;</button>':'<span class="sub muted" style="font-size:12px">from your '+(it.kind==='credit'?'card':'loan')+'</span>';
-    var paidNote=st.state==='paid'&&st.found&&Math.abs(st.found.amount-it.amount)>=1?' · paid '+money(st.found.amount):'';
+    var paidNote=(st.state==='paid'&&st.found&&Math.abs(st.found.amount-it.amount)>=1?' · paid '+money(st.found.amount):'')+(it.source==='loan'&&it.raw.pastDue>0?' · <span class="bad">past due '+money(it.raw.pastDue)+'</span>':'');
     return '<div class="row wrap">'+logo(it.name)+'<div class="grow" style="flex-basis:200px"><div class="nm">'+esc(it.name)+'</div><div class="sub">'+(it.dueDay?'Due on the '+it.dueDay+ordinal(it.dueDay):'No due day')+(it.cat?' · '+esc(it.cat)+(it.sub?' › '+esc(it.sub):''):'')+paidNote+'</div></div>'+billPill(st)+'<div class="amt num">'+money(it.amount)+'</div><div class="actions" style="flex:none;flex-wrap:nowrap">'+act+more+'</div></div>';
   }).join('');
   var list='<section class="panel"><h2>'+monthLabel(month)+'<small>'+sum.paidCount+' of '+sum.count+' paid</small></h2>'+(rows||'<div class="empty">No bills yet. Add rent, electricity, internet, insurance and anything else due every month.</div>')+
@@ -2148,6 +2164,10 @@ function loanForm(kind,l){
    '<label>Balance owed<input name="b" type="number" step="0.01" min="0" required value="'+(v.balance!==undefined?v.balance:'')+'"></label><label>Interest rate (APR %)<input name="a" type="number" step="0.001" min="0" max="40" required value="'+(v.apr!==undefined?v.apr:'')+'"></label>'+
    '<label>Monthly payment<input name="p" type="number" step="0.01" min="0" required value="'+(v.minPay!==undefined?v.minPay:'')+'"></label><label>Due day (1 to 31)<input name="d" type="number" min="1" max="31" value="'+(v.dueDay||'')+'"></label>'+
    '<label>Original amount (optional)<input name="o" type="number" step="0.01" min="0" value="'+(v.origBalance||'')+'"></label></div>'+
+   '<details style="margin-top:10px"'+(v.asOf||v.amountDue||v.pastDue||v.accruedInterest||v.lastPayAmt?' open':'')+'><summary class="sub" style="cursor:pointer">Statement details (optional)</summary><div class="form" style="align-items:end;margin-top:8px">'+
+   '<label>Amount due<input name="sa" type="number" step="0.01" min="0" value="'+(v.amountDue||'')+'"></label><label>Past due<input name="sp" type="number" step="0.01" min="0" value="'+(v.pastDue||'')+'"></label><label>Due date<input name="sd" type="date" value="'+esc(v.dueDate||'')+'"></label>'+
+   '<label>Unpaid accrued interest<input name="si" type="number" step="0.01" min="0" value="'+(v.accruedInterest||'')+'"></label><label>Principal balance<input name="sr" type="number" step="0.01" min="0" value="'+(v.principal||'')+'"></label>'+
+   '<label>Last payment received<input name="sl" type="number" step="0.01" min="0" value="'+(v.lastPayAmt||'')+'"></label><label>Paid on<input name="sld" type="date" value="'+esc(v.lastPayDate||'')+'"></label><label>Figures as of<input name="sas" type="date" value="'+esc(v.asOf||'')+'"></label></div></details>'+
    '<div class="actions" style="justify-content:flex-start;margin-top:10px"><button class="btn primary small">'+(l?'Save changes':'Add loan')+'</button><button type="button" class="btn small" data-act="loan-cancel" data-kind="'+kind+'">Cancel</button></div></form>';
 }
 function loanSurplus(){var c=afCtx();return c.months?{surplus:c.avgIncome-c.avgSpend,liquid:c.liquid,avgSpend:c.avgSpend,months:c.months}:null}
@@ -2171,12 +2191,25 @@ function loanTips(kind){
     'Income-driven plans lower your payment but can cost more in interest, and some forgiveness programs (such as for public service) depend on staying on the right plan. Check before switching.']; 
   return '<section class="panel"><h2>Good to know</h2>'+t.map(function(x){return '<p style="margin:0 0 8px;white-space:normal">'+x+'</p>'}).join('')+'<p class="sub muted" style="margin:6px 0 0;font-size:12px">General information, not financial advice. Your lender\'s terms and the rules for your specific loans come first.</p></section>';
 }
+function loanStmtBlock(l){
+  var P=[];
+  function item(label,val,cls){P.push('<div style="min-width:120px"><div class="sub muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.04em">'+label+'</div><div class="num '+(cls||'')+'" style="font-weight:600">'+val+'</div></div>')}
+  if(l.amountDue>0)item('Amount due',money(l.amountDue)+(l.dueDate?'<span class="muted" style="font-weight:400;font-size:12px"> by '+shortDate(l.dueDate)+'</span>':''));
+  else if(l.dueDate)item('Due date',shortDate(l.dueDate));
+  if(l.pastDue>0)item('Past due',money(l.pastDue),'bad');
+  if(l.accruedInterest>0)item('Unpaid interest',money(l.accruedInterest));
+  if(l.principal>0)item('Principal',money(l.principal));
+  if(l.lastPayAmt>0)item('Last payment',money(l.lastPayAmt)+(l.lastPayDate?'<span class="muted" style="font-weight:400;font-size:12px"> on '+shortDate(l.lastPayDate)+'</span>':''));
+  if(!P.length)return '';
+  var old=l.asOf&&dayDiff(parseD(l.asOf),TODAY)>45;
+  return '<div style="display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:8px">'+P.join('')+'</div>'+(l.asOf?'<div class="sub '+(old?'warn':'muted')+'" style="font-size:12px;margin-top:4px">Figures as of '+shortDate(l.asOf)+(old?'. This is more than 45 days old, so update it from a newer statement.':'')+'</div>':'');
+}
 function loanCard(kind,l){
   var base=amortize(l.balance,l.apr,l.minPay),due=nextDue(l.dueDay,TODAY),pct=l.origBalance>0?Math.max(0,Math.min(100,(1-l.balance/l.origBalance)*100)):null;
   var meta=esc(l.lender||'')+(l.lender?' · ':'')+l.apr+'% APR · '+money0(l.minPay)+'/mo'+(due?' · next due '+shortDate(iso(due)):'');
   var line=base.ok?(base.months?'Paid off <b>'+monthYear(addMonths(TODAY,base.months))+'</b> ('+dur(base.months)+') · about '+money0(base.interest)+' interest still to pay':'Paid off'):(base.reason==='never'?'<span class="bad">The payment does not cover the interest (about '+money0(base.needed)+' a month), so the balance would grow.</span>':'<span class="warn">Add a monthly payment to see a payoff date.</span>');
   if(loanUI[kind].edit===l.id)return loanForm(kind,l);
-  return '<div class="row wrap" style="align-items:flex-start">'+logo(l.name)+'<div class="grow" style="flex-basis:220px"><div class="nm">'+esc(l.name)+(l.plaid?' <span class="pill good">Linked</span>':'')+'</div><div class="sub">'+meta+'</div><div class="sub" style="margin-top:3px;white-space:normal">'+line+'</div>'+(pct!==null?'<div class="bar" style="margin-top:6px;max-width:320px"><i style="width:'+pct+'%"></i></div><div class="sub">'+pct.toFixed(0)+'% paid off of '+money0(l.origBalance)+'</div>':'')+'</div><div class="amt num">'+money(l.balance)+'</div><div class="actions" style="flex:none;flex-wrap:nowrap"><button class="btn small" data-act="loan-edit" data-kind="'+kind+'" data-id="'+l.id+'">Edit</button><button class="btn small" data-act="acct-del" data-id="'+l.id+'" aria-label="Remove">&times;</button></div></div>';
+  return '<div class="row wrap" style="align-items:flex-start">'+logo(l.name)+'<div class="grow" style="flex-basis:220px"><div class="nm">'+esc(l.name)+(l.plaid?' <span class="pill good">Linked</span>':'')+'</div><div class="sub">'+meta+'</div><div class="sub" style="margin-top:3px;white-space:normal">'+line+'</div>'+loanStmtBlock(l)+(pct!==null?'<div class="bar" style="margin-top:6px;max-width:320px"><i style="width:'+pct+'%"></i></div><div class="sub">'+pct.toFixed(0)+'% paid off of '+money0(l.origBalance)+'</div>':'')+'</div><div class="amt num">'+money(l.balance)+'</div><div class="actions" style="flex:none;flex-wrap:nowrap"><button class="btn small" data-act="loan-edit" data-kind="'+kind+'" data-id="'+l.id+'">Edit</button><button class="btn small" data-act="acct-del" data-id="'+l.id+'" aria-label="Remove">&times;</button></div></div>';
 }
 function vLoans(kind){
   var K=LOANKIND[kind],U=loanUI[kind],loans=S.accounts.filter(function(a){return a.type===kind});
@@ -2233,7 +2266,9 @@ function upsertLoan(kind,r){
   if(r.apr!==null&&r.apr!==undefined&&(isNew||r.apr>0))a.apr=r.apr;
   if(r.minPay!==null&&r.minPay!==undefined&&(isNew||r.minPay>0))a.minPay=r.minPay;
   if(r.dueDay>=1&&r.dueDay<=31)a.dueDay=r.dueDay;
+  else if(/^\d{4}-\d{2}-(\d{2})$/.test(r.dueDate||''))a.dueDay=+r.dueDate.slice(8);
   if(r.origBalance>0)a.origBalance=r.origBalance;
+  applyStmt(a,r);
   if(r.balance!==null&&r.balance!==undefined&&(isNew||r.balance>0||a.balance===0)){
     if(a.balance!==r.balance||!a.history.length){a.balance=r.balance;var t=iso(TODAY),h=a.history.filter(function(x){return x.date===t})[0];if(h)h.balance=r.balance;else a.history.push({date:t,balance:r.balance})}
   }
@@ -2246,7 +2281,7 @@ function applyLoans(res,itemId){
   (res.loans||[]).forEach(function(l){
     var man=S.accounts.filter(function(a){return a.type==='student'&&!a.plaid&&!taken[a.id]&&l.apr!==null&&Math.abs(a.apr-l.apr)<0.01&&l.balance!==null&&Math.abs(a.balance-l.balance)<=Math.max(50,a.balance*0.2)})[0];
     if(man)taken[man.id]=1;
-    upsertLoan('student',{match:man?man.id:'',accountId:l.accountId,itemId:itemId,name:man?'':l.name,lender:(PL.items[itemId]&&PL.items[itemId].name)||'',balance:l.balance,apr:l.apr,minPay:l.minPay,dueDay:l.dueDay,origBalance:l.origBalance});n++});
+    upsertLoan('student',{match:man?man.id:'',accountId:l.accountId,itemId:itemId,name:man?'':l.name,lender:(PL.items[itemId]&&PL.items[itemId].name)||'',balance:l.balance,apr:l.apr,minPay:l.minPay,dueDay:l.dueDay,origBalance:l.origBalance,dueDate:l.dueDate,accruedInterest:l.accruedInterest,lastPayAmt:l.lastPayAmt,lastPayDate:l.lastPayDate,asOf:l.asOf});n++});
   return n;
 }
 function loanImportPanel(kind){
@@ -2260,13 +2295,14 @@ function loanImportPanel(kind){
        '<label>Name<input data-lr="name" data-i="'+i+'" value="'+esc(r.name)+'" style="width:170px"></label><label>Lender<input data-lr="lender" data-i="'+i+'" value="'+esc(r.lender)+'" style="width:110px"></label>'+
        '<label>Balance<input data-lr="balance" data-i="'+i+'" type="number" step="0.01" value="'+r.balance+'" style="width:100px"></label><label>APR %<input data-lr="apr" data-i="'+i+'" type="number" step="0.001" value="'+r.apr+'" style="width:80px"></label>'+
        '<label>Payment<input data-lr="minPay" data-i="'+i+'" type="number" step="0.01" value="'+r.minPay+'" style="width:90px"></label><label>Due day<input data-lr="dueDay" data-i="'+i+'" type="number" min="0" max="31" value="'+r.dueDay+'" style="width:64px"></label></div>'+
+       '<div class="form" style="flex:1 1 100%;margin-left:28px;align-items:end"><label>Amount due<input data-lr="amountDue" data-i="'+i+'" type="number" step="0.01" value="'+(r.amountDue||'')+'" style="width:96px"></label><label>Past due<input data-lr="pastDue" data-i="'+i+'" type="number" step="0.01" value="'+(r.pastDue||'')+'" style="width:96px"></label><label>Due date<input data-lr="dueDate" data-i="'+i+'" type="date" value="'+esc(r.dueDate||'')+'"></label><label>Unpaid interest<input data-lr="accruedInterest" data-i="'+i+'" type="number" step="0.01" value="'+(r.accruedInterest||'')+'" style="width:96px"></label><label>Last payment<input data-lr="lastPayAmt" data-i="'+i+'" type="number" step="0.01" value="'+(r.lastPayAmt||'')+'" style="width:96px"></label><label>Paid on<input data-lr="lastPayDate" data-i="'+i+'" type="date" value="'+esc(r.lastPayDate||'')+'"></label><label>As of<input data-lr="asOf" data-i="'+i+'" type="date" value="'+esc(r.asOf||'')+'"></label></div>'+
        '<div class="sub" style="flex:1 1 100%;margin-left:28px">'+(r.match?'<span class="pill good">Updates your existing loan</span>':'<span class="pill mute">New loan</span>')+(r.note?' <span class="warn">'+esc(r.note)+'</span>':'')+((r.apr===0||r.minPay===0||r.balance===0)?' <span class="warn">A zero here usually means the statement did not show it. Fill it in or leave it and it will be kept as is.</span>':'')+'</div></div>'}).join('');
     var n=I.rows.filter(function(r){return r.on}).length;
     return h+(I.notes?'<p class="sub" style="margin:0 0 8px">'+esc(I.notes)+'</p>':'')+'<p class="sub muted" style="margin:0 0 8px;font-size:13px">Claude read '+I.rows.length+' loan'+(I.rows.length===1?'':'s')+' from '+esc(I.file)+'. Check every number against the document before saving.</p>'+rows+'<div class="actions" style="justify-content:flex-start;margin-top:12px"><button class="btn primary" data-act="loan-imp-ok" data-kind="'+kind+'"'+(n?'':' disabled')+'>Save '+n+' loan'+(n===1?'':'s')+'</button><button class="btn" data-act="loan-imp-cancel" data-kind="'+kind+'">Cancel</button></div></section>';
   }
   if(I.msg)h+='<div class="banner" style="margin-bottom:12px"><span>'+esc(I.msg)+'</span></div>';
   h+='<p class="sub" style="margin:0 0 10px;white-space:normal">Choose a statement or account summary from '+(kind==='auto'?'Honda Financial (a PDF from your online account)':'Nelnet (a PDF statement), or the loan data download from studentaid.gov, which lists each federal loan')+'. Claude reads it and fills in the balance, rate and payment for you to check.</p>'+
-    (hasKey?'<label class="btn" style="cursor:pointer;display:inline-block">Choose a file<input type="file" data-loanfile="'+kind+'" accept=".pdf,.txt,.csv,application/pdf,text/plain" hidden></label>':'<p class="sub muted" style="margin:0">Add your Anthropic API key (AI analysis, on the Transactions tab) to use this.</p>')+
+    (hasKey?'<label class="btn" style="cursor:pointer;display:inline-block">Choose a file<input type="file" data-loanfile="'+kind+'" accept=".pdf,.txt,.csv,application/pdf,text/plain" hidden></label>':'<p class="sub" style="margin:0">Reading a statement needs an Anthropic API key (AI analysis, on the Transactions tab). <b>Without one, press Add a loan at the top of this page and type the numbers from your statement</b>; the form has an optional Statement details section for the amount due, past due, unpaid interest and last payment.</p>')+
     '<p class="sub muted" style="margin:10px 0 0;font-size:12px">The file is read on this computer. Account and card numbers are masked, then the text is sent to Claude with your API key. Nothing is saved until you confirm.</p>';
   // Plaid: student loans only, and only when keys are set up
   if(kind==='student'){
@@ -2762,7 +2798,7 @@ function cleanBackup(j){
   var accounts=(Array.isArray(d.accounts)?d.accounts:[]).filter(function(x){return x&&x.name&&isFinite(x.balance)&&+x.balance>=0&&(ASSET_TYPES[x.type]||DEBT_TYPES[x.type])}).map(function(x){
     var hist=(Array.isArray(x.history)?x.history:[]).filter(function(h){return h&&dre.test(h.date)&&isFinite(h.balance)}).map(function(h){return {date:h.date,balance:+h.balance}}).sort(function(a,b){return a.date<b.date?-1:1});
     if(!hist.length)hist=[{date:iso(TODAY),balance:+x.balance}];
-    var ac={id:String(x.id||uid()),name:String(x.name).slice(0,120),type:x.type,balance:+x.balance,apr:DEBT_TYPES[x.type]?Math.max(0,+x.apr||0):0,minPay:DEBT_TYPES[x.type]?Math.max(0,+x.minPay||0):0,history:hist};if(x.type==='credit'&&+x.limit>0)ac.limit=+x.limit;if(DEBT_TYPES[x.type]){var dd=Math.round(+x.dueDay);if(dd>=1&&dd<=31)ac.dueDay=dd;if(+x.origBalance>0)ac.origBalance=+x.origBalance;if(typeof x.lender==='string'&&x.lender)ac.lender=cleanSubName(x.lender).slice(0,40)}if(x.plaid&&typeof x.plaid.accountId==='string')ac.plaid={itemId:String(x.plaid.itemId||'').slice(0,100),accountId:x.plaid.accountId.slice(0,100)};return ac});
+    var ac={id:String(x.id||uid()),name:String(x.name).slice(0,120),type:x.type,balance:+x.balance,apr:DEBT_TYPES[x.type]?Math.max(0,+x.apr||0):0,minPay:DEBT_TYPES[x.type]?Math.max(0,+x.minPay||0):0,history:hist};if(x.type==='credit'&&+x.limit>0)ac.limit=+x.limit;if(DEBT_TYPES[x.type]){var dd=Math.round(+x.dueDay);if(dd>=1&&dd<=31)ac.dueDay=dd;if(+x.origBalance>0)ac.origBalance=+x.origBalance;if(typeof x.lender==='string'&&x.lender)ac.lender=cleanSubName(x.lender).slice(0,40);var stm=cleanStmt(x);Object.keys(stm).forEach(function(k){ac[k]=stm[k]})}if(x.plaid&&typeof x.plaid.accountId==='string')ac.plaid={itemId:String(x.plaid.itemId||'').slice(0,100),accountId:x.plaid.accountId.slice(0,100)};return ac});
   return {txns:txns,subs:subs,budgets:budgets,goals:goals,accounts:accounts,extraPay:Math.max(0,+d.extraPay||0),plaidIgnored:(Array.isArray(d.plaidIgnored)?d.plaidIgnored:[]).filter(function(x){return typeof x==='string'}).slice(0,200),credit:cleanCredit(d.credit),holdings:cleanHoldings(d.holdings),customCats:custom,setAside:setAside,merchantCats:merchantCats,subCats:subCats,merchantSubs:merchantSubs,bills:bills,billMarks:billMarks,energy:energy};
 }
 
@@ -2886,7 +2922,7 @@ document.addEventListener('click',function(e){
   else if(a==='loan-imp-cancel'){loanUI[b.dataset.kind].imp={stage:'idle'}}
   else if(a==='loan-imp-ok'){
     var kk=b.dataset.kind,I2=loanUI[kk].imp,cnt=0;
-    (I2.rows||[]).forEach(function(r){if(!r.on)return;upsertLoan(kk,{match:r.match,name:r.name,lender:r.lender,balance:+r.balance,apr:+r.apr,minPay:+r.minPay,dueDay:+r.dueDay,origBalance:+r.origBalance});cnt++});
+    (I2.rows||[]).forEach(function(r){if(!r.on)return;upsertLoan(kk,{match:r.match,name:r.name,lender:r.lender,balance:+r.balance,apr:+r.apr,minPay:+r.minPay,dueDay:+r.dueDay,origBalance:+r.origBalance,amountDue:r.amountDue,pastDue:r.pastDue,dueDate:r.dueDate,accruedInterest:r.accruedInterest,principal:r.principal,lastPayAmt:r.lastPayAmt,lastPayDate:r.lastPayDate,asOf:r.asOf});cnt++});
     loanUI[kk].imp={stage:'idle',msg:'Saved '+cnt+' loan'+(cnt===1?'':'s')+'.'};
   }
   else if(a==='loan-plink'){
@@ -2982,7 +3018,7 @@ function thBind(m){
       tcall(T.loan.readFile(rd.result,f.name)).then(function(r){loanUI[kind].imp.msg='Asking Claude to find the loans…';render();return tcall(T.ai.loans(r.textId,kind))}).then(function(res){
         var rows=(res.loans||[]).map(function(l){
           var ex=S.accounts.filter(function(a){return a.type===kind&&(a.name.toLowerCase()===l.name.toLowerCase()||(l.apr>0&&a.apr===l.apr&&(!l.lender||(a.lender||'').toLowerCase()===l.lender.toLowerCase())&&Math.abs(a.balance-l.balance)<a.balance*0.5))})[0];
-          return {on:true,match:ex?ex.id:'',name:l.name,lender:l.lender,balance:l.balance,apr:l.apr,minPay:l.minPay,dueDay:l.dueDay,origBalance:l.origBalance,note:l.note};
+          return {on:true,match:ex?ex.id:'',name:l.name,lender:l.lender,balance:l.balance,apr:l.apr,minPay:l.minPay,dueDay:l.dueDay,origBalance:l.origBalance,note:l.note,amountDue:l.amountDue,pastDue:l.pastDue,dueDate:l.dueDate,accruedInterest:l.accruedInterest,principal:l.principal,lastPayAmt:l.lastPayAmt,lastPayDate:l.lastPayDate,asOf:l.asOf};
         });
         loanUI[kind].imp=rows.length?{stage:'review',rows:rows,notes:res.notes,file:f.name}:{stage:'idle',msg:'Claude could not find any loans in '+f.name+'. Check that it is a loan statement, or add the loan by hand.'};render();
       }).catch(function(e){loanUI[kind].imp={stage:'idle',msg:e.message};render()});
@@ -2999,7 +3035,7 @@ function thBind(m){
   var ar=$('#af-rate',m);if(ar)ar.onchange=function(){aff.rate=parseFloat(ar.value)||0;render()};
   m.querySelectorAll('[data-lr]').forEach(function(i2){i2.onchange=function(){
     var kind=view==='student'?'student':'auto',r=loanUI[kind].imp&&loanUI[kind].imp.rows&&loanUI[kind].imp.rows[+i2.dataset.i];if(!r)return;
-    var f=i2.dataset.lr;if(f==='on')r.on=i2.checked;else if(f==='name'||f==='lender')r[f]=i2.value;else r[f]=parseFloat(i2.value)||0;
+    var f=i2.dataset.lr;if(f==='on')r.on=i2.checked;else if(f==='name'||f==='lender'||f==='dueDate'||f==='lastPayDate'||f==='asOf')r[f]=i2.value;else r[f]=parseFloat(i2.value)||0;
     if(f==='on')render();
   }});
   m.querySelectorAll('[data-energyfile]').forEach(function(inp){inp.onchange=function(){var f=inp.files[0];if(!f)return;if(f.size>20e6){energyUI.msg='That file is too large to be a Green Button download.';render();return}
@@ -3025,6 +3061,7 @@ function thBind(m){
     var dd=parseInt(g('d'),10),orig=parseFloat(g('o')),a=id?S.accounts.filter(function(x){return x.id===id})[0]:null;
     if(!a){a={id:uid(),type:kind,history:[]};S.accounts.push(a)}
     a.name=g('n').trim().slice(0,60);a.lender=g('l').trim().slice(0,40);a.apr=apr;a.minPay=pay;a.dueDay=dd>=1&&dd<=31?dd:0;a.origBalance=orig>0?orig:0;
+    STMT_NUMS.concat(STMT_DATES).forEach(function(k){delete a[k]});applyStmt(a,{amountDue:g('sa'),pastDue:g('sp'),dueDate:g('sd'),accruedInterest:g('si'),principal:g('sr'),lastPayAmt:g('sl'),lastPayDate:g('sld'),asOf:g('sas')});
     if(a.balance!==bal||!a.history.length){a.balance=bal;var t=iso(TODAY),h=a.history.filter(function(x){return x.date===t})[0];if(h)h.balance=bal;else a.history.push({date:t,balance:bal})}
     loanUI[kind].adding=false;loanUI[kind].edit='';loanUI[kind].msg='';if(S.sample&&S.accounts.length){}save();render();toast(id?'Loan saved.':'Loan added.')}});
   ['extra','lump','years'].forEach(function(k){m.querySelectorAll('#lx-'+k).forEach(function(i){i.onchange=function(){loanUI[i.dataset.kind][k]=i.value;render()}})});

@@ -732,7 +732,7 @@ test('sub-categories: editing sets and clears them, similar transactions follow,
 });
 
 // ---- loans ----
-function loanBlock() { return new Function(srcBlock('/*LOAN-START*/', '/*LOAN-END*/') + '\nreturn {amortize, requiredPayment, portfolio, extraForTarget, nextDue, loanMatchRe, paymentsSeen};')(); }
+function loanBlock() { return new Function(srcBlock('/*LOAN-START*/', '/*LOAN-END*/') + '\nreturn {amortize, requiredPayment, portfolio, extraForTarget, nextDue, loanMatchRe, paymentsSeen, cleanStmt, applyStmt};')(); }
 
 test('loans: a single loan pays off on the schedule the formula predicts, and extra money shortens it', () => {
   const L = loanBlock();
@@ -1018,4 +1018,16 @@ test('the bill form can make a new category and sub-category', () => {
 test('backup keeps loan and card details such as the due day', () => {
   const src = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
   assert.ok(src.includes('ac.dueDay=dd') && src.includes('ac.origBalance=+x.origBalance') && src.includes('ac.lender=cleanSubName'));
+});
+
+test('loan statement details: a newer statement replaces old figures, an older one is ignored, undated ones only fill in', () => {
+  const L = loanBlock();
+  const a = {};
+  assert.strictEqual(L.applyStmt(a, { amountDue: 190, pastDue: 95, dueDate: '2026-10-21', accruedInterest: 120.2, lastPayAmt: 95, lastPayDate: '2026-09-14', asOf: '2026-10-01' }), true);
+  assert.deepStrictEqual([a.amountDue, a.pastDue, a.accruedInterest, a.lastPayAmt, a.asOf], [190, 95, 120.2, 95, '2026-10-01']);
+  assert.strictEqual(L.applyStmt(a, { amountDue: 999, asOf: '2026-08-01' }), false); assert.strictEqual(a.amountDue, 190);              // older statement ignored
+  L.applyStmt(a, { amountDue: 95, pastDue: 0, dueDate: '2026-11-21', asOf: '2026-11-01' });                                          // caught up: past due and the other old figures clear
+  assert.deepStrictEqual([a.amountDue, a.pastDue, a.accruedInterest, a.lastPayAmt, a.dueDate, a.asOf], [95, undefined, undefined, undefined, '2026-11-21', '2026-11-01']);
+  const b = { pastDue: 50, asOf: '2026-10-01' }; L.applyStmt(b, { accruedInterest: 10 }); assert.deepStrictEqual([b.pastDue, b.accruedInterest], [50, 10]);   // no date: fill in only
+  assert.deepStrictEqual(L.cleanStmt({ amountDue: '12.345', pastDue: -1, dueDate: 'soon', lastPayDate: '2026-02-30x' }), { amountDue: 12.35 });
 });

@@ -429,7 +429,7 @@ test('plaid: student loan liabilities are mapped, missing fields are tolerated',
   const res = { accounts: [{ account_id: 'a1', name: 'Direct Unsub', official_name: 'DIRECT UNSUBSIDIZED', type: 'loan', subtype: 'student', balances: { current: 7200.5 } }, { account_id: 'a2', name: 'Auto', type: 'loan', subtype: 'auto', balances: { current: 18000 } }, { account_id: 'a3', type: 'loan', subtype: 'student', balances: {} }],
     liabilities: { student: [{ account_id: 'a1', loan_name: 'Direct Unsubsidized 2019', interest_rate_percentage: 6.28, minimum_payment_amount: 95, next_payment_due_date: '2026-11-15', origination_principal_amount: 8000, expected_payoff_date: '2034-01-01', outstanding_interest_amount: 120.2, ytd_interest_paid: 380 }, { account_id: 'a3' }, { loan_name: 'no account' }] } };
   const out = normalizeLoans(res);
-  assert.deepStrictEqual(out.loans[0], { accountId: 'a1', name: 'Direct Unsubsidized 2019', balance: 7200.5, apr: 6.28, minPay: 95, dueDay: 15, origBalance: 8000, expectedPayoff: '2034-01-01', outstandingInterest: 120.2, ytdInterestPaid: 380 });
+  assert.deepStrictEqual(out.loans[0], { accountId: 'a1', name: 'Direct Unsubsidized 2019', balance: 7200.5, apr: 6.28, minPay: 95, dueDay: 15, origBalance: 8000, expectedPayoff: '2034-01-01', outstandingInterest: 120.2, ytdInterestPaid: 380, dueDate: '2026-11-15', accruedInterest: 120.2, lastPayAmt: null, lastPayDate: '', asOf: '' });
   assert.deepStrictEqual([out.loans[1].accountId, out.loans[1].balance, out.loans[1].apr, out.loans[1].dueDay, out.loans.length], ['a3', null, null, 0, 2]);
   assert.deepStrictEqual(out.other.map((x) => [x.accountId, x.subtype, x.balance]), [['a2', 'auto', 18000]]);
   assert.deepStrictEqual(normalizeLoans(null), { loans: [], other: [] });
@@ -447,4 +447,15 @@ test('plaid: loan link asks only for liabilities, and loans() reports unsupporte
   await plaid.createLinkToken(null); assert.deepStrictEqual(calls[1].body.products, ['transactions']);
   await assert.rejects(plaid.loans('it1'), /no loan details.*PRODUCTS_NOT_SUPPORTED/);
   assert.strictEqual(calls[2].body.access_token, 'tok');
+});
+
+test('ai: loan statement details are cleaned (amounts, dates, past due, last payment)', () => {
+  const { cleanLoans } = require('../ai');
+  const out = cleanLoans({ loans: [{ name: 'Direct Unsub 2019', lender: 'Nelnet', balance: 7200.5, apr: 6.28, monthlyPayment: 95, dueDay: 15, originalAmount: 8000, note: '',
+    amountDue: 190, pastDue: 95, dueDate: '2026-11-15', accruedInterest: 120.239, principal: 7080.26, lastPaymentAmount: 95, lastPaymentDate: '2026-09-14', asOfDate: '2026-10-01' },
+    { name: 'Bad dates', balance: 10, apr: 1, monthlyPayment: 1, dueDay: 1, originalAmount: 0, note: '', amountDue: -5, pastDue: 'abc', dueDate: '15/11/2026', accruedInterest: 0, principal: 0, lastPaymentAmount: 0, lastPaymentDate: 'yesterday', asOfDate: '' }], notes: '' });
+  const l = out.loans[0];
+  assert.deepStrictEqual([l.amountDue, l.pastDue, l.dueDate, l.accruedInterest, l.principal, l.lastPayAmt, l.lastPayDate, l.asOf], [190, 95, '2026-11-15', 120.24, 7080.26, 95, '2026-09-14', '2026-10-01']);
+  const b = out.loans[1];
+  assert.deepStrictEqual([b.amountDue, b.pastDue, b.dueDate, b.lastPayDate, b.asOf], [0, 0, '', '', '']);
 });

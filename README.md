@@ -258,6 +258,12 @@ A credit card (or any debt) with a minimum payment and a **payment due day** sho
 
 Backups now also keep each loan's and card's due day, lender and original balance (an older bug dropped them when restoring a backup, which would have hidden those bills).
 
+## Loan statement details
+
+Each loan can keep what its statement says: **amount due** and its due date, **past due**, **unpaid accrued interest**, **principal**, the **last payment received** (amount and date) and the date the figures are **as of**. They appear on the loan's card, and a past-due amount is also flagged on the Bills tab.
+
+Three ways to fill them in: read a statement with AI (Mac or Windows app, needs your Anthropic key; every figure is shown in an editable table before anything is saved), type them into the **Statement details (optional)** section of the Add a loan form (no key needed), or link a student loan servicer with Plaid, which supplies the due date, last payment and outstanding interest when the servicer reports them. A newer statement replaces the older figures, so a past-due amount clears once you are caught up; a statement that is older than what you have is ignored; figures more than 45 days old are marked as out of date. Backups keep all of it.
+
 ## Windows
 
 A Windows installer (`Tally.Money-Setup-<version>.exe`, 64-bit; it also runs on Windows on ARM) is built by the same GitHub Actions workflow and attached to each release, after the Mac files. Run it, and if Windows SmartScreen says it protected your PC, choose **More info**, then **Run anyway** (the installer is not signed, which would need a paid certificate). Your data lives on that computer only; to move it from the Mac use Download backup on the Mac and Restore from file on Windows, or use the hosted version.

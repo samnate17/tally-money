@@ -82,6 +82,11 @@ function normalizeLoans(res) {
       expectedPayoff: /^\d{4}-\d{2}-\d{2}$/.test(String(s.expected_payoff_date || '')) ? s.expected_payoff_date : '',
       outstandingInterest: num(s.outstanding_interest_amount),
       ytdInterestPaid: num(s.ytd_interest_paid),
+      dueDate: /^\d{4}-\d{2}-\d{2}$/.test(String(s.next_payment_due_date || '')) ? s.next_payment_due_date : '',
+      accruedInterest: num(s.outstanding_interest_amount),
+      lastPayAmt: num(s.last_payment_amount),
+      lastPayDate: /^\d{4}-\d{2}-\d{2}$/.test(String(s.last_payment_date || '')) ? s.last_payment_date : '',
+      asOf: /^\d{4}-\d{2}-\d{2}$/.test(String(s.last_statement_issue_date || '')) ? s.last_statement_issue_date : '',
     };
   }).filter((l) => l.accountId);
   const listed = new Set(loans.map((l) => l.accountId));
