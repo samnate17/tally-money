@@ -245,6 +245,7 @@ canvas.confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:non
 .growbar{transform-box:fill-box;transform-origin:bottom}
 .kenburns{width:100%;height:210px;object-fit:cover;border-radius:14px;display:block}
 .photoframe{overflow:hidden;border-radius:14px;margin-top:12px}
+.carphoto{background:radial-gradient(120% 90% at 50% 40%,#fff 55%,#eef1f6);padding:6px 0}.carphoto img{display:block;width:100%;height:230px;object-fit:contain;mix-blend-mode:multiply}
 :root[data-motion="full"] .drive{animation:drive 2.6s cubic-bezier(.25,.8,.25,1) .3s backwards}
 :root[data-motion="full"] .wheelspin{animation:spin .8s linear 3.4 .3s}
 :root[data-motion="full"] .roadline{animation:roadmove 1.1s linear infinite}
@@ -3192,7 +3193,7 @@ function autoHero(a){
   var type=a.carType&&CAR_TYPES[a.carType]?a.carType:carType((c&&c.vehicle)||a.name),curCol=/^#[0-9a-f]{6}$/i.test(a.carColor||'')?a.carColor:carDefaultColor(type);
   var stage=TH.bg==='studio'&&!(a.photo&&photoOk(a.photo))?carStage(a,type,curCol):'';
   var qa='<div class="qa">'+qaBtn(QI.pay,'Payoff','.contractpanel')+qaBtn(QI.chart,'Charts','.visuals')+qaBtn(QI.plus,'Extra payment','.fasterpanel')+qaBtn(QI.swap,'Refinance','#cf-rate')+qaBtn(QI.list,'Payments','.histpanel')+qaBtn(QI.doc,'Contract','.contractpanel details')+'</div>';
-  var art=(a.photo&&photoOk(a.photo)?'<div class="photoframe"><img class="kenburns" alt="'+esc(c&&c.vehicle||a.name)+'" src="'+a.photo+'"></div>':'')+'<div style="margin-top:12px">'+carScene(a,pct||0,{from:c&&sch?'Signed '+monthLabelDay(sch.contractDate).replace(/ \d+,/,''):'Start',to:maturity?'Paid off '+monthLabelDay(maturity).replace(/ \d+,/,''):'Paid off',years:term?Math.round(term/12):0,label:'Loan progress'})+'</div>'+
+  var art=(a.photo&&photoOk(a.photo)?'<div class="photoframe carphoto"><img alt="'+esc(c&&c.vehicle||a.name)+'" src="'+a.photo+'"></div>':'')+'<div style="margin-top:12px">'+carScene(a,pct||0,{from:c&&sch?'Signed '+monthLabelDay(sch.contractDate).replace(/ \d+,/,''):'Start',to:maturity?'Paid off '+monthLabelDay(maturity).replace(/ \d+,/,''):'Paid off',years:term?Math.round(term/12):0,label:'Loan progress'})+'</div>'+
     '<div class="actions" style="justify-content:flex-start;gap:10px;margin-top:6px;flex-wrap:wrap;align-items:center"><span class="sub">Car</span><select data-cartype="'+esc(a.id)+'" aria-label="Body style">'+Object.keys(CAR_TYPES).map(function(k){return '<option value="'+k+'"'+(k===type?' selected':'')+'>'+CAR_TYPES[k]+'</option>'}).join('')+'</select><span class="sub">Color</span>'+CAR_COLORS.map(function(cl){return '<button class="btn small" data-act="car-color" data-id="'+esc(a.id)+'" data-c="'+cl+'" aria-label="Color '+cl+'" style="width:22px;height:22px;padding:0;border-radius:50%;background:'+cl+';border:'+(cl===curCol?'3px solid var(--ink)':'1px solid var(--line)')+'"></button>'}).join('')+'</div>'+photoControls('car',a.id,!!(a.photo&&photoOk(a.photo)));
   return '<section class="panel hero"><div class="herohead"><div><div class="sub">Your car loan</div><h2 style="margin:0;font-size:22px">'+title+'</h2>'+(sub?'<div class="sub">'+esc(sub)+'</div>':'')+'</div></div>'+stage+'<div class="herorow">'+left1+mid+right+'</div>'+bar+chips+qa+art+'</section>';
 }
