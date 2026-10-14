@@ -1318,3 +1318,23 @@ test('contract details survive backup and restore, and junk is dropped', () => {
   assert.strictEqual(cleanContract({ amountFinanced: 1000, payment: 10, count: 12, firstDate: 'tomorrow' }), undefined);
   assert.strictEqual(cleanContract('x'), undefined);
 });
+
+test('illustrations: car body style comes from the name, waffle always has 100 squares, photos are validated', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const art = src.slice(src.indexOf('var CAR_COLORS'), src.indexOf('// Resize a chosen photo')) + src.slice(src.indexOf('function photoOk'), src.indexOf('function photoControls'));
+  const A = new Function('esc,vzColor', art + '\nreturn {carType, waffleSVG, houseSVG, carScene, photoOk, CAR_TYPES};')((s) => String(s), (i) => 'c' + i);
+  const cases = { '2024 Honda Civic Type R': 'hatchback', 'Ford F-150': 'pickup', 'Toyota RAV4': 'suv', 'Honda Odyssey': 'minivan', 'Ford Mustang': 'coupe', 'Toyota Camry': 'sedan', 'Tesla Model Y': 'suv', 'Honda Accord': 'sedan' };
+  Object.keys(cases).forEach((n) => assert.strictEqual(A.carType(n), cases[n], n));
+  [[30, 25, 15, 30], [1, 1, 1], [33.3, 33.3, 33.4], [0.2, 99.8]].forEach((v) => {
+    const svg = A.waffleSVG(v.map((x, i) => ({ v: x, label: 'p' + i })));
+    assert.strictEqual((svg.match(/class="wcell"/g) || []).length, 100);
+  });
+  assert.strictEqual(A.waffleSVG([{ v: 0, label: 'x' }]), '');
+  assert.match(A.houseSVG(0.39), /39% yours/); assert.match(A.houseSVG(5), /100% yours/); assert.match(A.houseSVG(-1), /0% yours/);
+  assert.match(A.carScene({ name: 'x' }, 0.5, {}), /--carx:/);
+  assert.strictEqual(A.photoOk('data:image/jpeg;base64,/9j/4AAQ'), true);
+  assert.strictEqual(A.photoOk('data:image/svg+xml;base64,AAAA'), false);
+  assert.strictEqual(A.photoOk('javascript:alert(1)'), false);
+  assert.strictEqual(A.photoOk('data:image/jpeg;base64,' + 'A'.repeat(200001)), false);
+  assert.match(src, /if\(photoOk\(d\.home\.photo\)\)home\.photo=d\.home\.photo/);
+});

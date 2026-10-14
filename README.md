@@ -333,6 +333,14 @@ Apple only shares Apple Card activity with apps on an iPhone (Rocket Money does 
 - **The payoff is an estimate.** It assumes every payment was made on its due date. The schedule is rebuilt so that it reproduces the finance charge printed on the contract; if your records show a different balance (extra, missed or late payments) the page says so and lets you choose. Your lender's payoff quote is the real figure.
 - **Pictures for every loan and card.** Each kind of debt has an *At a glance* panel: a ring for how much of the original loan is paid, a credit-use gauge for cards, a donut for where this month's payment goes (principal against interest), a donut of what you owe by loan, an animated balance-to-zero curve, a payoff race for several loans, and the yearly interest cost. The Mortgage tab shows how much of the home is yours and where each month's payment goes. Motion follows the Appearance setting (reduced motion turns it off).
 
+## Pictures and motion
+
+- **Your car on a road.** The car loan page shows a car that drives from the day you signed to the day the loan ends, stopping at how far along you are. The body style (sedan, hatchback, SUV, pickup, coupe, minivan) is guessed from the name, and you can change it and pick a color. Or add your own photo of the car; it slowly zooms like a photo slideshow.
+- **Your house fills up.** On the Mortgage tab a house fills from the bottom as the share you own grows, windows light up and the chimney puffs. Add a photo of your own home if you like.
+- **Photos stay on your computer.** They are shrunk to about 100 KB, kept with your data (and in your backup file), and never uploaded. The app does not download photos of cars from the internet.
+- **Waffle chart.** Overview has "If you earned $100": 100 squares, one per dollar, colored by where the money went. It is easier to read than percentages.
+- **Charts move.** Rings, donuts, gauges and bars fill in, lines draw themselves, and goals have progress rings. Everything respects the reduced-motion setting in Appearance.
+
 ## Windows
 
 A Windows installer (`Tally.Money-Setup-<version>.exe`, 64-bit; it also runs on Windows on ARM) is built by the same GitHub Actions workflow and attached to each release, after the Mac files. Run it, and if Windows SmartScreen says it protected your PC, choose **More info**, then **Run anyway** (the installer is not signed, which would need a paid certificate). Your data lives on that computer only; to move it from the Mac use Download backup on the Mac and Restore from file on Windows, or use the hosted version.

@@ -229,6 +229,32 @@ canvas.confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:non
 .herobig{font-family:var(--font-display);font-size:34px;font-weight:700;line-height:1.1}
 .herochips{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-top:14px}
 .herochip{background:var(--surface2);border-radius:12px;padding:10px 12px}
+@keyframes drive{from{transform:translateX(0)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes roadmove{to{stroke-dashoffset:-34}}
+@keyframes levelup{from{transform:translateY(var(--drop))}}
+@keyframes smokeup{from{transform:translateY(8px);opacity:0}30%{opacity:1}to{transform:translateY(-14px);opacity:0}}
+@keyframes popcell{from{transform:scale(0);opacity:0}}
+@keyframes growup{from{transform:scaleY(0)}}
+@keyframes zoomslow{from{transform:scale(1)}to{transform:scale(1.08)}}
+@keyframes glowwin{0%,100%{opacity:1}50%{opacity:.7}}
+.drive{transform:translateX(var(--carx,0px))}
+.wheelspin{transform-box:fill-box;transform-origin:center}
+.wcell{transform-box:fill-box;transform-origin:center}
+.growbar{transform-box:fill-box;transform-origin:bottom}
+.kenburns{width:100%;height:210px;object-fit:cover;border-radius:14px;display:block}
+.photoframe{overflow:hidden;border-radius:14px;margin-top:12px}
+:root[data-motion="full"] .drive{animation:drive 2.6s cubic-bezier(.25,.8,.25,1) .3s backwards}
+:root[data-motion="full"] .wheelspin{animation:spin .8s linear 3.4 .3s}
+:root[data-motion="full"] .roadline{animation:roadmove 1.1s linear infinite}
+:root[data-motion="full"] .houselevel{animation:levelup 1.8s cubic-bezier(.25,.8,.25,1) .2s backwards}
+:root[data-motion="full"] .smoke circle{animation:smokeup 3.2s ease-out infinite}
+:root[data-motion="full"] .smoke circle:nth-child(2){animation-delay:.9s}
+:root[data-motion="full"] .smoke circle:nth-child(3){animation-delay:1.8s}
+:root[data-motion="full"] .winlit{animation:glowwin 3s ease-in-out infinite}
+:root[data-motion="full"] .wcell{animation:popcell .35s cubic-bezier(.2,.9,.3,1.4) backwards}
+:root[data-motion="full"] .growbar{animation:growup .7s cubic-bezier(.2,.8,.2,1) backwards}
+:root[data-motion="full"] .kenburns{animation:zoomslow 14s ease-in-out infinite alternate}
 @keyframes rise{from{opacity:0;transform:translateY(16px) scale(.985)}}
 @keyframes fillbar{from{width:0}}
 :root[data-motion="full"] .enter>*,:root[data-motion="full"] .enter .tiles>*{animation:rise .6s cubic-bezier(.2,.8,.2,1) backwards}
@@ -459,7 +485,7 @@ function donut(by,total){
   var ents=Object.keys(by).sort(function(a,b){return by[b]-by[a]});
   if(!ents.length)return '<div class="empty">No spending recorded this month.</div>';
   var R=54,C=2*Math.PI*R,off=0,arcs='';
-  ents.forEach(function(c){var len=by[c]/total*C;arcs+='<circle cx="70" cy="70" r="'+R+'" fill="none" stroke="'+col(c)+'" stroke-width="20" stroke-dasharray="'+len+' '+(C-len)+'" stroke-dashoffset="'+(-off)+'" transform="rotate(-90 70 70)"/>';off+=len});
+  ents.forEach(function(c){var len=by[c]/total*C;arcs+='<circle class="ring-fg" style="--circ:'+C+'" cx="70" cy="70" r="'+R+'" fill="none" stroke="'+col(c)+'" stroke-width="20" stroke-dasharray="'+len+' '+(C-len)+'" stroke-dashoffset="'+(-off)+'" transform="rotate(-90 70 70)"/>';off+=len});
   var leg=ents.map(function(c){return '<div><span class="dot" style="background:'+col(c)+'"></span>'+c+'<span class="v num">'+money0(by[c])+'</span></div>'}).join('');
   return '<div class="donutwrap"><svg width="140" height="140" viewBox="0 0 140 140" role="img" aria-label="Spending by category">'+arcs+'<text x="70" y="66" text-anchor="middle" font-size="11">Spent</text><text x="70" y="86" text-anchor="middle" font-size="17" font-weight="700" style="fill:var(--ink);font-family:var(--font-display)">'+money0(total)+'</text></svg><div class="legend">'+leg+'</div></div>';
 }
@@ -663,7 +689,18 @@ function vOverview(){
   var upH=up.length?up.map(function(o){var n=dayDiff(TODAY,o.d);return '<div class="row">'+logo(o.s.name)+'<div class="grow"><div class="nm">'+esc(o.s.name)+'</div><div class="sub">'+(n===0?'Today':n===1?'Tomorrow':'In '+n+' days')+' · '+shortDate(iso(o.d))+'</div></div><div class="amt num">'+money(o.s.amount)+'</div></div>'}).join(''):'<div class="empty">Nothing due in the next 14 days.</div>';
   return '<div class="top"><h1>Overview</h1>'+monthNav()+'</div>'+tiles+
    '<div class="grid two"><section class="panel"><h2>Where it went</h2>'+donut(sp.by,sp.total)+'</section><section class="panel"><h2>Last six months</h2>'+trend()+'</section></div>'+
-   '<div class="grid two"><section class="panel"><h2>Budgets<small>most used first</small></h2>'+budgetRows(5,month)+'</section><section class="panel"><h2>Bills coming up<small>next 14 days</small></h2>'+upH+'</section></div>'+historyPanel();
+   '<div class="grid two"><section class="panel"><h2>Budgets<small>most used first</small></h2>'+budgetRows(5,month)+'</section><section class="panel"><h2>Bills coming up<small>next 14 days</small></h2>'+upH+'</section></div>'+waffleOverview(sp,inc)+historyPanel();
+}
+// If you earned $100 this month, where did it go? One square per dollar.
+function waffleOverview(sp,inc){
+  if(!(inc>0)&&!(sp.total>0))return '';
+  var base=Math.max(inc,sp.total),cats=Object.keys(sp.by).sort(function(a,b){return sp.by[b]-sp.by[a]}),top=cats.slice(0,5),rest=cats.slice(5).reduce(function(a,c){return a+sp.by[c]},0),left=inc-sp.total;
+  var parts=top.map(function(c,i){return {v:sp.by[c],label:c,color:col(c)}});
+  if(rest>0)parts.push({v:rest,label:'Everything else',color:'var(--muted)'});
+  parts.push(left>=0?{v:left,label:'Left over',color:'var(--good)'}:{v:0,label:'Left over',color:'var(--good)'});
+  var tot=parts.reduce(function(a,x){return a+x.v},0);
+  var leg=parts.filter(function(x){return x.v>0}).map(function(x){return '<div><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:'+x.color+';margin-right:8px"></span>'+esc(x.label)+' <b>$'+Math.round(x.v/base*100)+'</b></div>'}).join('');
+  return '<section class="panel"><h2>If you earned $100<small>where each dollar of '+monthLabel(month)+' went</small></h2><div class="donutwrap" style="align-items:center">'+waffleSVG(parts,{size:200,label:'Where each hundred dollars went'})+'<div class="legend" style="flex:1 1 220px">'+leg+'</div></div>'+(left<0?'<p class="sub" style="margin:8px 0 0"><b class="bad">You spent '+money0(-left)+' more than you took in.</b></p>':'')+'<p class="sub muted" style="margin:8px 0 0;font-size:12px">Each square is one dollar out of every hundred.</p></section>';
 }
 function historyPanel(){
   var hs=historyStats(ledger(),NOWKEY,12);
@@ -719,7 +756,7 @@ function barChart(vals,labels,o){
   function Y(v){return pt+(mx-v)/mx*(H-pt-pb)}
   var bw=Math.min(36,(W-pl-pr)/(n+(o.cur!==undefined?1:0))*0.62),step=(W-pl-pr)/(n+(o.cur!==undefined?1:0)),out='',g,i;
   for(g=0;g<3;g++){var gv=mx*g/2.24,gy=Y(gv);out+='<line x1="0" x2="'+W+'" y1="'+gy+'" y2="'+gy+'" stroke="var(--line)"/><text x="2" y="'+(gy-3)+'" font-size="10">'+(o.fmt||money0)(gv)+'</text>'}
-  vals.forEach(function(v,i){var x=pl+step*i+(step-bw)/2;out+='<rect x="'+x+'" y="'+Y(v)+'" width="'+bw+'" height="'+(H-pb-Y(v))+'" rx="4" fill="var(--accent)" opacity=".85"/><text x="'+(x+bw/2)+'" y="'+(H-8)+'" text-anchor="middle" font-size="10">'+labels[i]+'</text>'});
+  vals.forEach(function(v,i){var x=pl+step*i+(step-bw)/2;out+='<rect class="growbar" style="animation-delay:'+(i*0.06)+'s" x="'+x+'" y="'+Y(v)+'" width="'+bw+'" height="'+(H-pb-Y(v))+'" rx="4" fill="var(--accent)" opacity=".85"/><text x="'+(x+bw/2)+'" y="'+(H-8)+'" text-anchor="middle" font-size="10">'+labels[i]+'</text>'});
   if(o.cur!==undefined){var x=pl+step*n+(step-bw)/2,top=Math.max(o.cur,0);out+='<rect x="'+x+'" y="'+Y(top)+'" width="'+bw+'" height="'+(H-pb-Y(top))+'" rx="4" fill="var(--accent)" opacity=".35"/>'+(o.proj?'<rect x="'+x+'" y="'+Y(o.proj)+'" width="'+bw+'" height="'+(H-pb-Y(o.proj))+'" rx="4" fill="none" stroke="var(--accent)" stroke-dasharray="3 3"/>':'')+'<text x="'+(x+bw/2)+'" y="'+(H-8)+'" text-anchor="middle" font-size="10" style="fill:var(--ink);font-weight:700">Now</text>'}
   if(o.avg)out+='<line x1="0" x2="'+W+'" y1="'+Y(o.avg)+'" y2="'+Y(o.avg)+'" stroke="var(--muted)" stroke-dasharray="4 4"/><text x="'+(W-4)+'" y="'+(Y(o.avg)-4)+'" text-anchor="end" font-size="10">average '+money0(o.avg)+'</text>';
   if(o.suggested)out+='<line x1="0" x2="'+W+'" y1="'+Y(o.suggested)+'" y2="'+Y(o.suggested)+'" stroke="var(--good)" stroke-width="2"/><text x="'+(W-4)+'" y="'+(Y(o.suggested)-4)+'" text-anchor="end" font-size="10" style="fill:var(--good);font-weight:700">suggested '+money0(o.suggested)+'</text>';
@@ -2652,6 +2689,16 @@ function homeChart(rows,series){
   var ticks=[0,Math.floor((rows.length-1)/2),rows.length-1].filter(function(v,i,a){return a.indexOf(v)===i}).map(function(i){return '<text x="'+X(i)+'" y="'+(H-7)+'" text-anchor="'+(i===0?'start':i===rows.length-1?'end':'middle')+'" font-size="11">Year '+rows[i].year+'</text>'}).join('');
   return '<svg viewBox="0 0 '+W+' '+H+'" width="100%" style="max-width:640px" role="img" aria-label="Net worth in each choice over the years">'+g+lines+ticks+'</svg><div class="legend" style="flex-direction:row;flex-wrap:wrap;gap:6px 16px;margin-top:4px">'+series.map(function(s2){return '<div><span style="display:inline-block;width:16px;border-top:3px '+(s2.d?'dashed':'solid')+' '+s2.c+'"></span> '+s2.label+'</div>'}).join('')+'</div>';
 }
+function homeHero(h,mo,eq,sim){
+  var H=S.home||{},pctOwn=h.value>0?Math.max(0,Math.min(1,eq.equity/h.value)):0,paid=h.origLoan>0?Math.max(0,Math.min(1,1-h.balance/h.origLoan)):null,ma=S.accounts.filter(function(a){return a.id===H.mortId})[0],nd=ma&&ma.dueDay>0?nextDue(ma.dueDay,TODAY):null;
+  var art=H.photo&&photoOk(H.photo)?'<div class="photoframe" style="margin:0"><img class="kenburns" alt="Your home" src="'+H.photo+'"></div>':houseSVG(pctOwn,{size:210});
+  var chip=function(l,v){return v?'<div class="herochip"><div class="sub">'+l+'</div><div class="num" style="font-weight:700">'+v+'</div></div>':''};
+  var mid='<div class="herosec" style="flex:1 1 220px"><div class="sub">Home value</div><div class="num herobig">'+money0(h.value)+'</div><div class="sub">You own <b>'+money0(eq.equity)+'</b> of it ('+Math.round(pctOwn*100)+'%). The bank is owed <b>'+money0(h.balance)+'</b>.</div></div>';
+  var right='<div class="herosec" style="flex:1 1 200px"><div class="sub">Monthly payment to the bank</div><div class="num herobig">'+(h.pi>0?money0(h.pi):'\u2014')+'</div><div class="sub">'+(nd?'Next due '+monthLabelDay(iso(nd)):'Principal and interest')+'. All-in cost of owning: '+money0(mo.cash)+' a month.</div></div>';
+  var chips='<div class="herochips">'+chip('Interest rate',h.balance>0?h.apr+'%':'')+chip('Loan paid off',paid!==null?Math.round(paid*100)+'%':'')+chip('Mortgage-free',h.balance>0?(sim.ok?monthYear(addMonths(TODAY,sim.months)):'payment too small'):'Done')+chip('Interest still to pay',h.balance>0&&sim.ok?money0(sim.interest):'')+chip('Gone for good each month',money0(mo.cost))+chip('If you sold today',money0(eq.proceeds))+'</div>';
+  var bar=paid!==null?'<div style="margin:12px 0 0"><div class="bar"><i style="width:'+Math.max(1,Math.round(paid*100))+'%"></i></div><div class="sub" style="margin-top:4px">'+Math.round(paid*100)+'% of the original loan is paid off.</div></div>':'';
+  return '<section class="panel hero"><div class="herohead"><div><div class="sub">Your home</div><h2 style="margin:0;font-size:22px">Mortgage and equity</h2></div></div><div class="herorow"><div class="herosec">'+art+'</div>'+mid+right+'</div>'+bar+chips+photoControls('home','home',!!(H.photo&&photoOk(H.photo)))+'</section>';
+}
 function homeHintsPanel(h,mo){
   var hh=homeHints(S.txns,NOWKEY),rows=[];
   var add=function(label,found,have,key,fmt){if(!(found>0))return;var same=Math.abs(found-have)<=Math.max(1,have*0.05);rows.push('<div class="row wrap" style="align-items:center"><div class="grow" style="flex-basis:240px"><div class="nm">'+label+': '+fmt(found)+'</div><div class="sub">'+(have>0?'You have '+fmt(have)+' saved.'+(same?' That matches.':''):'Nothing saved yet.')+'</div></div>'+(same?'<span class="pill good">Matches</span>':'<button class="btn small" data-act="mort-hint" data-k="'+key+'" data-v="'+found+'">Use '+fmt(found)+'</button>')+'</div>')};
@@ -2711,7 +2758,7 @@ function vMortgage(){
     (rr?'<p style="margin:10px 0 0;white-space:normal">New payment <b>'+money0(rr.newPay)+'</b> a month against '+money0(h.pi)+' now ('+(rr.monthlySaving>=0?'<b class="good">'+money0(rr.monthlySaving)+' less</b>':'<b class="bad">'+money0(-rr.monthlySaving)+' more</b>')+'). '+(rr.breakEvenMonths!==null?'The closing costs are paid back in <b>'+yrs(rr.breakEvenMonths)+'</b>, so it only pays if you stay longer than that. ':'It never pays back the closing costs. ')+'Interest left on your current loan is '+money0(rr.oldInterest)+' ('+yrs(rr.oldMonths)+' left); the new loan would cost '+money0(rr.newInterest)+' over '+yrs(rr.newMonths)+'. '+(rr.lifetimeSaving>=0?'<b class="good">After closing costs the new loan saves '+money0(rr.lifetimeSaving)+' over the full term.</b>':'<b class="bad">Over the full term the new loan costs '+money0(-rr.lifetimeSaving)+' more.</b>')+(rr.extendsBy>12?' Note that it stretches payments out by '+yrs(rr.extendsBy)+', which is why a lower payment can cost more overall.':'')+'</p>':'<p class="sub muted" style="margin:10px 0 0;font-size:13px">Enter a rate you were quoted to compare. A lower payment from a longer term usually means more interest overall.</p>')+'</section>':'';
   var mseg=[{v:mo.principal,label:'Principal (yours again)',color:'var(--good)'},{v:mo.interest,label:'Interest',color:'var(--bad)'},{v:mo.tax,label:'Property tax',color:vzColor(2)},{v:mo.ins,label:'Insurance',color:vzColor(3)},{v:mo.hoa,label:'HOA',color:vzColor(4)},{v:mo.maint,label:'Upkeep set aside',color:vzColor(5)},{v:mo.pmi,label:'PMI',color:vzColor(6)}].filter(function(x){return x.v>0.5});
   var vis='<section class="panel visuals"><h2>At a glance<small>pictures of your home</small></h2><div class="vzgrid"><div style="text-align:center"><div class="sub" style="margin-bottom:4px">How much of the home is yours</div>'+ringSVG(h.value>0?Math.max(0,Math.min(1,eq.equity/h.value)):0,{center:Math.round(h.value>0?eq.equity/h.value*100:0)+'%',sub:money0(eq.equity)+' of '+money0(h.value),label:'Home equity'})+'</div><div style="text-align:center"><div class="sub" style="margin-bottom:4px">Where each month\u2019s '+money0(mo.cash)+' goes</div>'+donutSVG(mseg,{center:money0(mo.cost),sub:'is gone for good',label:'Monthly cost of owning'})+donutLegend(mseg)+'</div></div></section>';
-  return head+tiles+vis+adv+assum+homeHintsPanel(h,mo)+cost+extra+decide+rental+sinceP+refi+'<p class="sub muted" style="margin:14px 0 0;font-size:12px;white-space:normal">This is a model built from the figures and assumptions above. It is not a prediction and not tax, legal or investment advice, and it leaves out income tax effects, repairs beyond the upkeep percentage and market swings.</p>';
+  return head+homeHero(h,mo,eq,sim)+tiles+vis+adv+assum+homeHintsPanel(h,mo)+cost+extra+decide+rental+sinceP+refi+'<p class="sub muted" style="margin:14px 0 0;font-size:12px;white-space:normal">This is a model built from the figures and assumptions above. It is not a prediction and not tax, legal or investment advice, and it leaves out income tax effects, repairs beyond the upkeep percentage and market swings.</p>';
 }
 /* ---------- Car loan and student loans ---------- */
 var LOANKIND={
@@ -2823,6 +2870,77 @@ function vLoans(kind,hub){
 }
 function attackFirst(loans){return loans.filter(function(l){return l.balance>0}).slice().sort(function(a,b){return b.apr-a.apr||a.balance-b.balance})[0]||loans[0]}
 var plLoading=false;
+/* ---------- Illustrations: the car on a road that shows loan progress, the house that fills as you own more, photos, waffle charts ---------- */
+var CAR_COLORS=['#c8102e','#1f4fd8','#16a34a','#f59e0b','#7c3aed','#0f172a','#e5e7eb','#6b7280'];
+var CAR_TYPES={sedan:'Sedan',hatchback:'Hatchback',suv:'SUV',pickup:'Pickup',coupe:'Coupe',minivan:'Minivan'};
+function carType(name){
+  var n=String(name||'').toLowerCase();
+  if(/f-?150|f-?250|silverado|sierra|\bram\b|tacoma|tundra|ranger|colorado|frontier|ridgeline|maverick|gladiator|cybertruck|canyon/.test(n))return 'pickup';
+  if(/odyssey|sienna|pacifica|carnival|transit connect|minivan|voyager/.test(n))return 'minivan';
+  if(/cr-?v|hr-?v|rav4|explorer|highlander|pilot|tahoe|suburban|rogue|equinox|escape|bronco|wrangler|cherokee|x[1-7]\b|q[3-8]\b|gle|glc|telluride|palisade|pathfinder|4runner|crosstrek|outback|forester|cx-?\d|tiguan|atlas|passport|model [yx]|suv|crossover|kona|tucson|santa fe|sportage|sorento|seltos|trailblazer|traverse|expedition|durango|grand|bronco|ascent|macan|cayenne|rx\b|nx\b|gx\b|lx\b/.test(n))return 'suv';
+  if(/mustang|camaro|corvette|911|supra|gr ?86|brz|miata|mx-?5|charger|challenger|\bz4\b|\bbrz\b|coupe|370z|400z|\btt\b|f-?type|boxster|cayman|\brc\b/.test(n))return 'coupe';
+  if(/civic|golf|\bfit\b|prius|bolt|leaf|mazda ?3|hatch|\bi30\b|yaris|\bid\.?3\b|mini|veloster|gti|type r|impreza|elantra gt|focus|fiesta/.test(n))return 'hatchback';
+  return 'sedan';
+}
+var CAR_PATHS={
+  sedan:{body:'M8,72 L8,60 Q8,54 18,52 L56,46 Q70,30 98,28 L150,28 Q178,30 192,48 L224,54 Q234,56 234,64 L234,72 Z',win:['M74,46 Q82,34 100,33 L118,33 L118,46 Z','M124,33 L148,33 Q166,35 180,47 L124,47 Z']},
+  hatchback:{body:'M10,72 L10,54 Q12,40 34,34 L100,26 L160,26 Q186,28 198,46 L226,52 Q234,56 234,64 L234,72 Z',win:['M40,38 L100,31 L116,31 L116,46 L36,46 Z','M122,31 L158,31 Q176,33 188,46 L122,46 Z']},
+  suv:{body:'M8,74 L8,52 Q8,44 20,42 L36,40 Q46,20 80,18 L170,18 Q192,20 202,40 L224,48 Q234,52 234,62 L234,74 Z',win:['M52,40 Q58,25 82,23 L112,23 L112,40 Z','M118,23 L168,23 Q184,25 194,40 L118,40 Z']},
+  pickup:{body:'M6,72 L6,46 L84,46 L84,42 L100,24 L150,24 Q170,26 184,42 L222,50 Q234,54 234,62 L234,72 Z',win:['M104,28 L124,28 L124,42 L92,42 Z','M130,28 L148,28 Q162,30 174,42 L130,42 Z']},
+  coupe:{body:'M8,72 L8,60 Q8,54 20,52 L66,46 Q86,28 118,27 L148,27 Q176,32 196,50 L226,54 Q234,57 234,64 L234,72 Z',win:['M92,44 Q102,33 120,32 L146,32 Q164,36 180,48 L92,48 Z']},
+  minivan:{body:'M8,72 L8,46 Q8,36 22,34 L60,30 Q72,16 100,16 L170,16 Q194,20 204,42 L226,50 Q234,54 234,62 L234,72 Z',win:['M70,32 Q76,22 92,21 L112,21 L112,34 Z','M118,21 L160,21 Q176,23 188,34 L118,34 Z']}
+};
+function carArt(type,color){
+  var P=CAR_PATHS[type]||CAR_PATHS.sedan,r=type==='suv'||type==='pickup'?16:14,wy=74,wheel=function(cx){return '<g transform="translate('+cx+','+wy+')"><circle r="'+(r+3)+'" fill="#12141c"/><circle r="'+r+'" fill="#1c1f2b"/><g class="wheelspin"><circle r="'+(r-6)+'" fill="#cfd4de"/><path d="M0,-'+(r-6)+' L0,'+(r-6)+' M-'+(r-6)+',0 L'+(r-6)+',0 M-5,-5 L5,5 M-5,5 L5,-5" stroke="#6b7280" stroke-width="1.3"/></g><circle r="2.6" fill="#6b7280"/></g>'};
+  return '<g class="carbody"><ellipse cx="121" cy="90" rx="108" ry="4.5" fill="#000" opacity=".18"/>'+wheel(62)+wheel(182)+'<path d="'+P.body+'" fill="'+color+'"/><path d="'+P.body+'" fill="url(#carshine)" opacity=".55"/>'+P.win.map(function(w){return '<path d="'+w+'" fill="#dbe7f3" opacity=".92"/>'}).join('')+'<path d="M121,'+(type==='pickup'?30:34)+' L121,66" stroke="#000" stroke-opacity=".18" stroke-width="1.2"/><rect x="226" y="56" width="8" height="5" rx="2.5" fill="#fff6c2"/><rect x="6" y="56" width="6" height="5" rx="2.5" fill="#ff4d4d"/><path d="M8,68 L234,68" stroke="#000" stroke-opacity=".16" stroke-width="1.4"/></g>';
+}
+function carDefs(){return '<defs><linearGradient id="carshine" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".55"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".25"/></linearGradient></defs>'}
+// The car drives along a road from the day you signed to the day the loan ends. flag labels: from and to.
+function carScene(a,pct,o){
+  o=o||{};var type=a.carType&&CAR_TYPES[a.carType]?a.carType:carType((a.contract&&a.contract.vehicle)||a.name),color=/^#[0-9a-f]{6}$/i.test(a.carColor||'')?a.carColor:CAR_COLORS[0],p=Math.max(0,Math.min(1,pct||0)),W=640,H=170,x0=44,x1=480,scale=0.5,dx=(x1-x0)*p/scale;
+  var ticks='',years=o.years||0,i;if(years>0)for(i=1;i<years;i++)ticks+='<circle cx="'+(x0+60+(x1+60-x0-60)*i/years)+'" cy="146" r="2" fill="var(--muted)" opacity=".6"/>';
+  var trailX=x0+60+(x1-x0)*p;
+  return '<svg class="carscene" viewBox="0 0 '+W+' '+H+'" width="100%" style="max-width:720px" role="img" aria-label="'+esc(o.label||'Loan progress')+': '+Math.round(p*100)+' percent of the way">'+carDefs()+
+    '<rect x="0" y="146" width="'+W+'" height="4" fill="none"/><path d="M0,128 L'+W+',128" stroke="var(--line)" stroke-width="30" stroke-linecap="butt"/><path class="roadline" d="M0,128 L'+W+',128" stroke="var(--bg)" stroke-width="2" stroke-dasharray="18 16" opacity=".8"/>'+
+    '<path d="M'+(x0+10)+',116 L'+trailX+',116" stroke="var(--accent)" stroke-width="4" stroke-linecap="round" opacity=".9"/>'+
+    '<g transform="translate('+(x0-4)+',70)"><path d="M0,0 L0,54" stroke="var(--ink)" stroke-width="2"/><path d="M0,2 L26,10 L0,20 Z" fill="var(--good)"/></g><text x="'+(x0-4)+'" y="66" font-size="11" font-weight="700" style="fill:var(--ink)">'+esc(o.from||'Start')+'</text>'+
+    '<g transform="translate('+(W-50)+',70)"><path d="M0,0 L0,54" stroke="var(--ink)" stroke-width="2"/><rect x="0" y="2" width="26" height="18" fill="repeating-conic-gradient(#111 0 25%,#fff 0 50%) 0 0/9px 9px"/></g><text x="'+(W-8)+'" y="66" text-anchor="end" font-size="11" font-weight="700" style="fill:var(--ink)">'+esc(o.to||'Paid off')+'</text>'+ticks+
+    '<g transform="translate('+x0+',85) scale('+scale+')"><g class="drive" style="--carx:'+dx+'px">'+carArt(type,color)+'</g></g></svg>';
+}
+// The house fills from the bottom as the share you own grows.
+function houseSVG(pct,o){
+  o=o||{};var p=Math.max(0,Math.min(1,pct||0)),top=18,bot=150,y=bot-(bot-top)*p,drop=(bot-top)*p,col=o.color||'var(--accent)',shape='M30,76 L110,16 L190,76 L190,150 L30,150 Z';
+  var win=function(x,yv,i){var lit=p>=(i+1)/5;return '<rect x="'+x+'" y="'+yv+'" width="26" height="26" rx="3" fill="'+(lit?'#ffe9a8':'var(--surface2)')+'" stroke="var(--ink)" stroke-opacity=".5" stroke-width="2" class="'+(lit?'winlit':'')+'"/>'};
+  return '<svg class="house" viewBox="0 0 220 170" width="'+(o.size||210)+'" height="'+Math.round((o.size||210)*170/220)+'" role="img" aria-label="'+esc(o.label||'Home ownership')+': you own '+Math.round(p*100)+' percent"><defs><clipPath id="hclip"><path d="'+shape+'"/></clipPath></defs>'+
+    '<rect x="150" y="30" width="18" height="40" fill="var(--surface2)" stroke="var(--ink)" stroke-opacity=".5" stroke-width="2"/><g class="smoke"><circle cx="159" cy="22" r="5" fill="var(--muted)" opacity=".35"/><circle cx="165" cy="12" r="7" fill="var(--muted)" opacity=".25"/><circle cx="172" cy="0" r="9" fill="var(--muted)" opacity=".15"/></g>'+
+    '<path d="'+shape+'" fill="var(--surface2)"/><g clip-path="url(#hclip)"><rect class="houselevel" x="20" y="'+y+'" width="190" height="'+(drop+8)+'" fill="'+col+'" opacity=".85" style="--drop:'+drop+'px"/></g>'+
+    '<path d="'+shape+'" fill="none" stroke="var(--ink)" stroke-opacity=".55" stroke-width="3" stroke-linejoin="round"/><path d="M24,80 L110,12 L196,80" fill="none" stroke="var(--ink)" stroke-opacity=".55" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>'+
+    win(50,92,0)+win(144,92,1)+win(50,122,2)+win(144,122,3)+'<rect x="94" y="112" width="32" height="38" rx="3" fill="var(--ink)" opacity=".75"/><circle cx="120" cy="132" r="2" fill="#ffe9a8"/><path d="M10,150 L210,150" stroke="var(--ink)" stroke-opacity=".5" stroke-width="3" stroke-linecap="round"/>'+
+    '<text x="110" y="76" text-anchor="middle" font-size="13" font-weight="800" style="fill:var(--ink)">'+Math.round(p*100)+'% yours</text></svg>';
+}
+// 100 squares: each is one dollar of every hundred. parts: [{v,label,color}]
+function waffleSVG(parts,o){
+  o=o||{};var tot=parts.reduce(function(a,x){return a+Math.max(0,x.v)},0);if(!(tot>0))return '';
+  var cnt=parts.map(function(x){var e=Math.max(0,x.v)/tot*100;return {f:Math.floor(e),r:e-Math.floor(e)}}),used=cnt.reduce(function(a,c){return a+c.f},0),idx=cnt.map(function(c,i){return i}).sort(function(a,b){return cnt[b].r-cnt[a].r}),k;
+  for(k=0;used<100&&k<idx.length*2;k++){cnt[idx[k%idx.length]].f++;used++}
+  var cells=[],i,j;parts.forEach(function(x,pi){for(j=0;j<cnt[pi].f;j++)cells.push(pi)});
+  var S0=o.cell||16,g=3,svg='';
+  cells.slice(0,100).forEach(function(pi,n){var col=n%10,row=9-Math.floor(n/10);svg+='<rect class="wcell" x="'+(col*(S0+g))+'" y="'+(row*(S0+g))+'" width="'+S0+'" height="'+S0+'" rx="3" fill="'+(parts[pi].color||vzColor(pi))+'" style="animation-delay:'+(n*0.012)+'s"><title>'+esc(parts[pi].label)+'</title></rect>'});
+  var sz=10*(S0+g)-g;
+  return '<svg viewBox="0 0 '+sz+' '+sz+'" width="'+(o.size||190)+'" height="'+(o.size||190)+'" role="img" aria-label="'+esc(o.label||'Where each hundred dollars goes')+'">'+svg+'</svg>';
+}
+// Resize a chosen photo to something small enough to keep with your data.
+function photoToData(file,cb){
+  var fr=new FileReader();fr.onload=function(){var im=new Image();im.onload=function(){
+    var tries=[[760,.78],[640,.66],[520,.6]],out='',i;
+    for(i=0;i<tries.length;i++){var sc=Math.min(1,tries[i][0]/im.width),cv=document.createElement('canvas');cv.width=Math.max(1,Math.round(im.width*sc));cv.height=Math.max(1,Math.round(im.height*sc));cv.getContext('2d').drawImage(im,0,0,cv.width,cv.height);out=cv.toDataURL('image/jpeg',tries[i][1]);if(out.length<=170000)break}
+    cb(out.length<=190000?out:'')};im.onerror=function(){cb('')};im.src=fr.result};fr.onerror=function(){cb('')};fr.readAsDataURL(file);
+}
+function photoOk(p){return typeof p==='string'&&p.length<=200000&&/^data:image\/jpeg;base64,[A-Za-z0-9+\/=]+$/.test(p)}
+function photoControls(kind,id,has){
+  return '<div class="actions" style="justify-content:flex-start;margin-top:8px;flex-wrap:wrap"><label class="btn small" style="cursor:pointer">'+(has?'Change photo':'Add a photo')+'<input type="file" accept="image/*" data-photo="'+kind+':'+esc(id)+'" hidden></label>'+(has?'<button class="btn small" data-act="photo-del" data-k="'+kind+':'+esc(id)+'">Remove photo</button>':'')+'</div>';
+}
+
 /* ---------- Visuals: animated rings, gauges, donuts and charts for every kind of loan and credit ---------- */
 function vzColor(i){return 'var('+['--c1','--c2','--c3','--c4','--c5','--c6','--c7','--c8'][i%8]+')'}
 // A ring that fills to pct (0 to 1). center and sub are small texts inside.
@@ -2889,7 +3007,10 @@ function autoHero(a){
   var chip=function(l,v){return v?'<div class="herochip"><div class="sub">'+l+'</div><div class="num" style="font-weight:700">'+v+'</div></div>':''};
   var chips='<div class="herochips">'+chip('Interest rate',a.apr>0?a.apr+'%':'')+chip('Term',term?term+' months':'')+chip('Payments left',left!==null?left:'')+chip('Last payment',maturity?monthLabelDay(maturity):'')+chip('Monthly payment',a.minPay>0?money(a.minPay):'')+chip('Interest still to pay',st?money0(st.remainingInterest):(am&&am.ok?money0(am.interest):''))+'</div>';
   var bar=pct!==null?'<div style="margin:10px 0 0"><div class="bar"><i style="width:'+Math.max(1,Math.round(pct*100))+'%"></i></div><div class="sub" style="margin-top:4px">'+(st?st.paidCount+' of '+(term||'?')+' payments made, '+money0(st.paidTotal)+' paid in all.':Math.round(pct*100)+'% of the original loan is paid off.')+'</div></div>':'';
-  return '<section class="panel hero"><div class="herohead"><div><div class="sub">Your car loan</div><h2 style="margin:0;font-size:22px">'+title+'</h2>'+(sub?'<div class="sub">'+esc(sub)+'</div>':'')+'</div></div><div class="herorow">'+left1+mid+right+'</div>'+bar+chips+'</section>';
+  var type=a.carType&&CAR_TYPES[a.carType]?a.carType:carType((c&&c.vehicle)||a.name),curCol=/^#[0-9a-f]{6}$/i.test(a.carColor||'')?a.carColor:CAR_COLORS[0];
+  var art=(a.photo&&photoOk(a.photo)?'<div class="photoframe"><img class="kenburns" alt="'+esc(c&&c.vehicle||a.name)+'" src="'+a.photo+'"></div>':'')+'<div style="margin-top:12px">'+carScene(a,pct||0,{from:c&&sch?'Signed '+monthLabelDay(sch.contractDate).replace(/ \d+,/,''):'Start',to:maturity?'Paid off '+monthLabelDay(maturity).replace(/ \d+,/,''):'Paid off',years:term?Math.round(term/12):0,label:'Loan progress'})+'</div>'+
+    '<div class="actions" style="justify-content:flex-start;gap:10px;margin-top:6px;flex-wrap:wrap;align-items:center"><span class="sub">Car</span><select data-cartype="'+esc(a.id)+'" aria-label="Body style">'+Object.keys(CAR_TYPES).map(function(k){return '<option value="'+k+'"'+(k===type?' selected':'')+'>'+CAR_TYPES[k]+'</option>'}).join('')+'</select><span class="sub">Color</span>'+CAR_COLORS.map(function(cl){return '<button class="btn small" data-act="car-color" data-id="'+esc(a.id)+'" data-c="'+cl+'" aria-label="Color '+cl+'" style="width:22px;height:22px;padding:0;border-radius:50%;background:'+cl+';border:'+(cl===curCol?'3px solid var(--ink)':'1px solid var(--line)')+'"></button>'}).join('')+'</div>'+photoControls('car',a.id,!!(a.photo&&photoOk(a.photo)));
+  return '<section class="panel hero"><div class="herohead"><div><div class="sub">Your car loan</div><h2 style="margin:0;font-size:22px">'+title+'</h2>'+(sub?'<div class="sub">'+esc(sub)+'</div>':'')+'</div></div><div class="herorow">'+left1+mid+right+'</div>'+bar+chips+art+'</section>';
 }
 
 /* ---------- Car loan contract: payoff today, progress, maturity, cost ---------- */
@@ -3361,7 +3482,7 @@ function lineChart(pts,opts){
   for(g=0;g<3;g++){var gv=mn+(mx-mn)*g/2,gy=pt+(mx-gv)/(mx-mn)*(H-pt-pb);out+='<line x1="0" x2="'+W+'" y1="'+gy+'" y2="'+gy+'" stroke="var(--line)"/><text x="2" y="'+(gy-3)+'" font-size="10">'+(opts.money?money0(gv):gv.toFixed(2))+'</text>'}
   if(opts.base!==undefined){var by=pt+(mx-opts.base)/(mx-mn)*(H-pt-pb);out+='<line x1="0" x2="'+W+'" y1="'+by+'" y2="'+by+'" stroke="var(--accent)" stroke-dasharray="4 4"/><text x="'+(W-4)+'" y="'+(by-4)+'" text-anchor="end" font-size="10" style="fill:var(--accent)">'+(opts.baseLabel||'')+'</text>'}
   var pl2=linePath(pts,W,H,pl,pr,pt,pb,mn,mx);
-  out+='<polygon points="'+pl+','+(H-pb)+' '+pl2+' '+(W-pr)+','+(H-pb)+'" fill="'+col+'" opacity=".10"/><polyline points="'+pl2+'" fill="none" stroke="'+col+'" stroke-width="2.2" stroke-linejoin="round"/>';
+  out+='<polygon class="fade" points="'+pl+','+(H-pb)+' '+pl2+' '+(W-pr)+','+(H-pb)+'" fill="'+col+'" opacity=".10"/><polyline class="draw" pathLength="1000" points="'+pl2+'" fill="none" stroke="'+col+'" stroke-width="2.2" stroke-linejoin="round"/>';
   var lastXY=pl2.split(' ').pop().split(',');out+='<circle cx="'+lastXY[0]+'" cy="'+lastXY[1]+'" r="4.5" fill="'+col+'"/>';
   out+='<text x="'+pl+'" y="'+(H-6)+'" font-size="10">'+shortDate(iso(new Date(pts[0][0])))+'</text><text x="'+(W-pr)+'" y="'+(H-6)+'" text-anchor="end" font-size="10">'+shortDate(iso(new Date(pts[pts.length-1][0])))+'</text>';
   return '<svg viewBox="0 0 '+W+' '+H+'" width="100%" style="max-width:700px" role="img" aria-label="'+esc(opts.label||'Price history')+'">'+out+'</svg>';
@@ -3522,7 +3643,7 @@ function vInvest(){
   var topics='';
   if(hs.length){
     var TR=54,TC=2*Math.PI*TR,toff=0,tarcs='';
-    tg.forEach(function(g,i){var len=tTot>0?g.value/tTot*TC:0;tarcs+='<circle cx="70" cy="70" r="'+TR+'" fill="none" stroke="var('+tcc[i%8]+')" stroke-width="20" stroke-dasharray="'+len+' '+(TC-len)+'" stroke-dashoffset="'+(-toff)+'" transform="rotate(-90 70 70)"/>';toff+=len});
+    tg.forEach(function(g,i){var len=tTot>0?g.value/tTot*TC:0;tarcs+='<circle class="ring-fg" style="--circ:'+TC+'" cx="70" cy="70" r="'+TR+'" fill="none" stroke="var('+tcc[i%8]+')" stroke-width="20" stroke-dasharray="'+len+' '+(TC-len)+'" stroke-dashoffset="'+(-toff)+'" transform="rotate(-90 70 70)"/>';toff+=len});
     var trows=tg.map(function(g,i){
       var open=invTopicOpen[g.topic];
       return '<div class="row wrap" style="cursor:pointer;align-items:center" data-act="inv-topic" data-t="'+esc(g.topic)+'"><span style="width:10px;height:10px;border-radius:3px;background:var('+tcc[i%8]+');flex:none"></span><div class="grow" style="flex-basis:150px"><div class="nm">'+esc(g.topic)+' <span class="muted" style="font-weight:400">'+g.items.length+' holding'+(g.items.length===1?'':'s')+'</span></div><div class="bar" style="margin-top:4px"><i style="width:'+Math.max(2,Math.round(g.share*100))+'%;background:var('+tcc[i%8]+')"></i></div></div><div class="num" style="text-align:right"><b>'+Math.round(g.share*100)+'%</b><div class="sub">'+money0(g.value)+(g.invested>0&&!g.unpriced?' · <span class="'+(g.gain>=0?'good':'bad')+'">'+(g.gain<0?'-':'+')+money0(Math.abs(g.gain))+'</span>':'')+'</div></div><span class="muted" aria-hidden="true">'+(open?'\u25be':'\u25b8')+'</span></div>'+
@@ -3547,7 +3668,7 @@ function vInvest(){
   var alloc='';
   var tv=ps.value;if(tv>0&&ps.priced>1){var segs=hs.map(function(h){var st=holdingStats(h,qs[h.symbol]);return {s:h.symbol,v:st.value||0}}).filter(function(x){return x.v>0}).sort(function(a,b){return b.v-a.v});
     var R=54,C=2*Math.PI*R,off=0,arcs='',ccs=['--c1','--c2','--c3','--c4','--c5','--c6','--c7','--c8'];
-    segs.forEach(function(x,i){var len=x.v/tv*C;arcs+='<circle cx="70" cy="70" r="'+R+'" fill="none" stroke="var('+ccs[i%8]+')" stroke-width="20" stroke-dasharray="'+len+' '+(C-len)+'" stroke-dashoffset="'+(-off)+'" transform="rotate(-90 70 70)"/>';off+=len});
+    segs.forEach(function(x,i){var len=x.v/tv*C;arcs+='<circle class="ring-fg" style="--circ:'+C+'" cx="70" cy="70" r="'+R+'" fill="none" stroke="var('+ccs[i%8]+')" stroke-width="20" stroke-dasharray="'+len+' '+(C-len)+'" stroke-dashoffset="'+(-off)+'" transform="rotate(-90 70 70)"/>';off+=len});
     alloc='<section class="panel"><h2>Allocation</h2><div class="donutwrap"><svg width="140" height="140" viewBox="0 0 140 140" role="img" aria-label="Allocation by value">'+arcs+'<text x="70" y="66" text-anchor="middle" font-size="11">Value</text><text x="70" y="86" text-anchor="middle" font-size="16" font-weight="700" style="fill:var(--ink);font-family:var(--font-display)">'+money0(tv)+'</text></svg><div class="legend">'+segs.map(function(x,i){return '<div><span class="dot" style="background:var('+ccs[i%8]+')"></span>'+esc(x.s)+'<span class="v num">'+(x.v/tv*100).toFixed(0)+'%</span></div>'}).join('')+'</div></div></section>';}
   var add='<section class="panel"><h2>Add a holding</h2><form class="form" id="holdform"><label>Ticker<input id="hf-sym" required maxlength="15" placeholder="AAPL" style="text-transform:uppercase;width:110px"></label><label>Shares<input id="hf-sh" type="number" min="0" step="any" required placeholder="10"></label><label>Total invested<input id="hf-inv" type="number" min="0" step="0.01" required placeholder="1500.00"></label><button class="btn primary">Add</button></form><p class="sub muted" style="margin:10px 0 0;font-size:13px;white-space:normal">Enter the total you paid for all your shares of that ticker. Adding a ticker you already hold combines the two. Funds and ETFs work too. Prices come from free public sources and can be delayed or unavailable, so check your broker for exact figures. This is information, not investment advice.</p></section>';
   return top+note+tiles+perf+topics+holdings+detail+watch+alloc+add;
@@ -3672,15 +3793,15 @@ function cleanBackup(j){
   var accounts=(Array.isArray(d.accounts)?d.accounts:[]).filter(function(x){return x&&x.name&&isFinite(x.balance)&&+x.balance>=0&&(ASSET_TYPES[x.type]||DEBT_TYPES[x.type])}).map(function(x){
     var hist=(Array.isArray(x.history)?x.history:[]).filter(function(h){return h&&dre.test(h.date)&&isFinite(h.balance)}).map(function(h){return {date:h.date,balance:+h.balance}}).sort(function(a,b){return a.date<b.date?-1:1});
     if(!hist.length)hist=[{date:iso(TODAY),balance:+x.balance}];
-    var ac={id:String(x.id||uid()),name:String(x.name).slice(0,120),type:x.type,balance:+x.balance,apr:DEBT_TYPES[x.type]?Math.max(0,+x.apr||0):0,minPay:DEBT_TYPES[x.type]?Math.max(0,+x.minPay||0):0,history:hist};if(x.type==='credit'&&+x.limit>0)ac.limit=+x.limit;if(x.type==='credit'&&x.closed===true)ac.closed=true;if(DEBT_TYPES[x.type]&&x.contract){var cc=cleanContract(x.contract);if(cc)ac.contract=cc}if(DEBT_TYPES[x.type]){var dd=Math.round(+x.dueDay);if(dd>=1&&dd<=31)ac.dueDay=dd;if(+x.origBalance>0)ac.origBalance=+x.origBalance;if(typeof x.lender==='string'&&x.lender)ac.lender=cleanSubName(x.lender).slice(0,40);var stm=cleanStmt(x);Object.keys(stm).forEach(function(k){ac[k]=stm[k]})}if(x.plaid&&typeof x.plaid.accountId==='string')ac.plaid={itemId:String(x.plaid.itemId||'').slice(0,100),accountId:x.plaid.accountId.slice(0,100)};return ac});
-  var home={};if(d.home&&typeof d.home==='object'&&!Array.isArray(d.home)){['purchasePrice','down','closing','origLoan','termYears','taxYear','insYear','hoaMonth','pmiMonth','maintPct','mgmtPct','vacancyPct','appreciation','ret','sellPct','rentGrowth','costGrowth','rentMonth','extra'].forEach(function(k){var n=parseFloat(d.home[k]);if(isFinite(n)&&n>=0&&n<1e9)home[k]=n});['purchaseDate','startDate'].forEach(function(k){if(/^\d{4}-\d{2}-\d{2}$/.test(d.home[k]||''))home[k]=d.home[k]});['mortId','valueId'].forEach(function(k){if(typeof d.home[k]==='string'&&/^[\w-]{1,40}$/.test(d.home[k])&&accounts.some(function(a){return a.id===d.home[k]}))home[k]=d.home[k]});if(d.home.setup===true&&home.valueId)home.setup=true}
+    var ac={id:String(x.id||uid()),name:String(x.name).slice(0,120),type:x.type,balance:+x.balance,apr:DEBT_TYPES[x.type]?Math.max(0,+x.apr||0):0,minPay:DEBT_TYPES[x.type]?Math.max(0,+x.minPay||0):0,history:hist};if(x.type==='credit'&&+x.limit>0)ac.limit=+x.limit;if(x.type==='credit'&&x.closed===true)ac.closed=true;if(DEBT_TYPES[x.type]&&x.contract){var cc=cleanContract(x.contract);if(cc)ac.contract=cc}if(DEBT_TYPES[x.type]){if(photoOk(x.photo))ac.photo=x.photo;if(/^#[0-9a-f]{6}$/i.test(x.carColor||''))ac.carColor=x.carColor;if(CAR_TYPES[x.carType])ac.carType=x.carType}if(DEBT_TYPES[x.type]){var dd=Math.round(+x.dueDay);if(dd>=1&&dd<=31)ac.dueDay=dd;if(+x.origBalance>0)ac.origBalance=+x.origBalance;if(typeof x.lender==='string'&&x.lender)ac.lender=cleanSubName(x.lender).slice(0,40);var stm=cleanStmt(x);Object.keys(stm).forEach(function(k){ac[k]=stm[k]})}if(x.plaid&&typeof x.plaid.accountId==='string')ac.plaid={itemId:String(x.plaid.itemId||'').slice(0,100),accountId:x.plaid.accountId.slice(0,100)};return ac});
+  var home={};if(d.home&&typeof d.home==='object'&&!Array.isArray(d.home)){['purchasePrice','down','closing','origLoan','termYears','taxYear','insYear','hoaMonth','pmiMonth','maintPct','mgmtPct','vacancyPct','appreciation','ret','sellPct','rentGrowth','costGrowth','rentMonth','extra'].forEach(function(k){var n=parseFloat(d.home[k]);if(isFinite(n)&&n>=0&&n<1e9)home[k]=n});['purchaseDate','startDate'].forEach(function(k){if(/^\d{4}-\d{2}-\d{2}$/.test(d.home[k]||''))home[k]=d.home[k]});['mortId','valueId'].forEach(function(k){if(typeof d.home[k]==='string'&&/^[\w-]{1,40}$/.test(d.home[k])&&accounts.some(function(a){return a.id===d.home[k]}))home[k]=d.home[k]});if(d.home.setup===true&&home.valueId)home.setup=true;if(photoOk(d.home.photo))home.photo=d.home.photo}
   return {txns:txns,subs:subs,budgets:budgets,goals:goals,accounts:accounts,extraPay:Math.max(0,+d.extraPay||0),plaidIgnored:(Array.isArray(d.plaidIgnored)?d.plaidIgnored:[]).filter(function(x){return typeof x==='string'}).slice(0,200),credit:cleanCredit(d.credit),holdings:cleanHoldings(d.holdings),customCats:custom,setAside:setAside,merchantCats:merchantCats,subCats:subCats,merchantSubs:merchantSubs,bills:bills,billMarks:billMarks,energy:energy,home:home,debtMonthly:Math.max(0,+d.debtMonthly||0),billIgnore:(function(){var o={};if(d.billIgnore&&typeof d.billIgnore==='object'&&!Array.isArray(d.billIgnore))Object.keys(d.billIgnore).slice(0,500).forEach(function(k){if(k.length<=120&&k!=='__proto__')o[k]=1});return o})(),cardPay:d.cardPay==='skip'||d.cardPay==='count'?d.cardPay:'auto',apple:(function(){var a=d.apple||{},o={};if(typeof a.acct==='string'&&a.acct.length<=40)o.acct=a.acct;if(/^\d{4}-\d{2}-\d{2}$/.test(a.last||''))o.last=a.last;if(+a.count>=0)o.count=Math.min(1e6,Math.round(+a.count));return o})()};
 }
 
 /* ---------- Goals ---------- */
 function vGoals(){
   var rows=S.goals.map(function(g){var p=g.saved/g.target;
-   return '<div class="panel"><div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><h2 style="margin:0">'+esc(g.name)+'</h2><span class="num muted">'+Math.round(p*100)+'%</span></div><div class="num" style="margin:8px 0"><b style="font-family:var(--font-display);font-size:22px">'+money0(g.saved)+'</b> <span class="muted">of '+money0(g.target)+'</span></div><div class="bar"><i class="'+(p>=1?'good':'')+'" style="width:'+Math.min(100,p*100)+'%"></i></div><form class="form goalform" data-id="'+g.id+'" style="margin-top:12px"><label>Add money<input type="number" step="1" min="0" required placeholder="50"></label><button class="btn small primary">Add</button><button type="button" class="btn small danger" data-act="goal-del" data-id="'+g.id+'">Delete</button></form></div>'}).join('');
+   return '<div class="panel"><div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap"><div>'+ringSVG(Math.min(1,p),{size:96,stroke:10,color:p>=1?'var(--good)':'var(--accent)',label:g.name,sub:p>=1?'done':''})+'</div><div style="flex:1 1 160px"><h2 style="margin:0">'+esc(g.name)+'</h2><div class="num" style="margin:8px 0"><b style="font-family:var(--font-display);font-size:22px">'+money0(g.saved)+'</b> <span class="muted">of '+money0(g.target)+'</span></div><div class="sub">'+(p>=1?'You did it.':money0(Math.max(0,g.target-g.saved))+' to go')+'</div></div></div><div class="bar" style="margin-top:10px"><i class="'+(p>=1?'good':'')+'" style="width:'+Math.min(100,p*100)+'%"></i></div><form class="form goalform" data-id="'+g.id+'" style="margin-top:12px"><label>Add money<input type="number" step="1" min="0" required placeholder="50"></label><button class="btn small primary">Add</button><button type="button" class="btn small danger" data-act="goal-del" data-id="'+g.id+'">Delete</button></form></div>'}).join('');
   return '<div class="top"><h1>Goals</h1></div><div class="grid two">'+(rows||'<div class="panel empty">No goals yet.</div>')+'</div><section class="panel"><h2>New goal</h2><form class="form" id="goalform"><label>Name<input id="gf-name" required placeholder="e.g. New laptop"></label><label>Target<input id="gf-target" type="number" min="1" required placeholder="1500"></label><label>Saved so far<input id="gf-saved" type="number" min="0" value="0"></label><button class="btn primary">Create</button></form></section>';
 }
 
@@ -3696,6 +3817,8 @@ function bindView(){
   m.querySelectorAll('[data-cat]').forEach(function(s){s.onchange=function(){S.txns.filter(function(x){return x.id===s.dataset.cat})[0].cat=s.value;save();toast('Category updated.')}});
   var q=$('#q',m);if(q)q.oninput=function(){filter.q=q.value;var pos=q.selectionStart;render();var n=$('#q');n.focus();n.setSelectionRange(pos,pos)};
   var fc=$('#fcat',m);if(fc)fc.onchange=function(){filter.cat=fc.value;render()};
+  m.querySelectorAll('[data-photo]').forEach(function(inp){inp.onchange=function(){var f=inp.files[0],k=String(inp.dataset.photo).split(':');if(!f)return;photoToData(f,function(url){if(!url){toast('That photo could not be read or is too large.');return}if(k[0]==='home')S.home.photo=url;else{var pa=S.accounts.filter(function(x){return x.id===k[1]})[0];if(pa)pa.photo=url}save();render();toast('Photo saved on this device.')});inp.value=''}});
+  m.querySelectorAll('[data-cartype]').forEach(function(sel){sel.onchange=function(){var ca=S.accounts.filter(function(x){return x.id===sel.dataset.cartype})[0];if(ca&&CAR_TYPES[sel.value]){ca.carType=sel.value;save();render()}}});
   var apf=$('#apple-file',m);if(apf)apf.onchange=function(){var fl=Array.prototype.slice.call(apf.files);if(!fl.length)return;pdf.apple=true;pdf.type='credit';stmtRead(fl);apf.value='';var pp=$('#pdfpanel');if(pp)pp.scrollIntoView({behavior:'smooth',block:'start'})};
   var cpay=$('#cardpay',m);if(cpay)cpay.onchange=function(){S.cardPay=cpay.value;save();render()};
   var aff2=$('#afform',m);
@@ -3822,6 +3945,8 @@ document.addEventListener('click',function(e){
     loanUI[kk].imp={stage:'idle',msg:'Saved '+cnt+' loan'+(cnt===1?'':'s')+'.'};
   }
   else if(a==='contract-bal'){var ca=S.accounts.filter(function(x){return x.id===id})[0],ci=ca&&contractInput(ca),cs=ci&&contractSchedule(ci);if(cs){var cst=contractStatus(ci,cs,TODAY);acctSetBalance(ca,Math.round(cst.principal*100)/100);toast('Balance set to '+money(cst.principal)+'.')}}
+  else if(a==='car-color'){var cca=S.accounts.filter(function(x){return x.id===id})[0];if(cca&&/^#[0-9a-f]{6}$/i.test(b.dataset.c))cca.carColor=b.dataset.c}
+  else if(a==='photo-del'){var pk=String(b.dataset.k).split(':');if(pk[0]==='home')delete S.home.photo;else{var pa=S.accounts.filter(function(x){return x.id===pk[1]})[0];if(pa)delete pa.photo}}
   else if(a==='contract-del'){var cd=S.accounts.filter(function(x){return x.id===id})[0];if(cd){delete cd.contract;toast('Contract details removed.')}}
   else if(a==='loan-plink'){
     plRun(function(){return tcall(T.plaid.linkLoan()).then(function(r){
