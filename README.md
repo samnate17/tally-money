@@ -252,6 +252,12 @@ Besides the original categories there are now built-in **Personal care** (Haircu
 
 When you add or edit a bill, the Category and Sub-category lists end with **+ New category…** and **+ New sub-category…**, so you can make "Haircuts" with "Barber" right there. A new category is a normal custom category (it appears in Budgets, with no keywords until you add some) and a new sub-category is added to that category's list.
 
+## Credit cards on the Bills tab
+
+A credit card (or any debt) with a minimum payment and a **payment due day** shows up on the Bills tab by itself, marked "from your card", with the minimum as its amount. Set the due day when you add the account, or later with the **Due day** and **Min $** boxes on the account's row in Accounts, so you update the minimum in one place. It counts as paid when a payment appears in your transactions that names the card, for example "PAYMENT TO CHASE CARD" or "CHASE CREDIT CRD AUTOPAY"; an ordinary purchase from a shop with a similar name does not count. Otherwise use Mark paid. If you already added a bill by hand with the same name, the automatic one is not shown twice.
+
+Backups now also keep each loan's and card's due day, lender and original balance (an older bug dropped them when restoring a backup, which would have hidden those bills).
+
 ## Windows
 
 A Windows installer (`Tally.Money-Setup-<version>.exe`, 64-bit; it also runs on Windows on ARM) is built by the same GitHub Actions workflow and attached to each release, after the Mac files. Run it, and if Windows SmartScreen says it protected your PC, choose **More info**, then **Run anyway** (the installer is not signed, which would need a paid certificate). Your data lives on that computer only; to move it from the Mac use Download backup on the Mac and Restore from file on Windows, or use the hosted version.

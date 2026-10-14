@@ -861,20 +861,34 @@ test('bills: payments are found in transactions with a sensible amount window; m
   assert.strictEqual(B.dueDateFor(31, '2026-02').getDate(), 28); assert.strictEqual(B.dueDateFor(0, '2026-02'), null);
 });
 
-test('bills: loans appear as bills, and the summary adds up paid, pending and overdue', () => {
+test('bills: loans and credit cards appear as bills, and the summary adds up paid, pending and overdue', () => {
   const B = billsWorld(), today = new Date(2026, 9, 12);
-  const accounts = [{ id: 'c', name: 'Honda Civic loan', lender: 'Honda Financial', type: 'auto', minPay: 846.32, dueDay: 18, balance: 18000 }, { id: 'z', name: 'Old loan', type: 'auto', minPay: 100, dueDay: 3, balance: 0 }, { id: 'n', name: 'Direct Unsub', lender: 'Nelnet', type: 'student', minPay: 95, dueDay: 5, balance: 7000 }, { id: 'k', name: 'Visa', type: 'credit', minPay: 25, dueDay: 9, balance: 500 }];
+  const accounts = [{ id: 'c', name: 'Honda Civic loan', lender: 'Honda Financial', type: 'auto', minPay: 846.32, dueDay: 18, balance: 18000 }, { id: 'z', name: 'Old loan', type: 'auto', minPay: 100, dueDay: 3, balance: 0 }, { id: 'n', name: 'Direct Unsub', lender: 'Nelnet', type: 'student', minPay: 95, dueDay: 5, balance: 7000 }, { id: 'k', name: 'Visa', type: 'credit', minPay: 25, dueDay: 9, balance: 500 }, { id: 'q', name: 'Store card', type: 'credit', minPay: 0, dueDay: 9, balance: 500 }, { id: 'w', name: 'No due day card', type: 'credit', minPay: 30, balance: 500 }];
   const bills = [{ id: 'rent', name: 'Rent', amount: 1500, dueDay: 1, match: 'maple' }];
   const items = B.billItems(bills, accounts);
-  assert.deepStrictEqual(items.map((x) => x.id).sort(), ['loan:c', 'loan:n', 'rent']);                       // paid-off loans and credit cards are not listed
+  assert.deepStrictEqual(items.map((x) => x.id).sort(), ['loan:c', 'loan:k', 'loan:n', 'rent']);              // paid-off debts, cards with no minimum and cards with no due day are not listed
   const txns = [{ date: '2026-10-01', name: 'MAPLE COURT RENT', amount: -1500 }, { date: '2026-10-05', name: 'NELNET PAYMENT 12', amount: -95 }];
   const sum = B.billsSummary(items, '2026-10', txns, {}, today);
-  assert.deepStrictEqual([sum.count, sum.paidCount, sum.paid, sum.pending, sum.total, sum.overdue], [3, 2, 1595, 846.32, 2441.32, 0]);
-  assert.strictEqual(sum.next.item.id, 'loan:c'); assert.deepStrictEqual(sum.rows.map((r) => r.item.id), ['rent', 'loan:n', 'loan:c']);   // by due date
-  const late = B.billsSummary(items, '2026-10', [], {}, new Date(2026, 9, 20)); assert.strictEqual(late.overdue, 3);                 // rent (1st), student loan (5th) and car loan (18th) are all past due on the 20th
-  assert.strictEqual(late.pending, 2441.32);
+  assert.deepStrictEqual([sum.count, sum.paidCount, sum.paid, sum.pending, sum.total, sum.overdue], [4, 2, 1595, 871.32, 2466.32, 1]);   // the card was due on the 9th
+  assert.deepStrictEqual(sum.rows.map((r) => r.item.id), ['rent', 'loan:n', 'loan:k', 'loan:c']);   // by due date
+  const late = B.billsSummary(items, '2026-10', [], {}, new Date(2026, 9, 20)); assert.strictEqual(late.overdue, 4);
+  assert.strictEqual(late.pending, 2466.32);
   assert.strictEqual(B.billsSummary([], '2026-10', [], {}, today).count, 0);
 });
+
+test('bills: a credit card is paid only by a payment that names the card, and a hand-made bill is not doubled', () => {
+  const B = billsWorld(), today = new Date(2026, 9, 25);
+  const card = { id: 'a', name: 'Chase Amazon Prime (closed)', type: 'credit', minPay: 35, dueDay: 20, balance: 900 };
+  const it = B.billItems([], [card])[0];
+  assert.strictEqual(it.kind, 'credit');
+  const shop = [{ date: '2026-10-19', name: 'AMAZON MKTPL 123', amount: -35 }];
+  assert.notStrictEqual(B.billStatus(it, '2026-10', shop, {}, today).state, 'paid');                          // a $35 Amazon purchase is not a card payment
+  const pay = [{ date: '2026-10-19', name: 'PAYMENT TO CHASE CARD ENDING IN 1234', amount: -35 }];
+  assert.strictEqual(B.billStatus(it, '2026-10', pay, {}, today).state, 'paid');
+  assert.strictEqual(B.billStatus(it, '2026-10', [{ date: '2026-10-19', name: 'CHASE CREDIT CRD AUTOPAY', amount: -35 }], {}, today).state, 'paid');
+  assert.strictEqual(B.billItems([{ id: 'm', name: 'Chase Amazon Prime (closed)', amount: 35, dueDay: 20 }], [card]).length, 1);   // already added by hand
+});
+
 
 test('bills: repeating payments you have not tracked are suggested', () => {
   const B = billsWorld();
@@ -999,4 +1013,9 @@ test('personal expenses like haircuts get their own categories and sub-categorie
 test('the bill form can make a new category and sub-category', () => {
   const src = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
   assert.ok(src.includes('+ New category…') && src.includes('+ New sub-category…') && src.includes('function newCatName'));
+});
+
+test('backup keeps loan and card details such as the due day', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  assert.ok(src.includes('ac.dueDay=dd') && src.includes('ac.origBalance=+x.origBalance') && src.includes('ac.lender=cleanSubName'));
 });

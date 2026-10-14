@@ -844,7 +844,7 @@ function paymentsSeen(txns,l){
 /*LOAN-END*/
 /*BILLS-START*/
 // Recurring bills: what is due this month, what you have paid (found in your transactions or marked by hand) and what is still pending.
-var BILL_LOAN_TYPES={auto:1,student:1,mortgage:1,loan:1};
+var BILL_LOAN_TYPES={auto:1,student:1,mortgage:1,loan:1,credit:1};
 var GENERIC_BILL_WORDS=/^(bill|bills|payment|payments|monthly|electric|electricity|water|internet|wifi|insurance|rent|gas|phone|utility|utilities|service|account)$/i;
 function billMatchRe(b){
   var words=String(b.match||'').split(/[,\n]/).map(function(w){return w.trim()}).filter(Boolean);
@@ -852,9 +852,22 @@ function billMatchRe(b){
   if(!words.length)return null;
   return new RegExp(words.map(function(w){return w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}).join('|'),'i');
 }
+// A card payment looks like "PAYMENT TO CHASE CARD" in your checking account, so a card only counts as paid when the issuer name sits next to a payment word.
+function cardMatchRe(a){
+  var skip=/^(credit|card|cards|closed|visa|mastercard|rewards|signature|platinum|account|bank|master|cash|back|prime|preferred|unlimited|freedom|flex|plus)$/;
+  var words=(String(a.lender||'')+' '+String(a.name||'')).toLowerCase().replace(/[^a-z0-9 ]/g,' ').split(/\s+/).filter(function(w){return w.length>=4&&!skip.test(w)&&!/^\d+$/.test(w)});
+  var seen={},u=[];words.forEach(function(w){if(!seen[w]){seen[w]=1;u.push(w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'))}});
+  if(!u.length)return null;
+  var pay='(payment|pymt|pmt|autopay|auto pay|epay|e-pay|online pay|crd|card)',who='('+u.join('|')+')';
+  return new RegExp(who+'.*'+pay+'|'+pay+'.*'+who,'i');
+}
 function billItems(bills,accounts){
   var out=(bills||[]).map(function(b){return {id:b.id,name:b.name,amount:+b.amount||0,dueDay:+b.dueDay||0,source:'bill',cat:b.cat||'',sub:b.sub||'',re:billMatchRe(b),raw:b}});
-  (accounts||[]).forEach(function(a){if(BILL_LOAN_TYPES[a.type]&&a.minPay>0&&a.dueDay>0&&a.balance>0)out.push({id:'loan:'+a.id,name:a.name,amount:a.minPay,dueDay:a.dueDay,source:'loan',cat:'Debt and loans',sub:'',re:loanMatchRe(a),raw:a})});
+  var manual=(bills||[]).map(function(b){return String(b.name||'').toLowerCase()});
+  (accounts||[]).forEach(function(a){if(BILL_LOAN_TYPES[a.type]&&a.minPay>0&&a.dueDay>0&&a.balance>0){
+    var nm=String(a.name||'').toLowerCase();
+    if(nm.length>=5&&manual.some(function(m){return m===nm||(m.length>=5&&(m.indexOf(nm)>-1||nm.indexOf(m)>-1))}))return;   // you already added this one by hand
+    out.push({id:'loan:'+a.id,name:a.name,amount:a.minPay,dueDay:a.dueDay,source:'loan',kind:a.type,cat:'Debt and loans',sub:a.type==='credit'?'Credit card':'',re:a.type==='credit'?cardMatchRe(a):loanMatchRe(a),raw:a})}});
   return out;
 }
 function dueDateFor(dueDay,mk){
@@ -1102,7 +1115,7 @@ function nwChart(){
 function acctRow(a){
   var last=a.history.length?a.history[a.history.length-1].date:iso(TODAY),age=dayDiff(parseD(last),TODAY),debt=isDebt(a);
   var meta=(DEBT_TYPES[a.type]||ASSET_TYPES[a.type])+(debt?' · '+a.apr+'% APR · min '+money0(a.minPay)+'/mo':'')+(a.type==='credit'&&a.limit>0?' · limit '+money0(a.limit):'')+' · updated '+shortDate(last);
-  return '<div class="row wrap">'+logo(a.name)+'<div class="grow" style="flex-basis:180px"><div class="nm">'+esc(a.name)+(a.plaid?' <span class="pill good">Linked</span>':age>45?' <span class="pill warn">Out of date</span>':'')+'</div><div class="sub">'+meta+'</div></div><div class="amt num">'+money(a.balance)+'</div>'+(a.plaid?'':'<form class="balform" data-id="'+a.id+'"><input type="number" min="0" step="0.01" required placeholder="Balance" aria-label="New balance for '+esc(a.name)+'"><button class="btn small">Update</button></form>')+'<button class="btn small" data-act="acct-del" data-id="'+a.id+'" aria-label="Remove '+esc(a.name)+'">&times;</button></div>';
+  return '<div class="row wrap">'+logo(a.name)+'<div class="grow" style="flex-basis:180px"><div class="nm">'+esc(a.name)+(a.plaid?' <span class="pill good">Linked</span>':age>45?' <span class="pill warn">Out of date</span>':'')+'</div><div class="sub">'+meta+'</div></div><div class="amt num">'+money(a.balance)+'</div>'+(debt?'<label class="sub" style="display:flex;gap:4px;align-items:center;white-space:nowrap">Due day<input type="number" min="1" max="31" data-due="'+a.id+'" value="'+(a.dueDay||'')+'" style="width:64px" aria-label="Payment due day for '+esc(a.name)+'"></label><label class="sub" style="display:flex;gap:4px;align-items:center;white-space:nowrap">Min $<input type="number" min="0" step="0.01" data-minpay="'+a.id+'" value="'+(a.minPay||'')+'" style="width:88px" aria-label="Minimum payment for '+esc(a.name)+'"></label>':'')+(a.plaid?'':'<form class="balform" data-id="'+a.id+'"><input type="number" min="0" step="0.01" required placeholder="Balance" aria-label="New balance for '+esc(a.name)+'"><button class="btn small">Update</button></form>')+'<button class="btn small" data-act="acct-del" data-id="'+a.id+'" aria-label="Remove '+esc(a.name)+'">&times;</button></div>';
 }
 function payoffPanel(){
   var debts=S.accounts.filter(function(a){return isDebt(a)&&a.balance>0});
@@ -1131,7 +1144,7 @@ function vAccounts(){
    '<section class="panel"><h2>Assets</h2>'+(assets.length?assets.map(acctRow).join(''):'<div class="empty">No assets yet.</div>')+'</section>'+
    '<section class="panel"><h2>Debts</h2>'+(debts.length?debts.map(acctRow).join(''):'<div class="empty">No debts tracked.</div>')+'</section>'+
    payoffPanel()+plShell()+
-   '<section class="panel"><h2>Add an account</h2><form class="form" id="acctform"><label>Name<input id="af-name" required placeholder="e.g. Chase Sapphire"></label><label>Type<select id="af-type">'+opts+'</select></label><label>Balance<input id="af-bal" type="number" min="0" step="0.01" required placeholder="0.00"></label><label class="debtonly">Interest rate (APR %)<input id="af-apr" type="number" min="0" step="0.01" placeholder="19.99"></label><label class="debtonly">Minimum payment<input id="af-min" type="number" min="0" step="0.01" placeholder="0.00"></label><label class="creditonly">Credit limit<input id="af-limit" type="number" min="0" step="1" placeholder="5000"></label><button class="btn primary">Add</button></form><p class="sub muted" style="margin:12px 0 0;font-size:13px">For debts, enter the amount you owe as a positive number. Balances are entered by hand, so update them now and then. Each update is saved so the net worth chart can show your trend.</p></section>';
+   '<section class="panel"><h2>Add an account</h2><form class="form" id="acctform"><label>Name<input id="af-name" required placeholder="e.g. Chase Sapphire"></label><label>Type<select id="af-type">'+opts+'</select></label><label>Balance<input id="af-bal" type="number" min="0" step="0.01" required placeholder="0.00"></label><label class="debtonly">Interest rate (APR %)<input id="af-apr" type="number" min="0" step="0.01" placeholder="19.99"></label><label class="debtonly">Minimum payment<input id="af-min" type="number" min="0" step="0.01" placeholder="0.00"></label><label class="debtonly">Payment due day (1 to 31)<input id="af-due" type="number" min="1" max="31" placeholder="15"></label><label class="creditonly">Credit limit<input id="af-limit" type="number" min="0" step="1" placeholder="5000"></label><button class="btn primary">Add</button></form><p class="sub muted" style="margin:12px 0 0;font-size:13px">For debts, enter the amount you owe as a positive number. Balances are entered by hand, so update them now and then. Each update is saved so the net worth chart can show your trend.</p></section>';
 }
 
 /* ---------- Logic shared by bank sync and AI analysis ---------- */
@@ -2087,13 +2100,13 @@ function vBills(){
     var it=r.item,st=r.st;
     if(it.source==='bill'&&billUI.edit===it.id)return billForm(it.raw);
     var act=st.state==='paid'?'<button class="btn small" data-act="bill-undo" data-id="'+esc(it.id)+'">'+(st.manual?'Undo':'Not paid?')+'</button>':'<button class="btn small primary" data-act="bill-paid" data-id="'+esc(it.id)+'">Mark paid</button>';
-    var more=it.source==='bill'?'<button class="btn small" data-act="bill-edit" data-id="'+esc(it.id)+'">Edit</button><button class="btn small" data-act="bill-del" data-id="'+esc(it.id)+'" aria-label="Remove">&times;</button>':'<span class="sub muted" style="font-size:12px">from your loan</span>';
+    var more=it.source==='bill'?'<button class="btn small" data-act="bill-edit" data-id="'+esc(it.id)+'">Edit</button><button class="btn small" data-act="bill-del" data-id="'+esc(it.id)+'" aria-label="Remove">&times;</button>':'<span class="sub muted" style="font-size:12px">from your '+(it.kind==='credit'?'card':'loan')+'</span>';
     var paidNote=st.state==='paid'&&st.found&&Math.abs(st.found.amount-it.amount)>=1?' · paid '+money(st.found.amount):'';
     return '<div class="row wrap">'+logo(it.name)+'<div class="grow" style="flex-basis:200px"><div class="nm">'+esc(it.name)+'</div><div class="sub">'+(it.dueDay?'Due on the '+it.dueDay+ordinal(it.dueDay):'No due day')+(it.cat?' · '+esc(it.cat)+(it.sub?' › '+esc(it.sub):''):'')+paidNote+'</div></div>'+billPill(st)+'<div class="amt num">'+money(it.amount)+'</div><div class="actions" style="flex:none;flex-wrap:nowrap">'+act+more+'</div></div>';
   }).join('');
   var list='<section class="panel"><h2>'+monthLabel(month)+'<small>'+sum.paidCount+' of '+sum.count+' paid</small></h2>'+(rows||'<div class="empty">No bills yet. Add rent, electricity, internet, insurance and anything else due every month.</div>')+
     '<div class="actions" style="justify-content:flex-start;margin-top:10px"><button class="btn small primary" data-act="bill-add">Add a bill</button></div>'+(billUI.adding?billForm(null):'')+
-    '<p class="sub muted" style="margin:10px 0 0;font-size:12px">Car and student loan payments appear here automatically once the loan has a due day. A bill counts as paid when a payment with a matching name and a similar amount shows up in your transactions that month, or when you mark it.</p></section>';
+    '<p class="sub muted" style="margin:10px 0 0;font-size:12px">Car loans, student loans and credit cards appear here automatically once they have a minimum payment and a due day (set the due day on the loan or on the card in Accounts). A bill counts as paid when a payment with a matching name and a similar amount shows up in your transactions that month, or when you mark it.</p></section>';
   var sugg=sug.length?'<section class="panel"><h2>Bills I noticed<small>repeating payments you have not added</small></h2>'+sug.map(function(x,i){return '<div class="row">'+logo(x.name)+'<div class="grow"><div class="nm">'+esc(x.name)+'</div><div class="sub">about '+money0(x.amount)+' around the '+x.dueDay+ordinal(x.dueDay)+', seen in '+x.months+' of the last 5 months</div></div><button class="btn small primary" data-act="bill-sug" data-i="'+i+'">Add</button></div>'}).join('')+'</section>':'';
   return head+tiles+list+sugg+energyPanel();
 }
@@ -2749,7 +2762,7 @@ function cleanBackup(j){
   var accounts=(Array.isArray(d.accounts)?d.accounts:[]).filter(function(x){return x&&x.name&&isFinite(x.balance)&&+x.balance>=0&&(ASSET_TYPES[x.type]||DEBT_TYPES[x.type])}).map(function(x){
     var hist=(Array.isArray(x.history)?x.history:[]).filter(function(h){return h&&dre.test(h.date)&&isFinite(h.balance)}).map(function(h){return {date:h.date,balance:+h.balance}}).sort(function(a,b){return a.date<b.date?-1:1});
     if(!hist.length)hist=[{date:iso(TODAY),balance:+x.balance}];
-    var ac={id:String(x.id||uid()),name:String(x.name).slice(0,120),type:x.type,balance:+x.balance,apr:DEBT_TYPES[x.type]?Math.max(0,+x.apr||0):0,minPay:DEBT_TYPES[x.type]?Math.max(0,+x.minPay||0):0,history:hist};if(x.type==='credit'&&+x.limit>0)ac.limit=+x.limit;if(x.plaid&&typeof x.plaid.accountId==='string')ac.plaid={itemId:String(x.plaid.itemId||'').slice(0,100),accountId:x.plaid.accountId.slice(0,100)};return ac});
+    var ac={id:String(x.id||uid()),name:String(x.name).slice(0,120),type:x.type,balance:+x.balance,apr:DEBT_TYPES[x.type]?Math.max(0,+x.apr||0):0,minPay:DEBT_TYPES[x.type]?Math.max(0,+x.minPay||0):0,history:hist};if(x.type==='credit'&&+x.limit>0)ac.limit=+x.limit;if(DEBT_TYPES[x.type]){var dd=Math.round(+x.dueDay);if(dd>=1&&dd<=31)ac.dueDay=dd;if(+x.origBalance>0)ac.origBalance=+x.origBalance;if(typeof x.lender==='string'&&x.lender)ac.lender=cleanSubName(x.lender).slice(0,40)}if(x.plaid&&typeof x.plaid.accountId==='string')ac.plaid={itemId:String(x.plaid.itemId||'').slice(0,100),accountId:x.plaid.accountId.slice(0,100)};return ac});
   return {txns:txns,subs:subs,budgets:budgets,goals:goals,accounts:accounts,extraPay:Math.max(0,+d.extraPay||0),plaidIgnored:(Array.isArray(d.plaidIgnored)?d.plaidIgnored:[]).filter(function(x){return typeof x==='string'}).slice(0,200),credit:cleanCredit(d.credit),holdings:cleanHoldings(d.holdings),customCats:custom,setAside:setAside,merchantCats:merchantCats,subCats:subCats,merchantSubs:merchantSubs,bills:bills,billMarks:billMarks,energy:energy};
 }
 
@@ -2805,7 +2818,7 @@ function bindView(){
   m.querySelectorAll('[data-rules]').forEach(function(i){i.onchange=function(){var cc=S.customCats.filter(function(c){return c.name===i.dataset.rules})[0];if(!cc)return;cc.rules=i.value.split(',').map(function(x){return x.trim().toLowerCase().slice(0,40)}).filter(Boolean).slice(0,30);save();toast('Keywords saved. New transactions will use them.')}});
   var af=$('#acctform',m);
   if(af){var tp=$('#af-type',af),sync=function(){var d=!!DEBT_TYPES[tp.value];af.querySelectorAll('.debtonly').forEach(function(x){x.hidden=!d});af.querySelectorAll('.creditonly').forEach(function(x){x.hidden=tp.value!=='credit'})};tp.onchange=sync;sync();
-    af.onsubmit=function(e){e.preventDefault();var t=tp.value,bal=parseFloat($('#af-bal').value),debt=!!DEBT_TYPES[t];S.accounts.push({id:uid(),name:$('#af-name').value.trim(),type:t,balance:bal,apr:debt?(parseFloat($('#af-apr').value)||0):0,minPay:debt?(parseFloat($('#af-min').value)||0):0,limit:t==='credit'?(parseFloat($('#af-limit').value)||0):0,history:[{date:iso(TODAY),balance:bal}]});save();render();toast('Account added.')}}
+    af.onsubmit=function(e){e.preventDefault();var t=tp.value,bal=parseFloat($('#af-bal').value),debt=!!DEBT_TYPES[t];S.accounts.push({id:uid(),name:$('#af-name').value.trim(),type:t,balance:bal,apr:debt?(parseFloat($('#af-apr').value)||0):0,minPay:debt?(parseFloat($('#af-min').value)||0):0,limit:t==='credit'?(parseFloat($('#af-limit').value)||0):0,dueDay:debt&&parseInt($('#af-due').value,10)>=1&&parseInt($('#af-due').value,10)<=31?parseInt($('#af-due').value,10):0,history:[{date:iso(TODAY),balance:bal}]});save();render();toast('Account added.')}}
   m.querySelectorAll('.balform').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();var a=S.accounts.filter(function(x){return x.id===fm.dataset.id})[0],v=parseFloat(fm.querySelector('input').value);if(!a||!(v>=0))return;a.balance=v;var t=iso(TODAY),h=a.history.filter(function(x){return x.date===t})[0];if(h)h.balance=v;else a.history.push({date:t,balance:v});a.history.sort(function(p,q){return p.date<q.date?-1:1});save();render();toast(a.name+' updated.')}});
   var ex=$('#extra',m);if(ex)ex.onchange=function(){S.extraPay=Math.max(0,parseFloat(ex.value)||0);save();render()};
   var st=$('#strategy',m);if(st)st.onchange=function(){strategy=st.value;render()};
@@ -2980,6 +2993,8 @@ function thBind(m){
   var am=$('#asst-model',m);if(am)am.onchange=function(){ASSIST.model=am.value;assistSave()};
   var ad=$('#asst-data',m);if(ad)ad.onchange=function(){ASSIST.useData=ad.checked;assistSave()};
   var alog=$('#asst-log',m);if(alog)alog.scrollTop=alog.scrollHeight;
+  m.querySelectorAll('[data-due]').forEach(function(i){i.onchange=function(){var a=S.accounts.filter(function(x){return x.id===i.dataset.due})[0],v=parseInt(i.value,10);if(!a)return;if(v>=1&&v<=31)a.dueDay=v;else delete a.dueDay;save();render();toast(v>=1&&v<=31?'Due day saved.':'Due day cleared.')}});
+  m.querySelectorAll('[data-minpay]').forEach(function(i){i.onchange=function(){var a=S.accounts.filter(function(x){return x.id===i.dataset.minpay})[0],v=parseFloat(i.value);if(!a||!(v>=0))return;a.minPay=Math.round(v*100)/100;save();render();toast('Minimum payment saved.')}});
   var da=$('#dash-auto',m);if(da)da.onchange=function(){DASH.auto=da.checked;DASH.last=0;dashSave()};
   var ar=$('#af-rate',m);if(ar)ar.onchange=function(){aff.rate=parseFloat(ar.value)||0;render()};
   m.querySelectorAll('[data-lr]').forEach(function(i2){i2.onchange=function(){
