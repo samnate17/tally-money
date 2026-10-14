@@ -234,6 +234,17 @@ function cleanLoans(raw) {
   return { loans, notes: String((raw && raw.notes) || '').slice(0, 300) };
 }
 
+const CAR_ART_SYSTEM = [
+  'You draw a car as a flat, glossy vector illustration in SVG, for a personal-finance app. Output ONLY the SVG code: no explanation and no markdown fences.',
+  'Canvas: <svg viewBox="0 0 250 100">. Transparent background (draw no background rectangle). Side profile, the car facing RIGHT, whole car visible, nose near x=247, tail near x=6.',
+  'The ground is at y=92: the bottoms of both tyres touch it. Wheel centres sit at y=73 with tyre radius about 19. Put the wheelbase at about 57 (rear) and 199 (front), like a real car of this kind. Match the real car\'s proportions: length to height about 3.2 for a hatchback or coupe, 3.0 for an SUV.',
+  'Draw each wheel as its own group <g class="wheel"> containing the rim, spokes and hub, all centred on the wheel centre, so the app can spin it. Draw the tyre and dark wheel well behind it, outside that group.',
+  'Use a few gradients (linearGradient, radialGradient) for paint shine: a lighter top, a darker underside, a soft highlight along the shoulder line. Show glass as a dark blue-grey gradient with a faint highlight. Add the details that make this model recognisable: lights, grille or intake, door lines, mirror, handles, roof line, spoiler or wing, exhausts, badge colours, brake calipers.',
+  'Use the paint colour of the real car. Keep it clean and readable at about 120 px wide.',
+  'Allowed elements only: g, path, rect, circle, ellipse, line, polyline, polygon, defs, linearGradient, radialGradient, stop. Allowed attributes only: d, points, x, y, x1, y1, x2, y2, cx, cy, r, rx, ry, width, height, fill, stroke, stroke-width, stroke-linecap, stroke-linejoin, fill-rule, opacity, fill-opacity, stroke-opacity, stop-color, stop-opacity, offset, gradientUnits, transform, id, class="wheel".',
+  'Colours as #hex, rgb(), rgba(), none, or url(#id). No style, script, text, image, filter, clipPath, mask, use, link or font elements. Keep it under about 40 KB.',
+].join('\n');
+
 function createAI({ store, clientFactory }) {
   const make = clientFactory || ((apiKey) => new Anthropic({ apiKey }));
 
@@ -397,7 +408,34 @@ function createAI({ store, clientFactory }) {
     }
   }
 
-  return { status, saveKey, clearKey, analyze, categorize, loansFromText, statement, statementPdf, testKey };
+  // Draws the user's car as SVG from a description and, if given, a photo. The page cleans the result before using it.
+  async function carArt(req) {
+    const apiKey = store.get('anthropicKey');
+    if (!apiKey) throw new Error('Add your Anthropic API key first.');
+    const desc = String((req && req.desc) || '').replace(/[\r\n]+/g, ' ').trim().slice(0, 200);
+    if (!desc) throw new Error('Describe the car first, for example: 2024 Honda Civic Type R, blue.');
+    const content = [];
+    if (req && req.image) {
+      const m = /^data:image\/jpeg;base64,([A-Za-z0-9+/=]+)$/.exec(String(req.image));
+      if (!m || m[1].length > 300000) throw new Error('That photo cannot be used. Remove it and try again.');
+      content.push({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: m[1] } });
+    }
+    content.push({ type: 'text', text: 'Draw this car: ' + desc + (content.length ? '. The picture shows the real car: match its shape, colour and details.' : '.') });
+    let msg;
+    try {
+      const stream = make(apiKey).messages.stream({ model: MODEL, max_tokens: 24000, system: CAR_ART_SYSTEM, output_config: { effort: 'medium' }, messages: [{ role: 'user', content }] });
+      msg = await stream.finalMessage();
+    } catch (err) {
+      throw new Error(friendlyError(err));
+    }
+    if (msg.stop_reason === 'refusal') throw new Error('Claude declined to draw this. Try a different description.');
+    if (msg.stop_reason === 'max_tokens') throw new Error('The drawing was too detailed to finish. Try again.');
+    const text = (msg.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('');
+    if (!/<svg[\s>]/i.test(text)) throw new Error('Claude did not return a drawing. Try again.');
+    return { svg: text.slice(0, 150000) };
+  }
+
+  return { status, saveKey, clearKey, analyze, categorize, loansFromText, statement, statementPdf, testKey, carArt };
 }
 
 // For a model running on this computer: the same job as the Claude version, but it must answer with plain JSON text.

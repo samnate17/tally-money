@@ -1410,3 +1410,21 @@ test('car cut-out: removes the studio background around the car, keeps highlight
   assert.strictEqual(C.cutoutBg(busy, W, H).ok, false);
   assert.strictEqual(C.cutoutBg(mk(() => [250, 250, 250]), W, H).ok, false);   // nothing in it
 });
+
+test('car drawing from AI: only plain shapes survive, and cleaning twice changes nothing', () => {
+  const C = new Function(block('CARSVG') + '\nreturn {cleanCarSvg};')();
+  const shapes = Array.from({ length: 9 }, (_, i) => `<rect x="${i}" y="1" width="3" height="3" fill="#336699"/>`).join('');
+  const good = `Here you go:\n\`\`\`svg\n<svg viewBox="0 0 250 100" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#000" stop-opacity=".4"/></linearGradient></defs><path d="M10,80 L240,80 Q245,60 200,50 L60,50 Z" fill="url(#g1)"/><g class="wheel"><circle cx="57" cy="73" r="19" fill="#111"/></g>${shapes}</svg>\n\`\`\``;
+  const out = C.cleanCarSvg(good);
+  assert.ok(out.includes('<path d="M10,80 L240,80 Q245,60 200,50 L60,50 Z" fill="url(#aic-g1)"/>'), out);
+  assert.ok(out.includes('id="aic-g1"') && out.includes('class="aiwheel"') && out.includes('<circle cx="57" cy="73" r="19" fill="#111"/>'));
+  assert.strictEqual(C.cleanCarSvg('<svg>' + out + '</svg>'), out);                      // cleaning is stable
+  const evil = `<svg viewBox="0 0 250 100" onload="alert(1)"><script>alert(1)</script><style>*{display:none}</style><image href="https://evil.example/x.png"/><foreignObject><div>hi</div></foreignObject><a href="javascript:alert(1)"><rect x="1" y="1" width="2" height="2" fill="javascript:alert(1)" onclick="alert(1)" style="x:y"/></a><use href="#a"/>${shapes}<text>hi</text></svg>`;
+  const e = C.cleanCarSvg(evil);
+  assert.ok(e && !/script|style|image|foreign|onload|onclick|javascript|href|<a|<use|<text|evil|alert/i.test(e), e);
+  assert.ok(e.includes('<rect x="1" y="1" width="2" height="2"/>'));                       // bad attributes dropped, shape kept
+  assert.strictEqual(C.cleanCarSvg('<svg><rect x="1" y="1" width="2" height="2"/></svg>'), '');          // too little to be a car
+  assert.strictEqual(C.cleanCarSvg('not a drawing'), ''); assert.strictEqual(C.cleanCarSvg(''), ''); assert.strictEqual(C.cleanCarSvg(null), '');
+  assert.strictEqual(C.cleanCarSvg('<svg>' + shapes + '</svg>'.padEnd(200000, ' ')), '');                 // far too big
+  assert.strictEqual(C.cleanCarSvg('<svg>' + shapes.replace('fill="#336699"', 'fill="url(#x);evil"') + '</svg>').includes('evil'), false);
+});

@@ -279,6 +279,7 @@ function wireIpc() {
     if (!text) throw new Error('That file is no longer in memory. Choose it again.');
     return ai.loansFromText(text, loanKind(kind) === 'student' ? 'student' : loanKind(kind) === 'auto' ? 'auto' : loanKind(kind));
   });
+  handle('ai:carArt', (r) => ai.carArt(r));
   handle('ai:statementPdf', (textId, type) => {
     const buf = statementBytes.get(String(textId));
     if (!buf) throw new Error('That statement is no longer in memory. Choose the file again.');

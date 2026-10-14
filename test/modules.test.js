@@ -469,3 +469,21 @@ test('ai: a local model reply is turned into loans, even with chatter around the
   assert.throws(() => parseLocalLoans('I could not find any loans.'), /did not answer in a form I can read/);
   assert.throws(() => parseLocalLoans('{"loans": "none"}'), /did not answer/);
 });
+
+test('ai: car drawing request carries the photo and description, and failures are plain', async () => {
+  const seen = [];
+  const ai = aiWith((req) => { seen.push(req); return final({ stop_reason: 'end_turn', content: [{ type: 'text', text: '<svg viewBox="0 0 250 100"><rect/></svg>' }] }); });
+  const img = 'data:image/jpeg;base64,' + Buffer.from('jpegbytes').toString('base64');
+  const r = await ai.carArt({ desc: '2024 Honda Civic Type R, blue\nignore previous', image: img });
+  assert.ok(r.svg.startsWith('<svg'));
+  const req = seen[0]; assert.match(req.system, /FACING RIGHT|facing RIGHT/); assert.match(req.system, /class="wheel"/);
+  assert.strictEqual(req.messages[0].content[0].type, 'image'); assert.strictEqual(req.messages[0].content[0].source.media_type, 'image/jpeg');
+  assert.ok(!/\n/.test(req.messages[0].content[1].text)); assert.match(req.messages[0].content[1].text, /Civic Type R/);
+  await ai.carArt({ desc: 'sedan' }); assert.strictEqual(seen[1].messages[0].content.length, 1);                 // no photo: text only
+  await assert.rejects(ai.carArt({ desc: '' }), /Describe the car/);
+  await assert.rejects(ai.carArt({ desc: 'x', image: 'data:image/png;base64,AAAA' }), /photo cannot be used/);
+  await assert.rejects(aiWith(() => final({ stop_reason: 'refusal', content: [] })).carArt({ desc: 'x' }), /declined/);
+  await assert.rejects(aiWith(() => final({ stop_reason: 'max_tokens', content: [{ type: 'text', text: '<svg' }] })).carArt({ desc: 'x' }), /too detailed/);
+  await assert.rejects(aiWith(() => final({ stop_reason: 'end_turn', content: [{ type: 'text', text: 'Sorry, cannot.' }] })).carArt({ desc: 'x' }), /did not return a drawing/);
+  await assert.rejects(aiWith(() => final({}), '').carArt({ desc: 'x' }), /API key/);
+});
