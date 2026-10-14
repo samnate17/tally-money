@@ -250,6 +250,7 @@ canvas.confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:non
 .scgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}.sccard{background:var(--surface2);border:1px solid var(--line);border-radius:16px;padding:12px 14px}
 .fgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}.fcard{border:1px solid var(--line);border-radius:14px;padding:12px 14px;background:var(--surface2)}
 @keyframes needle{from{transform:rotate(-90deg)}to{transform:rotate(var(--rot))}}:root[data-motion="full"] .needle{animation:needle 1.2s cubic-bezier(.2,.8,.2,1) both}
+.undo{display:inline-flex;gap:6px;margin-left:8px}
 .carphoto{background:radial-gradient(120% 90% at 50% 40%,#fff 55%,#eef1f6);padding:6px 0}.carphoto img{display:block;width:100%;height:230px;object-fit:contain;mix-blend-mode:multiply}
 :root[data-motion="full"] .drive{animation:drive 2.6s cubic-bezier(.25,.8,.25,1) .3s backwards}
 :root[data-motion="full"] .wheelspin{animation:spin .8s linear 3.4 .3s}
@@ -480,15 +481,35 @@ function xferKind(j){return j&&j.app==='tally-money'&&j.encrypted===true&&vaultE
 /*VAULT-END*/
 var VLT={on:false,locked:false,key:null,salt:'',it:0,busy:false,dirty:false,min:5};
 try{var _lk=JSON.parse(localStorage.getItem('tally-lock-v1')||'{}');if(_lk&&_lk.min>=0&&_lk.min<=240)VLT.min=+_lk.min}catch(e){}
-function load(){try{if(localStorage.getItem('tally-vault-v1')){VLT.on=true;VLT.locked=true;S=sample();migrate();syncCats();return}}catch(e){}try{var j=localStorage.getItem('tally-money-v1');if(j){S=JSON.parse(j);migrate();syncCats();return}}catch(e){}S=sample();migrate();syncCats()}
+function load(){try{if(localStorage.getItem('tally-vault-v1')){VLT.on=true;VLT.locked=true;S=sample();migrate();syncCats();return}}catch(e){}try{var j=localStorage.getItem('tally-money-v1');if(j){S=JSON.parse(j);migrate();syncCats();undoInit();return}}catch(e){}S=sample();migrate();syncCats();undoInit()}
 function defCredit(){return {scores:[],profile:{late:'unknown',inq:'unknown',oldest:'',derog:'unknown'}}}
 function migrate(){if(!S.payLinks||typeof S.payLinks!=='object'||Array.isArray(S.payLinks))S.payLinks={};if(!S.apple||typeof S.apple!=='object'||Array.isArray(S.apple))S.apple={};if(!S.billIgnore||typeof S.billIgnore!=='object'||Array.isArray(S.billIgnore))S.billIgnore={};if(S.cardPay!=='skip'&&S.cardPay!=='count')S.cardPay='auto';if(!S.home||typeof S.home!=='object'||Array.isArray(S.home))S.home={};if(!(S.debtMonthly>=0))S.debtMonthly=0;if(!Array.isArray(S.customCats))S.customCats=[];if(!Array.isArray(S.setAside))S.setAside=[];if(!S.merchantCats||typeof S.merchantCats!=='object'||Array.isArray(S.merchantCats))S.merchantCats={};if(!Array.isArray(S.energy))S.energy=[];if(!Array.isArray(S.bills))S.bills=[];if(!S.billMarks||typeof S.billMarks!=='object'||Array.isArray(S.billMarks))S.billMarks={};if(!S.subCats||typeof S.subCats!=='object'||Array.isArray(S.subCats))S.subCats={};if(!S.merchantSubs||typeof S.merchantSubs!=='object'||Array.isArray(S.merchantSubs))S.merchantSubs={};if(!Array.isArray(S.holdings))S.holdings=S.sample?sampleHoldings():[];if(!S.credit||!Array.isArray(S.credit.scores))S.credit=S.sample?sampleCredit():defCredit();if(!Array.isArray(S.plaidIgnored))S.plaidIgnored=[];if(!Array.isArray(S.accounts))S.accounts=S.sample?sampleAccounts():[];if(typeof S.extraPay!=='number')S.extraPay=S.sample?100:0}
 function ledger(){return ledgerOf(S.txns,S.cardPay)}
 function billCatOf(n){var c=guessCat(n);return {cat:c,sub:c==='Other'?'':(guessSub(c,n)||'')}}
 function allBillItems(mk){var base=billItems(S.bills,S.accounts,S.txns);return base.concat(autoBillItems(S.txns,base,mk,S.billIgnore,billCatOf))}
-function save(){
+// Undo: before each change is saved the app keeps the state it had. Changes made within 0.7 s of each other count as one step. Kept in memory only (up to 30 steps).
+var UNDO={stack:[],redo:[],cur:'',t:0,bytes:0};
+function undoInit(){try{UNDO={stack:[],redo:[],cur:JSON.stringify(S),t:0,bytes:0}}catch(e){}}
+function undoTrack(j){
+  if(UNDO.cur&&UNDO.cur!==j){
+    if(Date.now()-UNDO.t>700){UNDO.stack.push(UNDO.cur);UNDO.bytes+=UNDO.cur.length;while(UNDO.stack.length>30||UNDO.bytes>80e6){UNDO.bytes-=UNDO.stack.shift().length}}
+    UNDO.redo=[];UNDO.t=Date.now();
+  }
+  UNDO.cur=j;
+}
+function undoStep(dir){
+  var from=dir==='undo'?UNDO.stack:UNDO.redo,to=dir==='undo'?UNDO.redo:UNDO.stack;
+  if(!from.length){toast(dir==='undo'?'Nothing to undo.':'Nothing to redo.');return}
+  var snap=from[from.length-1],ns;try{ns=JSON.parse(snap)}catch(e){toast('Could not '+dir+' that.');return}
+  from.pop();if(dir==='undo')UNDO.bytes-=snap.length;to.push(UNDO.cur);
+  S=ns;migrate();syncCats();UNDO.cur=snap;save({noUndo:true});render();toast(dir==='undo'?'Undone. Press Redo if you change your mind.':'Redone.');
+}
+function undoButtons(){return '<span class="undo"><button class="btn small" data-act="undo" aria-label="Undo the last change" title="Undo the last change (Ctrl or Cmd + Z)"'+(UNDO.stack.length?'':' disabled')+'>&#8630; Undo</button>'+(UNDO.redo.length?'<button class="btn small" data-act="redo" aria-label="Redo" title="Redo (Ctrl or Cmd + Shift + Z)">&#8631; Redo</button>':'')+'</span>'}
+function save(opt){
+  var j=null;try{j=JSON.stringify(S)}catch(e){}
+  if(j)undoTrack(opt&&opt.noUndo?(UNDO.cur=j):j);
   if(VLT.on){if(VLT.key)vaultFlush();widgetPush();return}
-  try{localStorage.setItem('tally-money-v1',JSON.stringify(S))}catch(e){}if(HOSTED)schedulePush();widgetPush()}
+  try{localStorage.setItem('tally-money-v1',j||JSON.stringify(S))}catch(e){}if(HOSTED)schedulePush();widgetPush()}
 // Encrypted saves are coalesced: one write in flight at a time, and a newer state replaces any queued one.
 function vaultCommit(key,salt,it){
   return vaultEnc(key,JSON.stringify(S)).then(function(e){localStorage.setItem('tally-vault-v1',JSON.stringify({v:1,it:it,salt:salt,iv:e.iv,ct:e.ct}));return true})}
@@ -578,6 +599,8 @@ function render(){
   var banner=cb+updBanner()+(S.sample?'<div class="banner"><span><b>Example data.</b> These accounts and transactions are made up so you can try everything. Clear them to start with your own, or import a CSV from your bank.</span><button class="btn primary small" data-act="clear">Start fresh</button></div>':'');
   var body=f();
   if(view!=='invest'&&view!=='look'&&view!=='assist')body=body.replace(/(<div class="top"><h1>[^<]*<\/h1>)/,'$1<button class="btn small refresh" data-act="refresh" aria-label="Refresh this page"'+(refreshing?' disabled':'')+'>'+(refreshing?'Refreshing…':'&#8635; Refresh')+'</button>');
+  body=body.replace(/(<div class="top"><h1>[^<]*<\/h1>)/,'$1'+undoButtons());
+  if(body.indexOf('class="undo"')<0)body='<div style="display:flex;justify-content:flex-end;margin:0 0 8px">'+undoButtons()+'</div>'+body;
   $('#main').innerHTML=banner+body;
   bindView();thBind($('#main'));afterRender();
 }
@@ -1554,7 +1577,7 @@ function vAccounts(){
   var nw=netWorth(),assets=S.accounts.filter(function(a){return !isDebt(a)}),debts=S.accounts.filter(isDebt);
   var tiles='<div class="grid tiles">'+tile('Net worth','<span class="'+(nw.net<0?'bad':'good')+'">'+(nw.net<0?'-':'')+money0(Math.abs(nw.net))+'</span>','Assets minus debts')+tile('Assets',money0(nw.assets),assets.length+' account'+(assets.length===1?'':'s'))+tile('Debts','<span class="'+(nw.debts>0?'bad':'')+'">'+money0(nw.debts)+'</span>',debts.length+' account'+(debts.length===1?'':'s'))+'</div>';
   var opts='<optgroup label="Assets">'+Object.keys(ASSET_TYPES).map(function(k){return '<option value="'+k+'">'+ASSET_TYPES[k]+'</option>'}).join('')+'</optgroup><optgroup label="Debts">'+Object.keys(DEBT_TYPES).map(function(k){return '<option value="'+k+'">'+DEBT_TYPES[k]+'</option>'}).join('')+'</optgroup>';
-  return '<div class="top"><h1>Accounts</h1></div>'+tiles+
+  return '<div class="top"><h1>Accounts</h1></div>'+appleBalBanner()+tiles+
    '<section class="panel"><h2>Net worth</h2>'+nwChart()+'</section>'+
    '<section class="panel"><h2>Assets</h2>'+(assets.length?assets.map(acctRow).join(''):'<div class="empty">No assets yet.</div>')+'</section>'+
    '<section class="panel"><h2>Debts</h2>'+(debts.length?debts.map(acctRow).join(''):'<div class="empty">No debts tracked.</div>')+'</section>'+
@@ -1603,7 +1626,7 @@ function applySync(res,itemId){
   var rm={};(res.removed||[]).forEach(function(id){rm[id]=1});
   var before=S.txns.length;
   S.txns=S.txns.filter(function(x){return !(x.plaidId&&rm[x.plaidId])});
-  out.delTx=before-S.txns.length;
+  out.delTx=before-S.txns.length;if(typeof undoInit==='function')undoInit();   // a bank sync cannot be undone: the bank would not send those transactions again
   S.txns.sort(function(a,b){return a.date<b.date?1:-1});
   return out;
 }
@@ -3782,10 +3805,16 @@ function plClick(b){
 
 /* ---------- PDF statements (Mac app) ---------- */
 var pdf={stage:'idle',type:'auto',files:[],rows:[],msg:'',busy:'',aiConfirm:-1,aiPdfConfirm:-1,showText:-1,mapIdx:-1,showAll:false};
+// Apple Card exports have no balance, so the account starts at $0 owed. Say so, and let the balance be typed right here.
+function appleBalBanner(){
+  var A=S.apple||{},ac=S.accounts.filter(function(a){return a.id===A.acct})[0];
+  if(!ac||!(A.count>0)||ac.balance>0||ac.history.some(function(h){return h.balance>0}))return '';
+  return '<div class="banner" style="margin-bottom:12px;display:block;white-space:normal"><b>Your Apple Card shows $0 owed because the statement file has no balance.</b> Open <b>Wallet \u2192 Apple Card \u2192 Card Balance</b> on your iPhone and type what you owe.<form class="applebal form" style="margin-top:8px;align-items:flex-end"><label>Card balance<input type="number" min="0" step="0.01" name="v" required placeholder="e.g. 1250.00"></label><label>APR %<input type="number" min="0" step="0.01" name="apr" value="'+(ac.apr||'')+'" placeholder="optional"></label><button class="btn primary">Set balance</button></form></div>';
+}
 function appleCardPanel(){
   var A=S.apple||{},ac=S.accounts.filter(function(a){return a.id===A.acct})[0],days=A.last?Math.round((TODAY-parseD(A.last))/864e5):null;
   var status=A.last?'<p class="sub" style="margin:0 0 8px">Last imported '+shortDate(A.last)+' ('+(days===0?'today':days+' day'+(days===1?'':'s')+' ago')+'), '+(A.count||0)+' transactions in total.'+(days>=35?' <b class="warn">It is time to export this month\u2019s statement.</b>':'')+'</p>':'';
-  return '<section class="panel" id="applepanel"><h2>Apple Card<small>import from the Wallet app, no login needed</small></h2>'+status+
+  return '<section class="panel" id="applepanel"><h2>Apple Card<small>import from the Wallet app, no login needed</small></h2>'+appleBalBanner()+status+
    '<p class="sub" style="margin:0 0 8px;white-space:normal"><b>Why not a live link?</b> Apple only shares Apple Card activity with apps on your iPhone (that is how Rocket Money does it: an iPhone app with Apple\u2019s FinanceKit, through Plaid). A Mac or Windows app cannot get it that way, so this does the next best thing: export a statement once a month and the app takes care of the rest. Nothing leaves this computer.</p>'+
    '<ol style="margin:0 0 10px 18px;padding:0;font-size:14px;line-height:1.6"><li>On your iPhone open <b>Wallet</b>, tap <b>Apple Card</b>, then <b>Card Balance</b>.</li><li>Under <b>Statements</b> pick a month (or <b>Export Transactions</b>), and choose <b>CSV</b>, <b>OFX</b> or the PDF statement.</li><li>AirDrop or email it to this computer and choose it below. You can pick several months at once.</li></ol>'+
    '<label class="btn primary small" style="cursor:pointer">Choose Apple Card file(s)<input type="file" id="apple-file" multiple accept=".csv,.ofx,.qfx,.pdf,.txt,text/csv,application/pdf" hidden></label> '+(ac?'<span class="sub muted">Linked to '+esc(ac.name)+' in Accounts</span>':'<span class="sub muted">An Apple Card account is created for you the first time.</span>')+
@@ -3828,7 +3857,7 @@ function pdfInner(){
   var rows=list.map(function(r){var i=pdf.rows.indexOf(r);return '<div class="row wrap pdfrow"><input type="checkbox" data-pc="on" data-i="'+i+'"'+(r.on?' checked':'')+' aria-label="Include"><input type="date" data-pc="date" data-i="'+i+'" value="'+r.date+'" aria-label="Date"><input type="text" class="grow" style="flex-basis:140px" data-pc="name" data-i="'+i+'" value="'+esc(r.name)+'" aria-label="Description"><select data-pc="cat" data-i="'+i+'" aria-label="Category">'+cats.map(function(c){return '<option'+(c===r.cat?' selected':'')+'>'+c+'</option>'}).join('')+'</select>'+(r.ai?'<span class="pill '+(r.ai==='high'?'good':r.ai==='medium'?'warn':'mute')+'" title="Predicted by Claude ('+r.ai+' confidence). Change it if it is wrong.">AI</span>':'')+'<button class="btn small" data-pdf="flip" data-i="'+i+'" title="Switch between money in and money out" aria-label="Flip sign">'+(r.uncertain?'\u26a0 ':'')+'<span class="num '+(r.amount>0&&!r.transfer?'good':'')+'">'+(r.amount>0&&!r.transfer?'+':r.transfer?'':'-')+money(Math.abs(r.amount))+'</span></button>'+(r.card&&!r.dup?'<span class="pill good" title="Money you paid to the card. It is kept, but not counted as income or spending.">Card payment</span>':r.transfer&&!r.dup?'<span class="pill mute" title="Moves money between your own accounts. Not counted as income or spending.">Transfer</span>':'')+(r.dup?'<span class="pill mute">Already have</span>':'')+'</div>'}).join('');
   var bal=pdf.files.map(function(f,i){if(!(f.meta&&f.meta.endBalance>0))return '';
     return '<div class="row wrap" style="align-items:center"><div class="grow" style="flex-basis:240px"><div class="nm">'+esc(f.name)+' shows a closing balance of '+money(f.meta.endBalance)+'</div><div class="sub" style="white-space:normal">Bring an account up to date with it (optional).</div></div><select data-pdfbal="'+i+'" aria-label="Account to update">'+S.accounts.map(function(a){return '<option value="'+esc(a.id)+'">'+esc(a.name)+'</option>'}).join('')+'</select><button class="btn small" data-pdf="setbal" data-i="'+i+'"'+(S.accounts.length?'':' disabled')+'>Set balance</button></div>'}).join('');
-  return h+note+pick+files+bal+(pdf.rows.length?'<p style="margin:14px 0 8px"><b>'+pdf.rows.length+'</b> transaction'+(pdf.rows.length===1?'':'s')+' found'+(dups?', '+dups+' already in the app (unchecked)':'')+(cps?', '+cps+' '+(cps===1?'is a payment':'are payments')+' you made to the card (imported as transfers, so they are not counted as income or spending)':'')+(trs?', '+trs+' look like transfers between your own accounts (unchecked, so they are not counted as spending or income)':'')+'. '+(unc?'<b class="warn">'+unc+' have a guessed sign</b> (marked \u26a0). Check them, and use the amount button to flip money in and out.':'Check the amounts and signs before importing.')+'</p>'+cardPick+'<div class="pdfscroll">'+rows+'</div>'+(pdf.rows.length>300&&!pdf.showAll?'<div class="empty"><button class="btn small" data-pdf="all">Show all '+pdf.rows.length+'</button></div>':'')+'<div class="actions" style="justify-content:flex-start;margin-top:12px"><button class="btn primary" data-pdf="import"'+(on?'':' disabled')+'>Import '+on+' transaction'+(on===1?'':'s')+'</button>'+(window.tally&&window.tally.ai&&aiSt&&aiSt.hasKey&&pdf.rows.some(function(r){return r.on&&r.cat==='Other'})?'<button class="btn" data-pdf="aicat"'+(pdf.aiBusy?' disabled':'')+'>'+(pdf.aiBusy?'Asking Claude…':'Predict categories with AI')+'</button>':'')+'<button class="btn" data-pdf="cancel">Cancel</button></div>':'<div class="actions" style="justify-content:flex-start;margin-top:12px"><button class="btn" data-pdf="cancel">Done</button></div>');
+  return h+note+pick+files+bal+(pdf.rows.length?'<p style="margin:14px 0 8px"><b>'+pdf.rows.length+'</b> transaction'+(pdf.rows.length===1?'':'s')+' found'+(dups?', '+dups+' already in the app (unchecked)':'')+(cps?', '+cps+' '+(cps===1?'is a payment':'are payments')+' you made to the card (imported as transfers, so they are not counted as income or spending)':'')+(trs?', '+trs+' look like transfers between your own accounts (unchecked, so they are not counted as spending or income)':'')+'. '+(unc?'<b class="warn">'+unc+' have a guessed sign</b> (marked \u26a0). Check them, and use the amount button to flip money in and out.':'Check the amounts and signs before importing.')+'</p>'+(S.sample?'<div class="banner" style="margin:0 0 10px;display:block;white-space:normal"><b class="warn">You are still using the example data.</b> Importing replaces it: the example accounts, bills, goals and transactions are removed and only what you import stays. You can press Undo afterwards if that was a mistake.</div>':'')+cardPick+'<div class="pdfscroll">'+rows+'</div>'+(pdf.rows.length>300&&!pdf.showAll?'<div class="empty"><button class="btn small" data-pdf="all">Show all '+pdf.rows.length+'</button></div>':'')+'<div class="actions" style="justify-content:flex-start;margin-top:12px"><button class="btn primary" data-pdf="import"'+(on?'':' disabled')+'>Import '+on+' transaction'+(on===1?'':'s')+'</button>'+(window.tally&&window.tally.ai&&aiSt&&aiSt.hasKey&&pdf.rows.some(function(r){return r.on&&r.cat==='Other'})?'<button class="btn" data-pdf="aicat"'+(pdf.aiBusy?' disabled':'')+'>'+(pdf.aiBusy?'Asking Claude…':'Predict categories with AI')+'</button>':'')+'<button class="btn" data-pdf="cancel">Cancel</button></div>':'<div class="actions" style="justify-content:flex-start;margin-top:12px"><button class="btn" data-pdf="cancel">Done</button></div>');
 }
 function renderPdf(){
   var el=$('#pdfpanel');if(!el)return;el.innerHTML=pdfInner();
@@ -4515,7 +4544,7 @@ function tryUnlock(pw){
   var env=null;try{env=JSON.parse(localStorage.getItem('tally-vault-v1'))}catch(e){}
   if(!vaultEnvOk(env))return showLock('The saved data could not be read.');
   vaultKey(pw,env.salt,env.it).then(function(key){return vaultDec(key,env).then(function(t){
-    var o=JSON.parse(t);S=o;migrate();syncCats();VLT.key=key;VLT.salt=env.salt;VLT.it=env.it;VLT.locked=false;
+    var o=JSON.parse(t);S=o;migrate();syncCats();undoInit();VLT.key=key;VLT.salt=env.salt;VLT.it=env.it;VLT.locked=false;
     try{localStorage.removeItem('tally-money-v1')}catch(e){}
     var g=$('#gate');if(g)g.remove();idleReset();render();widgetInit();
   })}).catch(function(){showLock('That password is not right.')});
@@ -4670,6 +4699,7 @@ function bindView(){
   if(af){var tp=$('#af-type',af),sync=function(){var d=!!DEBT_TYPES[tp.value];af.querySelectorAll('.debtonly').forEach(function(x){x.hidden=!d});af.querySelectorAll('.creditonly').forEach(function(x){x.hidden=tp.value!=='credit'})};tp.onchange=sync;sync();
     af.onsubmit=function(e){e.preventDefault();var t=tp.value,bal=parseFloat($('#af-bal').value),debt=!!DEBT_TYPES[t];S.accounts.push({id:uid(),name:$('#af-name').value.trim(),type:t,balance:bal,apr:debt?(parseFloat($('#af-apr').value)||0):0,minPay:debt?(parseFloat($('#af-min').value)||0):0,limit:t==='credit'?(parseFloat($('#af-limit').value)||0):0,closed:t==='credit'&&$('#af-closed').checked,dueDay:debt&&parseInt($('#af-due').value,10)>=1&&parseInt($('#af-due').value,10)<=31?parseInt($('#af-due').value,10):0,history:[{date:iso(TODAY),balance:bal}]});save();render();toast('Account added.')}}
   m.querySelectorAll('[data-cardesc]').forEach(function(i){i.oninput=function(){carAI.desc[i.dataset.cardesc]=i.value}});
+  m.querySelectorAll('.applebal').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();var A=S.apple||{},ac=S.accounts.filter(function(a){return a.id===A.acct})[0],v=parseFloat(fm.elements['v'].value);if(!ac||!(v>=0))return;ac.balance=v;var ap=parseFloat(fm.elements['apr'].value);if(ap>=0)ac.apr=ap;var t0=iso(TODAY),h=ac.history.filter(function(x){return x.date===t0})[0];if(h)h.balance=v;else ac.history.push({date:t0,balance:v});save();render();toast('Apple Card balance set.')}});
   m.querySelectorAll('.payform').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();var u=cleanPayUrl(fm.elements['u'].value);if(!u){toast('That needs to be a full https:// address, for example https://www.yourlender.com/pay.');return}paySet(fm.dataset.k,u);payUI.edit='';save();render();toast('Pay link saved.')}});
   m.querySelectorAll('.balform').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();var a=S.accounts.filter(function(x){return x.id===fm.dataset.id})[0],v=parseFloat(fm.querySelector('input').value);if(!a||!(v>=0))return;a.balance=v;var t=iso(TODAY),h=a.history.filter(function(x){return x.date===t})[0];if(h)h.balance=v;else a.history.push({date:t,balance:v});a.history.sort(function(p,q){return p.date<q.date?-1:1});save();render();toast(a.name+' updated.')}});
   var ex=$('#extra',m);if(ex)ex.onchange=function(){S.extraPay=Math.max(0,parseFloat(ex.value)||0);save();render()};
@@ -4702,6 +4732,8 @@ document.addEventListener('click',function(e){
   else if(a==='exp'){exportData();return}
   else if(a==='imp-ok'){S={sample:false,customCats:pendingImport.customCats,txns:pendingImport.txns,subs:pendingImport.subs,budgets:pendingImport.budgets,goals:pendingImport.goals,accounts:pendingImport.accounts,extraPay:pendingImport.extraPay,plaidIgnored:pendingImport.plaidIgnored,credit:pendingImport.credit,holdings:pendingImport.holdings,setAside:pendingImport.setAside||[],merchantCats:pendingImport.merchantCats||{},subCats:pendingImport.subCats||{},merchantSubs:pendingImport.merchantSubs||{},bills:pendingImport.bills||[],billMarks:pendingImport.billMarks||{},energy:pendingImport.energy||[],home:pendingImport.home||{},debtMonthly:pendingImport.debtMonthly||0,billIgnore:pendingImport.billIgnore||{},cardPay:pendingImport.cardPay||'auto',apple:pendingImport.apple||{},payLinks:pendingImport.payLinks||{}};pendingImport=null;migrate();syncCats();Object.keys(PL.items).forEach(function(k){PL.items[k].cursor=''});savePL();toast('Backup restored.')}
   else if(a==='imp-no'){pendingImport=null;pendingEnc=null;secMsg=''}
+  else if(a==='undo'){undoStep('undo');return}
+  else if(a==='redo'){undoStep('redo');return}
   else if(a==='shot-cancel'){creditShot={msg:'',rows:null,busy:false}}
   else if(a==='shot-save'){
     var n1=0;(creditShot.rows||[]).forEach(function(r){if(!r.on||!(r.score>=300&&r.score<=850))return;var d=/^\d{4}-\d{2}-\d{2}$/.test(r.date||'')?r.date:iso(TODAY),e={date:d,score:r.score,source:SCORE_MODELS.indexOf(r.model)>-1?r.model:'Other'};if(BUREAUS.indexOf(r.bureau)>-1)e.bureau=r.bureau;
@@ -5174,7 +5206,7 @@ function api(method,path,body){
 function wipeLocal(){try{['tally-money-v1','tally-plaid-v1','tally-quotes-v1','tally-owner'].forEach(function(k){localStorage.removeItem(k)})}catch(e){}}
 function ownerGet(){try{return localStorage.getItem('tally-owner')||''}catch(e){return ''}}
 function ownerSet(v){try{localStorage.setItem('tally-owner',v)}catch(e){}}
-function adopt(obj){S=obj;migrate();syncCats();try{localStorage.setItem('tally-money-v1',JSON.stringify(S))}catch(e){}}
+function adopt(obj){S=obj;migrate();syncCats();undoInit();try{localStorage.setItem('tally-money-v1',JSON.stringify(S))}catch(e){}}
 function showGate(mode,msg){gate={mode:mode,msg:msg||'',busy:false};drawGate()}
 function drawGate(){
   var el=$('#gate');if(!gate){if(el)el.remove();return}
@@ -5288,6 +5320,13 @@ document.addEventListener('submit',function(e){
   }).catch(function(){acctMsg='Something went wrong.';render()});
 });
 document.addEventListener('visibilitychange',function(){if(!document.hidden)pullIfNewer()});
+document.addEventListener('keydown',function(e){
+  if(!(e.metaKey||e.ctrlKey)||e.altKey||VLT.locked)return;
+  var k=(e.key||'').toLowerCase(),t=e.target,tag=t&&t.tagName;
+  if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT'||(t&&t.isContentEditable))return;   // inside a box, Ctrl/Cmd+Z undoes typing as usual
+  if(k==='z'&&!e.shiftKey){e.preventDefault();undoStep('undo')}
+  else if((k==='z'&&e.shiftKey)||k==='y'){e.preventDefault();undoStep('redo')}
+});
 function bootHosted(){
   var done=false;
   function local(){if(done)return;done=true;load();if(VLT.locked){showLock();bioLoad(function(){if(BIO.enabled){showLock();bioUnlock()}});return}render();widgetInit()}

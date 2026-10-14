@@ -447,3 +447,11 @@ On an Apple Card (or any credit card) import, money coming in is a payment you m
 - **Cannot be pulled automatically.** Tally does not and cannot read your score from the bureaus: that takes a paid agreement with the bureaus, and logging in to Credit Karma for you would mean handing the app your password and breaking whenever the site changes. The screenshot reader is the closest thing: you take the screenshot, Claude reads the numbers with your own Anthropic key (about 5 to 15 cents), and you check them before they are saved. Crop out your name and account numbers first.
 - **Smarter than a generic score page.** It grades the factors from your own accounts (payment history, utilization with the 10/30/50% marks, age of credit from the opening months you enter on each card, new credit, mix, derogatory marks), shows each card's use, and builds a **paydown plan** with the exact dollars per card to get under 30% and under 10%, with a rough range of the points moves like that have typically added (a guide, not a prediction). It tells you what closing a card would do to your average account age. "What moved your score" connects a score change to your cards' balances at the time, and "For you" lists alerts: a stale score, a big move, a card near its limit, a bureau gap, a closed card with a balance, how many points from the next band.
 - Scores, opening months and the screenshot flow are included in backups. The Overview shows a Credit score card.
+
+## Undo and redo on every tab
+
+Every page has **Undo** (and **Redo** after an undo) next to its title, and Ctrl or Cmd + Z / Shift + Z work when you are not typing in a box. The app keeps the state before each change (changes within a moment of each other count as one step, up to 30 steps, in memory only, so closing the app clears them). It covers imports, restoring a backup, edits, deletions and Start fresh. It does not cover a **bank sync** (the bank does not send those transactions again, so undoing one would lose them): a sync clears the undo history.
+
+## Apple Card balance
+
+An Apple Card export has no balance, so the Apple Card account starts at $0 owed. The Accounts tab and the Apple Card panel now show a box to type the balance from Wallet (Apple Card, Card Balance). Importing over the example data now warns first that it replaces the example accounts.
