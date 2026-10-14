@@ -6,6 +6,7 @@ const { createPlaid } = require('./plaid');
 const { createAI } = require('./ai');
 const { parsePdf, maskText } = require('./statement');
 const { createMarket, SYMBOL } = require('./market');
+const { createFundamentals } = require('./fundamentals');
 const { createWidget } = require('./widget');
 const glassLib = require('./glass');
 const { createUpdater } = require('./updater');
@@ -15,7 +16,7 @@ const aiMod = require('./ai');
 const { spawn } = require('child_process');
 
 let localAi = null;
-let store, plaid, ai, market, widget, updater, mainWin = null, linkState = null;
+let store, plaid, ai, market, fundamentals, widget, updater, mainWin = null, linkState = null;
 let glassAddon = null, glassState = { available: false, active: false, reason: '' }, glassId = -1, glassPrefsFile = '';
 const statementText = new Map();
 const statementBytes = new Map(); // PDFs with no text layer, kept briefly so they can be sent to Claude if the user chooses
@@ -213,6 +214,11 @@ function wireIpc() {
       preview: (r.lines || []).slice(0, 120).map((l) => maskText(l)),
     };
   });
+  handle('quotes:details', (symbol) => {
+    const s = String(symbol || '').trim().toUpperCase();
+    if (!SYMBOL.test(s)) throw new Error('not a valid ticker symbol');
+    return fundamentals.details(s);
+  });
   handle('quotes:get', (symbols) => {
     if (!Array.isArray(symbols) || symbols.length > 40) throw new Error('Too many symbols.');
     const list = symbols.map((s) => String(s).trim()).filter((s) => SYMBOL.test(s));
@@ -342,6 +348,7 @@ app.whenReady().then(() => {
   plaid = createPlaid({ store });
   ai = createAI({ store });
   market = createMarket();
+  fundamentals = createFundamentals();
   glassPrefsFile = path.join(app.getPath('userData'), 'appearance.json');
   glassAddon = glassLib.loadAddon({ resourcesPath: process.resourcesPath, devDir: path.join(__dirname, 'native-glass') });
   glassState = glassLib.decide({ platform: process.platform, osVersion: process.getSystemVersion && process.getSystemVersion(), prefs: glassLib.readPrefs(glassPrefsFile), addon: glassAddon });

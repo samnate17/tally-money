@@ -31,6 +31,7 @@
       "glass.js",
       "updater.js",
       "local-ai.js",
+      "fundamentals.js",
       "loanparse.js",
       "widget.html",
       "widget-preload.js",

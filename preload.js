@@ -58,6 +58,7 @@ contextBridge.exposeInMainWorld('tally', {
   },
   quotes: {
     get: inv('quotes:get'),
+    details: inv('quotes:details'),
   },
   widget: {
     push: inv('widget:push'),
