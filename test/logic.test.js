@@ -839,7 +839,7 @@ function billsWorld() {
   const normName = (n) => n.toLowerCase().replace(/[#\d*]+/g, '').replace(/\s+/g, ' ').trim(), aiKey = (n) => normName(n) || '(blank)';
   const monthKey = (s) => s.slice(0, 7), shiftMonth = (k, n) => { const p = k.split('-'); const d = new Date(+p[0], +p[1] - 1 + n, 1); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); };
   const iso = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-  return new Function('aiKey,monthKey,shiftMonth,iso', srcBlock('/*LOAN-START*/', '/*LOAN-END*/') + srcBlock('/*BILLS-START*/', '/*BILLS-END*/') + '\nreturn {billMatchRe, billItems, dueDateFor, billStatus, billsSummary, suggestBills};')(aiKey, monthKey, shiftMonth, iso);
+  return new Function('aiKey,monthKey,shiftMonth,iso', srcBlock('/*LOAN-START*/', '/*LOAN-END*/') + srcBlock('/*BILLS-START*/', '/*BILLS-END*/') + '\nreturn {billMatchRe, billItems, dueDateFor, billStatus, billsSummary, suggestBills, autoBillItems};')(aiKey, monthKey, shiftMonth, iso);
 }
 
 test('bills: payments are found in transactions with a sensible amount window; marks override; states follow the calendar', () => {
@@ -866,13 +866,13 @@ test('bills: loans and credit cards appear as bills, and the summary adds up pai
   const accounts = [{ id: 'c', name: 'Honda Civic loan', lender: 'Honda Financial', type: 'auto', minPay: 846.32, dueDay: 18, balance: 18000 }, { id: 'z', name: 'Old loan', type: 'auto', minPay: 100, dueDay: 3, balance: 0 }, { id: 'n', name: 'Direct Unsub', lender: 'Nelnet', type: 'student', minPay: 95, dueDay: 5, balance: 7000 }, { id: 'k', name: 'Visa', type: 'credit', minPay: 25, dueDay: 9, balance: 500 }, { id: 'q', name: 'Store card', type: 'credit', minPay: 0, dueDay: 9, balance: 500 }, { id: 'w', name: 'No due day card', type: 'credit', minPay: 30, balance: 500 }];
   const bills = [{ id: 'rent', name: 'Rent', amount: 1500, dueDay: 1, match: 'maple' }];
   const items = B.billItems(bills, accounts);
-  assert.deepStrictEqual(items.map((x) => x.id).sort(), ['loan:c', 'loan:k', 'loan:n', 'rent']);              // paid-off debts, cards with no minimum and cards with no due day are not listed
+  assert.deepStrictEqual(items.map((x) => x.id).sort(), ['loan:c', 'loan:k', 'loan:n', 'loan:w', 'rent']);   // paid-off debts and cards with no minimum are not listed; one with no due day still is
   const txns = [{ date: '2026-10-01', name: 'MAPLE COURT RENT', amount: -1500 }, { date: '2026-10-05', name: 'NELNET PAYMENT 12', amount: -95 }];
   const sum = B.billsSummary(items, '2026-10', txns, {}, today);
-  assert.deepStrictEqual([sum.count, sum.paidCount, sum.paid, sum.pending, sum.total, sum.overdue], [4, 2, 1595, 871.32, 2466.32, 1]);   // the card was due on the 9th
-  assert.deepStrictEqual(sum.rows.map((r) => r.item.id), ['rent', 'loan:n', 'loan:k', 'loan:c']);   // by due date
+  assert.deepStrictEqual([sum.count, sum.paidCount, sum.paid, sum.pending, sum.total, sum.overdue], [5, 2, 1595, 901.32, 2496.32, 1]);   // the card was due on the 9th
+  assert.deepStrictEqual(sum.rows.map((r) => r.item.id), ['rent', 'loan:n', 'loan:k', 'loan:c', 'loan:w']);   // by due date, undated last
   const late = B.billsSummary(items, '2026-10', [], {}, new Date(2026, 9, 20)); assert.strictEqual(late.overdue, 4);
-  assert.strictEqual(late.pending, 2466.32);
+  assert.strictEqual(late.pending, 2496.32);
   assert.strictEqual(B.billsSummary([], '2026-10', [], {}, today).count, 0);
 });
 
@@ -1141,4 +1141,71 @@ test('Loans hub and Mortgage tab are wired in, old tab names still open the hub,
   assert.ok(src.includes("['loans','Loans']") && src.includes("['mortgage','Mortgage'") && src.includes('loans:vLoansHub,mortgage:vMortgage'));
   assert.ok(!src.includes("['carloan','Car loan'") && src.includes("loanFilter=view==='student'?'student':'auto';view='loans'"));
   assert.ok(src.includes('home:S.home,debtMonthly:S.debtMonthly') && src.includes('home:home,debtMonthly:') && src.includes('home:pendingImport.home||{}'));
+});
+
+// ---- smarter bills and no double counting ----
+function transferBlock() { return new Function(srcBlock('/*TRANSFER-START*/', '/*TRANSFER-END*/') + '\nreturn {isTransfer, transferInfo, ledgerOf};')(); }
+
+test('phone carriers are filed as a phone plan, but plain Xfinity stays internet', () => {
+  const W = catWorld({ customCats: [], merchantCats: {} });
+  for (const n of ['T-MOBILE*SERVICES 8005', 'XFINITY MOBILE AUTOPAY', 'VERIZON WIRELESS PAYMENTS', 'MINT MOBILE', 'AT&T WIRELESS', 'GOOGLE FI', 'CRICKET WIRELESS', 'VISIBLE WIRELESS']) {
+    assert.strictEqual(W.guessCat(n), 'Subscriptions', n);
+    assert.strictEqual(W.guessSub('Subscriptions', n), 'Phone plan', n);
+  }
+  assert.strictEqual(W.guessCat('XFINITY INTERNET 123'), 'Housing');
+  assert.strictEqual(W.guessCat('VERIZON FIOS'), 'Housing');
+});
+
+test('transfers: card payments, thank-you credits and own-account moves are not spending or income', () => {
+  const T = transferBlock();
+  const buys = [{ amount: -40, name: 'SHAWS', date: '2026-10-01' }];
+  const cardSide = buys.concat([{ amount: 500, name: 'PAYMENT THANK YOU', date: '2026-10-03', cat: 'Income' }]);
+  const pay = { amount: -500, name: 'CHASE CREDIT CRD AUTOPAY', date: '2026-10-03' };
+  assert.strictEqual(T.isTransfer({ amount: 500, name: 'PAYMENT THANK YOU' }, T.transferInfo(cardSide, 'auto')), true);   // never income
+  assert.strictEqual(T.isTransfer(pay, T.transferInfo(buys, 'auto')), false);        // card purchases are not in the app: the payment is the only record, keep it
+  assert.strictEqual(T.isTransfer(pay, T.transferInfo(cardSide, 'auto')), true);     // they are: counting the payment too would double count
+  assert.strictEqual(T.isTransfer(pay, T.transferInfo(buys, 'skip')), true);
+  assert.strictEqual(T.isTransfer(pay, T.transferInfo(cardSide, 'count')), false);
+  assert.strictEqual(T.isTransfer({ amount: -300, name: 'ONLINE TRANSFER TO SAVINGS' }, T.transferInfo(buys, 'auto')), true);
+  assert.strictEqual(T.isTransfer({ amount: -1900, name: 'CHASE MORTGAGE PAYMENT' }, T.transferInfo(cardSide, 'skip')), false);   // a loan payment is real spending
+  assert.strictEqual(T.isTransfer({ amount: -30, name: 'ZELLE PAYMENT TO JOE' }, T.transferInfo(buys, 'skip')), false);
+  assert.strictEqual(T.isTransfer({ amount: -500, name: 'CHASE CREDIT CRD AUTOPAY', transfer: false }, T.transferInfo(cardSide, 'skip')), false);   // your choice wins
+  assert.strictEqual(T.isTransfer({ amount: -25, name: 'SOMETHING ELSE', transfer: true }, null), true);
+  assert.strictEqual(T.ledgerOf(cardSide.concat([pay]), 'auto').length, 1);
+});
+
+test('bills: a recurring phone payment filed under Housing is still found as a phone bill, and one-offs are not', () => {
+  const B = billsWorld();
+  const catOf = (n) => /t-mobile/i.test(n) ? { cat: 'Subscriptions', sub: 'Phone plan' } : { cat: 'Other', sub: '' };
+  const mk = (d, name, a, cat) => ({ date: d, name, amount: -a, cat: cat || 'Housing' });
+  const txns = [mk('2026-08-12', 'T-MOBILE*SERVICES 111', 85), mk('2026-09-12', 'T-MOBILE*SERVICES 222', 85), mk('2026-10-11', 'T-MOBILE*SERVICES 333', 86.5),
+    mk('2026-09-20', 'RANDOM STORE', 90), mk('2026-10-21', 'RANDOM STORE', 400)];
+  const auto = B.autoBillItems(txns, [], '2026-10', {}, catOf);
+  assert.strictEqual(auto.length, 1);
+  assert.deepStrictEqual([auto[0].cat, auto[0].sub, auto[0].dueDay, auto[0].source], ['Subscriptions', 'Phone plan', 12, 'auto']);
+  assert.strictEqual(B.autoBillItems(txns, [], '2026-10', { [auto[0].key]: 1 }, catOf).length, 0);   // dismissed stays dismissed
+  const st = B.billStatus(auto[0], '2026-10', txns, {}, new Date(2026, 9, 20));
+  assert.strictEqual(st.state, 'paid');
+  const stopped = txns.filter((x) => x.date < '2026-09-30');
+  assert.strictEqual(B.autoBillItems(stopped, [], '2026-11', {}, catOf).length, 0);                  // stopped two months ago: not a current bill
+});
+
+test('bills: a car loan with a payment but no due day still appears, with the day your payments land', () => {
+  const B = billsWorld();
+  const acct = [{ id: 'c1', type: 'auto', name: 'Honda Accord', lender: 'Honda Financial', balance: 12000, minPay: 410, dueDay: 0 }];
+  const txns = [{ date: '2026-09-17', name: 'HONDA FINANCIAL PMT', amount: -410 }, { date: '2026-10-17', name: 'HONDA FINANCIAL PMT', amount: -410 }];
+  const items = B.billItems([], acct, txns);
+  assert.strictEqual(items.length, 1);
+  assert.deepStrictEqual([items[0].dueDay, items[0].dayGuessed, items[0].sub], [17, true, 'Car loan']);
+  assert.strictEqual(B.billStatus(items[0], '2026-10', txns, {}, new Date(2026, 9, 20)).state, 'paid');
+  assert.strictEqual(B.billItems([], acct).length, 1);                                                // no transactions at all: still listed
+});
+
+test('app wiring: spending, income, budgets and reports read the ledger; transfers survive backup', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  assert.match(src, /function spendBy\(mk\)\{var o=\{\},t=0;ledger\(\)/);
+  assert.match(src, /function incomeOf\(mk\)\{var t=0;ledger\(\)/);
+  assert.match(src, /monthReport\(ledger\(\)/);
+  assert.match(src, /t\.transfer=x\.transfer/);
+  assert.match(src, /billIgnore:S\.billIgnore,cardPay:S\.cardPay/);
 });

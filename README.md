@@ -297,6 +297,14 @@ The **Mortgage** tab takes your home value, mortgage (balance, rate, principal-a
 
 Change the assumptions (growth, return on investments, selling cost, rent, upkeep, vacancy, management) and everything updates. It is a model, not a prediction, and it leaves out income-tax effects such as the mortgage-interest deduction and capital gains tax on a sale or rental; ask a tax professional about those.
 
+## Smarter Bills and no double counting
+
+- **Bills find themselves.** A payment that repeats about the same amount around the same day for three months (or two, if it is still going) shows up on the Bills tab with a "Found in your transactions" tag. Press **Keep** to save it as your own bill, or **Not a bill** to hide it for good. Housing, loans, insurance, education and phone plans are considered; groceries, dining and shopping never are.
+- **Phone carriers** (T-Mobile, Xfinity Mobile, Verizon, AT&T, Mint, Visible, Cricket, Google Fi and others) are filed under Subscriptions > Phone plan, even from older transactions that were filed under Housing. Plain Xfinity or Verizon Fios stays internet.
+- **Car loans, student loans and cards** appear as bills as soon as they have a monthly payment. If you never set a due day, the app uses the day your payments usually land.
+- **Nothing is counted twice.** Paying a credit card from checking, "payment thank you" credits on a card statement, and moves between your own accounts are left out of spending, income, budgets, reports and "Can I afford it?". Card payments are only skipped when your card purchases are in the app too (otherwise the payment is the only record of that money); change this on the Transactions tab. Press **Transfer** or **Count it** on any row to override the app. Loan and mortgage payments always count, because they are real spending.
+- Everything here runs on your device with plain rules. It does not need the local assistant or an API key.
+
 ## Windows
 
 A Windows installer (`Tally.Money-Setup-<version>.exe`, 64-bit; it also runs on Windows on ARM) is built by the same GitHub Actions workflow and attached to each release, after the Mac files. Run it, and if Windows SmartScreen says it protected your PC, choose **More info**, then **Run anyway** (the installer is not signed, which would need a paid certificate). Your data lives on that computer only; to move it from the Mac use Download backup on the Mac and Restore from file on Windows, or use the hosted version.
