@@ -527,7 +527,6 @@ function detect(){
 
 /* ---------- icons + shell ---------- */
 var ICON={
- security:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>',
  loans:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 3 8l9 5 9-5-9-5z"/><path d="M3 13l9 5 9-5"/><path d="M3 17.5l9 5 9-5" opacity=".5"/></svg>',
  mortgage:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>',
  assist:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>',
@@ -546,7 +545,7 @@ var ICON={
  budgets:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v9h9"/><path d="M20.5 15A9 9 0 1 1 9 3.5"/></svg>',
  transactions:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h13M13 3l4 4-4 4M20 17H7M11 13l-4 4 4 4"/></svg>',
  goals:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg>'};
-var TABS=[['overview','Overview'],['dash','Dashboard','Live'],['accounts','Accounts'],['subscriptions','Subscriptions','Subs'],['bills','Bills','Bills'],['budgets','Budgets'],['report','Monthly report','Report'],['afford','Can I afford it?','Afford'],['credit','Credit'],['invest','Investments','Invest'],['transactions','Transactions','Activity'],['goals','Goals'],['loans','Loans'],['mortgage','Mortgage','Home'],['assist','Assistant','Chat'],['security','Security','Lock'],['look','Settings','Settings']];
+var TABS=[['overview','Overview'],['dash','Dashboard','Live'],['accounts','Accounts'],['subscriptions','Subscriptions','Subs'],['bills','Bills','Bills'],['budgets','Budgets'],['report','Monthly report','Report'],['afford','Can I afford it?','Afford'],['credit','Credit'],['invest','Investments','Invest'],['transactions','Transactions','Activity'],['goals','Goals'],['loans','Loans'],['mortgage','Mortgage','Home'],['assist','Assistant','Chat'],['look','Settings','Settings']];
 function nav(){
   function items(short){return TABS.map(function(t){return '<button class="nav" data-view="'+t[0]+'"'+(view===t[0]?' aria-current="page"':'')+'>'+ICON[t[0]]+'<span>'+(short&&t[2]||t[1])+'</span></button>'}).join('')}
   var h=items(false);
@@ -568,7 +567,7 @@ function refreshAll(){
 }
 function render(){
   nav();
-  var f={bills:vBills,loans:vLoansHub,mortgage:vMortgage,carloan:function(){loanFilter='auto';return vLoansHub()},student:function(){loanFilter='student';return vLoansHub()},look:vLook,security:vSecurity,overview:vOverview,dash:vDash,assist:vAssist,accounts:vAccounts,afford:vAfford,credit:vCredit,invest:vInvest,report:vReport,subscriptions:vSubs,budgets:vBudgets,transactions:vTx,goals:vGoals}[view];
+  var f={bills:vBills,loans:vLoansHub,mortgage:vMortgage,carloan:function(){loanFilter='auto';return vLoansHub()},student:function(){loanFilter='student';return vLoansHub()},look:vLook,overview:vOverview,dash:vDash,assist:vAssist,accounts:vAccounts,afford:vAfford,credit:vCredit,invest:vInvest,report:vReport,subscriptions:vSubs,budgets:vBudgets,transactions:vTx,goals:vGoals}[view];
   var cb=HOSTED&&AUTH.conflict?'<div class="banner" id="conflict"><span><b>This account changed on another device.</b> Choose which version to keep.</span><span style="flex:0 0 auto;display:flex;gap:8px"><button class="btn small" data-act="cf-remote">Use the other version</button><button class="btn small primary" data-act="cf-local">Keep this device\'s version</button></span></div>':'';
   var banner=cb+updBanner()+(S.sample?'<div class="banner"><span><b>Example data.</b> These accounts and transactions are made up so you can try everything. Clear them to start with your own, or import a CSV from your bank.</span><button class="btn primary small" data-act="clear">Start fresh</button></div>':'');
   var body=f();
@@ -3919,7 +3918,7 @@ function pendBanner(){
   return p?'<div class="banner" style="margin-top:12px"><span><b>Replace your data?</b> This file has '+p.txns.length+' transactions, '+p.subs.length+' subscriptions, '+Object.keys(p.budgets).length+' budgets, '+p.goals.length+' goals and '+p.accounts.length+' accounts. Your current data will be overwritten.</span><span class="actions"><button class="btn small danger" data-act="imp-ok">Replace my data</button><button class="btn small" data-act="imp-no">Cancel</button></span></div>':'';
 }
 function backupPanel(){
-  return '<section class="panel"><h2>Backup<small>save or restore everything</small></h2><div class="actions" style="justify-content:flex-start"><button class="btn primary" data-act="exp">Download backup</button><label class="btn" style="cursor:pointer">Restore from file<input id="bk" type="file" accept=".json,application/json" hidden></label></div><p class="sub muted" style="margin:10px 0 0;font-size:13px">Your data lives only on this computer. Download a backup now and then, and use it to recover after clearing site data. To move to another computer, use <a href="#" data-view="security">Security</a>, which can protect the file with a password.</p>'+pendBanner()+'</section>';
+  return '<section class="panel"><h2>Backup<small>save or restore everything</small></h2><div class="actions" style="justify-content:flex-start"><button class="btn primary" data-act="exp">Download backup</button><label class="btn" style="cursor:pointer">Restore from file<input id="bk" type="file" accept=".json,application/json" hidden></label></div><p class="sub muted" style="margin:10px 0 0;font-size:13px">Your data lives only on this computer. Download a backup now and then, and use it to recover after clearing site data. To move to another computer, use <b>Move to another computer</b> above, which can protect the file with a password.</p>'+pendBanner()+'</section>';
 }
 function backupPayload(){
   return {app:'tally-money',version:1,exported:new Date().toISOString(),data:{txns:S.txns,subs:S.subs,budgets:S.budgets,goals:S.goals,accounts:S.accounts,extraPay:S.extraPay,plaidIgnored:S.plaidIgnored,credit:S.credit,holdings:S.holdings,customCats:S.customCats,setAside:S.setAside,merchantCats:S.merchantCats,subCats:S.subCats,merchantSubs:S.merchantSubs,bills:S.bills,billMarks:S.billMarks,energy:S.energy,home:S.home,debtMonthly:S.debtMonthly,billIgnore:S.billIgnore,cardPay:S.cardPay,apple:S.apple}};
@@ -3952,10 +3951,10 @@ function readBackupFile(file){
   rd.readAsText(file);
 }
 // ---- Security tab: move to another computer, and the app password ----
-function vSecurity(){
+function secPanels(){
   var canVault=!HOSTED&&!!(window.crypto&&window.crypto.subtle);
   var xfer='<section class="panel"><h2>Move to another computer<small>Mac to Windows, or back</small></h2>'+
-   '<ol class="sub" style="margin:0 0 12px 18px;padding:0;line-height:1.6;white-space:normal"><li>On this computer, pick a password for the file and press <b>Save transfer file</b>. Save it to your flash drive.</li><li>On the other computer, install and open Tally Money, go to <b>Security</b>, press <b>Open a transfer file</b> and choose the file on the drive.</li><li>Enter the password, then press <b>Replace my data</b>.</li></ol>'+
+   '<ol class="sub" style="margin:0 0 12px 18px;padding:0;line-height:1.6;white-space:normal"><li>On this computer, pick a password for the file and press <b>Save transfer file</b>. Save it to your flash drive.</li><li>On the other computer, install and open Tally Money, go to <b>Settings</b>, press <b>Open a transfer file</b> and choose the file on the drive.</li><li>Enter the password, then press <b>Replace my data</b>.</li></ol>'+
    '<form id="xferform" class="actions" style="justify-content:flex-start;align-items:flex-end;gap:10px"><div><label class="sub" for="xf-pw" style="display:block">File password</label><input id="xf-pw" type="password" autocomplete="new-password" placeholder="10+ characters" style="width:190px"></div><div><label class="sub" for="xf-pw2" style="display:block">Type it again</label><input id="xf-pw2" type="password" autocomplete="new-password" style="width:190px"></div><button class="btn primary" type="submit">Save transfer file</button><button class="btn" type="button" data-act="xfer-plain">Save without a password</button></form>'+
    '<div class="actions" style="justify-content:flex-start;margin-top:12px"><label class="btn" style="cursor:pointer">Open a transfer file<input id="bk" type="file" accept=".json,application/json" hidden></label></div>'+
    (secMsg&&!pendingEnc&&secPanel==='x'?'<div class="sub" role="status" style="margin-top:10px">'+esc(secMsg)+'</div>':'')+pendBanner()+
@@ -3970,7 +3969,7 @@ function vSecurity(){
     '<form id="vchgform"><h3 style="font-size:14px;margin:0 0 8px">Change password</h3><div class="actions" style="justify-content:flex-start;align-items:flex-end;gap:10px"><div><label class="sub" for="vc-0" style="display:block">Current</label><input id="vc-0" type="password" autocomplete="current-password" style="width:170px"></div><div><label class="sub" for="vc-1" style="display:block">New</label><input id="vc-1" type="password" autocomplete="new-password" style="width:170px"></div><div><label class="sub" for="vc-2" style="display:block">Again</label><input id="vc-2" type="password" autocomplete="new-password" style="width:170px"></div><button class="btn" type="submit">Change</button></div></form>'+
     '<form id="voffform" style="margin-top:14px"><h3 style="font-size:14px;margin:0 0 8px">Turn password off</h3><div class="actions" style="justify-content:flex-start;align-items:flex-end;gap:10px"><div><label class="sub" for="vo-0" style="display:block">Current password</label><input id="vo-0" type="password" autocomplete="current-password" style="width:200px"></div><button class="btn danger" type="submit">Turn off</button></div></form>'+(secMsg&&secPanel==='p'?'<div class="sub" role="status" style="margin-top:10px">'+esc(secMsg)+'</div>':'')+'</section>';
   var note='<section class="panel"><h2>What the password protects</h2><p class="sub muted" style="margin:0;white-space:normal;font-size:13px">Your financial data (transactions, accounts, loans, goals, and so on) is encrypted with AES-256 and a key made from your password. The password is never stored. Bank and AI keys are kept by your computer\'s own secure storage, and the list of linked bank names and stock prices is not encrypted. Anyone with the unlocked app, or your password, can see everything, so lock it when you step away.</p></section>';
-  return '<div class="top"><h1>Security</h1></div>'+xfer+pw+(canVault?note:'');
+  return xfer+pw+(canVault?note:'');
 }
 function secBind(m){
   var f,say=function(t){secMsg=t;secBusy=false;render()};
@@ -4158,7 +4157,7 @@ function bindView(){
   var ex=$('#extra',m);if(ex)ex.onchange=function(){S.extraPay=Math.max(0,parseFloat(ex.value)||0);save();render()};
   var st=$('#strategy',m);if(st)st.onchange=function(){strategy=st.value;render()};
   var bk=$('#bk',m);if(bk)bk.onchange=function(){var file=bk.files[0];if(file)readBackupFile(file)};
-  if(view==='security')secBind(m);
+  if(view==='look')secBind(m);
 }
 document.addEventListener('click',function(e){
   var v=e.target.closest('[data-view]');if(v){view=v.dataset.view;if(view==='carloan'||view==='student'){loanFilter=view==='student'?'student':'auto';view='loans'}pendingImport=null;pendingEnc=null;secMsg='';editTx='';render();window.scrollTo(0,0);return}
@@ -4329,7 +4328,7 @@ function vLook(){
   '<section class="panel"><h2>Type and motion</h2>'+
     '<div class="lookrow"><span class="lbl">Text size</span><span class="ctl">'+seg('th-size',TH.size,[['s','Small'],['m','Normal'],['l','Large']])+'</span></div>'+
     '<div class="lookrow"><span class="lbl">Font</span><span class="ctl">'+seg('th-font',TH.font,[['modern','Modern'],['system','System'],['rounded','Rounded'],['serif','Serif']])+'</span></div>'+
-    '<div class="lookrow"><span class="lbl">Motion<small>Page transitions, count-ups, the drifting background and confetti. Your system "reduce motion" setting always wins.</small></span><span class="ctl">'+seg('th-motion',TH.motion,[['full','Full'],['reduced','Calm']])+'</span></div></section>'+'<h2 class="setsec">App and data</h2>'+updatesPanel()+backupPanel();
+    '<div class="lookrow"><span class="lbl">Motion<small>Page transitions, count-ups, the drifting background and confetti. Your system "reduce motion" setting always wins.</small></span><span class="ctl">'+seg('th-motion',TH.motion,[['full','Full'],['reduced','Calm']])+'</span></div></section>'+'<h2 class="setsec">Security and moving to another computer</h2>'+secPanels()+'<h2 class="setsec">App and data</h2>'+updatesPanel()+backupPanel();
 }
 function thClick(a,b){
   if(a==='th-preset'){var p=PRESETS.filter(function(x){return x.id===b.dataset.v})[0];if(p){TH.preset=p.id;TH.accent=p.accent}}

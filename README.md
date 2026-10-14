@@ -398,9 +398,9 @@ Transactions tab, Import statements panel. Both go through the same review scree
 
 ## Moving to another computer, and the password
 
-Open **Security** in the sidebar.
+Open **Settings** in the sidebar; the Security section holds these.
 
-- **Move to another computer (Mac ↔ Windows).** Choose a password for the file and press *Save transfer file* (a Save dialog opens; pick your flash drive). On the other computer open Tally Money → Security → *Open a transfer file*, choose the file, enter the password and press *Replace my data*. The file is the normal backup JSON sealed with AES-256-GCM, with the key derived from your password using PBKDF2-SHA-256 (600,000 rounds). *Save without a password* is available but the file is then readable by anyone. Bank connections and API keys are not copied: they stay on the computer where they were set up.
+- **Move to another computer (Mac ↔ Windows).** Choose a password for the file and press *Save transfer file* (a Save dialog opens; pick your flash drive). On the other computer open Tally Money → Settings → *Open a transfer file*, choose the file, enter the password and press *Replace my data*. The file is the normal backup JSON sealed with AES-256-GCM, with the key derived from your password using PBKDF2-SHA-256 (600,000 rounds). *Save without a password* is available but the file is then readable by anyone. Bank connections and API keys are not copied: they stay on the computer where they were set up.
 - **Password for the app.** *Turn on password* encrypts the data stored on this computer with the same scheme (`tally-vault-v1` in local storage; the plain copy is removed only after the encrypted copy has been read back and verified). The app then opens to a lock screen, locks itself after a chosen idle time (default 5 minutes), and can be locked on demand. The password can be changed or turned off from the same panel. There is no recovery: forgetting it means erasing the local data and restoring from a backup file.
 - Not encrypted: the list of linked bank names and the stock-price cache. Bank/API keys are held by the operating system's secure storage as before.
 - This is a password for the computer, not an online account; nothing is sent anywhere. (The hosted web build keeps its own server-side accounts.)
@@ -411,4 +411,4 @@ In **Settings → App updates**, when a newer release exists the Windows app sho
 
 ## Settings tab
 
-The former Appearance tab is now **Settings**. It holds Appearance (look, colour, type and motion), App updates, and **Backup** (Download backup / Restore from file), which moved here from Transactions. Security (password and moving to another computer) keeps its own tab.
+The former Appearance tab is now **Settings**. It holds Appearance (look, colour, type and motion), App updates, and **Backup** (Download backup / Restore from file), which moved here from Transactions. Security (the password and moving to another computer) is a section of Settings too.
