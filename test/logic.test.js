@@ -1031,3 +1031,82 @@ test('loan statement details: a newer statement replaces old figures, an older o
   const b = { pastDue: 50, asOf: '2026-10-01' }; L.applyStmt(b, { accruedInterest: 10 }); assert.deepStrictEqual([b.pastDue, b.accruedInterest], [50, 10]);   // no date: fill in only
   assert.deepStrictEqual(L.cleanStmt({ amountDue: '12.345', pastDue: -1, dueDate: 'soon', lastPayDate: '2026-02-30x' }), { amountDue: 12.35 });
 });
+
+function planWorld() {
+  return new Function(srcBlock('/*LOAN-START*/', '/*LOAN-END*/') + srcBlock('/*DEBTPLAN-START*/', '/*DEBTPLAN-END*/') + srcBlock('/*HOME-START*/', '/*HOME-END*/') +
+    '\nreturn {amortize, requiredPayment, payoffPlan, monthlyForMonths, consolidationOffer, homeNorm, mortStep, homeMonthly, homeEquity, homeCompare, homeRentOut, homeSinceBuy, homeExtra, homeSim, homeRefi, growthPerMonth};')();
+}
+
+test('payoff plan: one debt matches the plain loan formula, and the money is all accounted for', () => {
+  const P = planWorld();
+  const one = P.payoffPlan([{ id: 'a', name: 'A', balance: 1000, apr: 12, minPay: 50 }], 100, 'avalanche');
+  const ref = P.amortize(1000, 12, 100);
+  assert.deepStrictEqual([one.months, Math.round(one.interest * 100)], [ref.months, Math.round(ref.interest * 100)]);
+  const two = P.payoffPlan([{ id: 'a', name: 'A', balance: 1000, apr: 20, minPay: 25 }, { id: 'b', name: 'B', balance: 500, apr: 5, minPay: 25 }], 200, 'avalanche');
+  assert.ok(Math.abs(two.paidTotal - (1500 + two.interest)) < 0.01, 'everything paid = what was owed + interest');
+});
+
+test('payoff plan: avalanche saves the most interest, snowball clears the smaller debts first, below-minimum is refused', () => {
+  const P = planWorld(), debts = [{ id: 'a', name: 'Card', balance: 4000, apr: 24, minPay: 100 }, { id: 'b', name: 'Car', balance: 9000, apr: 6, minPay: 250 }, { id: 'c', name: 'Store', balance: 600, apr: 15, minPay: 30 }];
+  const av = P.payoffPlan(debts, 600, 'avalanche'), sn = P.payoffPlan(debts, 600, 'snowball'), mn = P.payoffPlan(debts, 600, 'minimum');
+  assert.ok(av.ok && sn.ok && mn.ok);
+  assert.ok(av.interest <= sn.interest + 0.01 && sn.interest < mn.interest);
+  assert.strictEqual(av.order[0].id, 'a'); assert.strictEqual(sn.order[0].id, 'c');          // highest rate first vs smallest balance first
+  assert.ok(sn.left.findIndex((n) => n <= 2) <= av.left.findIndex((n) => n <= 2));            // snowball is down to two debts no later
+  assert.deepStrictEqual([P.payoffPlan(debts, 300, 'avalanche').reason, P.payoffPlan(debts, 300, 'avalanche').minTotal], ['below', 380]);
+  assert.ok(P.payoffPlan(debts, 600, 'avalanche', { lump: 2000 }).months < av.months);
+  assert.strictEqual(P.payoffPlan([{ id: 'x', name: 'X', balance: 1000, apr: 30, minPay: 5 }], 100, 'minimum').reason, 'never');   // minimum does not cover the interest
+});
+
+test('payoff plan: the monthly amount needed for a deadline, and a consolidation offer', () => {
+  const P = planWorld(), debts = [{ id: 'a', name: 'Card', balance: 4000, apr: 24, minPay: 100 }, { id: 'b', name: 'Car', balance: 9000, apr: 6, minPay: 250 }];
+  const m = P.monthlyForMonths(debts, 36, 'avalanche', 0);
+  assert.ok(P.payoffPlan(debts, m, 'avalanche').months <= 36 && P.payoffPlan(debts, m - 0.05, 'avalanche').months > 36);
+  assert.strictEqual(P.monthlyForMonths(debts, 1, 'avalanche', 0) > 13000, true);
+  const c = P.consolidationOffer([{ id: 'a', name: 'Card', balance: 10000, apr: 20, minPay: 250 }], 8, 36, 0);
+  assert.ok(Math.abs(c.pay - 313.36) < 0.01 && c.saving > 0 && c.monthsNew === 36);
+  assert.ok(P.consolidationOffer([{ id: 'a', name: 'Card', balance: 10000, apr: 6, minPay: 250 }], 8, 36, 3).saving < 0);   // a higher rate plus a fee costs more
+});
+
+test('home: monthly cost, equity and rent-out figures follow from the inputs', () => {
+  const P = planWorld(), pi = P.requiredPayment(300000, 6, 360);
+  assert.ok(Math.abs(pi - 1798.65) < 0.01);
+  const h = P.homeNorm({ value: 400000, balance: 300000, apr: 6, pi, taxYear: 4800, insYear: 1200, hoaMonth: 50, rentMonth: 3000 });
+  assert.deepStrictEqual([h.maintPct, h.sellPct, h.appreciation, h.ret], [1, 7, 3, 6]);
+  const mo = P.homeMonthly(h);
+  assert.ok(Math.abs(mo.interest - 1500) < 0.01 && Math.abs(mo.principal - 298.65) < 0.01 && Math.abs(mo.cash - 2681.98) < 0.01 && Math.abs(mo.cost - (2681.98 - 298.65)) < 0.01);
+  const eq = P.homeEquity(h); assert.deepStrictEqual([eq.equity, eq.proceeds, Math.round(eq.ltv)], [100000, 72000, 75]);
+  assert.strictEqual(P.homeMonthly({ ...h, balance: 340000, pmiMonth: 120 }).pmi, 120);        // over 80% loan-to-value: PMI applies
+  const ro = P.homeRentOut(h);
+  assert.ok(Math.abs(ro.noi - 1738.67) < 0.01 && Math.abs(ro.cashFlow - (1738.67 - 1798.65)) < 0.01 && Math.abs(ro.capRate - 5.22) < 0.01 && Math.abs(ro.breakEvenRent - 3068.6) < 0.5);
+});
+
+test('home: keep versus sell breaks even when keeping stays ahead; invariants hold', () => {
+  const P = planWorld(), pi = P.requiredPayment(300000, 6, 360);
+  const base = { value: 400000, balance: 300000, apr: 6, pi, taxYear: 4800, insYear: 1200, hoaMonth: 0, appreciation: 0, ret: 0, sellPct: 0, rentMonth: 3000 };
+  const a = P.homeCompare(P.homeNorm(base), 10);
+  assert.strictEqual(a.beLive, 0);                                                              // rent above the cost of owning: keeping is ahead from the start
+  const b = P.homeCompare(P.homeNorm({ ...base, rentMonth: 1500, sellPct: 7 }), 10);
+  assert.strictEqual(b.beLive, null);                                                           // cheap rent and 7% selling costs: selling and renting stays ahead
+  const c = P.homeCompare(P.homeNorm({ ...base, rentMonth: 2200, appreciation: 1, ret: 5, sellPct: 7 }), 30);
+  assert.ok(c.beLive > 60 && c.beLive < 120, 'crosses over after about seven years, got ' + c.beLive);
+  c.rows.forEach((r) => { if (r.year * 12 > c.beLive + 12) assert.ok(r.keep >= r.sellLive - 1, 'stays ahead after break-even, year ' + r.year); else if (r.year * 12 < c.beLive - 12) assert.ok(r.keep < r.sellLive, 'behind before break-even, year ' + r.year); });
+  assert.strictEqual(P.homeCompare(P.homeNorm({ ...base, rentMonth: 0 }), 10).beLive, null);   // no rent figure: no comparison
+  assert.strictEqual(a.rows.length, 10);
+});
+
+test('home: since you bought, extra payments versus investing, and refinancing', () => {
+  const P = planWorld(), pi = P.requiredPayment(280000, 6, 360);
+  const sb = P.homeSinceBuy(P.homeNorm({ value: 350000, balance: 270000, apr: 6, pi, purchasePrice: 350000, down: 70000, sellPct: 0, appreciation: 0 }), 24);
+  let bal = 280000, ci = 0; for (let i = 0; i < 24; i++) { const s = P.mortStep(bal, 6, pi); ci += s.interest; bal = s.bal; }
+  assert.ok(Math.abs(sb.cumInterest - ci) < 0.01 && Math.abs(sb.gain + ci + sb.otherCosts) < 0.01 && sb.beMonths === null);
+  assert.strictEqual(P.homeSinceBuy(P.homeNorm({ value: 500000, balance: 270000, apr: 6, pi, purchasePrice: 350000, down: 70000, sellPct: 6 }), 24).beMonths, 0);   // already ahead
+  const h = P.homeNorm({ value: 400000, balance: 300000, apr: 6, pi: P.requiredPayment(300000, 6, 360) });
+  const eqRet = (Math.pow(1 + 6 / 1200, 12) - 1) * 100;
+  const tie = P.homeExtra({ ...h, ret: eqRet }, [200])[0];
+  assert.strictEqual(tie.better, 'tie'); assert.ok(tie.monthsSaved > 50 && tie.interestSaved > 50000);
+  assert.strictEqual(P.homeExtra({ ...h, ret: 2 }, [200])[0].better, 'pay'); assert.strictEqual(P.homeExtra({ ...h, ret: 12 }, [200])[0].better, 'invest');
+  const rf = P.homeRefi(h, { rate: 5, years: 30, cost: 6000 });
+  assert.ok(Math.abs(rf.newPay - 1610.46) < 0.01 && rf.breakEvenMonths === Math.ceil(6000 / (h.pi - rf.newPay)) && rf.lifetimeSaving > 50000);
+  assert.strictEqual(P.homeRefi(h, { rate: 7, years: 30, cost: 0 }).breakEvenMonths, null);       // a higher rate never pays back
+});
