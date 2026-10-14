@@ -322,6 +322,10 @@ Change the assumptions (growth, return on investments, selling cost, rent, upkee
 - Buy and Sell only record what you did at your broker; the app never trades. Selling reduces your cost in proportion and shows the gain or loss on that sale.
 - Company details come from Yahoo Finance's unofficial public data through the desktop app (only the ticker symbol is sent). It can be delayed, incomplete or stop working; any section that is missing says so. Your own numbers (investment, activity) never depend on it.
 
+## Apple Card
+
+Apple only shares Apple Card activity with apps on an iPhone (Rocket Money does it with an iPhone app, Apple's FinanceKit and Plaid), so a Mac or Windows app cannot link it live. On the Transactions tab the **Apple Card** panel does the next best thing: export a statement from Wallet once a month (CSV, OFX or the PDF statement), choose it, review and import. The panel shows the steps, remembers when you last imported and nudges you after 35 days. Payments to the card are skipped (they are transfers, not spending or income), Daily Cash credits are not counted as income, and an Apple Card account is created in Accounts. CSV and OFX carry no balance: type it under Accounts, or import the PDF statement and press *Set balance*.
+
 ## Windows
 
 A Windows installer (`Tally.Money-Setup-<version>.exe`, 64-bit; it also runs on Windows on ARM) is built by the same GitHub Actions workflow and attached to each release, after the Mac files. Run it, and if Windows SmartScreen says it protected your PC, choose **More info**, then **Run anyway** (the installer is not signed, which would need a paid certificate). Your data lives on that computer only; to move it from the Mac use Download backup on the Mac and Restore from file on Windows, or use the hosted version.

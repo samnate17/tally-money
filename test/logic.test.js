@@ -35,7 +35,7 @@ function world(overrides = {}) {
   const names = Object.keys(deps);
   const mk = (blk, ret) => new Function(...names, block(blk) + ';return {' + ret + '}')(...names.map((n) => deps[n]));
   return { S, deps,
-    logic: { ...mk('CREDIT', 'creditBand,creditUtil,creditWhatIf,creditAdvice'), ...mk('BUDGET', 'catSpendByMonth,pastMonths,catForecast,monthPace,monthReport,fiftyThirtyTwenty,savingsIdeas,monthlyStack,percentile,ceil5'), ...mk('INVEST', 'logReturns,annVol,maxDrawdown,volLabel,rangeSeries,holdingStats,portfolioStats,portfolioSeries,volRows,seededCloses'), ...mk('LOGIC', 'applySync,buildAiPayload,aiProposals,aiEstimate,aiKey,pdfReviewRows,pdfCategory,csvDetect,csvBuild,csvDate,csvAmount,csvDelim,csvScan,csvOrder') },
+    logic: { ...mk('CREDIT', 'creditBand,creditUtil,creditWhatIf,creditAdvice'), ...mk('BUDGET', 'catSpendByMonth,pastMonths,catForecast,monthPace,monthReport,fiftyThirtyTwenty,savingsIdeas,monthlyStack,percentile,ceil5'), ...mk('INVEST', 'logReturns,annVol,maxDrawdown,volLabel,rangeSeries,holdingStats,portfolioStats,portfolioSeries,volRows,seededCloses'), ...mk('LOGIC', 'applySync,buildAiPayload,aiProposals,aiEstimate,aiKey,pdfReviewRows,pdfCategory,csvDetect,csvBuild,csvDate,csvAmount,csvDelim,csvScan,csvOrder,ofxParse') },
     afford: mk('AFFORD', 'afCtx,assessAfford') };
 }
 
@@ -1262,4 +1262,25 @@ test('investments: holdings are grouped into topics, user choice wins, unpriced 
   assert.deepStrictEqual(g.map((x) => [x.topic, x.value]), [['Technology', 400], ['Funds and ETFs', 300], ['Other', 50]]);
   assert.strictEqual(g[0].items[0].h.symbol, 'AAPL');
   assert.ok(Math.abs(g.reduce((a, x) => a + x.share, 0) - 1) < 1e-9);
+});
+
+test('apple card: CSV (purchases positive, Type column) is flipped, payments become transfers; OFX is read', () => {
+  const { logic } = world();
+  const F = { csvDetect: logic.csvDetect, csvBuild: logic.csvBuild, ofxParse: logic.ofxParse, pdfReviewRows: logic.pdfReviewRows };
+  const csv = ['Transaction Date,Clearing Date,Description,Merchant,Category,Type,Amount (USD),Purchased By',
+    '10/01/2026,10/02/2026,SHAWS SUPERMARKET,Shaws,Grocery,Purchase,54.20,Sam',
+    '10/03/2026,10/04/2026,AMAZON MKTPLACE,Amazon,Shopping,Purchase,23.99,Sam',
+    '10/05/2026,10/05/2026,ACH DEPOSIT INTERNET TRANSFER FROM ACCOUNT ENDING IN 1234,,Payment,Payment,-300.00,Sam',
+    '10/06/2026,10/06/2026,DAILY CASH ADJUSTMENT,Apple,Other,Credit,-1.50,Sam'].join('\n');
+  const det = F.csvDetect(csv);
+  assert.ok(det.ok); assert.strictEqual(det.flip, true);
+  const rows = F.csvBuild(det.rows, det.headerIdx, det.map, { order: det.order, flip: det.flip }).rows;
+  assert.deepStrictEqual(rows.map((r) => [r.date, r.amount]), [['2026-10-01', -54.2], ['2026-10-03', -23.99], ['2026-10-05', 300], ['2026-10-06', 1.5]]);
+  const rev = F.pdfReviewRows([{ rows }]);
+  assert.deepStrictEqual(rev.map((r) => [r.transfer, r.on]), [[false, true], [false, true], [true, false], [false, true]]);   // the payment is skipped, so it is not income
+  assert.strictEqual(rev[3].cat, 'Other');                                                                                   // Daily Cash is a credit, not pay
+  const ofx = 'OFXHEADER:100\n<OFX><CREDITCARDMSGSRSV1><CCSTMTTRNRS><CCSTMTRS><BANKTRANLIST>\n<STMTTRN><TRNTYPE>DEBIT<DTPOSTED>20261001120000[-5:EST]<TRNAMT>-54.20<NAME>SHAWS &amp; CO\n</STMTTRN>\n<STMTTRN><TRNTYPE>PAYMENT<DTPOSTED>20261005<TRNAMT>300.00<NAME>PAYMENT THANK YOU\n</STMTTRN></BANKTRANLIST><LEDGERBAL><BALAMT>-1234.56<DTASOF>20261006</LEDGERBAL></CCSTMTRS></CCSTMTTRNRS></CREDITCARDMSGSRSV1></OFX>';
+  const o = F.ofxParse(ofx);
+  assert.deepStrictEqual(o.rows.map((r) => [r.date, r.name, r.amount, r.kind]), [['2026-10-01', 'SHAWS & CO', -54.2, 'debit'], ['2026-10-05', 'PAYMENT THANK YOU', 300, 'payment']]);
+  assert.strictEqual(o.balance, -1234.56);
 });
