@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, shell, ipcMain, safeStorage, screen, nativeTheme, dialog } = require('electron');
+const { app, BrowserWindow, Menu, shell, ipcMain, safeStorage, screen, nativeTheme, systemPreferences, dialog } = require('electron');
 const path = require('path');
 const http = require('http');
 const { createSecretStore } = require('./secrets');
@@ -10,6 +10,7 @@ const { createFundamentals } = require('./fundamentals');
 const { createWidget } = require('./widget');
 const glassLib = require('./glass');
 const { createUpdater } = require('./updater');
+const { createBiometric } = require('./biometric');
 const { createLocalAI } = require('./local-ai');
 const { parseLoanText, parseMortgageText } = require('./loanparse');
 const aiMod = require('./ai');
@@ -160,6 +161,11 @@ function wireIpc() {
     require('fs').writeFileSync(res.filePath, text, { mode: 0o600 });
     return { path: res.filePath };
   });
+  // Touch ID unlock for the app password (see biometric.js).
+  mainOnly('bio:status', () => createBiometric({ store, systemPreferences }).status());
+  mainOnly('bio:enable', (pw) => createBiometric({ store, systemPreferences }).enable(pw));
+  mainOnly('bio:unlock', () => createBiometric({ store, systemPreferences }).unlock());
+  mainOnly('bio:disable', () => createBiometric({ store, systemPreferences }).disable());
   mainOnly('update:status', () => updater.status());
   mainOnly('update:setToken', (t) => updater.setToken(t));
   mainOnly('update:clearToken', () => updater.clearToken());

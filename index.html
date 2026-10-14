@@ -4143,7 +4143,7 @@ function secPanels(){
     '<label class="sub" style="display:flex;gap:8px;align-items:flex-start;margin:12px 0;cursor:pointer;white-space:normal"><input type="checkbox" id="vp-ack" style="margin-top:3px"> <span>I understand there is <b>no way to recover</b> my data if I forget this password. I will keep a backup.</span></label><button class="btn primary" type="submit"'+(secBusy?' disabled':'')+'>'+(secBusy?'Working…':'Turn on password')+'</button></form>'+(secMsg&&secPanel==='p'?'<div class="sub bad" role="alert" style="margin-top:10px">'+esc(secMsg)+'</div>':'')+'</section>';
   else pw='<section class="panel"><h2>Password<small>on</small></h2><p class="sub" style="margin:0 0 12px;white-space:normal"><span class="pill good">Locked with a password</span> Your data on this computer is encrypted.</p>'+
     '<div class="actions" style="justify-content:flex-start;align-items:center;gap:12px;margin-bottom:14px"><button class="btn primary" data-act="vault-lock">Lock now</button><label class="sub" for="vp-min">Lock after</label><select id="vp-min">'+[[0,'never'],[1,'1 minute'],[5,'5 minutes'],[15,'15 minutes'],[30,'30 minutes'],[60,'1 hour']].map(function(o){return '<option value="'+o[0]+'"'+(VLT.min===o[0]?' selected':'')+'>'+o[1]+(o[0]?' idle':'')+'</option>'}).join('')+'</select></div>'+
-    '<form id="vchgform"><h3 style="font-size:14px;margin:0 0 8px">Change password</h3><div class="actions" style="justify-content:flex-start;align-items:flex-end;gap:10px"><div><label class="sub" for="vc-0" style="display:block">Current</label><input id="vc-0" type="password" autocomplete="current-password" style="width:170px"></div><div><label class="sub" for="vc-1" style="display:block">New</label><input id="vc-1" type="password" autocomplete="new-password" style="width:170px"></div><div><label class="sub" for="vc-2" style="display:block">Again</label><input id="vc-2" type="password" autocomplete="new-password" style="width:170px"></div><button class="btn" type="submit">Change</button></div></form>'+
+    bioBlock()+'<form id="vchgform"><h3 style="font-size:14px;margin:0 0 8px">Change password</h3><div class="actions" style="justify-content:flex-start;align-items:flex-end;gap:10px"><div><label class="sub" for="vc-0" style="display:block">Current</label><input id="vc-0" type="password" autocomplete="current-password" style="width:170px"></div><div><label class="sub" for="vc-1" style="display:block">New</label><input id="vc-1" type="password" autocomplete="new-password" style="width:170px"></div><div><label class="sub" for="vc-2" style="display:block">Again</label><input id="vc-2" type="password" autocomplete="new-password" style="width:170px"></div><button class="btn" type="submit">Change</button></div></form>'+
     '<form id="voffform" style="margin-top:14px"><h3 style="font-size:14px;margin:0 0 8px">Turn password off</h3><div class="actions" style="justify-content:flex-start;align-items:flex-end;gap:10px"><div><label class="sub" for="vo-0" style="display:block">Current password</label><input id="vo-0" type="password" autocomplete="current-password" style="width:200px"></div><button class="btn danger" type="submit">Turn off</button></div></form>'+(secMsg&&secPanel==='p'?'<div class="sub" role="status" style="margin-top:10px">'+esc(secMsg)+'</div>':'')+'</section>';
   var note='<section class="panel"><h2>What the password protects</h2><p class="sub muted" style="margin:0;white-space:normal;font-size:13px">Your financial data (transactions, accounts, loans, goals, and so on) is encrypted with AES-256 and a key made from your password. The password is never stored. Bank and AI keys are kept by your computer\'s own secure storage, and the list of linked bank names and stock prices is not encrypted. Anyone with the unlocked app, or your password, can see everything, so lock it when you step away.</p></section>';
   return xfer+pw+(canVault?note:'');
@@ -4171,24 +4171,41 @@ function secBind(m){
     e.preventDefault();secPanel='p';var o=$('#vc-0').value,a=$('#vc-1').value,b=$('#vc-2').value;
     var bad=passwordProblem(a,'');if(bad)return say(bad);if(a!==b)return say('The two new passwords do not match.');
     var cur=null;try{cur=JSON.parse(localStorage.getItem('tally-vault-v1'))}catch(x){}
-    vaultOpen(cur,o).then(function(){return vaultNew(a)}).then(function(k){return vaultCommit(k.key,k.salt,k.it).then(function(){VLT.key=k.key;VLT.salt=k.salt;VLT.it=k.it;say('Password changed.')})}).catch(function(){say('The current password is not right.')});
+    vaultOpen(cur,o).then(function(){return vaultNew(a)}).then(function(k){return vaultCommit(k.key,k.salt,k.it).then(function(){VLT.key=k.key;VLT.salt=k.salt;VLT.it=k.it;if(BIO.enabled&&T&&T.bio){T.bio.disable();BIO.enabled=false}say('Password changed.'+(BIO.available?' Touch ID was turned off; turn it on again with the new password.':''))})}).catch(function(){say('The current password is not right.')});
+  };
+  if((f=$('#bioform',m)))f.onsubmit=function(e){
+    e.preventDefault();secPanel='p';var cur=null;try{cur=JSON.parse(localStorage.getItem('tally-vault-v1'))}catch(x){}var pw=$('#bio-pw').value;
+    vaultOpen(cur,pw).then(function(){return tcall(T.bio.enable(pw))}).then(function(){BIO.enabled=true;say('Touch ID is on. Next time, use your fingerprint.')}).catch(function(err){say(/Touch ID/.test((err&&err.message)||'')?err.message:'The password is not right.')});
   };
   if((f=$('#voffform',m)))f.onsubmit=function(e){
     e.preventDefault();secPanel='p';var cur=null;try{cur=JSON.parse(localStorage.getItem('tally-vault-v1'))}catch(x){}
     vaultOpen(cur,$('#vo-0').value).then(function(){
       localStorage.setItem('tally-money-v1',JSON.stringify(S));
-      localStorage.removeItem('tally-vault-v1');VLT.on=false;VLT.key=null;clearTimeout(idleT);say('Password is off. Your data is stored without encryption again.');
+      localStorage.removeItem('tally-vault-v1');if(T&&T.bio){T.bio.disable();BIO.enabled=false}VLT.on=false;VLT.key=null;clearTimeout(idleT);say('Password is off. Your data is stored without encryption again.');
     }).catch(function(){say('The password is not right.')});
   };
   if((f=$('#vp-min',m)))f.onchange=function(){VLT.min=+f.value;try{localStorage.setItem('tally-lock-v1',JSON.stringify({min:VLT.min}))}catch(e){}idleReset()};
+}
+// ---- Touch ID (Mac) ----
+var BIO={available:false,enabled:false,loaded:false};
+function bioLoad(cb){if(!(T&&T.bio)){BIO.loaded=true;if(cb)cb();return}tcall(T.bio.status()).then(function(st){BIO={available:!!st.available,enabled:!!st.enabled,loaded:true};if(cb)cb()}).catch(function(){BIO.loaded=true;if(cb)cb()})}
+function bioBlock(){
+  if(!(T&&T.bio)||!BIO.available)return '';
+  if(BIO.enabled)return '<div style="margin:0 0 14px"><span class="pill good">Touch ID is on</span> <span class="sub">Open the app with your fingerprint.</span> <button class="btn small" data-act="bio-off" style="margin-left:6px">Turn off Touch ID</button></div>';
+  return '<form id="bioform" style="margin:0 0 14px"><h3 style="font-size:14px;margin:0 0 4px">Unlock with Touch ID</h3><p class="sub muted" style="margin:0 0 8px;font-size:13px;white-space:normal">Open the app with your fingerprint instead of typing the password. Your password stays the real key: the Mac keeps a copy in its Keychain and gives it to the app only after Touch ID succeeds. Changing the password turns Touch ID off. Macs have Touch ID, not Face ID.</p><div class="actions" style="justify-content:flex-start;align-items:flex-end;gap:10px"><div><label class="sub" for="bio-pw" style="display:block">Your password</label><input id="bio-pw" type="password" autocomplete="current-password" style="width:200px"></div><button class="btn small primary" type="submit">Turn on Touch ID</button></div></form>';
+}
+function bioUnlock(){
+  if(!(T&&T.bio))return;
+  tcall(T.bio.unlock()).then(function(pw){showLock('',true);tryUnlock(pw)}).catch(function(e){showLock((e&&e.message)||'Touch ID did not work. Type your password.')});
 }
 // ---- Lock screen ----
 function showLock(msg,busy){
   var el=$('#gate');if(!el){el=document.createElement('div');el.id='gate';el.className='gate';document.body.appendChild(el)}
   el.innerHTML='<div class="card"><h1>Tally Money</h1><p class="sub muted">Locked. Enter your password to open your data.</p>'+(msg?'<div class="err" role="alert">'+esc(msg)+'</div>':'')+
-   '<form id="lockform"><label for="lk-pw">Password</label><input id="lk-pw" type="password" autocomplete="current-password" autofocus required><button class="btn primary" type="submit" style="margin-top:14px;width:100%"'+(busy?' disabled':'')+'>'+(busy?'Unlocking…':'Unlock')+'</button></form>'+
+   '<form id="lockform"><label for="lk-pw">Password</label><input id="lk-pw" type="password" autocomplete="current-password" autofocus required><button class="btn primary" type="submit" style="margin-top:14px;width:100%"'+(busy?' disabled':'')+'>'+(busy?'Unlocking…':'Unlock')+'</button></form>'+(BIO.enabled&&!busy?'<button class="btn" id="lk-bio" type="button" style="margin-top:10px;width:100%">Unlock with Touch ID</button>':'')+
    '<p class="sub muted" style="margin:16px 0 0;font-size:13px;white-space:normal">Forgot it? Nobody can recover it. You can <a href="#" id="lk-erase">erase this computer\'s data</a> and restore from a backup file.</p></div>';
   var f=$('#lockform',el);f.onsubmit=function(e){e.preventDefault();var pw=$('#lk-pw').value;showLock('',true);tryUnlock(pw)};
+  var bb=$('#lk-bio',el);if(bb)bb.onclick=bioUnlock;
   $('#lk-erase',el).onclick=function(e){e.preventDefault();if(confirm('Erase all Tally Money data on this computer? This cannot be undone. You can then restore from a backup file.')){try{localStorage.removeItem('tally-vault-v1');localStorage.removeItem('tally-money-v1')}catch(x){}location.reload()}};
   var i=$('#lk-pw',el);if(i&&!busy)i.focus();
 }
@@ -4336,7 +4353,7 @@ function bindView(){
   var ex=$('#extra',m);if(ex)ex.onchange=function(){S.extraPay=Math.max(0,parseFloat(ex.value)||0);save();render()};
   var st=$('#strategy',m);if(st)st.onchange=function(){strategy=st.value;render()};
   var bk=$('#bk',m);if(bk)bk.onchange=function(){var file=bk.files[0];if(file)readBackupFile(file)};
-  if(view==='look'){secBind(m);if(T&&!aiSt)loadAi()}
+  if(view==='look'){secBind(m);if(T&&!aiSt)loadAi();if(T&&T.bio&&!BIO.loaded)bioLoad(function(){if(view==='look')render()})}
 }
 document.addEventListener('click',function(e){
   var v=e.target.closest('[data-view]');if(v){view=v.dataset.view;if(view==='carloan'||view==='student'){loanFilter=view==='student'?'student':'auto';view='loans'}pendingImport=null;pendingEnc=null;secMsg='';payUI.edit='';editTx='';render();window.scrollTo(0,0);return}
@@ -4363,6 +4380,7 @@ document.addEventListener('click',function(e){
   else if(a==='exp'){exportData();return}
   else if(a==='imp-ok'){S={sample:false,customCats:pendingImport.customCats,txns:pendingImport.txns,subs:pendingImport.subs,budgets:pendingImport.budgets,goals:pendingImport.goals,accounts:pendingImport.accounts,extraPay:pendingImport.extraPay,plaidIgnored:pendingImport.plaidIgnored,credit:pendingImport.credit,holdings:pendingImport.holdings,setAside:pendingImport.setAside||[],merchantCats:pendingImport.merchantCats||{},subCats:pendingImport.subCats||{},merchantSubs:pendingImport.merchantSubs||{},bills:pendingImport.bills||[],billMarks:pendingImport.billMarks||{},energy:pendingImport.energy||[],home:pendingImport.home||{},debtMonthly:pendingImport.debtMonthly||0,billIgnore:pendingImport.billIgnore||{},cardPay:pendingImport.cardPay||'auto',apple:pendingImport.apple||{},payLinks:pendingImport.payLinks||{}};pendingImport=null;migrate();syncCats();Object.keys(PL.items).forEach(function(k){PL.items[k].cursor=''});savePL();toast('Backup restored.')}
   else if(a==='imp-no'){pendingImport=null;pendingEnc=null;secMsg=''}
+  else if(a==='bio-off'){if(T&&T.bio)T.bio.disable();BIO.enabled=false;secPanel='p';secMsg='Touch ID is off.'}
   else if(a==='car-ai'){carAiRun(id);return}
   else if(a==='car-ai-clear'){var cb=S.accounts.filter(function(x){return x.id===id})[0];if(cb)delete cb.carSvg}
   else if(a==='car-showphoto'){var ca=S.accounts.filter(function(x){return x.id===id})[0];if(ca)ca.showPhoto=!ca.showPhoto}
@@ -4943,7 +4961,7 @@ document.addEventListener('submit',function(e){
 document.addEventListener('visibilitychange',function(){if(!document.hidden)pullIfNewer()});
 function bootHosted(){
   var done=false;
-  function local(){if(done)return;done=true;load();if(VLT.locked){showLock();return}render();widgetInit()}
+  function local(){if(done)return;done=true;load();if(VLT.locked){showLock();bioLoad(function(){if(BIO.enabled){showLock();bioUnlock()}});return}render();widgetInit()}
   if(window.tally||!/^https?:$/.test(location.protocol))return local();
   fetch('/api/health',{credentials:'same-origin'}).then(function(r){return r.ok?r.json():null}).then(function(j){
     if(!j||!j.hosted)return local();

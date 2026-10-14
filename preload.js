@@ -10,6 +10,12 @@ contextBridge.exposeInMainWorld('tally', {
   theme: {
     mode: inv('theme:mode'),
   },
+  bio: {
+    status: inv('bio:status'),
+    enable: inv('bio:enable'),
+    unlock: inv('bio:unlock'),
+    disable: inv('bio:disable'),
+  },
   file: {
     save: (name, text) => ipcRenderer.invoke('file:save', { name, text }),
   },

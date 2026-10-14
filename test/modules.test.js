@@ -487,3 +487,24 @@ test('ai: car drawing request carries the photo and description, and failures ar
   await assert.rejects(aiWith(() => final({ stop_reason: 'end_turn', content: [{ type: 'text', text: 'Sorry, cannot.' }] })).carArt({ desc: 'x' }), /did not return a drawing/);
   await assert.rejects(aiWith(() => final({}), '').carArt({ desc: 'x' }), /API key/);
 });
+
+test('biometric: Touch ID unlock hands over the saved password only after a successful prompt, and only on a Mac with Touch ID', async () => {
+  const { createBiometric } = require('../biometric');
+  const mem = {}; const store = { isAvailable: () => true, get: (k) => mem[k], set: (k, v) => { mem[k] = v; }, del: (k) => { delete mem[k]; } };
+  let ok = true; const reasons = [];
+  const sp = { canPromptTouchID: () => true, promptTouchID: async (r) => { reasons.push(r); if (!ok) throw new Error('cancelled'); } };
+  const b = createBiometric({ store, systemPreferences: sp, platform: 'darwin' });
+  assert.deepStrictEqual(b.status(), { available: true, enabled: false });
+  await assert.rejects(b.unlock(), /not turned on/);
+  await assert.rejects(b.enable(''), /Enter your password/);
+  ok = false; await assert.rejects(b.enable('correct horse'), /cancelled or did not recognise/); assert.strictEqual(mem.vaultPw, undefined);    // no fingerprint, nothing saved
+  ok = true; assert.strictEqual(await b.enable('correct horse'), true); assert.strictEqual(mem.vaultPw, 'correct horse'); assert.deepStrictEqual(b.status(), { available: true, enabled: true });
+  assert.strictEqual(await b.unlock(), 'correct horse');
+  ok = false; await assert.rejects(b.unlock(), /cancelled or did not recognise/);                                                              // wrong finger: password not released
+  b.disable(); assert.strictEqual(mem.vaultPw, undefined); assert.strictEqual(b.status().enabled, false);
+  for (const [plat, canTouch, secure] of [['win32', true, true], ['linux', true, true], ['darwin', false, true], ['darwin', true, false]]) {
+    const x = createBiometric({ store: { ...store, isAvailable: () => secure }, systemPreferences: { canPromptTouchID: () => canTouch, promptTouchID: async () => {} }, platform: plat });
+    assert.strictEqual(x.status().available, false, plat + canTouch + secure); await assert.rejects(x.enable('pw'), /not available/); await assert.rejects(x.unlock(), /not available/);
+  }
+  assert.strictEqual(createBiometric({ store, systemPreferences: undefined, platform: 'darwin' }).status().available, false);
+});

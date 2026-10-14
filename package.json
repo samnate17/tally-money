@@ -33,6 +33,7 @@
       "local-ai.js",
       "fundamentals.js",
       "loanparse.js",
+      "biometric.js",
       "widget.html",
       "widget-preload.js",
       "!**/*.map",
