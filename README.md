@@ -316,6 +316,8 @@ Change the assumptions (growth, return on investments, selling cost, rent, upkee
 - **Your history drives the advice.** "Can I afford it?" and the Loans page now use up to six months of income and spending (one unusually high and one unusually low month ignored; transfers left out). The Overview shows *What your history says*: a typical month, how steady it is, whether spending is rising, and a safe monthly amount for debt, which the debt plan offers as a starting point.
 - **Mortgage double check:** the Mortgage tab compares the property tax, insurance, HOA, repairs and mortgage payments found in your transactions with the figures you saved, and offers to use the real ones.
 
+- **Investments by topic:** the Investments tab groups your shares into topics (Technology, Healthcare, Financial, Consumer, Energy, Funds and ETFs, Bonds and so on), like Cash App. It shows a donut and each topic's share, value and gain; tap a topic to see its holdings. Common tickers are recognised automatically; for anything marked Other, press Edit on the holding and pick a topic. A warning appears when half or more of your money is in one topic.
+
 ## Windows
 
 A Windows installer (`Tally.Money-Setup-<version>.exe`, 64-bit; it also runs on Windows on ARM) is built by the same GitHub Actions workflow and attached to each release, after the Mac files. Run it, and if Windows SmartScreen says it protected your PC, choose **More info**, then **Run anyway** (the installer is not signed, which would need a paid certificate). Your data lives on that computer only; to move it from the Mac use Download backup on the Mac and Restore from file on Windows, or use the hosted version.

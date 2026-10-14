@@ -1248,3 +1248,18 @@ test('history: hints from housing payments in transactions (tax, insurance, HOA,
   const r = hints(t, '2026-10');
   assert.deepStrictEqual([r.mortMonth, r.hoaMonth, r.taxYear, r.insYear, r.repairYear], [2200, 150, 6000, 1200, 400]);
 });
+
+test('investments: holdings are grouped into topics, user choice wins, unpriced holdings use what was invested', () => {
+  const T = new Function(srcBlock('/*TOPIC-START*/', '/*TOPIC-END*/') + '\nreturn {topicOf, topicGroups, TOPICS};')();
+  assert.strictEqual(T.topicOf({ symbol: 'aapl' }), 'Technology');
+  assert.strictEqual(T.topicOf({ symbol: 'VTI' }), 'Funds and ETFs');
+  assert.strictEqual(T.topicOf({ symbol: 'XLE' }), 'Energy');
+  assert.strictEqual(T.topicOf({ symbol: 'ZZZZ' }), 'Other');
+  assert.strictEqual(T.topicOf({ symbol: 'ZZZZ', topic: 'Healthcare' }), 'Healthcare');
+  assert.strictEqual(T.topicOf({ symbol: 'AAPL', topic: 'not a topic' }), 'Technology');
+  const hs = [{ symbol: 'AAPL', shares: 1, invested: 100 }, { symbol: 'MSFT', shares: 1, invested: 100 }, { symbol: 'VTI', shares: 1, invested: 300 }, { symbol: 'NEWCO', shares: 1, invested: 50 }];
+  const g = T.topicGroups(hs, (h) => ({ AAPL: 300, MSFT: 100, VTI: 300 }[h.symbol] ?? null));
+  assert.deepStrictEqual(g.map((x) => [x.topic, x.value]), [['Technology', 400], ['Funds and ETFs', 300], ['Other', 50]]);
+  assert.strictEqual(g[0].items[0].h.symbol, 'AAPL');
+  assert.ok(Math.abs(g.reduce((a, x) => a + x.share, 0) - 1) < 1e-9);
+});

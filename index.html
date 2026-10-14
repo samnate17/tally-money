@@ -1857,6 +1857,25 @@ function seededCloses(seed,start,drift,vol,n){
   return out;
 }
 /*INVEST-END*/
+/*TOPIC-START*/
+// Holdings grouped into topics, like the groups in Cash App Investing. The built-in list covers common stocks and funds; set a topic by hand for anything else.
+var TOPICS=['Technology','Communication','Consumer','Healthcare','Financial','Energy','Industrial','Real estate','Utilities','Materials','Crypto','Funds and ETFs','Dividend','International','Bonds','Other'];
+var TOPIC_SYMS={'VTI':11,'VOO':11,'SPY':11,'IVV':11,'QQQ':11,'DIA':11,'IWM':11,'VT':11,'ITOT':11,'SCHB':11,'SCHX':11,'RSP':11,'VUG':11,'VTV':11,'VB':11,'VO':11,'MGK':11,'SCHG':11,'IWF':11,'IWD':11,'SPLG':11,'QQQM':11,'VXUS':11,'SCHD':12,'VYM':12,'DVY':12,'HDV':12,'VIG':12,'DGRO':12,'NOBL':12,'SDY':12,'JEPI':12,'JEPQ':12,'DIVO':12,'SPYD':12,'VEA':13,'VWO':13,'IEFA':13,'IEMG':13,'EFA':13,'EEM':13,'IXUS':13,'ACWX':13,'SCHF':13,'EWJ':13,'FXI':13,'MCHI':13,'KWEB':13,'INDA':13,'EWZ':13,'BABA':13,'JD':13,'PDD':13,'NIO':13,'TSM':13,'BND':14,'AGG':14,'TLT':14,'IEF':14,'SHY':14,'LQD':14,'HYG':14,'VCIT':14,'VCSH':14,'BNDX':14,'TIP':14,'SGOV':14,'BIL':14,'SCHZ':14,'MUB':14,'JNK':14,'COIN':10,'MSTR':10,'MARA':10,'RIOT':10,'CLSK':10,'BTC-USD':10,'ETH-USD':10,'BTC':10,'ETH':10,'IBIT':10,'FBTC':10,'GBTC':10,'ETHA':10,'BITO':10,'AAPL':0,'MSFT':0,'NVDA':0,'AMD':0,'INTC':0,'AVGO':0,'QCOM':0,'TXN':0,'MU':0,'ORCL':0,'CRM':0,'ADBE':0,'NOW':0,'INTU':0,'CSCO':0,'IBM':0,'PLTR':0,'SNOW':0,'PANW':0,'CRWD':0,'NET':0,'DDOG':0,'ZS':0,'SHOP':0,'SQ':0,'XYZ':0,'PYPL':0,'UBER':0,'LYFT':0,'ABNB':0,'DASH':0,'AMAT':0,'LRCX':0,'KLAC':0,'ASML':0,'ARM':0,'SMCI':0,'DELL':0,'HPQ':0,'ANET':0,'MRVL':0,'ON':0,'NXPI':0,'SNPS':0,'CDNS':0,'WDAY':0,'TEAM':0,'TWLO':0,'ROKU':0,'U':0,'RBLX':0,'SOFI':0,'HOOD':0,'AI':0,'PATH':0,'XLK':0,'VGT':0,'FTEC':0,'SMH':0,'SOXX':0,'IGV':0,'GOOGL':1,'GOOG':1,'META':1,'NFLX':1,'DIS':1,'CMCSA':1,'T':1,'VZ':1,'TMUS':1,'SPOT':1,'SNAP':1,'PINS':1,'WBD':1,'PARA':1,'CHTR':1,'EA':1,'TTWO':1,'MTCH':1,'XLC':1,'VOX':1,'JNJ':3,'PFE':3,'MRK':3,'LLY':3,'ABBV':3,'BMY':3,'AMGN':3,'GILD':3,'MRNA':3,'BNTX':3,'REGN':3,'VRTX':3,'UNH':3,'CI':3,'HUM':3,'ELV':3,'TMO':3,'DHR':3,'ABT':3,'MDT':3,'SYK':3,'ISRG':3,'BSX':3,'HCA':3,'CNC':3,'ZTS':3,'XLV':3,'VHT':3,'IBB':3,'XBI':3,'JPM':4,'BAC':4,'WFC':4,'C':4,'GS':4,'MS':4,'SCHW':4,'BLK':4,'V':4,'MA':4,'AXP':4,'COF':4,'DFS':4,'USB':4,'PNC':4,'TFC':4,'BRK.B':4,'BRK-B':4,'BRKB':4,'AIG':4,'MET':4,'PRU':4,'ALL':4,'TRV':4,'CB':4,'SPGI':4,'MCO':4,'ICE':4,'CME':4,'XLF':4,'VFH':4,'KRE':4,'XOM':5,'CVX':5,'COP':5,'EOG':5,'OXY':5,'SLB':5,'HAL':5,'MPC':5,'VLO':5,'PSX':5,'DVN':5,'FANG':5,'BP':5,'SHEL':5,'TTE':5,'ENPH':5,'SEDG':5,'FSLR':5,'RUN':5,'PLUG':5,'NEE':5,'XLE':5,'VDE':5,'USO':5,'UNG':5,'BA':6,'LMT':6,'RTX':6,'NOC':6,'GD':6,'GE':6,'CAT':6,'DE':6,'HON':6,'MMM':6,'UPS':6,'FDX':6,'UNP':6,'CSX':6,'NSC':6,'WM':6,'RSG':6,'ETN':6,'EMR':6,'ITW':6,'LUV':6,'XLI':6,'VIS':6,'JETS':6,'ITA':6,'AMT':7,'PLD':7,'CCI':7,'EQIX':7,'PSA':7,'O':7,'SPG':7,'WELL':7,'DLR':7,'AVB':7,'EQR':7,'VICI':7,'XLRE':7,'VNQ':7,'SCHH':7,'IYR':7,'REET':7,'DUK':8,'SO':8,'D':8,'AEP':8,'EXC':8,'SRE':8,'XEL':8,'ED':8,'PEG':8,'WEC':8,'XLU':8,'VPU':8,'LIN':9,'SHW':9,'APD':9,'ECL':9,'FCX':9,'NEM':9,'NUE':9,'DOW':9,'DD':9,'ALB':9,'MP':9,'GOLD':9,'GLD':9,'IAU':9,'SLV':9,'XLB':9,'VAW':9,'AMZN':2,'TSLA':2,'HD':2,'LOW':2,'NKE':2,'SBUX':2,'MCD':2,'CMG':2,'YUM':2,'TGT':2,'WMT':2,'COST':2,'KO':2,'PEP':2,'PG':2,'KHC':2,'MDLZ':2,'PM':2,'MO':2,'CL':2,'KMB':2,'EL':2,'LULU':2,'TJX':2,'ROST':2,'BKNG':2,'MAR':2,'HLT':2,'F':2,'GM':2,'RIVN':2,'LCID':2,'TM':2,'HMC':2,'DKNG':2,'WYNN':2,'LVS':2,'CCL':2,'RCL':2,'NCLH':2,'DAL':2,'UAL':2,'AAL':2,'XLY':2,'XLP':2,'VCR':2,'VDC':2,'KR':2,'DG':2,'DLTR':2,'BBY':2,'ETSY':2,'EBAY':2,'CVS':2,'WBA':2};
+function topicOf(h){
+  if(h.topic&&TOPICS.indexOf(h.topic)>-1)return h.topic;
+  var i=TOPIC_SYMS[String(h.symbol||'').toUpperCase()];
+  return i===undefined?'Other':TOPICS[i];
+}
+// groups: [{topic, value, invested, gain, share, items:[{h, value}]}] biggest first. value(h) gives the current value of one holding (or null when there is no price).
+function topicGroups(holdings,valueOf){
+  var by={},total=0;
+  holdings.forEach(function(h){
+    var v=valueOf(h),val=v===null||v===undefined?h.invested:v,t=topicOf(h),g=by[t]=by[t]||{topic:t,value:0,invested:0,items:[],unpriced:0};
+    g.value+=val;g.invested+=h.invested;g.items.push({h:h,value:val,priced:v!==null&&v!==undefined});if(v===null||v===undefined)g.unpriced++;total+=val;
+  });
+  return Object.keys(by).map(function(t){var g=by[t];g.gain=g.value-g.invested;g.share=total>0?g.value/total:0;g.items.sort(function(a,b){return b.value-a.value});return g}).sort(function(a,b){return b.value-a.value});
+}
+/*TOPIC-END*/
 
 /*BUDGET-START*/
 function catSpendByMonth(txns,cat){var o={};txns.forEach(function(x){if(x.cat===cat&&x.amount<0){var k=monthKey(x.date);o[k]=(o[k]||0)-x.amount}});return o}
@@ -3145,6 +3164,7 @@ function spark(closes,up){
 }
 function pctTxt(v,dec){return v===null||v===undefined?'—':(v>0?'+':'')+v.toFixed(dec===undefined?1:dec)+'%'}
 function moneySigned(v){return v===null?'—':(v<0?'-':'+')+money(Math.abs(v))}
+var invTopicOpen={};
 function vInvest(){
   var qs=quotesFor(),hs=S.holdings,ps=portfolioStats(hs,qs),rows=volRows(hs,qs),ex=hs.some(function(h){return qs[h.symbol]&&qs[h.symbol].example});
   if(!invSel||!hs.some(function(h){return h.symbol===invSel}))invSel=hs.length?hs[0].symbol:'';
@@ -3157,9 +3177,23 @@ function vInvest(){
   var perf='<section class="panel"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px"><h2 style="margin:0">Portfolio value</h2><div class="actions">'+rangeBtns+'</div></div>'+(series.length>1?lineChart(series,{money:true,base:ps.priced?ps.invested:undefined,baseLabel:'Invested '+money0(ps.invested),label:'Portfolio value',h:200})+'<p class="sub muted" style="margin:6px 0 0;font-size:13px;white-space:normal">Shows today’s shares at past prices, as if you held them the whole time. The dashed line is what you put in.</p>':'<div class="empty">'+(hs.length?'Prices are needed to draw this.':'Add a holding below to start.')+'</div>')+'</section>';
   var holdRows=hs.map(function(h){
     var q=qs[h.symbol],st=holdingStats(h,q),vr=rows.filter(function(r){return r.symbol===h.symbol})[0],sel=h.symbol===invSel,edit=invEdit===h.id;
-    if(edit)return '<div class="row wrap"><div class="grow" style="flex-basis:120px"><div class="nm">'+esc(h.symbol)+'</div></div><form class="form holdform" data-id="'+h.id+'"><label>Shares<input type="number" min="0" step="any" required value="'+h.shares+'"></label><label>Total invested<input type="number" min="0" step="0.01" required value="'+h.invested+'"></label><button class="btn small primary">Save</button><button type="button" class="btn small" data-act="hold-cancel">Cancel</button></form></div>';
-    return '<div class="row wrap" style="cursor:pointer'+(sel?';background:var(--surface2);border-radius:10px;padding-inline:8px':'')+'" data-act="inv-sel" data-s="'+esc(h.symbol)+'"><div class="grow" style="flex-basis:150px"><div class="nm">'+esc(h.symbol)+' <span class="pill '+vr.label.k+'">'+(vr.vol===null?'':vr.label.label)+'</span></div><div class="sub">'+esc((q&&q.name&&q.name!==h.symbol?q.name:h.name)||'')+' · '+h.shares+' sh · cost '+money0(h.invested)+'</div></div>'+(q&&!q.error?'<div class="hide-s">'+spark(q.closes)+'</div><div class="num" style="text-align:right;min-width:90px"><div class="amt">'+money(st.price)+'</div><div class="sub '+(st.dayPct>=0?'good':'bad')+'">'+pctTxt(st.dayPct,2)+'</div></div><div class="num" style="text-align:right;min-width:100px"><div class="amt">'+money0(st.value)+'</div><div class="sub '+(st.gain>=0?'good':'bad')+'">'+(st.gain<0?'-':'+')+money0(Math.abs(st.gain))+' ('+pctTxt(st.gainPct,1)+')</div></div>':'<div class="sub muted" style="min-width:150px">'+(Q[h.symbol]&&Q[h.symbol].error?esc(Q[h.symbol].error):'No price yet')+'</div>')+'<div class="actions"><button class="btn small" data-act="hold-edit" data-id="'+h.id+'" aria-label="Edit '+esc(h.symbol)+'">Edit</button><button class="btn small" data-act="hold-del" data-id="'+h.id+'" aria-label="Remove '+esc(h.symbol)+'">&times;</button></div></div>';
+    if(edit)return '<div class="row wrap"><div class="grow" style="flex-basis:120px"><div class="nm">'+esc(h.symbol)+'</div></div><form class="form holdform" data-id="'+h.id+'"><label>Shares<input type="number" min="0" step="any" required value="'+h.shares+'"></label><label>Total invested<input type="number" min="0" step="0.01" required value="'+h.invested+'"></label><label>Topic<select>'+TOPICS.map(function(t){return '<option'+(t===topicOf(h)?' selected':'')+'>'+t+'</option>'}).join('')+'</select></label><button class="btn small primary">Save</button><button type="button" class="btn small" data-act="hold-cancel">Cancel</button></form></div>';
+    return '<div class="row wrap" style="cursor:pointer'+(sel?';background:var(--surface2);border-radius:10px;padding-inline:8px':'')+'" data-act="inv-sel" data-s="'+esc(h.symbol)+'"><div class="grow" style="flex-basis:150px"><div class="nm">'+esc(h.symbol)+' <span class="pill mute" style="font-weight:400">'+esc(topicOf(h))+'</span> <span class="pill '+vr.label.k+'">'+(vr.vol===null?'':vr.label.label)+'</span></div><div class="sub">'+esc((q&&q.name&&q.name!==h.symbol?q.name:h.name)||'')+' · '+h.shares+' sh · cost '+money0(h.invested)+'</div></div>'+(q&&!q.error?'<div class="hide-s">'+spark(q.closes)+'</div><div class="num" style="text-align:right;min-width:90px"><div class="amt">'+money(st.price)+'</div><div class="sub '+(st.dayPct>=0?'good':'bad')+'">'+pctTxt(st.dayPct,2)+'</div></div><div class="num" style="text-align:right;min-width:100px"><div class="amt">'+money0(st.value)+'</div><div class="sub '+(st.gain>=0?'good':'bad')+'">'+(st.gain<0?'-':'+')+money0(Math.abs(st.gain))+' ('+pctTxt(st.gainPct,1)+')</div></div>':'<div class="sub muted" style="min-width:150px">'+(Q[h.symbol]&&Q[h.symbol].error?esc(Q[h.symbol].error):'No price yet')+'</div>')+'<div class="actions"><button class="btn small" data-act="hold-edit" data-id="'+h.id+'" aria-label="Edit '+esc(h.symbol)+'">Edit</button><button class="btn small" data-act="hold-del" data-id="'+h.id+'" aria-label="Remove '+esc(h.symbol)+'">&times;</button></div></div>';
   }).join('');
+  var tg=topicGroups(hs,function(h){var st=holdingStats(h,qs[h.symbol]);return st&&st.value>0?st.value:null}),tTot=tg.reduce(function(a,g){return a+g.value},0),tcc=['--c1','--c2','--c3','--c4','--c5','--c6','--c7','--c8'];
+  var topics='';
+  if(hs.length){
+    var TR=54,TC=2*Math.PI*TR,toff=0,tarcs='';
+    tg.forEach(function(g,i){var len=tTot>0?g.value/tTot*TC:0;tarcs+='<circle cx="70" cy="70" r="'+TR+'" fill="none" stroke="var('+tcc[i%8]+')" stroke-width="20" stroke-dasharray="'+len+' '+(TC-len)+'" stroke-dashoffset="'+(-toff)+'" transform="rotate(-90 70 70)"/>';toff+=len});
+    var trows=tg.map(function(g,i){
+      var open=invTopicOpen[g.topic];
+      return '<div class="row wrap" style="cursor:pointer;align-items:center" data-act="inv-topic" data-t="'+esc(g.topic)+'"><span style="width:10px;height:10px;border-radius:3px;background:var('+tcc[i%8]+');flex:none"></span><div class="grow" style="flex-basis:150px"><div class="nm">'+esc(g.topic)+' <span class="muted" style="font-weight:400">'+g.items.length+' holding'+(g.items.length===1?'':'s')+'</span></div><div class="bar" style="margin-top:4px"><i style="width:'+Math.max(2,Math.round(g.share*100))+'%;background:var('+tcc[i%8]+')"></i></div></div><div class="num" style="text-align:right"><b>'+Math.round(g.share*100)+'%</b><div class="sub">'+money0(g.value)+(g.invested>0&&!g.unpriced?' · <span class="'+(g.gain>=0?'good':'bad')+'">'+(g.gain<0?'-':'+')+money0(Math.abs(g.gain))+'</span>':'')+'</div></div><span class="muted" aria-hidden="true">'+(open?'\u25be':'\u25b8')+'</span></div>'+
+        (open?g.items.map(function(it){var st=holdingStats(it.h,qs[it.h.symbol]);return '<div class="row" style="padding-left:28px"><div class="grow"><div class="nm">'+esc(it.h.symbol)+'</div><div class="sub">'+esc(it.h.shares)+' share'+(+it.h.shares===1?'':'s')+(it.priced?'':' \u00b7 no price yet, shown at what you invested')+'</div></div><div class="num" style="text-align:right">'+money0(it.value)+(it.priced?'<div class="sub '+(st.gain>=0?'good':'bad')+'">'+(st.gain<0?'-':'+')+money0(Math.abs(st.gain))+'</div>':'')+'</div></div>'}).join(''):'');
+    }).join('');
+    topics='<section class="panel"><h2>By topic<small>tap a topic to see its holdings</small></h2><div class="donutwrap"><svg width="140" height="140" viewBox="0 0 140 140" role="img" aria-label="Portfolio by topic">'+tarcs+'<text x="70" y="66" text-anchor="middle" font-size="11">Topics</text><text x="70" y="86" text-anchor="middle" font-size="16" font-weight="700" style="fill:var(--ink);font-family:var(--font-display)">'+tg.length+'</text></svg><div style="flex:1 1 280px;min-width:0">'+trows+'</div></div>'+
+      (tg.length&&tg[0].share>=0.5&&tg[0].topic!=='Funds and ETFs'?'<p class="sub" style="margin:8px 0 0;white-space:normal"><b class="warn">'+Math.round(tg[0].share*100)+'% of your portfolio is in '+esc(tg[0].topic)+'.</b> If that topic has a bad year, most of your money feels it. Funds and ETFs spread this out.</p>':'')+
+      (tg.some(function(g){return g.topic==='Other'})?'<p class="sub muted" style="margin:8px 0 0;font-size:12px;white-space:normal">Holdings under Other were not recognised. Edit a holding to choose its topic.</p>':'')+'</section>';
+  }
   var holdings='<section class="panel"><h2>Holdings</h2>'+(holdRows||'<div class="empty">No holdings yet. Add the first one below.</div>')+'</section>';
   var q0=qs[invSel],h0=hs.filter(function(h){return h.symbol===invSel})[0],detail='';
   if(h0&&q0&&!q0.error){
@@ -3178,7 +3212,7 @@ function vInvest(){
     segs.forEach(function(x,i){var len=x.v/tv*C;arcs+='<circle cx="70" cy="70" r="'+R+'" fill="none" stroke="var('+ccs[i%8]+')" stroke-width="20" stroke-dasharray="'+len+' '+(C-len)+'" stroke-dashoffset="'+(-off)+'" transform="rotate(-90 70 70)"/>';off+=len});
     alloc='<section class="panel"><h2>Allocation</h2><div class="donutwrap"><svg width="140" height="140" viewBox="0 0 140 140" role="img" aria-label="Allocation by value">'+arcs+'<text x="70" y="66" text-anchor="middle" font-size="11">Value</text><text x="70" y="86" text-anchor="middle" font-size="16" font-weight="700" style="fill:var(--ink);font-family:var(--font-display)">'+money0(tv)+'</text></svg><div class="legend">'+segs.map(function(x,i){return '<div><span class="dot" style="background:var('+ccs[i%8]+')"></span>'+esc(x.s)+'<span class="v num">'+(x.v/tv*100).toFixed(0)+'%</span></div>'}).join('')+'</div></div></section>';}
   var add='<section class="panel"><h2>Add a holding</h2><form class="form" id="holdform"><label>Ticker<input id="hf-sym" required maxlength="15" placeholder="AAPL" style="text-transform:uppercase;width:110px"></label><label>Shares<input id="hf-sh" type="number" min="0" step="any" required placeholder="10"></label><label>Total invested<input id="hf-inv" type="number" min="0" step="0.01" required placeholder="1500.00"></label><button class="btn primary">Add</button></form><p class="sub muted" style="margin:10px 0 0;font-size:13px;white-space:normal">Enter the total you paid for all your shares of that ticker. Adding a ticker you already hold combines the two. Funds and ETFs work too. Prices come from free public sources and can be delayed or unavailable, so check your broker for exact figures. This is information, not investment advice.</p></section>';
-  return top+note+tiles+perf+holdings+detail+watch+alloc+add;
+  return top+note+tiles+perf+topics+holdings+detail+watch+alloc+add;
 }
 function invRefresh(quiet){
   if(!T||invBusy||!S.holdings.length)return;
@@ -3245,7 +3279,7 @@ function exportData(){
   setTimeout(function(){URL.revokeObjectURL(url)},1000);toast('Backup downloaded.');
 }
 function cleanHoldings(h){
-  return (Array.isArray(h)?h:[]).filter(function(x){return x&&typeof x.symbol==='string'&&/^[A-Za-z0-9.\-^=]{1,15}$/.test(x.symbol)&&+x.shares>0&&+x.invested>=0}).slice(0,100).map(function(x){return {id:String(x.id||uid()),symbol:x.symbol.toUpperCase(),name:String(x.name||'').slice(0,80),shares:+x.shares,invested:+x.invested}});
+  return (Array.isArray(h)?h:[]).filter(function(x){return x&&typeof x.symbol==='string'&&/^[A-Za-z0-9.\-^=]{1,15}$/.test(x.symbol)&&+x.shares>0&&+x.invested>=0}).slice(0,100).map(function(x){return {id:String(x.id||uid()),symbol:x.symbol.toUpperCase(),name:String(x.name||'').slice(0,80),shares:+x.shares,invested:+x.invested,topic:TOPICS.indexOf(x.topic)>-1?x.topic:undefined}});
 }
 function cleanCredit(c){
   var out=defCredit();if(!c||typeof c!=='object')return out;
@@ -3329,7 +3363,7 @@ function bindView(){
     if(S.sample&&!S.holdingsReal){S.holdings=[];ex=null;S.holdingsReal=true;Object.keys(Q).forEach(function(k){delete Q[k]})}
     if(ex){ex.shares+=sh;ex.invested+=iv;toast('Added to your existing '+sym+' position.')}else{S.holdings.push({id:uid(),symbol:sym,name:'',shares:sh,invested:iv});toast(sym+' added.')}
     invSel=sym;save();render();if(T)invRefresh(true)};
-  m.querySelectorAll('.holdform').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();var h=S.holdings.filter(function(x){return x.id===fm.dataset.id})[0],ins=fm.querySelectorAll('input'),sh=parseFloat(ins[0].value),iv=parseFloat(ins[1].value);if(!h||!(sh>0)||!(iv>=0))return;h.shares=sh;h.invested=iv;invEdit='';save();render()}});
+  m.querySelectorAll('.holdform').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();var h=S.holdings.filter(function(x){return x.id===fm.dataset.id})[0],ins=fm.querySelectorAll('input'),sh=parseFloat(ins[0].value),iv=parseFloat(ins[1].value);if(!h||!(sh>0)||!(iv>=0))return;h.shares=sh;h.invested=iv;var tsel=fm.querySelector('select');if(tsel){if(tsel.value===(TOPIC_SYMS[h.symbol]===undefined?'Other':TOPICS[TOPIC_SYMS[h.symbol]]))delete h.topic;else h.topic=tsel.value}invEdit='';save();render()}});
   if(view==='invest'&&T&&!invAuto&&S.holdings.length&&!invBusy){invAuto=true;var stale=S.holdings.some(function(h){var q=Q[h.symbol];return !q||!q.fetched||Date.now()-q.fetched>15*60*1000});if(stale)invRefresh(true)}
   var cf=$('#catform',m);
   if(cf)cf.onsubmit=function(e){e.preventDefault();
@@ -3380,6 +3414,7 @@ document.addEventListener('click',function(e){
   else if(a==='inv-sel'){if(e.target.closest('button'))return;invSel=b.dataset.s}
   else if(a==='hold-edit'){invEdit=id}
   else if(a==='hold-cancel'){invEdit=''}
+  else if(a==='inv-topic'){invTopicOpen[b.dataset.t]=!invTopicOpen[b.dataset.t]}
   else if(a==='hold-del'){S.holdings=S.holdings.filter(function(x){return x.id!==id})}
   else if(a==='bud-use'){S.budgets[b.dataset.c]=+b.dataset.v;toast('Budget for '+b.dataset.c+' set to '+money0(+b.dataset.v)+'.')}
   else if(a==='bud-sel'){budSel=b.dataset.c}
