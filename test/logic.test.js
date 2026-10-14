@@ -1323,7 +1323,7 @@ test('illustrations: car body style comes from the name, waffle always has 100 s
   const src = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
   const art = src.slice(src.indexOf('var CAR_COLORS'), src.indexOf('// Resize a chosen photo')) + src.slice(src.indexOf('function photoOk'), src.indexOf('function photoControls'));
   const A = new Function('esc,vzColor', art + '\nreturn {carType, waffleSVG, houseSVG, carScene, photoOk, CAR_TYPES};')((s) => String(s), (i) => 'c' + i);
-  const cases = { '2024 Honda Civic Type R': 'hatchback', 'Ford F-150': 'pickup', 'Toyota RAV4': 'suv', 'Honda Odyssey': 'minivan', 'Ford Mustang': 'coupe', 'Toyota Camry': 'sedan', 'Tesla Model Y': 'suv', 'Honda Accord': 'sedan' };
+  const cases = { '2024 Honda Civic Type R': 'civictyper', 'Honda Civic Sport': 'hatchback', 'Ford F-150': 'pickup', 'Toyota RAV4': 'suv', 'Honda Odyssey': 'minivan', 'Ford Mustang': 'coupe', 'Toyota Camry': 'sedan', 'Tesla Model Y': 'suv', 'Honda Accord': 'sedan' };
   Object.keys(cases).forEach((n) => assert.strictEqual(A.carType(n), cases[n], n));
   [[30, 25, 15, 30], [1, 1, 1], [33.3, 33.3, 33.4], [0.2, 99.8]].forEach((v) => {
     const svg = A.waffleSVG(v.map((x, i) => ({ v: x, label: 'p' + i })));
