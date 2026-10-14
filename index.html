@@ -322,6 +322,31 @@ canvas.confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:non
 .lookcard{border:1px solid var(--line);border-radius:16px;padding:14px;text-align:left;background:var(--surface2);cursor:pointer}
 .lookcard.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
 .lookcard .pv{height:84px;border-radius:10px;margin-bottom:10px}
+
+.home{margin:6px 0 18px}
+.hhero{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;align-items:end;margin:6px 0 14px}
+.hlabel{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:8px}
+.hbig{font-family:var(--font-display);font-size:56px;font-weight:600;line-height:1.05;letter-spacing:-.03em}
+.hnum{font-family:var(--font-display);font-size:24px;font-weight:600;margin-top:4px}
+.hspark{display:block;max-width:420px;justify-self:end;overflow:visible}
+.hqa{justify-content:flex-start;margin:0 0 16px}
+.hscroll{display:flex;gap:14px;overflow-x:auto;scroll-snap-type:x mandatory;padding:4px 2px 14px;margin:0 -2px;-webkit-overflow-scrolling:touch}
+.hscroll::-webkit-scrollbar{height:6px}.hscroll::-webkit-scrollbar-thumb{background:var(--line);border-radius:6px}
+.hcard{flex:0 0 250px;scroll-snap-align:start;border-radius:20px;border:1px solid var(--line);background:var(--surface);padding:16px;cursor:pointer;min-height:230px;display:flex;flex-direction:column;gap:2px;transition:transform .25s,border-color .25s}
+.hcard:hover{transform:translateY(-3px);border-color:var(--accent)}
+.hct{font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.hrow{display:flex;gap:8px;align-items:baseline;justify-content:space-between;padding:5px 0;font-size:14px;border-bottom:1px solid var(--line)}
+.hphoto{width:100%;height:110px;object-fit:cover;border-radius:12px}
+.sechead{font-size:13px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:500;margin:10px 0 8px}
+:root[data-bg="studio"] .hcard{background:linear-gradient(180deg,#14171d,#0c0e12);border-color:#1e222a}
+:root[data-bg="studio"] .hbig{font-weight:300}
+@keyframes cardin{from{opacity:0;transform:translateX(26px)}}
+:root[data-motion="full"] .hcard{animation:cardin .7s cubic-bezier(.2,.8,.2,1) backwards}
+:root[data-motion="full"] .hcard:nth-child(2){animation-delay:.08s}
+:root[data-motion="full"] .hcard:nth-child(3){animation-delay:.16s}
+:root[data-motion="full"] .hcard:nth-child(4){animation-delay:.24s}
+:root[data-motion="full"] .hcard:nth-child(n+5){animation-delay:.32s}
+@media (max-width:700px){.hhero{grid-template-columns:1fr}.hspark{justify-self:stretch}.hbig{font-size:44px}.hcard{flex-basis:78%}}
 </style>
 
 </head>
@@ -712,6 +737,72 @@ setInterval(function(){
   }
   if(!DASH.syncing)render();
 },60000);
+/*NETWORTH-START*/
+// Net worth over the last `days` days, from the balance history of each account (the balance on or before each date; the earliest known balance before that).
+function netWorthTrail(accounts,isDebtFn,today,days,steps){
+  var out=[],i,d,t=function(x){return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0')};
+  for(i=0;i<=steps;i++){
+    d=new Date(today.getFullYear(),today.getMonth(),today.getDate()-Math.round(days*(steps-i)/steps));
+    var ds=t(d),total=0;
+    accounts.forEach(function(a){
+      var h=(a.history||[]).filter(function(x){return x&&x.date&&isFinite(x.balance)}).sort(function(p,q){return p.date<q.date?-1:1}),b=null,j;
+      for(j=0;j<h.length;j++){if(h[j].date<=ds)b=h[j].balance}
+      if(b===null)b=h.length?h[0].balance:a.balance;
+      if(i===steps)b=a.balance;                                           // today is the current balance
+      total+=isDebtFn(a)?-b:b;
+    });
+    out.push(total);
+  }
+  return out;
+}
+/*NETWORTH-END*/
+function sparkPath(vals,W,H,pad){
+  if(vals.length<2)return null;var mn=Math.min.apply(null,vals),mx=Math.max.apply(null,vals);if(mx===mn){mx+=1;mn-=1}
+  return vals.map(function(v,i){return (pad+i*(W-2*pad)/(vals.length-1)).toFixed(1)+','+(pad+(1-(v-mn)/(mx-mn))*(H-2*pad)).toFixed(1)}).join(' ');
+}
+function hcard(view,title,body,extra){return '<div class="hcard" role="link" tabindex="0" data-view="'+view+'" aria-label="'+esc(title)+'"><div class="hct">'+esc(title)+'</div>'+body+(extra||'')+'</div>'}
+function homeScreen(sp,inc,nw){
+  var hr=TODAY.getHours?new Date().getHours():9,greet=hr<5?'Good evening':hr<12?'Good morning':hr<18?'Good afternoon':'Good evening';
+  var series=S.accounts.length?netWorthTrail(S.accounts,isDebt,TODAY,90,30):[],chg=series.length>1?series[series.length-1]-series[0]:null;
+  var pts=sparkPath(series,360,70,4);
+  var up=chg!==null&&chg>=0;
+  var heroTxt='<div class="hhero"><div><div class="sub">'+greet+' · '+TODAY.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})+'</div><div class="hlabel">Net worth</div><div class="num hbig '+(nw.net<0?'bad':'')+'">'+(nw.net<0?'-':'')+money0(Math.abs(nw.net))+'</div>'+(chg!==null&&Math.abs(chg)>=1?'<div class="sub"><span class="'+(up?'good':'bad')+'">'+(up?'↑ ':'↓ ')+money0(Math.abs(chg))+'</span> in the last 90 days</div>':'<div class="sub">'+money0(nw.assets)+' owned · '+money0(nw.debts)+' owed</div>')+'</div>'+
+    (pts?'<svg class="hspark" viewBox="0 0 360 70" width="100%" role="img" aria-label="Net worth over 90 days"><defs><linearGradient id="hsg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="'+(up?'var(--good)':'var(--bad)')+'" stop-opacity=".35"/><stop offset="1" stop-color="'+(up?'var(--good)':'var(--bad)')+'" stop-opacity="0"/></linearGradient></defs><polygon class="fade" points="4,66 '+pts+' 356,66" fill="url(#hsg)"/><polyline class="draw" pathLength="1000" points="'+pts+'" fill="none" stroke="'+(up?'var(--good)':'var(--bad)')+'" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/></svg>':'')+'</div>';
+  var qa='<div class="qa hqa">'+qaView(QI.plus,'Add','transactions')+qaView(QI.doc,'Import','transactions')+qaView(QI.list,'Bills','bills')+qaView(QI.pay,'Can I afford it?','afford')+qaView(QI.chart,'Loans','loans')+qaView(QI.home,'Home','mortgage')+'</div>';
+  var cards=[];
+  // safe to spend
+  var hs=historyStats(ledger(),NOWKEY,6),items=allBillItems(NOWKEY),bs=billsSummary(items,NOWKEY,S.txns,S.billMarks,TODAY),dim=new Date(TODAY.getFullYear(),TODAY.getMonth()+1,0).getDate(),daysLeft=Math.max(1,dim-TODAY.getDate()+1);
+  var spentNow=spendBy(NOWKEY).total,incNow=Math.max(incomeOf(NOWKEY),hs.n?hs.avgIncome:0);
+  if(incNow>0){var free=incNow-spentNow-bs.pending,perDay=free/daysLeft,pct=Math.max(0,Math.min(1,spentNow/incNow));
+    cards.push(hcard('overview','Safe to spend',ringSVG(pct,{size:92,stroke:10,color:free<0?'var(--bad)':'var(--accent)',center:Math.round(pct*100)+'%',sub:'used',label:'Month used'})+'<div class="hnum num '+(free<0?'bad':'good')+'">'+(free<0?'-':'')+money0(Math.abs(perDay))+'<span class="muted" style="font-size:13px"> a day</span></div><div class="sub">'+(free<0?'You are over for this month':money0(free)+' left after bills, '+daysLeft+' days to go')+'</div>'))}
+  // cars
+  S.accounts.filter(function(a){return a.type==='auto'&&a.balance>0}).slice(0,2).forEach(function(a){
+    var c=a.contract,inp=c&&contractInput(a),sch=inp&&contractSchedule(inp),st=sch&&contractStatus(inp,sch,TODAY),ty=a.carType&&CAR_TYPES[a.carType]?a.carType:carType((c&&c.vehicle)||a.name),col=/^#[0-9a-f]{6}$/i.test(a.carColor||'')?a.carColor:carDefaultColor(ty),pct=st?st.pct:(a.origBalance>0?1-a.balance/a.origBalance:0);
+    cards.push(hcard('carloan',c&&c.vehicle?c.vehicle:a.name,'<svg viewBox="0 0 240 100" width="100%" style="max-width:220px;margin:4px 0">'+carDefs()+carArt(ty,col)+'</svg><div class="hnum num">'+money0(st?st.payoff:a.balance)+'<span class="muted" style="font-size:13px">'+(st?' payoff':' owed')+'</span></div><div class="bar" style="margin:6px 0 4px"><i style="width:'+Math.max(1,Math.round(pct*100))+'%"></i></div><div class="sub">'+Math.round(pct*100)+'% paid'+(st?' · last payment '+monthLabelDay(st.maturity).replace(/ \d+,/,''):'')+'</div>'))});
+  // home
+  var H=S.home||{},hm=homeSet()?homeFrom():null;
+  if(hm&&hm.value>0){var eqp=Math.max(0,Math.min(1,(hm.value-hm.balance)/hm.value));
+    cards.push(hcard('mortgage','Home',(H.photo&&photoOk(H.photo)?'<img class="hphoto" alt="" src="'+H.photo+'">':'<div style="text-align:center">'+houseSVG(eqp,{size:130})+'</div>')+'<div class="hnum num">'+money0(hm.value-hm.balance)+'<span class="muted" style="font-size:13px"> yours</span></div><div class="sub">'+Math.round(eqp*100)+'% of a '+money0(hm.value)+' home</div>'))}
+  // bills
+  if(bs.rows.length){var nxt=bs.rows.filter(function(r){return r.st.state!=='paid'}).slice(0,3);
+    cards.push(hcard('bills','Bills',(nxt.length?nxt.map(function(r){var d=r.st.due?dayDiff(TODAY,r.st.due):null;return '<div class="hrow"><span>'+esc(r.item.name.slice(0,18))+'</span><b class="num">'+money0(r.item.amount)+'</b><span class="sub">'+(r.st.state==='overdue'?'<span class="bad">overdue</span>':d===null?'':d<=0?'today':d+'d')+'</span></div>'}).join(''):'<div class="hnum good">All paid</div>')+'<div class="sub" style="margin-top:6px">'+bs.paidCount+' of '+bs.count+' paid this month</div>'))}
+  // debt
+  var debts=S.accounts.filter(function(a){return isDebt(a)&&a.balance>0&&a.type!=='mortgage'});
+  if(debts.length){var tot=debts.reduce(function(a,d){return a+d.balance},0),orig=debts.reduce(function(a,d){return a+(d.origBalance>0?d.origBalance:d.balance)},0),pl=portfolio(debts,0,0);
+    cards.push(hcard('loans','Debt',ringSVG(orig>0?Math.max(0,1-tot/orig):0,{size:92,stroke:10,center:money0(tot),sub:'owed',label:'Debt paid off'})+'<div class="sub" style="margin-top:6px">'+(pl.ok?(pl.months?'Debt-free '+monthYear(addMonths(TODAY,pl.months)):'Debt-free'):'Payments too small')+'</div>'))}
+  // spending mini donut
+  if(sp.total>0){var segs=Object.keys(sp.by).sort(function(a,b){return sp.by[b]-sp.by[a]}).slice(0,6).map(function(k){return {v:sp.by[k],label:k,color:col(k)}});
+    cards.push(hcard('budgets','Spending',donutSVG(segs,{size:100,stroke:14,center:money0(sp.total),sub:'this month',label:'Spending'})+'<div class="sub" style="margin-top:6px">Biggest: '+esc(segs[0].label)+' '+money0(segs[0].v)+'</div>'))}
+  // investments
+  if(S.holdings&&S.holdings.length){var ps=portfolioStats(S.holdings,quotesFor());
+    if(ps.priced)cards.push(hcard('invest','Investments','<div class="hnum num">'+money0(ps.value)+'</div><div class="sub"><span class="'+(ps.value-ps.invested>=0?'good':'bad')+'">'+(ps.value-ps.invested>=0?'+':'-')+money0(Math.abs(ps.value-ps.invested))+'</span> total return</div>'+(ps.dayChg?'<div class="sub">'+(ps.dayChg>=0?'+':'-')+money0(Math.abs(ps.dayChg))+' today</div>':'')))}
+  // goals
+  if(S.goals.length){var g=S.goals.slice().sort(function(a,b){return b.saved/b.target-a.saved/a.target}).filter(function(x){return x.saved<x.target})[0]||S.goals[0];
+    cards.push(hcard('goals','Goal',ringSVG(Math.min(1,g.saved/g.target),{size:92,stroke:10,center:Math.round(g.saved/g.target*100)+'%',label:g.name})+'<div class="sub" style="margin-top:6px">'+esc(g.name)+': '+money0(Math.max(0,g.target-g.saved))+' to go</div>'))}
+  return '<section class="home">'+heroTxt+qa+(cards.length?'<div class="hscroll" role="list">'+cards.join('')+'</div>':'')+'</section>';
+}
+function qaView(icon,label,view){return '<button type="button" data-view="'+view+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+icon+'</svg>'+label+'</button>'}
+
 function lookOffer(){
   var seen=false;try{seen=localStorage.getItem('tally-look-offer')==='1'}catch(e){}
   if(seen||TH.bg==='studio')return '';
@@ -728,7 +819,7 @@ function vOverview(){
    (S.accounts.length?tile('Net worth','<span class="'+(nw.net<0?'bad':'good')+'">'+(nw.net<0?'-':'')+money0(Math.abs(nw.net))+'</span>',money0(nw.assets)+' assets · '+money0(nw.debts)+' debts'):'')+
    tile('Subscriptions',money0(subTotal)+'<span class="muted" style="font-size:14px">/mo</span>',activeSubs().length+' active · '+money0(subTotal*12)+'/yr')+billsTile()+'</div>';
   var upH=up.length?up.map(function(o){var n=dayDiff(TODAY,o.d);return '<div class="row">'+logo(o.s.name)+'<div class="grow"><div class="nm">'+esc(o.s.name)+'</div><div class="sub">'+(n===0?'Today':n===1?'Tomorrow':'In '+n+' days')+' · '+shortDate(iso(o.d))+'</div></div><div class="amt num">'+money(o.s.amount)+'</div></div>'}).join(''):'<div class="empty">Nothing due in the next 14 days.</div>';
-  return '<div class="top"><h1>Overview</h1>'+monthNav()+'</div>'+lookOffer()+tiles+
+  return '<div class="top"><h1>Overview</h1>'+monthNav()+'</div>'+lookOffer()+homeScreen(sp,inc,nw)+'<h2 class="sechead">'+monthLabel(month)+' in detail</h2>'+tiles+
    '<div class="grid two"><section class="panel"><h2>Where it went</h2>'+donut(sp.by,sp.total)+'</section><section class="panel"><h2>Last six months</h2>'+trend()+'</section></div>'+
    '<div class="grid two"><section class="panel"><h2>Budgets<small>most used first</small></h2>'+budgetRows(5,month)+'</section><section class="panel"><h2>Bills coming up<small>next 14 days</small></h2>'+upH+'</section></div>'+waffleOverview(sp,inc)+historyPanel();
 }

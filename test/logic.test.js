@@ -1338,3 +1338,18 @@ test('illustrations: car body style comes from the name, waffle always has 100 s
   assert.strictEqual(A.photoOk('data:image/jpeg;base64,' + 'A'.repeat(200001)), false);
   assert.match(src, /if\(photoOk\(d\.home\.photo\)\)home\.photo=d\.home\.photo/);
 });
+
+test('net worth series: uses the balance on or before each date, debts subtract, today is the current balance', () => {
+  const N = new Function(srcBlock('/*NETWORTH-START*/', '/*NETWORTH-END*/') + '\nreturn {netWorthTrail};')();
+  const accts = [
+    { type: 'checking', balance: 1500, history: [{ date: '2026-07-01', balance: 1000 }, { date: '2026-09-01', balance: 1400 }] },
+    { type: 'auto', balance: 9000, history: [{ date: '2026-06-01', balance: 12000 }, { date: '2026-10-01', balance: 9500 }] },
+    { type: 'savings', balance: 500, history: [] },
+  ];
+  const isDebt = (a) => a.type === 'auto';
+  const s = N.netWorthTrail(accts, isDebt, new Date(2026, 9, 14), 90, 3);
+  assert.strictEqual(s.length, 4);
+  assert.strictEqual(s[3], 1500 + 500 - 9000);                       // today: current balances
+  assert.strictEqual(s[0], 1000 + 500 - 12000);                      // about 90 days ago (Jul 16): checking 1000, loan 12000, savings unknown so its balance
+  assert.deepStrictEqual(N.netWorthTrail([], isDebt, new Date(2026, 9, 14), 90, 2), [0, 0, 0]);
+});

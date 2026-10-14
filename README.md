@@ -345,6 +345,10 @@ Apple only shares Apple Card activity with apps on an iPhone (Rocket Money does 
 
 Appearance has a new **Look** choice: *Studio* is near-black and cinematic, with large light numbers, flat dark panels, a spotlight glow and, on the car loan page, your car on a lit stage with a floor reflection and headlight glow. Quick-action buttons (Payoff, Charts, Extra payment, Refinance, Payments, Contract) jump to each section, and the Mortgage tab has the same for the house. *Glass* is the original light look. A one-time banner on Overview offers Studio; you can switch any time.
 
+## Overview home screen
+
+The Overview now opens like a car app's home screen: a greeting, your net worth in large type with a 90-day line (from your account balance history) and the change, one-tap shortcuts (Add, Import, Bills, Can I afford it?, Loans, Home), then a row of cards you scroll sideways: **Safe to spend** (what is left per day this month after bills, with a ring of how much of the month's income is used), your **car** with its payoff, your **home** and equity, **Bills** due, **Debt** and your debt-free date, **Spending**, **Investments** and your top **Goal**. Only the cards you have data for appear, and each opens its page. The month's detail (tiles, charts, budgets, the $100 chart, history) follows underneath.
+
 ## Windows
 
 A Windows installer (`Tally.Money-Setup-<version>.exe`, 64-bit; it also runs on Windows on ARM) is built by the same GitHub Actions workflow and attached to each release, after the Mac files. Run it, and if Windows SmartScreen says it protected your PC, choose **More info**, then **Run anyway** (the installer is not signed, which would need a paid certificate). Your data lives on that computer only; to move it from the Mac use Download backup on the Mac and Restore from file on Windows, or use the hosted version.
