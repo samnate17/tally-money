@@ -1284,3 +1284,37 @@ test('apple card: CSV (purchases positive, Type column) is flipped, payments bec
   assert.deepStrictEqual(o.rows.map((r) => [r.date, r.name, r.amount, r.kind]), [['2026-10-01', 'SHAWS & CO', -54.2, 'debit'], ['2026-10-05', 'PAYMENT THANK YOU', 300, 'payment']]);
   assert.strictEqual(o.balance, -1234.56);
 });
+
+test('contract: schedule reproduces the disclosed finance charge, status counts payments and gives a payoff', () => {
+  const C = new Function(srcBlock('/*CONTRACT-START*/', '/*CONTRACT-END*/') + '\nreturn {contractSchedule, contractStatus, contractExtra};')();
+  const c = { amount: 51679, apr: 9.44, payment: 846.32, count: 84, firstDate: '2024-09-03' };
+  const sch = C.contractSchedule(c);
+  assert.ok(sch.fitted); assert.strictEqual(sch.rows.length, 84);
+  assert.ok(Math.abs(sch.totalInterest - 19411.88) < 0.05, 'interest ' + sch.totalInterest);
+  assert.ok(Math.abs(sch.totalPaid - 71090.88) < 0.05);
+  assert.strictEqual(sch.rows[83].date, '2031-08-03');
+  const st = C.contractStatus(c, sch, new Date(2026, 9, 14));
+  assert.strictEqual(st.paidCount, 26); assert.strictEqual(st.left, 58);
+  assert.ok(Math.abs(st.payoff - (st.principal + st.accrued)) < 1e-9);
+  assert.ok(st.accrued > 100 && st.accrued < 125, 'about 11 days of interest: ' + st.accrued);
+  assert.ok(Math.abs(st.paidPrincipal + st.principal - 51679) < 0.01);
+  assert.strictEqual(st.next.date, '2026-11-03');
+  const base = C.contractExtra(st.principal, 9.44, 846.32, 0), more = C.contractExtra(st.principal, 9.44, 846.32, 100);
+  assert.ok(more.months < base.months && more.interest < base.interest);
+  assert.strictEqual(C.contractExtra(1000, 24, 5, 0), null);                                   // a payment smaller than the interest never pays it off
+  assert.strictEqual(C.contractSchedule({ amount: 0, apr: 5, payment: 10, count: 12, firstDate: '2026-01-01' }), null);
+  const d = C.contractSchedule({ amount: 10000, apr: 6, payment: 870, count: 12, firstDate: '2026-02-15' });
+  assert.strictEqual(C.contractStatus({ amount: 10000, apr: 6 }, d, new Date(2026, 4, 20)).paidCount, 4);
+  assert.ok(d.rows[11].balance < 0.01);
+});
+
+test('contract details survive backup and restore, and junk is dropped', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  assert.match(src, /var cc=cleanContract\(x\.contract\);if\(cc\)ac\.contract=cc/);
+  const fn = src.slice(src.indexOf('function cleanContract(c){'), src.indexOf('function cleanHoldings(h){'));
+  const cleanContract = new Function(fn + '\nreturn cleanContract;')();
+  const ok = cleanContract({ apr: 9.44, amountFinanced: 51679, payment: 846.32, count: 84, firstDate: '2024-09-03', vehicle: '2024 Honda Civic', vin: 'JHMFL5G40RX003880', condition: 'new', prepaymentPenalty: false, evil: '<script>', financeCharge: -5 });
+  assert.deepStrictEqual(Object.keys(ok).sort(), ['amountFinanced', 'apr', 'condition', 'count', 'firstDate', 'payment', 'prepaymentPenalty', 'vehicle', 'vin']);
+  assert.strictEqual(cleanContract({ amountFinanced: 1000, payment: 10, count: 12, firstDate: 'tomorrow' }), undefined);
+  assert.strictEqual(cleanContract('x'), undefined);
+});

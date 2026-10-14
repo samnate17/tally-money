@@ -77,3 +77,21 @@ test('mortgage statement: balance, rate, principal and interest, escrow, due dat
   assert.deepStrictEqual([alt.mortgage.pi, alt.mortgage.escrow, alt.mortgage.apr], [1500, 400, 5.5]);
   assert.strictEqual(parseMortgageText('nothing useful here').ok, false);
 });
+
+test('car loan contract: the Truth-in-Lending row, payment schedule, vehicle and fees are read', () => {
+  const { parseContract, parseLoanText } = require('../loanparse');
+  const text = ['RETAIL INSTALLMENT SALE CONTRACT - SIMPLE FINANCE CHARGE', 'Buyer Name JANE EXAMPLE   Seller-Creditor SUNRISE TOYOTA',
+    'NEW 2025 Toyota Camry XSE 4T1DAC2U0SU000001 personal', 'FEDERAL TRUTH-IN-LENDING DISCLOSURES', 'ANNUAL FINANCE Amount Total of Total Sale', 'PERCENTAGE CHARGE Financed Payments Price', '2,000.00 $is',
+    '7.25 % $4,500.00 $30,000.00 $34,500.00 $36,500.00', 'Your Payment Schedule Will Be:', 'Number of Amount of When Payments', '60 $575.00 beginning', 'Monthly 03/10/2026',
+    'Late Charge. If payment is not received in full within 10 days after it is due, you will pay a late charge not in excess of 5 % of the part of the payment that is late.', 'Prepayment. If you pay early, you will not have to pay a penalty.',
+    'ITEMIZATION OF AMOUNT FINANCED', '1 Cash Price (including $sales tax) $31,000.00 (1)', 'Finance Charge', 'D Optional Gap Contract 995.00', 'Registration Fee 40.00', 'Seller assigns its interest in this contract to Toyota Motor Credit Corp (Assignee) under the terms'].join('\n');
+  const c = parseContract(text);
+  assert.deepStrictEqual([c.apr, c.financeCharge, c.amountFinanced, c.totalOfPayments, c.totalSalePrice, c.count, c.payment, c.firstDate, c.downPayment, c.cashPrice, c.gap, c.registration],
+    [7.25, 4500, 30000, 34500, 36500, 60, 575, '2026-03-10', 2000, 31000, 995, 40]);
+  assert.deepStrictEqual([c.vehicle, c.condition, c.vin, c.lateFeePct, c.lateDays, c.prepaymentPenalty, c.simpleInterest, c.lender], ['2025 Toyota Camry XSE', 'new', '4T1DAC2U0SU000001', 5, 10, false, true, 'Toyota Motor Credit Corp']);
+  const r = parseLoanText(text, 'auto');
+  assert.ok(r.contract); assert.deepStrictEqual([r.loans[0].name, r.loans[0].apr, r.loans[0].minPay, r.loans[0].dueDay, r.loans[0].origBalance], ['2025 Toyota Camry XSE', 7.25, 575, 10, 30000]);
+  assert.strictEqual(parseContract('Amount Financed $100.00 Finance Charge nothing else'), null);
+  assert.strictEqual(parseLoanText('Statement Date 10/01/2026 Amount Due $300.00 Interest rate 5%', 'auto').contract, undefined);
+  assert.strictEqual(parseLoanText('Amount Due $300.00 Interest Rate 5% Balance $9,000.00 your purchase of the vehicle', 'auto').loans[0].lender, '');   // "purchase" is not Chase
+});

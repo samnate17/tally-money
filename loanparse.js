@@ -71,7 +71,7 @@ const mval = (s) => { const m = moneyIn(s); return m ? m.value : null; };
 const LENDERS = ['Nelnet', 'Navient', 'MOHELA', 'Aidvantage', 'Great Lakes', 'FedLoan', 'EdFinancial', 'Edfinancial', 'Sallie Mae', 'SoFi', 'Earnest', 'CommonBond', 'Honda Financial', 'American Honda Finance', 'Toyota Financial', 'Ford Credit', 'GM Financial', 'Nissan Motor Acceptance', 'Hyundai Capital', 'Ally', 'Santander', 'Capital One', 'Chase', 'Discover', 'Citi', 'Bank of America', 'Wells Fargo', 'American Express', 'Synchrony', 'Barclays', 'U.S. Bank', 'PNC', 'Credit Union', 'Rocket Mortgage', 'Mr. Cooper'];
 function lenderIn(text) {
   let best = null;
-  for (const name of LENDERS) { const i = text.toLowerCase().indexOf(name.toLowerCase()); if (i >= 0 && (best === null || i < best.i)) best = { i, name }; }
+  for (const name of LENDERS) { const m = new RegExp('(?:^|[^a-z0-9])' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![a-z0-9])', 'i').exec(text); if (m && (best === null || m.index < best.i)) best = { i: m.index, name }; }
   return best ? best.name : '';
 }
 
@@ -216,6 +216,13 @@ function parseLoanStatement(text, kind, clean) {
     }];
   }
   notes.unshift('Read without AI by matching the labels on the statement. Check every figure: a blank or zero means the label was not found.');
+  const contract = kind === 'auto' || kind === 'loan' ? parseContract(text) : null;
+  if (contract) {
+    const day = contract.firstDate ? +contract.firstDate.slice(8) : 0;
+    loans = [{ name: contract.vehicle || loans[0].name, lender: contract.lender || '', balance: contract.amountFinanced, apr: contract.apr, monthlyPayment: contract.payment || 0, dueDay: day, originalAmount: contract.amountFinanced, note: 'from the contract; the balance is the original amount until you enter today\u2019s', amountDue: 0, pastDue: 0, dueDate: '', accruedInterest: 0, principal: 0, lastPaymentAmount: 0, lastPaymentDate: '', asOfDate: '' }];
+    notes.length = 0; notes.push('This is a sale contract, not a statement: it gives the rate, term, payment and total cost, not today\u2019s balance. The app works out the balance and payoff from the schedule.' + (contract.scheduleMismatch ? ' The payment count times amount does not match the total of payments, so check the schedule.' : ''));
+    const r = clean({ loans, notes: notes.join(' ') }); r.contract = contract; return r;
+  }
   return clean({ loans, notes: notes.join(' ') });
 }
 
@@ -255,5 +262,40 @@ function parseMortgageText(text) {
   };
 }
 
+// A retail installment sale contract (the paper signed at the dealer): the federal Truth-in-Lending box has the rate, finance charge, amount financed, total of payments and
+// total sale price in a row, then the payment schedule. Returns null when the text is not such a contract.
+function parseContract(text) {
+  const flat = String(text || '').replace(/\s+/g, ' ');
+  if (!/amount financed/i.test(flat) || !/finance charge/i.test(flat) || !/(total of payments|installment (sale )?contract)/i.test(flat)) return null;
+  const num = (x) => parseFloat(String(x).replace(/,/g, ''));
+  const M = '\\$?\\s?([\\d,]+\\.\\d{2})';
+  const row = new RegExp('(\\d{1,2}\\.\\d{1,4})\\s*%\\s*' + M + '\\s+' + M + '\\s+' + M + '\\s+' + M).exec(flat);
+  if (!row) return null;
+  const c = { apr: num(row[1]), financeCharge: num(row[2]), amountFinanced: num(row[3]), totalOfPayments: num(row[4]), totalSalePrice: num(row[5]) };
+  if (Math.abs(c.amountFinanced + c.financeCharge - c.totalOfPayments) > 0.05) return null;    // not the row we think it is
+  const pay = /(\d{1,3})\s+\$\s?([\d,]+\.\d{2})\s+(?:beginning|monthly)/i.exec(flat) || /(\d{1,3})\s+\$\s?([\d,]+\.\d{2})\s+[^$]{0,60}?\d{2}\/\d{2}\/\d{4}/.exec(flat);
+  if (pay) { c.count = +pay[1]; c.payment = num(pay[2]); }
+  const first = /beginning[\s\S]{0,80}?(\d{1,2}\/\d{1,2}\/\d{4})/i.exec(flat) || /monthly\s+(\d{1,2}\/\d{1,2}\/\d{4})/i.exec(flat);
+  if (first) c.firstDate = dateIn(first[1], 'first');
+  c.frequency = /\bmonthly\b/i.test(flat.slice(flat.search(/payment schedule/i))) ? 'monthly' : '';
+  if (c.count && c.payment && Math.abs(c.count * c.payment - c.totalOfPayments) > c.count * 0.02 + 1) { c.scheduleMismatch = true; }
+  const down = Math.round((c.totalSalePrice - c.totalOfPayments) * 100) / 100;
+  if (down >= 0) c.downPayment = down;
+  const cash = new RegExp('1 Cash Price[\\s\\S]{0,60}?' + M + '\\s*\\(1\\)', 'i').exec(flat); if (cash) c.cashPrice = num(cash[1]);
+  const gap = new RegExp('Optional Gap Contract\\s*' + M, 'i').exec(flat); if (gap) c.gap = num(gap[1]);
+  const reg = new RegExp('Registration Fee\\s*' + M, 'i').exec(flat); if (reg) c.registration = num(reg[1]);
+  const veh = /\b(NEW|USED)\s+((?:19|20)\d{2})\s+([A-Za-z]+)\s+([A-Za-z0-9 \-]{1,30}?)\s+([A-HJ-NPR-Z0-9]{17})\b/.exec(flat);
+  if (veh) { c.condition = veh[1].toLowerCase(); c.vehicle = veh[2] + ' ' + veh[3] + ' ' + veh[4].trim(); c.vin = veh[5]; c.year = +veh[2]; }
+  const late = /late charge[\s\S]{0,140}?(\d+(?:\.\d+)?)\s*%/i.exec(flat), lateDays = /within\s+(\d+)\s+days\s+after\s+it\s+is\s+due/i.exec(flat);
+  if (late) c.lateFeePct = parseFloat(late[1]); if (lateDays) c.lateDays = +lateDays[1];
+  if (/you will not have to pay a penalty/i.test(flat)) c.prepaymentPenalty = false; else if (/you will have to pay a penalty/i.test(flat)) c.prepaymentPenalty = true;
+  c.simpleInterest = /simple finance charge|figure your finance charge on a daily basis/i.test(flat);
+  const seller = /\b([A-Z][A-Z&.' ]{2,34}(?:HONDA|TOYOTA|FORD|CHEVROLET|NISSAN|SUBARU|HYUNDAI|KIA|MAZDA|VOLKSWAGEN|BMW|MERCEDES|JEEP|DODGE|GMC|LEXUS|ACURA|MOTORS|AUTO(?: GROUP)?))\b/.exec(String(text || '').replace(/[ \t]+/g, ' '));
+  if (seller) c.seller = seller[1].replace(/^\W+/, '').trim().split(' ').slice(-2).join(' ');
+  const asg = /assigns its interest in this contract to\s+([A-Z][A-Za-z&.,' ]{2,50}?)\s*\(Assignee\)/.exec(flat);
+  c.lender = asg ? asg[1].trim() : lenderIn(String(text || ''));
+  return c;
+}
+
 const parseLoanText = (text, kind) => parseLoanStatement(text, kind, require('./ai').cleanLoans);
-module.exports = { parseMortgageText, parseLoanText, parseLoanStatement, dateIn, moneyIn, pctIn };
+module.exports = { parseContract, parseMortgageText, parseLoanText, parseLoanStatement, dateIn, moneyIn, pctIn };
