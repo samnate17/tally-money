@@ -1583,3 +1583,20 @@ test('assets: lookup links and the backup cleaner', () => {
   assert.deepStrictEqual(c.meterLog, [{ date: '2026-01-01', v: 10 }]);
   assert.strictEqual(A.cleanAsset('x', id), null);
 });
+
+test('imports: duplicates, import batches, removal and the backup cleaner', () => {
+  const I = new Function(srcBlock('/*IMPORTS-START*/', '/*IMPORTS-END*/') + '\nreturn {dupGroups, importStats, acctTxnCounts, removeTxns, cleanImports};')();
+  const key = (n) => n.toLowerCase().replace(/[#\d*]+/g, '').trim();
+  const t = (id, d, n, a, x) => Object.assign({ id, date: d, name: n, amount: a, cat: 'Other' }, x || {});
+  const txns = [t('1', '2026-10-01', 'SHAWS', -54.2), t('2', '2026-10-01', 'SHAWS #12', -54.2, { sub: 'Supermarket' }), t('3', '2026-10-02', 'Coffee', -5, { imp: 'b1' }), t('4', '2026-10-02', 'Coffee', -5, { imp: 'b1' }),
+    t('5', '2026-10-03', 'Tip', -3, { cash: true }), t('6', '2026-10-03', 'Tip', -3, { cash: true }), t('7', '2026-10-04', 'Gas', -30, { imp: 'b1' }), t('8', '2026-10-04', 'Gas', -30, { imp: 'b2' }), t('9', '2026-10-05', 'Other card', -9, { acct: 'x' }), t('10', '2026-10-05', 'Other card', -9, { acct: 'y' })];
+  const g = I.dupGroups(txns, key);
+  assert.deepStrictEqual(g.map((x) => [x.name, x.count, x.likely, x.keep.id]), [['Gas', 2, true, '7'], ['Tip', 2, false, '5'], ['Coffee', 2, false, '3'], ['SHAWS #12', 2, true, '2']]);   // same-import and cash pairs may be real; the edited copy is kept; different accounts are not duplicates
+  assert.deepStrictEqual(g.find((x) => x.name === 'SHAWS #12').extra.map((x) => x.id), ['1']);
+  const st = I.importStats(txns, [{ id: 'b1', date: '2026-10-10', label: 'First', count: 3, acct: '' }, { id: 'b2', date: '2026-10-11', label: 'Second', count: 1, acct: '' }, { id: 'gone', date: '2026-10-12', label: 'Removed', count: 5, acct: '' }]);
+  assert.deepStrictEqual(st.map((m) => [m.id, m.left]), [['gone', 0], ['b2', 1], ['b1', 3]]);
+  assert.deepStrictEqual(I.acctTxnCounts(txns), { x: 1, y: 1 });
+  assert.deepStrictEqual(I.removeTxns(txns, ['1', '2']).map((x) => x.id).slice(0, 2), ['3', '4']);
+  const c = I.cleanImports([{ id: 'ok_1', date: '2026-10-01', label: '<b>Apple</b>', count: 9, acct: 'a1' }, { id: 'bad id' }, null, { id: 'z', date: 'x', count: -4 }], () => 'n');
+  assert.deepStrictEqual(c, [{ id: 'ok_1', date: '2026-10-01', label: 'bApple/b', count: 9, acct: 'a1' }, { id: 'z', date: '', label: 'Import', count: 0, acct: '' }]);
+});
