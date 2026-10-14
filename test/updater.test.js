@@ -99,7 +99,7 @@ test('updater: install only where it can work, hands the script the right argume
   assert.strictEqual(quit, 1); assert.strictEqual(spawned[0].cmd, '/bin/bash'); assert.strictEqual(spawned[0].opt.detached, true);
   assert.deepStrictEqual(spawned[0].args.slice(1), [u.downloadedPath(), app, '4242', path.join(dir, 'r.json')]);
   assert.match(fs.readFileSync(spawned[0].args[0], 'utf8'), /rm -rf "\$APP.old"/);
-  for (const [p, plat, re] of [['/Applications/X.app', 'linux', /Mac app only/], ['', 'darwin', /running from source/], ['/Volumes/Tally/Tally Money.app', 'darwin', /Applications folder/], ['/private/var/folders/x/AppTranslocation/ABC/d/Tally Money.app', 'darwin', /Applications folder/]]) {
+  for (const [p, plat, re] of [['/Applications/X.app', 'linux', /Mac and Windows apps only/], ['', 'darwin', /running from source/], ['/Volumes/Tally/Tally Money.app', 'darwin', /Applications folder/], ['/private/var/folders/x/AppTranslocation/ABC/d/Tally Money.app', 'darwin', /Applications folder/]]) {
     const v = mk(p, plat); await v.check(); await v.download(); assert.throws(() => v.install(), re);
   }
   assert.strictEqual(mk(app).status().canInstall, true);
@@ -112,9 +112,24 @@ test('updater: the result of an update is reported once', () => {
   assert.deepStrictEqual(u.status().lastResult, { ok: false, error: 'Could not copy' }); assert.strictEqual(u.status().lastResult, null);
 });
 
-test('updater: on Windows it offers the Setup installer and says updating in place is Mac-only', () => {
+test('updater: on Windows it picks the Setup installer', () => {
   const assets = [{ name: 'Tally.Money-1.7.2.dmg' }, { name: 'Tally.Money-Setup-1.7.2.exe' }, { name: 'Tally.Money-1.7.2-mac.zip' }];
   assert.strictEqual(U.pickAsset(assets, 'x64', 'win32').name, 'Tally.Money-Setup-1.7.2.exe');
   assert.strictEqual(U.pickAsset(assets.slice(0, 1), 'x64', 'win32'), null);
   assert.strictEqual(U.pickAsset(assets, 'x64').name, 'Tally.Money-1.7.2.dmg');       // Mac behaviour is unchanged
+});
+
+test('updater: on Windows install opens the verified Setup file, then quits', async () => {
+  const bytes = crypto.randomBytes(1000); const dir = tmp(); const sha = crypto.createHash('sha256').update(bytes).digest('hex');
+  const rel = { tag_name: 'v1.8.4', assets: [{ name: 'Tally.Money-1.8.4-arm64.dmg', id: 1, size: 5, digest: 'sha256:' + '0'.repeat(64) }, { name: 'Tally.Money-Setup-1.8.4.exe', id: 9, size: bytes.length, digest: 'sha256:' + sha }] };
+  const spawned = []; let quit = 0;
+  const u = U.createUpdater({ store: memStore({ github_token: TOKEN }), version: '1.8.3', arch: 'x64', platform: 'win32', appPath: '', tmpDir: path.join(dir, 't'), resultFile: path.join(dir, 'r.json'),
+    spawnImpl: (cmd, args, opt) => { spawned.push({ cmd, args, opt }); return { unref() {}, on() {} }; }, quit: () => { quit++; },
+    fetchImpl: async (url) => (/latest/.test(url) ? json(rel) : (/api\.github/.test(url) ? new Response(null, { status: 302, headers: { location: 'https://objects.githubusercontent.com/x' } }) : new Response(bytes))) });
+  const st = u.status(); assert.strictEqual(st.canInstall, true); assert.strictEqual(st.installBlocker, ''); assert.strictEqual(st.platform, 'win32');
+  assert.throws(() => u.install(), /Download the update first/);
+  const info = await u.check(); assert.strictEqual(info.assetName, 'Tally.Money-Setup-1.8.4.exe'); assert.ok(info.newer);
+  await u.download(); u.install();
+  assert.strictEqual(quit, 1); assert.strictEqual(spawned.length, 1);
+  assert.strictEqual(spawned[0].cmd, u.downloadedPath()); assert.ok(/Setup-1\.8\.4\.exe$/.test(spawned[0].cmd)); assert.deepStrictEqual(spawned[0].args, []); assert.strictEqual(spawned[0].opt.detached, true);
 });

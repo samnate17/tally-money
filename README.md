@@ -404,3 +404,7 @@ Open **Security** in the sidebar.
 - **Password for the app.** *Turn on password* encrypts the data stored on this computer with the same scheme (`tally-vault-v1` in local storage; the plain copy is removed only after the encrypted copy has been read back and verified). The app then opens to a lock screen, locks itself after a chosen idle time (default 5 minutes), and can be locked on demand. The password can be changed or turned off from the same panel. There is no recovery: forgetting it means erasing the local data and restoring from a backup file.
 - Not encrypted: the list of linked bank names and the stock-price cache. Bank/API keys are held by the operating system's secure storage as before.
 - This is a password for the computer, not an online account; nothing is sent anywhere. (The hosted web build keeps its own server-side accounts.)
+
+## Updating on Windows
+
+In **Appearance → App updates**, when a newer release exists the Windows app shows **Download and run installer**. It downloads the Setup file, checks its SHA-256 against the checksum GitHub publishes, opens it and closes the app so the installer can replace it. Click through the installer, then reopen Tally Money; your data stays. Windows may show a SmartScreen warning because the installer is unsigned (More info → Run anyway). The Mac app still replaces itself in place.

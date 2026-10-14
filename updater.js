@@ -80,12 +80,14 @@ function createUpdater({ store, version, arch, platform, appPath, tmpDir, result
 
   const token = () => String((store && store.get('github_token')) || '');
   function canInstall() {
+    if (platform === 'win32') return true;   // Windows: download the checked installer and run it
     if (platform !== 'darwin' || !appPath || !/\.app$/.test(appPath)) return false;
     if (/\/AppTranslocation\//.test(appPath) || /^\/Volumes\//.test(appPath)) return false;
     try { fsImpl.accessSync(path.dirname(appPath), fs.constants.W_OK); return true; } catch (e) { return false; }
   }
   function installBlocker() {
-    if (platform !== 'darwin') return 'In-app install works on the Mac app only. On Windows, download the new installer from the releases page and run it over the old one; your data stays.';
+    if (platform === 'win32') return '';
+    if (platform !== 'darwin') return 'In-app install works on the Mac and Windows apps only. Download the new version from the releases page.';
     if (!appPath || !/\.app$/.test(appPath)) return 'This copy is not an installed app (it is running from source), so it cannot replace itself.';
     if (/\/AppTranslocation\//.test(appPath) || /^\/Volumes\//.test(appPath)) return 'Move Tally Money into your Applications folder and open it from there first.';
     if (!canInstall()) return 'Tally Money cannot write to the folder it is installed in. Move it to Applications.';
@@ -105,7 +107,7 @@ function createUpdater({ store, version, arch, platform, appPath, tmpDir, result
     status() {
       let lastResult = null;
       try { lastResult = JSON.parse(fsImpl.readFileSync(resultFile, 'utf8')); fsImpl.unlinkSync(resultFile); } catch (e) { /* none */ }
-      return { version, hasToken: !!token(), canInstall: canInstall(), installBlocker: installBlocker(), lastResult };
+      return { version, platform, hasToken: !!token(), canInstall: canInstall(), installBlocker: installBlocker(), lastResult };
     },
     setToken(t) {
       t = String(t || '').trim();
@@ -172,6 +174,14 @@ function createUpdater({ store, version, arch, platform, appPath, tmpDir, result
       const why = installBlocker();
       if (why) throw new Error(why);
       if (!downloaded || !fsImpl.existsSync(downloaded)) throw new Error('Download the update first.');
+      if (platform === 'win32') {
+        // Open the verified Setup installer (its normal screens), then quit so it can replace the app's files. Data is kept by the installer.
+        const child = spawnImpl(downloaded, [], { detached: true, stdio: 'ignore' });
+        if (child && child.on) child.on('error', () => {});
+        if (child && child.unref) child.unref();
+        quit();
+        return true;
+      }
       const script = writeInstallScript(tmpDir, fsImpl);
       const child = spawnImpl('/bin/bash', [script, downloaded, appPath, String(pid), resultFile], { detached: true, stdio: 'ignore' });
       if (child && child.unref) child.unref();

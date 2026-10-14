@@ -4563,7 +4563,7 @@ function updatesPanel(){
       '<form id="upform" class="form"><input id="up-token" type="password" placeholder="github_pat_…" autocomplete="off" style="flex:1 1 260px" required><button class="btn primary">Save token</button></form><p class="sub muted" style="margin:10px 0 0;font-size:12px">The token is kept in your computer\'s secure storage (macOS Keychain or Windows credential protection) and only used to read this repository\'s releases and download them.</p>';
   }else{
     var avail=i&&i.newer;
-    h+='<div class="actions" style="justify-content:flex-start"><button class="btn'+(avail?'':' primary')+'" data-act="up-check"'+(UP.busy?' disabled':'')+'>'+(UP.busy==='check'?'Checking…':'Check for updates')+'</button>'+(avail&&st.canInstall&&i.hasAsset?'<button class="btn primary" data-act="up-install"'+(UP.busy?' disabled':'')+'>Update to '+esc(i.latest)+' ('+mb(i.size)+')</button>':'')+'<button class="btn small" data-act="up-cleartoken"'+(UP.busy==='install'?' disabled':'')+'>Remove token</button></div>';
+    h+='<div class="actions" style="justify-content:flex-start"><button class="btn'+(avail?'':' primary')+'" data-act="up-check"'+(UP.busy?' disabled':'')+'>'+(UP.busy==='check'?'Checking…':'Check for updates')+'</button>'+(avail&&st.canInstall&&i.hasAsset?'<button class="btn primary" data-act="up-install"'+(UP.busy?' disabled':'')+'>'+(st.platform==='win32'?'Download and run installer':'Update to '+esc(i.latest))+' ('+mb(i.size)+')</button>':'')+'<button class="btn small" data-act="up-cleartoken"'+(UP.busy==='install'?' disabled':'')+'>Remove token</button></div>';
     if(i&&!i.newer&&!avail&&!UP.busy)h+='<p style="margin:12px 0 0"><span class="pill good">Up to date</span> <span class="sub">Version '+esc(i.current)+' is the newest release.</span></p>';
     if(UP.busy==='install')h+='<div class="bar" id="upprog" style="margin-top:12px"><i style="width:0%"></i></div><p class="sub" id="uptxt" style="margin:6px 0 0">Starting…</p>';
     if(avail){
@@ -4571,6 +4571,7 @@ function updatesPanel(){
       if(i.notes)h+='<pre class="pdfpre" style="max-height:160px">'+esc(i.notes)+'</pre>';
       if(!i.hasAsset)h+='<p class="sub bad" style="margin:8px 0 0">This release has no download for this computer.</p>';
       else if(!st.canInstall)h+='<p class="sub" style="margin:8px 0 0">'+esc(st.installBlocker||'This copy cannot update itself.')+' You can still download it from the <a href="'+esc(i.url||'#')+'" target="_blank" rel="noopener">releases page</a>.</p>';
+      else if(st.platform==='win32')h+='<p class="sub muted" style="margin:8px 0 0;font-size:12px">The installer is downloaded, checked against GitHub\'s checksum, then opened. Tally Money closes so the installer can replace it: click through the installer screens, then reopen Tally Money. Your data stays. Windows may show a SmartScreen warning because the installer is not signed: choose More info, then Run anyway.</p>';
       else h+='<p class="sub muted" style="margin:8px 0 0;font-size:12px">The download is checked against GitHub\'s checksum, then replaces this app and reopens it. Your data stays. If anything fails, the old version is kept. Keychain may ask once to allow the new version to use saved keys.</p>';
     }
   }
