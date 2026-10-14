@@ -1614,3 +1614,14 @@ test('bills: autopay bills are expected, turn paid when the payment shows up, an
   const sum = B.billsSummary(B.billItems([mk(20)], []), '2026-10', [], {}, today);
   assert.strictEqual(sum.pending, 80); assert.strictEqual(sum.next.item.name, 'Cell phone');   // still counted as money going out
 });
+
+test('hidden bills: keywords are cleaned and matched against bill names', () => {
+  const H = new Function(srcBlock('/*HIDE-START*/', '/*HIDE-END*/') + '\nreturn {cleanHideWords, isHiddenName};')();
+  assert.deepStrictEqual(H.cleanHideWords(' Therapy, clinic\n<b>Lawyer</b>, a, therapy '), ['therapy', 'clinic', 'blawyer/b']);
+  assert.deepStrictEqual(H.cleanHideWords(['X', 'Dr. Smith', 5, null]), ['dr. smith']);
+  assert.strictEqual(H.cleanHideWords(Array.from({ length: 100 }, (_, i) => 'word' + i)).length, 60);
+  assert.strictEqual(H.isHiddenName('Smith Family THERAPY LLC', ['therapy']), true);
+  assert.strictEqual(H.isHiddenName('Electric', ['therapy']), false);
+  assert.strictEqual(H.isHiddenName('Anything', []), false);
+  assert.strictEqual(H.isHiddenName('Anything', undefined), false);
+});

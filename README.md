@@ -485,3 +485,7 @@ When a bank (Chase, for example) will not link through Plaid, use **Add a card f
 ## Autopay (Bills tab)
 
 Press **Autopay** on a bill (or tick "On autopay" when adding or editing one). Loan and card bills have the same button, and it is remembered on the loan or card. An autopay bill shows "Autopay · due date" instead of a countdown or Mark paid warning, still counts as money going out this month, and turns Paid when the payment shows up in your transactions. If nothing matching appears more than 3 days after the due date, it turns red as "Autopay not seen", so a failed autopay does not go unnoticed. The flag is included in backups.
+
+## Hidden bills (Bills tab)
+
+Press **Hide** on a bill, or add keywords in the **Hidden bills** panel (for example "therapy, clinic"). Any bill whose name contains a keyword shows as "Hidden bill" on the Bills tab, the Overview and the Dashboard, and its name is left out of what the AI assistant is sent. The amount and due date still count in your totals and pending bills. "Show hidden names" reveals them until you switch it off again, and Unhide removes the matching keywords. Keywords are saved in backups. This hides names on screen only: the bill's name is still stored in your data on this computer and in transactions that match it, so it is not encryption (the app password in Settings does that).
