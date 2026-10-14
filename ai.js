@@ -245,6 +245,54 @@ const CAR_ART_SYSTEM = [
   'Colours as #hex, rgb(), rgba(), none, or url(#id). No style, script, text, image, filter, clipPath, mask, use, link or font elements. Keep it under about 40 KB.',
 ].join('\n');
 
+const BUREAU_NAMES = ['TransUnion', 'Equifax', 'Experian'];
+const SCORE_MODEL_NAMES = ['VantageScore 3.0', 'VantageScore 4.0', 'FICO 8', 'FICO 9', 'FICO (other)', 'Other'];
+const SCORE_SHOT_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    scores: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          bureau: { type: 'string', enum: ['TransUnion', 'Equifax', 'Experian', 'Unknown'] },
+          model: { type: 'string', enum: ['VantageScore 3.0', 'VantageScore 4.0', 'FICO 8', 'FICO 9', 'FICO (other)', 'Other'] },
+          score: { type: 'integer' },
+          date: { type: 'string' },
+        },
+        required: ['bureau', 'model', 'score', 'date'],
+      },
+    },
+    notes: { type: 'string' },
+  },
+  required: ['scores', 'notes'],
+};
+const SCORE_SHOT_SYSTEM = [
+  'You read a screenshot of a credit score screen (Credit Karma, a bank or card app, Experian, and similar) and report only the credit scores that are clearly shown.',
+  'For each score give the bureau (TransUnion, Equifax or Experian; Unknown if the screen does not say), the scoring model (VantageScore 3.0, VantageScore 4.0, FICO 8, FICO 9, FICO (other), or Other if it does not say), the score as a whole number from 300 to 850, and the date the screen says it was updated as YYYY-MM-DD (empty string if no date is shown).',
+  'Never guess or invent a number. If you are unsure, leave it out and say why in notes. Ignore names, addresses and account numbers: do not repeat them. Ignore score ranges, goals, factor grades and changes: report only the current scores.',
+].join(' ');
+// What the page gets from a screenshot: only well-formed scores, in range.
+function cleanScoreShot(raw) {
+  const out = { scores: [], notes: '' };
+  if (!raw || typeof raw !== 'object') return out;
+  for (const x of Array.isArray(raw.scores) ? raw.scores : []) {
+    const score = Math.round(Number(x && x.score));
+    if (!(score >= 300 && score <= 850)) continue;
+    out.scores.push({
+      bureau: BUREAU_NAMES.includes(x.bureau) ? x.bureau : '',
+      model: SCORE_MODEL_NAMES.includes(x.model) ? x.model : 'Other',
+      score,
+      date: /^\d{4}-\d{2}-\d{2}$/.test(String(x.date || '')) ? String(x.date) : '',
+    });
+    if (out.scores.length >= 6) break;
+  }
+  out.notes = String((raw && raw.notes) || '').replace(/\s+/g, ' ').trim().slice(0, 300);
+  return out;
+}
+
 function createAI({ store, clientFactory }) {
   const make = clientFactory || ((apiKey) => new Anthropic({ apiKey }));
 
@@ -435,7 +483,31 @@ function createAI({ store, clientFactory }) {
     return { svg: text.slice(0, 150000) };
   }
 
-  return { status, saveKey, clearKey, analyze, categorize, loansFromText, statement, statementPdf, testKey, carArt };
+  // Reads credit scores from a screenshot of a score screen. The page shows the result to the user before anything is saved.
+  async function creditShot(req) {
+    const apiKey = store.get('anthropicKey');
+    if (!apiKey) throw new Error('Add your Anthropic API key first.');
+    const m = /^data:image\/(jpeg|png|webp);base64,([A-Za-z0-9+/=]+)$/.exec(String((req && req.image) || ''));
+    if (!m || m[2].length > 6000000) throw new Error('That picture cannot be used. Try a screenshot saved as PNG or JPEG.');
+    let msg;
+    try {
+      const stream = make(apiKey).messages.stream({
+        model: MODEL, max_tokens: 2000, system: SCORE_SHOT_SYSTEM,
+        output_config: { effort: 'low', format: { type: 'json_schema', schema: SCORE_SHOT_SCHEMA } },
+        messages: [{ role: 'user', content: [{ type: 'image', source: { type: 'base64', media_type: 'image/' + m[1], data: m[2] } }, { type: 'text', text: 'Read the credit scores on this screen.' }] }],
+      });
+      msg = await stream.finalMessage();
+    } catch (err) {
+      throw new Error(friendlyError(err));
+    }
+    if (msg.stop_reason === 'refusal') throw new Error('Claude declined to read this picture.');
+    const body = (msg.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('');
+    let parsed;
+    try { parsed = JSON.parse(body); } catch (e) { throw new Error('Claude returned an answer the app could not read. Try again.'); }
+    return cleanScoreShot(parsed);
+  }
+
+  return { status, saveKey, clearKey, analyze, categorize, loansFromText, statement, statementPdf, testKey, carArt, creditShot };
 }
 
 // For a model running on this computer: the same job as the Claude version, but it must answer with plain JSON text.
@@ -449,4 +521,4 @@ function parseLocalLoans(reply) {
   return cleanLoans(parsed);
 }
 module.exports = {
-  LOANS_LOCAL_SYSTEM, parseLocalLoans, cleanLoans, createAI, cleanResult, cleanStatement, friendlyError, detailOf, MODEL, SCHEMA, schemaFor, SYSTEM, MAX_STATEMENT_CHARS };
+  LOANS_LOCAL_SYSTEM, parseLocalLoans, cleanLoans, cleanScoreShot, createAI, cleanResult, cleanStatement, friendlyError, detailOf, MODEL, SCHEMA, schemaFor, SYSTEM, MAX_STATEMENT_CHARS };

@@ -247,6 +247,9 @@ canvas.confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:non
 .photoframe{overflow:hidden;border-radius:14px;margin-top:12px}
 .carbig{margin:6px 0 2px;display:flex;justify-content:center}.carcut{display:flex;justify-content:center;margin-top:12px}.carcut img{max-width:100%;max-height:230px;filter:drop-shadow(0 14px 12px rgba(0,0,0,.3))}
 .aiwheel{transform-box:fill-box;transform-origin:center}:root[data-motion="full"] .aiwheel{animation:spin .8s linear 3.4 .3s}
+.scgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}.sccard{background:var(--surface2);border:1px solid var(--line);border-radius:16px;padding:12px 14px}
+.fgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}.fcard{border:1px solid var(--line);border-radius:14px;padding:12px 14px;background:var(--surface2)}
+@keyframes needle{from{transform:rotate(-90deg)}to{transform:rotate(var(--rot))}}:root[data-motion="full"] .needle{animation:needle 1.2s cubic-bezier(.2,.8,.2,1) both}
 .carphoto{background:radial-gradient(120% 90% at 50% 40%,#fff 55%,#eef1f6);padding:6px 0}.carphoto img{display:block;width:100%;height:230px;object-fit:contain;mix-blend-mode:multiply}
 :root[data-motion="full"] .drive{animation:drive 2.6s cubic-bezier(.25,.8,.25,1) .3s backwards}
 :root[data-motion="full"] .wheelspin{animation:spin .8s linear 3.4 .3s}
@@ -548,7 +551,7 @@ var ICON={
  budgets:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v9h9"/><path d="M20.5 15A9 9 0 1 1 9 3.5"/></svg>',
  transactions:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h13M13 3l4 4-4 4M20 17H7M11 13l-4 4 4 4"/></svg>',
  goals:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg>'};
-var TABS=[['overview','Overview'],['dash','Dashboard','Live'],['accounts','Accounts'],['subscriptions','Subscriptions','Subs'],['bills','Bills','Bills'],['budgets','Budgets'],['report','Monthly report','Report'],['afford','Can I afford it?','Afford'],['credit','Credit'],['invest','Investments','Invest'],['transactions','Transactions','Activity'],['goals','Goals'],['loans','Loans'],['mortgage','Mortgage','Home'],['assist','Assistant','Chat'],['look','Settings','Settings']];
+var TABS=[['overview','Overview'],['dash','Dashboard','Live'],['accounts','Accounts'],['subscriptions','Subscriptions','Subs'],['bills','Bills','Bills'],['budgets','Budgets'],['report','Monthly report','Report'],['afford','Can I afford it?','Afford'],['credit','Credit score','Score'],['invest','Investments','Invest'],['transactions','Transactions','Activity'],['goals','Goals'],['loans','Loans'],['mortgage','Mortgage','Home'],['assist','Assistant','Chat'],['look','Settings','Settings']];
 function nav(){
   function items(short){return TABS.map(function(t){return '<button class="nav" data-view="'+t[0]+'"'+(view===t[0]?' aria-current="page"':'')+'>'+ICON[t[0]]+'<span>'+(short&&t[2]||t[1])+'</span></button>'}).join('')}
   var h=items(false);
@@ -829,6 +832,9 @@ function homeScreen(sp,inc,nw){
   var debts=S.accounts.filter(function(a){return isDebt(a)&&a.balance>0&&a.type!=='mortgage'});
   if(debts.length){var tot=debts.reduce(function(a,d){return a+d.balance},0),orig=debts.reduce(function(a,d){return a+(d.origBalance>0?d.origBalance:d.balance)},0),pl=portfolio(debts,0,0);
     cards.push(hcard('loans','Debt',ringSVG(orig>0?Math.max(0,1-tot/orig):0,{size:92,stroke:10,center:money0(tot),sub:'owed',label:'Debt paid off'})+'<div class="sub" style="margin-top:6px">'+(pl.ok?(pl.months?'Debt-free '+monthYear(addMonths(TODAY,pl.months)):'Debt-free'):'Payments too small')+'</div>'))}
+  // credit score
+  var cser=scoreSeries(S.credit.scores);
+  if(cser.length){cards.push(hcard('credit','Credit score',cser.map(function(x){return '<div class="hrow"><span>'+esc(x.name)+'</span><b class="num '+x.band.k+'">'+x.last.score+'</b></div>'}).join('')+'<div class="sub" style="margin-top:6px">'+(cser[0].diff!==null?(cser[0].diff>=0?'Up ':'Down ')+Math.abs(cser[0].diff)+' since last time':'Latest scores')+'</div>'))}
   // cash back
   var cbs=cashbackStats(S.txns,S.accounts,TODAY,S.cardPay);
   if(cbs.total.cbAll>0){var cbn=cbs.total.net12;cards.push(hcard('cashback','Cash back','<div class="hnum num good">'+money0(cbs.total.cb12)+'</div><div class="sub">last 12 months</div><div class="sub" style="margin-top:6px"><span class="'+(cbn>=0?'good':'bad')+'">'+(cbn>=0?'You are ahead ':'You are behind ')+money0(Math.abs(cbn))+'</span> after interest and fees</div>'))}
@@ -1003,7 +1009,7 @@ function netWorth(){var as=0,db=0;S.accounts.forEach(function(a){if(isDebt(a))db
 function withLimit(a,l){a.limit=l;return a}
 function sampleHoldings(){return [{id:uid(),symbol:'AAPL',name:'Apple',shares:12,invested:1800},{id:uid(),symbol:'MSFT',name:'Microsoft',shares:5,invested:1900},{id:uid(),symbol:'TSLA',name:'Tesla',shares:6,invested:1500},{id:uid(),symbol:'VTI',name:'Vanguard Total Stock Market ETF',shares:15,invested:3300}]}
 function sampleCredit(){
-  var sc=[[5,684],[3,691],[1,703],[0,709]].map(function(x){var d=x[0]===0?new Date(TODAY):new Date(TODAY.getFullYear(),TODAY.getMonth()-x[0],1);return {date:iso(d),score:x[1],source:'FICO'}});
+  var sc=[];[[5,684,672],[3,691,688],[1,703,695],[0,709,701]].forEach(function(x){var d=x[0]===0?new Date(TODAY):new Date(TODAY.getFullYear(),TODAY.getMonth()-x[0],1);sc.push({date:iso(d),score:x[1],source:'VantageScore 3.0',bureau:'TransUnion'});sc.push({date:iso(d),score:x[2],source:'VantageScore 3.0',bureau:'Equifax'})});
   return {scores:sc,profile:{late:'none',inq:'1-2',oldest:'6',derog:'none'}};
 }
 function sampleAccounts(){
@@ -2135,6 +2141,132 @@ function creditAdvice(accts,profile,money){
   return {factors:F,util:u,focus:order.slice(0,3).map(function(f){return f.key})};
 }
 /*CREDIT-END*/
+/*SCORE-START*/
+// Credit score tab: scores per bureau, bands for the scoring model, card age, utilization history, paydown plans and plain insights.
+// Needs creditUtil from the CREDIT block. Nothing here reads a bureau: scores are entered or read from a screenshot by the user.
+var BUREAUS=['TransUnion','Equifax','Experian'];
+var SCORE_MODELS=['VantageScore 3.0','VantageScore 4.0','FICO 8','FICO 9','FICO (other)','Other'];
+function modelFamily(m){return /vantage/i.test(m||'')?'vantage':'fico'}
+function scoreBounds(m){return modelFamily(m)==='vantage'?[300,500,601,661,781,850]:[300,580,670,740,800,850]}
+function scoreBandNames(m){return modelFamily(m)==='vantage'?['Very poor','Poor','Fair','Good','Excellent']:['Poor','Fair','Good','Very good','Exceptional']}
+// band: label, kind (good/warn/bad), index 0..4, how far to the next band
+function scoreBand(sc,m){
+  var b=scoreBounds(m),n=scoreBandNames(m),i=0;
+  for(var j=1;j<5;j++)if(sc>=b[j])i=j;
+  var kind=(modelFamily(m)==='vantage'?['bad','bad','warn','good','good']:['bad','warn','good','good','good'])[i];
+  return {label:n[i],k:kind,i:i,min:b[i],next:i<4?{label:n[i+1],at:b[i+1],gap:b[i+1]-sc}:null};
+}
+function scoreBureau(x){return BUREAUS.indexOf(x&&x.bureau)>-1?x.bureau:''}
+// Latest score for each bureau (and anything not labelled), with the change from the one before it.
+function scoreSeries(scores){
+  var by={},order=BUREAUS.concat(['']);
+  (scores||[]).slice().sort(function(a,b){return a.date<b.date?-1:a.date>b.date?1:0}).forEach(function(x){var k=scoreBureau(x);(by[k]=by[k]||[]).push(x)});
+  return order.filter(function(k){return by[k]}).map(function(k){
+    var e=by[k],last=e[e.length-1],prev=null,i;
+    for(i=e.length-2;i>=0;i--)if(modelFamily(e[i].source)===modelFamily(last.source)){prev=e[i];break}
+    return {key:k,name:k||'Not labelled',entries:e,last:last,prev:prev,diff:prev?last.score-prev.score:null,band:scoreBand(last.score,last.source)};
+  });
+}
+// Bureaus scored within 45 days of each other that disagree by 20 or more points.
+function scoreGap(series){
+  var live=series.filter(function(s){return s.key});if(live.length<2)return null;
+  var newest=live.reduce(function(m,s){return s.last.date>m?s.last.date:m},''),near=live.filter(function(s){return (Date.parse(newest)-Date.parse(s.last.date))/864e5<=45});
+  if(near.length<2)return null;
+  var hi=near.reduce(function(a,b){return b.last.score>a.last.score?b:a}),lo=near.reduce(function(a,b){return b.last.score<a.last.score?b:a});
+  return {gap:hi.last.score-lo.last.score,hi:hi,lo:lo,sameModel:modelFamily(hi.last.source)===modelFamily(lo.last.source)};
+}
+// Ages from the opening dates entered on each account ("2019-06" or "2019-06-15"). Falls back to the oldest-account answer in the profile.
+function openedMonths(a,today){
+  var m=/^(\d{4})-(\d{2})/.exec(a.opened||'');if(!m)return null;
+  var mo=(today.getFullYear()-(+m[1]))*12+(today.getMonth()+1-(+m[2]));return mo>=0?mo:null;
+}
+function creditAges(accounts,profile,today){
+  var rows=accounts.filter(function(a){return (a.type==='credit'||a.type==='student'||a.type==='auto'||a.type==='mortgage'||a.type==='loan')&&!a.closed}).map(function(a){return {id:a.id,name:a.name,type:a.type,months:openedMonths(a,today)}}).filter(function(r){return r.months!==null});
+  var out={rows:rows,count:rows.length,oldestYears:null,avgYears:null,source:''};
+  if(rows.length){var tot=rows.reduce(function(n,r){return n+r.months},0),mx=Math.max.apply(null,rows.map(function(r){return r.months}));out.oldestYears=mx/12;out.avgYears=tot/rows.length/12;out.source='accounts'}
+  else{var y=parseFloat(profile&&profile.oldest);if(isFinite(y)){out.oldestYears=y;out.source='profile'}}
+  return out;
+}
+// What the average age would become if this account were closed. Closed accounts can stay on a report, so this is the worst case.
+function closeEffect(accounts,id,today){
+  var rows=creditAges(accounts,null,today).rows,hit=rows.filter(function(r){return r.id===id})[0],rest=rows.filter(function(r){return r.id!==id});
+  if(!hit||!rest.length)return null;
+  var before=rows.reduce(function(n,r){return n+r.months},0)/rows.length/12,after=rest.reduce(function(n,r){return n+r.months},0)/rest.length/12;
+  return {before:before,after:after,oldestLost:hit.months>=Math.max.apply(null,rows.map(function(r){return r.months}))};
+}
+// Utilization on a past date from each card's balance history (the last balance on or before that date). null when there is nothing to go on.
+function utilAt(accounts,date){
+  var bal=0,lim=0,n=0;
+  creditCards(accounts).forEach(function(c){
+    if(!(c.limit>0)||!c.history||!c.history.length)return;
+    var h=c.history.slice().sort(function(a,b){return a.date<b.date?-1:1}),v=null,i;
+    for(i=0;i<h.length;i++){if(h[i].date<=date)v=h[i].balance;else break}
+    if(v===null)v=h[0].balance;
+    bal+=v;lim+=c.limit;n++;
+  });
+  return lim>0?bal/lim*100:null;
+}
+// Pay each card down to targetPct of its own limit first (single cards count too), highest use first; the total ends up at or under the target.
+function paydownPlan(accounts,targetPct){
+  var cards=creditCards(accounts).filter(function(c){return c.limit>0&&c.balance>0}).map(function(c){return {id:c.id,name:c.name,balance:c.balance,limit:c.limit,pct:c.balance/c.limit*100}}),plan=[],t=targetPct/100,tot=0;
+  cards.sort(function(a,b){return b.pct-a.pct}).forEach(function(c){var pay=Math.max(0,c.balance-t*c.limit);if(pay>0.5){plan.push({id:c.id,name:c.name,pay:Math.ceil(pay),pct:c.pct,newPct:targetPct});tot+=Math.ceil(pay)}});
+  var limit=cards.reduce(function(n,c){return n+c.limit},0),bal=cards.reduce(function(n,c){return n+c.balance},0)-tot;
+  return {plan:plan,total:tot,newPct:limit>0?Math.max(0,bal)/limit*100:null,limit:limit};
+}
+// Rough, typical effect on a score of moving utilization between bands. A guide, not a prediction: it ignores everything else on your report.
+function utilBucket(p){return p<10?0:p<30?1:p<50?2:p<75?3:4}
+function impactEstimate(fromPct,toPct){
+  var pen=[0,-8,-25,-40,-55],d=pen[utilBucket(toPct)]-pen[utilBucket(fromPct)];
+  if(d<=0)return null;
+  return {low:Math.round(d*0.55/5)*5,high:Math.round(d*1.35/5)*5};
+}
+// Plain-language alerts from your scores, cards and answers. Newest or most important first.
+function creditInsights(scores,accounts,profile,today,fmt){
+  var f=fmt||function(n){return '$'+Math.round(n)},out=[],series=scoreSeries(scores),u=creditUtil(accounts),iso0=function(d){return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2)},t0=iso0(today);
+  if(!series.length)out.push({k:'info',title:'Add your first score',detail:'Enter the score you see in your bank, card or credit app (or read it from a screenshot) and this page shows your band, your trend and what moves it.'});
+  series.forEach(function(s){
+    var age=(Date.parse(t0)-Date.parse(s.last.date))/864e5;
+    if(age>40)out.push({k:'warn',title:'Your '+(s.key?s.key+' score':'unlabelled score')+' is '+Math.round(age)+' days old',detail:'Scores move monthly. Update it so the trend and tips stay accurate.'});
+    if(s.diff!==null&&Math.abs(s.diff)>=10)out.push({k:s.diff>0?'good':'bad',title:s.name+' went '+(s.diff>0?'up ':'down ')+Math.abs(s.diff)+' points',detail:s.diff>0?'Good. Check what changed (a lower balance reported, an old late payment ageing off) and keep doing it.':'Look for a higher reported balance, a new inquiry or account, or a late payment. Your free credit report shows which.'});
+    if(s.band.next&&s.band.next.gap<=25)out.push({k:'info',title:s.band.next.gap+' points from '+s.band.next.label+' ('+s.name+')',detail:'You are '+s.last.score+' and the next band starts at '+s.band.next.at+'. Lower utilization is usually the quickest lever.'});
+  });
+  var g=scoreGap(series);
+  if(g&&g.gap>=20)out.push({k:'info',title:'Your bureaus differ by '+g.gap+' points',detail:g.hi.name+' is higher than '+g.lo.name+(g.sameModel?'':' (different scoring models, which explains some of it)')+'. Each bureau holds slightly different data, so a gap is normal. A big one can mean an account is missing or wrong at one of them: compare your free reports.'});
+  if(u.pct!==null){
+    var worst=u.rows.slice().sort(function(a,b){return b.pct-a.pct})[0];
+    if(u.pct>=30)out.push({k:'bad',title:'You are using '+u.pct.toFixed(0)+'% of your credit',detail:'Over 30% costs points. Paying '+f(Math.max(0,u.balance-0.29*u.limit))+' across your cards gets you under it.'});
+    else if(u.pct>=10)out.push({k:'info',title:'Utilization is '+u.pct.toFixed(0)+'%',detail:'Under 30% is good. The highest scores usually sit under about 10%: that is '+f(Math.max(0,u.balance-0.09*u.limit))+' more to pay down.'});
+    else out.push({k:'good',title:'Utilization is '+u.pct.toFixed(0)+'%',detail:'That is in the best range. Keep reported balances low.'});
+    if(worst&&worst.pct>=50&&worst.pct>u.pct+15)out.push({k:'warn',title:worst.name+' is at '+worst.pct.toFixed(0)+'% of its limit',detail:'A single card near its limit counts against you even when the total is fine. Move spending to another card or pay it down before the statement closes.'});
+  }
+  var closed=accounts.filter(function(a){return a.type==='credit'&&a.closed&&a.balance>0});
+  if(closed.length)out.push({k:'warn',title:closed.length+' closed card'+(closed.length===1?'':'s')+' still carry'+(closed.length===1?'s':'')+' a balance',detail:'A balance on a closed card is still reported. Paying it off removes it from your amounts owed.'});
+  if(profile&&profile.inq==='3plus')out.push({k:'warn',title:'Several recent credit applications',detail:'Each hard inquiry counts for about a year of scoring. Space new applications out.'});
+  if(profile&&profile.late==='few'||profile&&profile.late==='many')out.push({k:'warn',title:'Late payments are on your record',detail:'Payment history is the biggest factor. Nothing speeds up its effect fading except time and a clean run since. Turn on autopay for at least the minimum.'});
+  var rank={bad:0,warn:1,info:2,good:3};
+  return out.sort(function(a,b){return rank[a.k]-rank[b.k]});
+}
+// One-line stories that connect a score move to what your cards were doing (from balance history), for each bureau.
+function scoreStory(series,accounts){
+  var out=[];
+  series.forEach(function(s){
+    if(s.entries.length<2)return;
+    var b=s.entries[s.entries.length-1],a=null,i;
+    for(i=s.entries.length-2;i>=0;i--)if(modelFamily(s.entries[i].source)===modelFamily(b.source)){a=s.entries[i];break}
+    if(!a)return;
+    var d=b.score-a.score,ua=utilAt(accounts,a.date),ub=utilAt(accounts,b.date),nm=s.key||'Your score';
+    if(ua===null||ub===null)return;
+    var du=ub-ua;
+    if(Math.abs(du)>=5&&((d>0&&du<0)||(d<0&&du>0)))out.push(nm+' '+(d>0?'rose ':'fell ')+Math.abs(d)+' points while your card use '+(du<0?'dropped':'rose')+' from '+Math.round(ua)+'% to '+Math.round(ub)+'%. That is the usual pattern: utilization moves scores quickly.');
+    else if(Math.abs(d)>=10&&Math.abs(du)<5)out.push(nm+' moved '+(d>0?'+':'')+d+' points even though your card use stayed near '+Math.round(ub)+'%. Something else changed: look at new accounts, inquiries, or an old late payment ageing off in your free report.');
+    else if(Math.abs(du)>=10&&Math.abs(d)<5)out.push('Your card use '+(du<0?'fell':'rose')+' from '+Math.round(ua)+'% to '+Math.round(ub)+'% but '+nm+' barely moved yet. Scores follow the balance your issuer reports, so there can be a lag of a month.');
+  });
+  return out;
+}
+// Letter-style grade for a factor status, and how much that factor usually matters (Credit Karma style impact).
+var FACTOR_GRADE={good:'Excellent',ok:'Good',warn:'Fair',bad:'Poor',unknown:'Unknown'};
+var FACTOR_IMPACT={payment:'Extremely high',owed:'High',length:'Medium',new:'Low',mix:'Low'};
+/*SCORE-END*/
 
 /*INVEST-START*/
 function logReturns(prices){var r=[];for(var i=1;i<prices.length;i++)if(prices[i]>0&&prices[i-1]>0)r.push(Math.log(prices[i]/prices[i-1]));return r}
@@ -3871,42 +4003,121 @@ document.addEventListener('click',function(e){
 
 /* ---------- Credit health ---------- */
 var credPay='';
-function scoreChart(sc){
-  if(sc.length<2)return '';
-  var W=420,H=130,pl=8,pr=8,pt=12,pb=22,vals=sc.map(function(p){return p.score}),mn=Math.min.apply(null,vals)-15,mx=Math.max.apply(null,vals)+15;
-  function X(i){return pl+i*(W-pl-pr)/(sc.length-1)}function Y(v){return pt+(mx-v)/(mx-mn)*(H-pt-pb)}
-  var out='<line x1="0" x2="'+W+'" y1="'+Y(mn+15)+'" y2="'+Y(mn+15)+'" stroke="var(--line)"/><line x1="0" x2="'+W+'" y1="'+Y(mx-15)+'" y2="'+Y(mx-15)+'" stroke="var(--line)"/>';
-  out+='<polyline points="'+sc.map(function(p,i){return X(i)+','+Y(p.score)}).join(' ')+'" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>';
-  sc.forEach(function(p,i){var last=i===sc.length-1;out+='<circle cx="'+X(i)+'" cy="'+Y(p.score)+'" r="'+(last?5:3)+'" fill="var(--accent)"/><text x="'+X(i)+'" y="'+(Y(p.score)-9)+'" text-anchor="'+(i===0?'start':last?'end':'middle')+'" font-size="11"'+(last?' style="fill:var(--ink);font-weight:700"':'')+'>'+p.score+'</text><text x="'+X(i)+'" y="'+(H-6)+'" text-anchor="'+(i===0?'start':last?'end':'middle')+'" font-size="10">'+shortDate(p.date)+'</text>'});
-  return '<svg viewBox="0 0 '+W+' '+H+'" width="100%" style="max-width:560px" role="img" aria-label="Credit score over time">'+out+'</svg>';
+// ---------- Credit score tab ----------
+var creditShot={msg:'',rows:null,busy:false};
+// A screenshot of a score screen, shrunk to a size the API takes, as a JPEG data URL.
+function shotToData(file,cb){
+  var fr=new FileReader();fr.onload=function(){var im=new Image();im.onload=function(){
+    var sc=Math.min(1,1600/Math.max(im.width,im.height)),cv=document.createElement('canvas');cv.width=Math.max(1,Math.round(im.width*sc));cv.height=Math.max(1,Math.round(im.height*sc));
+    var cx=cv.getContext('2d');cx.fillStyle='#fff';cx.fillRect(0,0,cv.width,cv.height);cx.drawImage(im,0,0,cv.width,cv.height);
+    cb(cv.toDataURL('image/jpeg',0.88))};im.onerror=function(){cb('')};im.src=fr.result};fr.onerror=function(){cb('')};fr.readAsDataURL(file);
+}
+function shotReview(){
+  var rows=creditShot.rows;if(!rows)return '';
+  return '<div class="banner" style="margin-top:12px;display:block"><div class="nm" style="white-space:normal;margin-bottom:6px">Check what was read</div>'+rows.map(function(r,i){
+    return '<div class="row wrap" style="gap:8px;align-items:center"><input type="checkbox" data-shot="'+i+':on"'+(r.on?' checked':'')+' aria-label="Save this score"><select data-shot="'+i+':bureau" aria-label="Bureau"><option value="">Bureau?</option>'+BUREAUS.map(function(b){return '<option'+(r.bureau===b?' selected':'')+'>'+b+'</option>'}).join('')+'</select><select data-shot="'+i+':model" aria-label="Scoring model">'+SCORE_MODELS.map(function(m){return '<option'+(r.model===m?' selected':'')+'>'+m+'</option>'}).join('')+'</select><input type="number" min="300" max="850" data-shot="'+i+':score" value="'+r.score+'" style="width:90px" aria-label="Score"><input type="date" data-shot="'+i+':date" value="'+esc(r.date)+'" aria-label="Date"></div>'}).join('')+
+    '<div class="actions" style="justify-content:flex-start;margin-top:10px"><button class="btn small primary" data-act="shot-save">Save the ticked scores</button><button class="btn small" data-act="shot-cancel">Cancel</button></div></div>';
+}
+var SC_COL={TransUnion:'var(--c1)',Equifax:'var(--c2)',Experian:'var(--c3)','':'var(--muted)'};
+var SC_BAND_COL=['var(--bad)','#ee7d4a','var(--warn)','#6cc784','var(--good)'];
+// Half-circle gauge from 300 to 850, coloured by the bands of the scoring model, with a needle that sweeps to the score.
+function scoreGaugeSVG(score,model,o){
+  o=o||{};var cx=110,cy=108,r=84,sw=16,b=scoreBounds(model),n=scoreBandNames(model),band=scoreBand(score,model);
+  var ang=function(v){return Math.PI*(1-(Math.min(850,Math.max(300,v))-300)/550)};
+  var pt=function(v,rr){var a=ang(v);return [cx+rr*Math.cos(a),cy-rr*Math.sin(a)]};
+  var arcs='',i;
+  for(i=0;i<5;i++){var p0=pt(b[i]+(i?0.8:0),r),p1=pt(b[i+1]-(i<4?0.8:0),r);arcs+='<path d="M'+p0[0].toFixed(1)+','+p0[1].toFixed(1)+' A'+r+','+r+' 0 0 1 '+p1[0].toFixed(1)+','+p1[1].toFixed(1)+'" fill="none" stroke="'+SC_BAND_COL[i]+'" stroke-width="'+sw+'" stroke-linecap="butt" opacity="'+(i===band.i?1:0.42)+'"><title>'+n[i]+': '+b[i]+' to '+b[i+1]+'</title></path>'}
+  var rot=-90+(Math.min(850,Math.max(300,score))-300)/550*180,tip=pt(score,r);
+  return '<svg class="scgauge" viewBox="0 0 220 142" width="100%" style="max-width:260px" role="img" aria-label="'+esc(o.label||'Credit score')+' '+score+', '+band.label+'">'+arcs+
+    '<g class="needle" style="--rot:'+rot.toFixed(1)+'deg;transform:rotate('+rot.toFixed(1)+'deg);transform-origin:'+cx+'px '+cy+'px"><circle cx="'+cx+'" cy="'+(cy-r)+'" r="9.5" fill="var(--surface)" stroke="var(--ink)" stroke-width="3.5"/><circle cx="'+cx+'" cy="'+(cy-r)+'" r="3" fill="var(--ink)"/></g>'+
+    '<text x="'+cx+'" y="'+(cy-30)+'" text-anchor="middle" font-size="36" font-weight="800" class="num" style="fill:var(--ink)">'+score+'</text><text x="'+cx+'" y="'+(cy-12)+'" text-anchor="middle" font-size="13" font-weight="700" style="fill:var(--'+(band.k==='good'?'good':band.k==='warn'?'warn':'bad')+')">'+band.label+'</text>'+
+    '<text x="'+(cx-r)+'" y="'+(cy+22)+'" text-anchor="middle" font-size="10" style="fill:var(--muted)">300</text><text x="'+(cx+r)+'" y="'+(cy+22)+'" text-anchor="middle" font-size="10" style="fill:var(--muted)">850</text></svg>';
+}
+function scoreCardHTML(sr){
+  var l=sr.last,b=sr.band,d=sr.diff;
+  return '<div class="sccard"><div class="sub" style="display:flex;justify-content:space-between;gap:6px"><b style="color:var(--ink)">'+esc(sr.name)+'</b><span>'+esc(l.source)+'</span></div>'+scoreGaugeSVG(l.score,l.source,{label:sr.name+' score'})+
+    '<div style="text-align:center;margin-top:-6px">'+(d!==null?'<span class="pill '+(d>0?'good':d<0?'bad':'mute')+'">'+(d>0?'▲ +':d<0?'▼ ':'= ')+d+' since '+shortDate(sr.prev.date)+'</span>':'<span class="pill mute">First score</span>')+'</div>'+
+    '<div class="sub" style="text-align:center;margin-top:6px;font-size:12px">Updated '+shortDate(l.date)+(b.next?' · '+b.next.gap+' to '+b.next.label:' · top band')+'</div></div>';
+}
+// Every bureau's scores on one chart, drawn over the bands of the scoring model.
+function scoreTrend(series){
+  var all=[];series.forEach(function(s){s.entries.forEach(function(e){all.push(e)})});
+  if(all.length<2)return '';
+  var W=520,H=190,pl=30,pr=14,pt=12,pb=24,fam=series[0].last.source,t0=Math.min.apply(null,all.map(function(e){return Date.parse(e.date)})),t1=Math.max.apply(null,all.map(function(e){return Date.parse(e.date)}));
+  if(t1===t0)t1=t0+864e5;
+  var mn=Math.max(300,Math.min.apply(null,all.map(function(e){return e.score}))-25),mx=Math.min(850,Math.max.apply(null,all.map(function(e){return e.score}))+25);
+  var X=function(d){return pl+(Date.parse(d)-t0)/(t1-t0)*(W-pl-pr)},Y=function(v){return pt+(mx-v)/(mx-mn)*(H-pt-pb)};
+  var b=scoreBounds(fam),bg='',i;
+  for(i=0;i<5;i++){var lo=Math.max(b[i],mn),hi=Math.min(b[i+1],mx);if(hi>lo)bg+='<rect x="'+pl+'" y="'+Y(hi)+'" width="'+(W-pl-pr)+'" height="'+(Y(lo)-Y(hi))+'" fill="'+SC_BAND_COL[i]+'" opacity=".09"/><text x="'+(pl+4)+'" y="'+(Y(hi)+11)+'" text-anchor="start" font-size="9" style="fill:var(--muted)">'+scoreBandNames(fam)[i]+'</text>'}
+  var ticks=[mn,Math.round((mn+mx)/2),mx].map(function(v){return '<text x="'+(pl-4)+'" y="'+(Y(v)+3)+'" text-anchor="end" font-size="9" style="fill:var(--muted)">'+Math.round(v)+'</text>'}).join('');
+  var lines=series.map(function(s){var col=SC_COL[s.key],pts=s.entries.map(function(e){return X(e.date).toFixed(1)+','+Y(e.score).toFixed(1)}).join(' ');
+    return '<polyline points="'+pts+'" fill="none" stroke="'+col+'" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" class="trendline"/>'+s.entries.map(function(e,j){var last=j===s.entries.length-1;return '<circle cx="'+X(e.date)+'" cy="'+Y(e.score)+'" r="'+(last?4.5:3)+'" fill="'+col+'"><title>'+esc(s.name)+' '+e.score+' on '+shortDate(e.date)+'</title></circle>'+(last?'<text x="'+Math.min(X(e.date),W-pr-8)+'" y="'+(Y(e.score)-8)+'" text-anchor="end" font-size="11" font-weight="700" style="fill:'+col+'">'+e.score+'</text>':'')}).join('')}).join('');
+  var xl='<text x="'+pl+'" y="'+(H-6)+'" font-size="9" style="fill:var(--muted)">'+shortDate(new Date(t0).toISOString().slice(0,10))+'</text><text x="'+(W-pr)+'" y="'+(H-6)+'" text-anchor="end" font-size="9" style="fill:var(--muted)">'+shortDate(new Date(t1).toISOString().slice(0,10))+'</text>';
+  var legend=series.map(function(s){return '<span style="display:inline-flex;align-items:center;gap:5px;margin-right:12px;font-size:12px"><i style="width:10px;height:10px;border-radius:50%;background:'+SC_COL[s.key]+';display:inline-block"></i>'+esc(s.name)+'</span>'}).join('');
+  return '<div>'+'<svg viewBox="0 0 '+W+' '+H+'" width="100%" style="max-width:640px" role="img" aria-label="Credit scores over time">'+bg+ticks+lines+xl+'</svg><div>'+legend+'</div></div>';
+}
+// A bar for utilization with the 10%, 30% and 50% marks, so the colour zones are obvious.
+function utilBarHTML(p){
+  var w=Math.max(1,Math.min(100,p));
+  return '<div style="position:relative;margin:6px 0 16px"><div class="bar" style="height:10px"><i class="'+(p<30?'':p<50?'warn':'bad')+'" style="width:'+w+'%"></i></div>'+[10,30,50].map(function(t){return '<span style="position:absolute;left:'+t+'%;top:-3px;width:1px;height:16px;background:var(--ink);opacity:.35"></span><span style="position:absolute;left:'+t+'%;top:14px;transform:translateX(-50%);font-size:10px;color:var(--muted)">'+t+'%</span>'}).join('')+'</div>';
+}
+function gradeMeter(status){
+  var idx={bad:0,warn:1,ok:2,good:3}[status],cols=['var(--bad)','var(--warn)','#6cc784','var(--good)'],names=['Poor','Fair','Good','Excellent'];
+  return '<div style="display:flex;gap:3px;margin:6px 0 4px" aria-hidden="true">'+cols.map(function(c,i){return '<span style="flex:1;height:8px;border-radius:4px;background:'+c+';opacity:'+(idx===undefined?0.18:i<=idx?1:0.2)+'"></span>'}).join('')+'</div><div class="sub" style="display:flex;justify-content:space-between;font-size:10px">'+names.map(function(x){return '<span>'+x+'</span>'}).join('')+'</div>';
+}
+function factorCards(adv,ages,profile){
+  var gcls={good:'good',ok:'good',warn:'warn',bad:'bad',unknown:'mute'};
+  var extra=[
+    {key:'derog',title:'Derogatory marks',weight:0,status:profile.derog==='none'?'good':profile.derog==='yes'?'bad':'unknown',detail:profile.derog==='none'?'No collections or other negative items. Good.':profile.derog==='yes'?'Collections, charge-offs and similar items hurt for years, even after they are paid. Check each one is accurate and belongs to you, and dispute errors in writing with the bureau.':'Tell the app below whether you have any, or check your free reports.',actions:[]},
+  ];
+  var all=adv.factors.concat(extra);
+  return all.map(function(f){
+    var vis='';
+    if(f.key==='owed'&&adv.util.pct!==null)vis=utilBarHTML(adv.util.pct)+'<div class="sub" style="font-size:12px">'+adv.util.pct.toFixed(0)+'% of '+money0(adv.util.limit)+' in limits</div>';
+    else if(f.key==='length'){var oy=ages.oldestYears,ay=ages.avgYears;vis=oy===null?'<div class="sub" style="font-size:12px">Add each card’s opening month below, or the oldest account’s age.</div>':'<div style="margin:8px 0 2px"><div class="bar" style="height:10px"><i style="width:'+Math.min(100,oy/15*100)+'%"></i></div></div><div class="sub" style="font-size:12px">Oldest '+oy.toFixed(1)+' years'+(ay!==null?' · average '+ay.toFixed(1)+' years':'')+'</div>'}
+    else if(f.key==='new'){var q=profile.inq,dots=q==='none'?0:q==='1-2'?2:q==='3plus'?4:-1;vis=dots<0?'<div class="sub" style="font-size:12px">Not answered yet.</div>':'<div style="display:flex;gap:6px;margin:8px 0 2px">'+[0,1,2,3].map(function(i){return '<span style="width:14px;height:14px;border-radius:50%;background:'+(i<dots?'var(--warn)':'var(--line)')+'"></span>'}).join('')+'</div><div class="sub" style="font-size:12px">Applications in the last year</div>'}
+    else if(f.key==='mix'){var rev=creditCards(S.accounts).length+closedCards(S.accounts).length,inst=S.accounts.filter(function(a){return a.type==='student'||a.type==='auto'||a.type==='mortgage'||a.type==='loan'}).length;vis='<div style="display:flex;gap:8px;margin:8px 0 2px"><span class="pill mute">'+rev+' card'+(rev===1?'':'s')+'</span><span class="pill mute">'+inst+' loan'+(inst===1?'':'s')+'</span></div>'}
+    else vis=gradeMeter(f.status==='unknown'?undefined:f.status);
+    var impact=FACTOR_IMPACT[f.key]||'Low';
+    return '<div class="fcard"><div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start"><div class="nm" style="white-space:normal">'+esc(f.title)+'</div><span class="pill '+gcls[f.status]+'">'+FACTOR_GRADE[f.status]+'</span></div><div class="sub" style="font-size:12px">'+impact+' impact'+(f.weight?' · '+f.weight+'% of a FICO score':'')+(adv.focus.indexOf(f.key)>-1?' · <b class="warn">Focus here</b>':'')+'</div>'+vis+'<div class="sub" style="white-space:normal;margin-top:8px">'+esc(f.detail)+'</div>'+(f.actions.length?'<details style="margin-top:6px"><summary class="sub" style="cursor:pointer">What to do</summary><ul style="margin:6px 0 0;padding-left:18px;font-size:13px">'+f.actions.map(function(a){return '<li style="margin:3px 0">'+esc(a)+'</li>'}).join('')+'</ul></details>':'')+'</div>';
+  }).join('');
 }
 function vCredit(){
-  var cr=S.credit,sc=cr.scores,last=sc.length?sc[sc.length-1]:null,prev=sc.length>1?sc[sc.length-2]:null,adv=creditAdvice(S.accounts,cr.profile,money0),u=adv.util;
-  var band=last?creditBand(last.score):null,diff=last&&prev?last.score-prev.score:null;
-  var tiles='<div class="grid tiles">'+
-    tile('Credit score',last?'<span class="'+band.k+'">'+last.score+'</span>':'<span class="muted">None yet</span>',last?band.label+' · '+last.source+' · '+shortDate(last.date)+(diff!==null?' · <span class="'+(diff>0?'good':diff<0?'bad':'')+'">'+(diff>0?'+':'')+diff+'</span>':''):'Enter it below')+
-    tile('Utilization',u.pct===null?'<span class="muted">—</span>':'<span class="'+(u.pct<30?'good':u.pct<50?'warn':'bad')+'">'+u.pct.toFixed(0)+'%</span>',u.pct===null?(u.cards?'Add card limits':'No cards yet'):money0(u.balance)+' of '+money0(u.limit))+
-    tile('Cards',''+u.cards,(u.missing?u.missing+' without a limit':'All have limits')+(closedCards(S.accounts).length?' · '+closedCards(S.accounts).length+' closed, still owed':''))+'</div>';
-  var hist=sc.slice().reverse().slice(0,8).map(function(x){var i=sc.indexOf(x);return '<div class="row"><div class="grow"><div class="nm num">'+x.score+' <span class="pill '+creditBand(x.score).k+'">'+creditBand(x.score).label+'</span></div><div class="sub">'+shortDate(x.date)+' · '+x.source+'</div></div><button class="btn small" data-act="score-del" data-i="'+i+'" aria-label="Remove this score">&times;</button></div>'}).join('');
-  var scorePanel='<section class="panel"><h2>Your score</h2><form class="form" id="scoreform"><label>Score<input id="sc-val" type="number" min="300" max="850" step="1" required placeholder="e.g. 712"></label><label>Date<input id="sc-date" type="date" required value="'+iso(TODAY)+'"></label><label>Type<select id="sc-src"><option>FICO</option><option>VantageScore</option><option>Other</option></select></label><button class="btn primary">Save score</button></form><p class="sub muted" style="margin:10px 0 0;font-size:13px;white-space:normal">The app cannot pull your score from the credit bureaus. Read it from your bank or card app, or a free service, and enter it here to track it. Different scoring models give different numbers, and the ranges shown are FICO’s.</p>'+(sc.length>1?'<div style="margin-top:14px">'+scoreChart(sc)+'</div>':'')+(hist?'<div style="margin-top:8px">'+hist+'</div>':'')+'</section>';
-  var label={good:'Good',warn:'Needs work',bad:'Hurting you',ok:'Fine',unknown:'Unknown'},pcls={good:'good',warn:'warn',bad:'bad',ok:'mute',unknown:'mute'};
-  var factors='<section class="panel"><h2>What affects your score<small>FICO weights</small></h2>'+adv.factors.map(function(f){
-    return '<div class="row" style="align-items:flex-start;flex-wrap:wrap"><div class="grow" style="flex-basis:260px;white-space:normal"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="nm" style="white-space:normal">'+f.title+'</span><span class="pill mute">'+f.weight+'%</span><span class="pill '+pcls[f.status]+'">'+label[f.status]+'</span>'+(adv.focus.indexOf(f.key)>-1?'<span class="pill warn">Focus here</span>':'')+'</div><div class="sub" style="white-space:normal;margin-top:4px">'+f.detail+'</div>'+(f.actions.length?'<ul style="margin:6px 0 0;padding-left:20px;font-size:14px">'+f.actions.map(function(a){return '<li style="margin:3px 0">'+esc(a)+'</li>'}).join('')+'</ul>':'')+'</div></div>';
-  }).join('')+'<p class="sub muted" style="margin:12px 0 0;font-size:13px;white-space:normal">General education based on what you enter and the balances in this app. It is not financial advice, and it cannot predict how many points any action will add.</p></section>';
-  var wi=creditWhatIf(S.accounts,parseFloat(credPay)||0);
-  var cards=u.rows.length||u.missing?'<section class="panel"><h2>Card utilization</h2>'+creditCards(S.accounts).map(function(c){
-    var p=c.limit>0?c.balance/c.limit*100:null;
-    return '<div class="row wrap">'+logo(c.name)+'<div class="grow" style="flex-basis:180px"><div class="nm">'+esc(c.name)+'</div><div class="sub">'+money0(c.balance)+' owed'+(p!==null?' · '+p.toFixed(0)+'% used':'')+'</div>'+(p!==null?'<div class="bar" style="margin-top:6px"><i class="'+(p<30?'':p<50?'warn':'bad')+'" style="width:'+Math.min(100,p)+'%"></i></div>':'')+'</div><label class="sub" style="display:flex;flex-direction:column;gap:2px;font-size:12px">Credit limit<input type="number" min="0" step="100" data-limit="'+c.id+'" value="'+(c.limit>0?c.limit:'')+'" placeholder="e.g. 5000"></label><button class="btn small" data-act="acct-closed" data-id="'+c.id+'" title="Closed or cancelled, but you still owe a balance">Mark closed</button></div>';
-  }).join('')+(u.limit>0?'<div class="form" style="margin-top:14px"><label>If I pay this much toward my cards<input id="cr-pay" type="number" min="0" step="50" value="'+esc(credPay)+'" placeholder="0"></label></div>'+(parseFloat(credPay)>0?'<p style="margin:8px 0 0">Utilization would drop from <b>'+u.pct.toFixed(0)+'%</b> to <b class="'+(wi.pct<30?'good':wi.pct<50?'warn':'bad')+'">'+wi.pct.toFixed(0)+'%</b>, paying the most-used cards first.'+(wi.payments.length?' ('+wi.payments.map(function(x){return esc(x.name)+' '+money0(x.pay)}).join(', ')+')':'')+'</p>':''):'')+'</section>':'<section class="panel"><h2>Card utilization</h2><div class="empty">No open credit cards yet. Add them under Accounts, or link a bank, and their limits will show here.</div></section>';
+  var cr=S.credit,P=cr.profile,series=scoreSeries(cr.scores),adv=creditAdvice(S.accounts,P,money0),u=adv.util,ages=creditAges(S.accounts,P,TODAY);
+  var ins=creditInsights(cr.scores,S.accounts,P,TODAY,money0),story=scoreStory(series,S.accounts),gap=scoreGap(series);
+  var head='<div class="top"><h1>Credit score</h1></div>';
+  var cards=series.length?'<div class="scgrid">'+series.map(scoreCardHTML).join('')+'</div>'+(gap&&gap.gap>=5?'<p class="sub" style="margin:10px 0 0;white-space:normal">'+esc(gap.hi.name)+' is <b>'+gap.gap+'</b> point'+(gap.gap===1?'':'s')+' higher than '+esc(gap.lo.name)+'. Small gaps are normal: each bureau holds slightly different information about you.</p>':''):'<div class="empty" style="white-space:normal">No score yet. Add the scores you see in Credit Karma, your bank or card app below, one per bureau.</div>';
+  var scoresPanel='<section class="panel"><h2>Your scores<small>TransUnion, Equifax and Experian</small></h2>'+cards+(series.reduce(function(n,s){return n+s.entries.length},0)>1?'<div style="margin-top:16px">'+scoreTrend(series)+'</div>':'')+(story.length?'<div class="banner" style="margin-top:14px;display:block;white-space:normal"><b>What moved your score</b><ul style="margin:6px 0 0;padding-left:18px">'+story.map(function(t){return '<li style="margin:3px 0">'+esc(t)+'</li>'}).join('')+'</ul></div>':'')+'</section>';
+  var insPanel=ins.length?'<section class="panel"><h2>For you<small>what the app noticed</small></h2>'+ins.slice(0,8).map(function(x){return '<div class="row" style="align-items:flex-start"><span class="dot" style="flex:none;width:10px;height:10px;border-radius:50%;margin-top:6px;background:var(--'+(x.k==='good'?'good':x.k==='bad'?'bad':x.k==='warn'?'warn':'accent')+')"></span><div class="grow" style="white-space:normal"><div class="nm" style="white-space:normal">'+esc(x.title)+'</div><div class="sub" style="white-space:normal">'+esc(x.detail)+'</div></div></div>'}).join('')+'</section>':'';
+  // entry
+  var ents=cr.scores.slice().sort(function(a,b){return a.date<b.date?1:-1}).slice(0,8).map(function(x){var i=cr.scores.indexOf(x);return '<div class="row"><div class="grow"><div class="nm num">'+x.score+' <span class="pill '+scoreBand(x.score,x.source).k+'">'+scoreBand(x.score,x.source).label+'</span></div><div class="sub">'+(scoreBureau(x)||'No bureau')+' · '+esc(x.source)+' · '+shortDate(x.date)+'</div></div><button class="btn small" data-act="score-del" data-i="'+i+'" aria-label="Remove this score">&times;</button></div>'}).join('');
+  var shotOk=!!(T&&T.ai&&T.ai.creditShot),hasKey=!!(aiSt&&aiSt.hasKey);
+  var entry='<section class="panel"><h2>Add your scores<small>once a month is plenty</small></h2><form class="form" id="scoreform" style="align-items:flex-end"><label>Date<input id="sc-date" type="date" required value="'+iso(TODAY)+'"></label><label>Scoring model<select id="sc-src">'+SCORE_MODELS.map(function(m){return '<option'+(m==='VantageScore 3.0'?' selected':'')+'>'+m+'</option>'}).join('')+'</select></label>'+BUREAUS.map(function(b){return '<label>'+b+'<input id="sc-'+b+'" type="number" min="300" max="850" step="1" placeholder="e.g. 712"></label>'}).join('')+'<button class="btn primary">Save scores</button></form>'+
+    '<p class="sub muted" style="margin:10px 0 0;font-size:13px;white-space:normal"><b>Tally cannot pull scores from the bureaus by itself</b>: that needs a paid agreement with the bureaus, and no personal-finance app can log in to Credit Karma for you safely. Enter the numbers you see there (Credit Karma shows TransUnion and Equifax VantageScore 3.0), or let AI read a screenshot.</p>'+
+    (shotOk?'<div class="actions" style="justify-content:flex-start;margin-top:10px;flex-wrap:wrap;align-items:center"><label class="btn'+(hasKey?'':' disabled')+'" style="cursor:'+(hasKey?'pointer':'not-allowed')+(hasKey?'':';opacity:.5')+'">Read scores from a screenshot (AI)<input type="file" id="sc-shot" accept="image/png,image/jpeg,image/webp" hidden'+(hasKey?'':' disabled')+'></label><span class="sub muted" style="font-size:12px;white-space:normal">'+(hasKey?'Sends the picture to Anthropic with your key (about 5 to 15 cents). Crop out your name and account numbers first. You check the numbers before they are saved.':'Needs your Anthropic API key (Transactions tab, AI analysis).')+'</span></div>'+(creditShot.msg?'<div class="sub" role="status" style="margin-top:8px;white-space:normal">'+esc(creditShot.msg)+'</div>':'')+(creditShot.rows?shotReview():''):'')+
+    (ents?'<div style="margin-top:12px">'+ents+'</div>':'')+'</section>';
+  var factors='<section class="panel"><h2>What affects your score<small>graded from your own accounts</small></h2><div class="fgrid">'+factorCards(adv,ages,P)+'</div><p class="sub muted" style="margin:12px 0 0;font-size:13px;white-space:normal">Grades come from the cards and answers in this app, using the FICO factor weights. General education, not financial advice. The app cannot see your real credit report, so it cannot predict how many points any action will add.</p></section>';
+  // cards, paydown plans
+  var open=creditCards(S.accounts),wi=creditWhatIf(S.accounts,parseFloat(credPay)||0);
+  var cardRows=open.map(function(c){
+    var pc=c.limit>0?c.balance/c.limit*100:null,ce=closeEffect(S.accounts,c.id,TODAY);
+    return '<div class="row wrap" style="align-items:flex-start">'+logo(c.name)+'<div class="grow" style="flex-basis:220px"><div class="nm">'+esc(c.name)+'</div><div class="sub">'+money0(c.balance)+' owed'+(pc!==null?' · '+pc.toFixed(0)+'% used':'')+'</div>'+(pc!==null?utilBarHTML(pc):'')+(ce?'<div class="sub" style="font-size:12px;white-space:normal">If you closed it: average account age '+ce.before.toFixed(1)+' to '+ce.after.toFixed(1)+' years'+(ce.oldestLost?' and you would lose your oldest account':'')+'.</div>':'')+'</div><label class="sub" style="display:flex;flex-direction:column;gap:2px;font-size:12px">Credit limit<input type="number" min="0" step="100" data-limit="'+c.id+'" value="'+(c.limit>0?c.limit:'')+'" placeholder="e.g. 5000"></label><label class="sub" style="display:flex;flex-direction:column;gap:2px;font-size:12px">Opened<input type="month" data-opened="'+c.id+'" value="'+esc((c.opened||'').slice(0,7))+'"></label><button class="btn small" data-act="acct-closed" data-id="'+c.id+'" title="Closed or cancelled, but you still owe a balance">Mark closed</button></div>';
+  }).join('');
+  function planBlock(target,label){
+    var pl=paydownPlan(S.accounts,target);if(!pl.plan.length)return '';
+    var est=u.pct!==null?impactEstimate(u.pct,pl.newPct):null;
+    return '<div style="margin:10px 0;padding:12px;border:1px solid var(--line);border-radius:12px"><div class="nm" style="white-space:normal">'+label+': pay <b>'+money0(pl.total)+'</b> in total</div><div class="sub" style="white-space:normal">'+pl.plan.map(function(x){return esc(x.name)+' '+money0(x.pay)}).join(' · ')+' → utilization '+pl.newPct.toFixed(0)+'%'+(est?'. Moves like this have typically added roughly <b>'+est.low+' to '+est.high+' points</b>, a rough guide only.':'')+'</div></div>';
+  }
+  var ss=loanSurplus(),plans=planBlock(29,'To get under 30%')+planBlock(9,'To get under 10%');
+  var cardsPanel=open.length?'<section class="panel"><h2>Your cards<small>utilization, age and what to pay</small></h2>'+cardRows+(u.limit>0?'<h3 style="font-size:15px;margin:16px 0 4px">Paydown plan</h3>'+(plans||'<p class="sub" style="margin:0">Your cards are already under 10%. Nice.</p>')+(plans&&ss&&ss.surplus>0?'<p class="sub" style="margin:0;white-space:normal">You usually have about '+money0(ss.surplus)+' left over each month, so '+(ss.surplus>=paydownPlan(S.accounts,29).total?'the first plan fits in one month.':'the first plan would take a couple of months.')+' Issuers usually report your balance on the statement closing date, so pay before it closes.</p>':'')+'<div class="form" style="margin-top:14px"><label>If I pay this much toward my cards<input id="cr-pay" type="number" min="0" step="50" value="'+esc(credPay)+'" placeholder="0"></label></div>'+(parseFloat(credPay)>0?'<p style="margin:8px 0 0;white-space:normal">Utilization would drop from <b>'+u.pct.toFixed(0)+'%</b> to <b class="'+(wi.pct<30?'good':wi.pct<50?'warn':'bad')+'">'+wi.pct.toFixed(0)+'%</b>, paying the most-used cards first.'+(wi.payments.length?' ('+wi.payments.map(function(x){return esc(x.name)+' '+money0(x.pay)}).join(', ')+')':'')+'</p>':''):'')+'</section>':'<section class="panel"><h2>Your cards</h2><div class="empty">No open credit cards yet. Add them under Accounts, or link a bank, and their limits will show here.</div></section>';
   var cl=closedCards(S.accounts),clTotal=cl.reduce(function(n,c){return n+c.balance},0);
   var closedPanel='<section class="panel"><h2>Closed cards you still owe<small>'+(cl.length?money0(clTotal)+' across '+cl.length+' card'+(cl.length===1?'':'s'):'none')+'</small></h2>'+(cl.length?cl.map(function(c){
     return '<div class="row wrap">'+logo(c.name)+'<div class="grow" style="flex-basis:180px"><div class="nm">'+esc(c.name)+' <span class="pill mute">Closed</span></div><div class="sub">'+money0(c.balance)+' owed'+(c.apr>0?' · '+c.apr+'% APR':'')+(c.minPay>0?' · min '+money0(c.minPay)+'/mo':'')+(c.dueDay>0?' · due the '+c.dueDay+ordinal(c.dueDay):'')+'</div></div><button class="btn small" data-act="acct-closed" data-id="'+c.id+'">Mark open</button></div>';
   }).join('')+'<p class="sub muted" style="margin:10px 0 0;font-size:13px;white-space:normal">Closed cards are left out of your utilization above, because a closed card no longer counts as available credit. They still appear in your debts, the payoff plan and your bills. Keep paying them on time: the payment history stays on your credit report, and interest keeps adding up until the balance is gone.</p>':'<p class="sub muted" style="margin:0;font-size:13px;white-space:normal">When you close a card but still owe on it, press <b>Mark closed</b> on the card above (or tick the box when you add it in Accounts). It then moves here and stops counting toward utilization.</p>')+'</section>';
-  var P=cr.profile;
   function sel(id,opts,cur){return '<select data-prof="'+id+'">'+opts.map(function(o){return '<option value="'+o[0]+'"'+(o[0]===cur?' selected':'')+'>'+o[1]+'</option>'}).join('')+'</select>'}
-  var profile='<section class="panel"><h2>About your credit<small>things the app cannot see</small></h2><div class="form"><label>Late payments (30+ days) in the last 2 years'+sel('late',[['unknown','Not sure'],['none','None'],['few','One or two'],['many','Several']],P.late)+'</label><label>Applications for credit in the last year'+sel('inq',[['unknown','Not sure'],['none','None'],['1-2','1 or 2'],['3plus','3 or more']],P.inq)+'</label><label>Collections or other negative items'+sel('derog',[['unknown','Not sure'],['none','None'],['yes','Yes']],P.derog)+'</label><label>Oldest account, in years<input type="number" min="0" max="80" step="0.5" data-prof="oldest" value="'+esc(P.oldest)+'" placeholder="e.g. 8"></label></div></section>';
+  var profile='<section class="panel"><h2>About your credit<small>things the app cannot see</small></h2><div class="form"><label>Late payments (30+ days) in the last 2 years'+sel('late',[['unknown','Not sure'],['none','None'],['few','One or two'],['many','Several']],P.late)+'</label><label>Applications for credit in the last year'+sel('inq',[['unknown','Not sure'],['none','None'],['1-2','1 or 2'],['3plus','3 or more']],P.inq)+'</label><label>Collections or other negative items'+sel('derog',[['unknown','Not sure'],['none','None'],['yes','Yes']],P.derog)+'</label><label>Oldest account, in years (if you have not entered opening months)<input type="number" min="0" max="80" step="0.5" data-prof="oldest" value="'+esc(P.oldest)+'" placeholder="e.g. 8"></label></div></section>';
   var where='<section class="panel"><h2>Where to check your score and reports</h2><ul style="margin:0;padding-left:20px"><li style="margin:4px 0">Your bank or card issuer’s app often shows a free FICO or VantageScore.</li><li style="margin:4px 0">AnnualCreditReport.com gives you free reports from Equifax, Experian and TransUnion every week. These are reports, not scores. Read them for accounts you do not recognize and for wrong late marks, and dispute errors with the bureau.</li><li style="margin:4px 0">Lenders mostly use FICO. Many free apps show VantageScore, so the numbers will not match exactly.</li><li style="margin:4px 0">A credit freeze is free and blocks new accounts in your name. It does not affect your score.</li></ul></section>';
-  return '<div class="top"><h1>Credit</h1></div>'+tiles+scorePanel+factors+cards+closedPanel+profile+where;
+  return head+scoresPanel+insPanel+entry+factors+cardsPanel+closedPanel+profile+where;
 }
 
 /* ---------- Investments ---------- */
@@ -4327,8 +4538,8 @@ function cleanHoldings(h){
 }
 function cleanCredit(c){
   var out=defCredit();if(!c||typeof c!=='object')return out;
-  (Array.isArray(c.scores)?c.scores:[]).forEach(function(x){if(x&&/^\d{4}-\d{2}-\d{2}$/.test(x.date)&&+x.score>=300&&+x.score<=850)out.scores.push({date:x.date,score:Math.round(+x.score),source:['FICO','VantageScore','Other'].indexOf(x.source)>-1?x.source:'Other'})});
-  out.scores.sort(function(a,b){return a.date<b.date?-1:1});out.scores=out.scores.slice(-60);
+  (Array.isArray(c.scores)?c.scores:[]).forEach(function(x){if(x&&/^\d{4}-\d{2}-\d{2}$/.test(x.date)&&+x.score>=300&&+x.score<=850){var e={date:x.date,score:Math.round(+x.score),source:['FICO','VantageScore','Other'].concat(SCORE_MODELS).indexOf(x.source)>-1?x.source:'Other'};if(BUREAUS.indexOf(x.bureau)>-1)e.bureau=x.bureau;out.scores.push(e)}});
+  out.scores.sort(function(a,b){return a.date<b.date?-1:1});out.scores=out.scores.slice(-150);
   var p=c.profile||{};
   if(['none','few','many','unknown'].indexOf(p.late)>-1)out.profile.late=p.late;
   if(['none','1-2','3plus','unknown'].indexOf(p.inq)>-1)out.profile.inq=p.inq;
@@ -4365,7 +4576,7 @@ function cleanBackup(j){
   var accounts=(Array.isArray(d.accounts)?d.accounts:[]).filter(function(x){return x&&x.name&&isFinite(x.balance)&&+x.balance>=0&&(ASSET_TYPES[x.type]||DEBT_TYPES[x.type])}).map(function(x){
     var hist=(Array.isArray(x.history)?x.history:[]).filter(function(h){return h&&dre.test(h.date)&&isFinite(h.balance)}).map(function(h){return {date:h.date,balance:+h.balance}}).sort(function(a,b){return a.date<b.date?-1:1});
     if(!hist.length)hist=[{date:iso(TODAY),balance:+x.balance}];
-    var ac={id:String(x.id||uid()),name:String(x.name).slice(0,120),type:x.type,balance:+x.balance,apr:DEBT_TYPES[x.type]?Math.max(0,+x.apr||0):0,minPay:DEBT_TYPES[x.type]?Math.max(0,+x.minPay||0):0,history:hist};if(x.type==='credit'&&+x.limit>0)ac.limit=+x.limit;if(x.type==='credit'&&x.closed===true)ac.closed=true;if(DEBT_TYPES[x.type]&&x.contract){var cc=cleanContract(x.contract);if(cc)ac.contract=cc}if(DEBT_TYPES[x.type]){if(photoOk(x.photo))ac.photo=x.photo;if(/^#[0-9a-f]{6}$/i.test(x.carColor||''))ac.carColor=x.carColor;if(CAR_TYPES[x.carType])ac.carType=x.carType;if(typeof x.carSvg==='string'){var csv=cleanCarSvg(x.carSvg);if(csv)ac.carSvg=csv}if(x.showPhoto===true)ac.showPhoto=true}if(DEBT_TYPES[x.type]){var dd=Math.round(+x.dueDay);if(dd>=1&&dd<=31)ac.dueDay=dd;if(+x.origBalance>0)ac.origBalance=+x.origBalance;if(typeof x.lender==='string'&&x.lender)ac.lender=cleanSubName(x.lender).slice(0,40);var stm=cleanStmt(x);Object.keys(stm).forEach(function(k){ac[k]=stm[k]})}if(x.plaid&&typeof x.plaid.accountId==='string')ac.plaid={itemId:String(x.plaid.itemId||'').slice(0,100),accountId:x.plaid.accountId.slice(0,100)};return ac});
+    var ac={id:String(x.id||uid()),name:String(x.name).slice(0,120),type:x.type,balance:+x.balance,apr:DEBT_TYPES[x.type]?Math.max(0,+x.apr||0):0,minPay:DEBT_TYPES[x.type]?Math.max(0,+x.minPay||0):0,history:hist};if(x.type==='credit'&&+x.limit>0)ac.limit=+x.limit;if(x.type==='credit'&&x.closed===true)ac.closed=true;if(DEBT_TYPES[x.type]&&x.contract){var cc=cleanContract(x.contract);if(cc)ac.contract=cc}if(DEBT_TYPES[x.type]){if(photoOk(x.photo))ac.photo=x.photo;if(/^#[0-9a-f]{6}$/i.test(x.carColor||''))ac.carColor=x.carColor;if(CAR_TYPES[x.carType])ac.carType=x.carType;if(/^\d{4}-\d{2}(-\d{2})?$/.test(x.opened||''))ac.opened=x.opened;if(typeof x.carSvg==='string'){var csv=cleanCarSvg(x.carSvg);if(csv)ac.carSvg=csv}if(x.showPhoto===true)ac.showPhoto=true}if(DEBT_TYPES[x.type]){var dd=Math.round(+x.dueDay);if(dd>=1&&dd<=31)ac.dueDay=dd;if(+x.origBalance>0)ac.origBalance=+x.origBalance;if(typeof x.lender==='string'&&x.lender)ac.lender=cleanSubName(x.lender).slice(0,40);var stm=cleanStmt(x);Object.keys(stm).forEach(function(k){ac[k]=stm[k]})}if(x.plaid&&typeof x.plaid.accountId==='string')ac.plaid={itemId:String(x.plaid.itemId||'').slice(0,100),accountId:x.plaid.accountId.slice(0,100)};return ac});
   var home={};if(d.home&&typeof d.home==='object'&&!Array.isArray(d.home)){['purchasePrice','down','closing','origLoan','termYears','taxYear','insYear','hoaMonth','pmiMonth','maintPct','mgmtPct','vacancyPct','appreciation','ret','sellPct','rentGrowth','costGrowth','rentMonth','extra'].forEach(function(k){var n=parseFloat(d.home[k]);if(isFinite(n)&&n>=0&&n<1e9)home[k]=n});['purchaseDate','startDate'].forEach(function(k){if(/^\d{4}-\d{2}-\d{2}$/.test(d.home[k]||''))home[k]=d.home[k]});['mortId','valueId'].forEach(function(k){if(typeof d.home[k]==='string'&&/^[\w-]{1,40}$/.test(d.home[k])&&accounts.some(function(a){return a.id===d.home[k]}))home[k]=d.home[k]});if(d.home.setup===true&&home.valueId)home.setup=true;if(photoOk(d.home.photo))home.photo=d.home.photo}
   return {txns:txns,subs:subs,budgets:budgets,goals:goals,accounts:accounts,extraPay:Math.max(0,+d.extraPay||0),plaidIgnored:(Array.isArray(d.plaidIgnored)?d.plaidIgnored:[]).filter(function(x){return typeof x==='string'}).slice(0,200),credit:cleanCredit(d.credit),holdings:cleanHoldings(d.holdings),customCats:custom,setAside:setAside,merchantCats:merchantCats,subCats:subCats,merchantSubs:merchantSubs,bills:bills,billMarks:billMarks,energy:energy,home:home,debtMonthly:Math.max(0,+d.debtMonthly||0),billIgnore:(function(){var o={};if(d.billIgnore&&typeof d.billIgnore==='object'&&!Array.isArray(d.billIgnore))Object.keys(d.billIgnore).slice(0,500).forEach(function(k){if(k.length<=120&&k!=='__proto__')o[k]=1});return o})(),cardPay:d.cardPay==='skip'||d.cardPay==='count'?d.cardPay:'auto',apple:(function(){var a=d.apple||{},o={};if(typeof a.acct==='string'&&a.acct.length<=40)o.acct=a.acct;if(/^\d{4}-\d{2}-\d{2}$/.test(a.last||''))o.last=a.last;if(+a.count>=0)o.count=Math.min(1e6,Math.round(+a.count));return o})(),payLinks:cleanPayLinks(d.payLinks)};
 }
@@ -4398,8 +4609,28 @@ function bindView(){
   if($('#plaidpanel',m)){if(plSt)renderPl();else loadPl()}
   if($('#pdfpanel',m)){renderPdf();if(!aiSt)loadAi()}
   if($('#aipanel',m)){if(aiSt)renderAi();else loadAi()}
+  var shin=$('#sc-shot',m);
+  if(shin)shin.onchange=function(){
+    var f=shin.files[0];shin.value='';if(!f||creditShot.busy)return;
+    creditShot={msg:'Reading the picture\u2026 this takes a few seconds.',rows:null,busy:true};render();
+    shotToData(f,function(url){
+      if(!url){creditShot={msg:'That file could not be opened as a picture.',rows:null,busy:false};render();return}
+      tcall(T.ai.creditShot({image:url})).then(function(r){
+        var rows=(r&&r.scores||[]).map(function(x){return {bureau:x.bureau||'',model:x.model||'Other',score:x.score,date:x.date||iso(TODAY),on:true}});
+        creditShot={msg:rows.length?'Read '+rows.length+' score'+(rows.length===1?'':'s')+(r.notes?'. '+r.notes:'.'):'No scores found in that picture.'+(r&&r.notes?' '+r.notes:''),rows:rows.length?rows:null,busy:false};render();
+      }).catch(function(e){creditShot={msg:(e&&e.message)||'Could not read the picture.',rows:null,busy:false};render()});
+    });
+  };
+  m.querySelectorAll('[data-shot]').forEach(function(i){i.onchange=function(){var q=i.dataset.shot.split(':'),r=creditShot.rows&&creditShot.rows[+q[0]];if(!r)return;if(q[1]==='on')r.on=i.checked;else if(q[1]==='score')r.score=Math.round(parseFloat(i.value))||0;else r[q[1]]=i.value}});
   var scf=$('#scoreform',m);
-  if(scf)scf.onsubmit=function(e){e.preventDefault();var v=Math.round(parseFloat($('#sc-val').value)),d=$('#sc-date').value;if(!(v>=300&&v<=850)||!d)return;S.credit.scores=S.credit.scores.filter(function(x){return !(x.date===d&&x.source===$('#sc-src').value)});S.credit.scores.push({date:d,score:v,source:$('#sc-src').value});S.credit.scores.sort(function(a,b){return a.date<b.date?-1:1});save();render();toast('Score saved.')};
+  if(scf)scf.onsubmit=function(e){
+    e.preventDefault();var d=$('#sc-date').value,src=$('#sc-src').value,n=0;if(!d)return;
+    BUREAUS.forEach(function(b){var v=Math.round(parseFloat($('#sc-'+b).value));if(!(v>=300&&v<=850))return;
+      S.credit.scores=S.credit.scores.filter(function(x){return !(x.date===d&&scoreBureau(x)===b&&x.source===src)});S.credit.scores.push({date:d,score:v,source:src,bureau:b});n++});
+    if(!n){toast('Enter at least one score between 300 and 850.');return}
+    S.credit.scores.sort(function(a,b){return a.date<b.date?-1:1});save();render();toast(n+' score'+(n===1?'':'s')+' saved.');
+  };
+  m.querySelectorAll('[data-opened]').forEach(function(i){i.onchange=function(){var a=S.accounts.filter(function(x){return x.id===i.dataset.opened})[0];if(a){if(/^\d{4}-\d{2}$/.test(i.value))a.opened=i.value;else delete a.opened;save();render()}}});
   m.querySelectorAll('[data-limit]').forEach(function(i){i.onchange=function(){var a=S.accounts.filter(function(x){return x.id===i.dataset.limit})[0];if(a){a.limit=Math.max(0,parseFloat(i.value)||0);save();render()}}});
   m.querySelectorAll('[data-prof]').forEach(function(i){i.onchange=function(){S.credit.profile[i.dataset.prof]=i.value;save();render()}});
   var cpay=$('#cr-pay',m);if(cpay)cpay.onchange=function(){credPay=cpay.value;render()};
@@ -4471,6 +4702,11 @@ document.addEventListener('click',function(e){
   else if(a==='exp'){exportData();return}
   else if(a==='imp-ok'){S={sample:false,customCats:pendingImport.customCats,txns:pendingImport.txns,subs:pendingImport.subs,budgets:pendingImport.budgets,goals:pendingImport.goals,accounts:pendingImport.accounts,extraPay:pendingImport.extraPay,plaidIgnored:pendingImport.plaidIgnored,credit:pendingImport.credit,holdings:pendingImport.holdings,setAside:pendingImport.setAside||[],merchantCats:pendingImport.merchantCats||{},subCats:pendingImport.subCats||{},merchantSubs:pendingImport.merchantSubs||{},bills:pendingImport.bills||[],billMarks:pendingImport.billMarks||{},energy:pendingImport.energy||[],home:pendingImport.home||{},debtMonthly:pendingImport.debtMonthly||0,billIgnore:pendingImport.billIgnore||{},cardPay:pendingImport.cardPay||'auto',apple:pendingImport.apple||{},payLinks:pendingImport.payLinks||{}};pendingImport=null;migrate();syncCats();Object.keys(PL.items).forEach(function(k){PL.items[k].cursor=''});savePL();toast('Backup restored.')}
   else if(a==='imp-no'){pendingImport=null;pendingEnc=null;secMsg=''}
+  else if(a==='shot-cancel'){creditShot={msg:'',rows:null,busy:false}}
+  else if(a==='shot-save'){
+    var n1=0;(creditShot.rows||[]).forEach(function(r){if(!r.on||!(r.score>=300&&r.score<=850))return;var d=/^\d{4}-\d{2}-\d{2}$/.test(r.date||'')?r.date:iso(TODAY),e={date:d,score:r.score,source:SCORE_MODELS.indexOf(r.model)>-1?r.model:'Other'};if(BUREAUS.indexOf(r.bureau)>-1)e.bureau=r.bureau;
+      S.credit.scores=S.credit.scores.filter(function(x){return !(x.date===d&&scoreBureau(x)===scoreBureau(e)&&x.source===e.source)});S.credit.scores.push(e);n1++});
+    S.credit.scores.sort(function(a,b){return a.date<b.date?-1:1});creditShot={msg:'',rows:null,busy:false};toast(n1+' score'+(n1===1?'':'s')+' saved.')}
   else if(a==='bio-off'){if(T&&T.bio)T.bio.disable();BIO.enabled=false;secPanel='p';secMsg='Touch ID is off.'}
   else if(a==='car-ai'){carAiRun(id);return}
   else if(a==='car-ai-clear'){var cb=S.accounts.filter(function(x){return x.id===id})[0];if(cb)delete cb.carSvg}

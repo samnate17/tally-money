@@ -1476,3 +1476,43 @@ test('cash back: daily cash is not income, and each card shows what it earned ag
   assert.strictEqual(w.verdict.kind, 'warn'); assert.match(w.verdict.text, /carrying \$2,000\.00 at 24\.99% APR/);
   assert.strictEqual(C.cashbackStats([], accounts, T, 'auto').cards[0].verdict.kind, 'none');
 });
+
+test('credit score: bands per scoring model, per-bureau series, gaps, ages, utilization history and paydown plans', () => {
+  const C = new Function(srcBlock('/*CREDIT-START*/', '/*CREDIT-END*/') + srcBlock('/*SCORE-START*/', '/*SCORE-END*/') + '\nreturn {scoreBand, scoreSeries, scoreGap, creditAges, closeEffect, utilAt, paydownPlan, impactEstimate, creditInsights, modelFamily, creditBand};')();
+  // FICO and VantageScore draw their lines differently
+  assert.deepStrictEqual([C.scoreBand(800, 'FICO 8').label, C.scoreBand(740, 'FICO 8').label, C.scoreBand(670, 'FICO 8').label, C.scoreBand(580, 'FICO').label, C.scoreBand(579, 'FICO').label], ['Exceptional', 'Very good', 'Good', 'Fair', 'Poor']);
+  assert.deepStrictEqual([C.scoreBand(781, 'VantageScore 3.0').label, C.scoreBand(780, 'VantageScore 3.0').label, C.scoreBand(661, 'VantageScore 3.0').label, C.scoreBand(601, 'VantageScore 3.0').label, C.scoreBand(500, 'VantageScore 3.0').label, C.scoreBand(499, 'VantageScore 3.0').label], ['Excellent', 'Good', 'Good', 'Fair', 'Poor', 'Very poor']);
+  assert.strictEqual(C.scoreBand(712, 'VantageScore 3.0').k, 'good'); assert.strictEqual(C.scoreBand(712, 'VantageScore 3.0').next.gap, 69); assert.strictEqual(C.scoreBand(850, 'FICO 8').next, null);
+  for (const n of [300, 579, 580, 669, 670, 739, 740, 799, 800, 850]) assert.strictEqual(C.scoreBand(n, 'FICO').label, C.creditBand(n).label, 'matches the older banding at ' + n);
+  const scores = [
+    { date: '2026-08-01', score: 700, source: 'VantageScore 3.0', bureau: 'TransUnion' }, { date: '2026-09-01', score: 705, source: 'VantageScore 3.0', bureau: 'TransUnion' }, { date: '2026-10-01', score: 722, source: 'VantageScore 3.0', bureau: 'TransUnion' },
+    { date: '2026-10-02', score: 690, source: 'VantageScore 3.0', bureau: 'Equifax' }, { date: '2026-09-02', score: 688, source: 'VantageScore 3.0', bureau: 'Equifax' },
+    { date: '2026-06-01', score: 700, source: 'FICO' },
+  ];
+  const ser = C.scoreSeries(scores);
+  assert.deepStrictEqual(ser.map((s) => [s.name, s.last.score, s.diff]), [['TransUnion', 722, 17], ['Equifax', 690, 2], ['Not labelled', 700, null]]);
+  const gap = C.scoreGap(ser); assert.strictEqual(gap.gap, 32); assert.strictEqual(gap.hi.name, 'TransUnion'); assert.strictEqual(gap.lo.name, 'Equifax'); assert.strictEqual(gap.sameModel, true);
+  assert.strictEqual(C.scoreGap(C.scoreSeries([scores[0]])), null);
+  // ages from opening dates, with the profile as fallback
+  const T = new Date(2026, 9, 14);
+  const accts = [{ id: 'a', type: 'credit', name: 'Old', balance: 100, limit: 1000, opened: '2016-10', history: [{ date: '2026-01-01', balance: 800 }, { date: '2026-09-01', balance: 300 }] }, { id: 'b', type: 'credit', name: 'New', balance: 900, limit: 1000, opened: '2024-10-15', history: [{ date: '2026-01-01', balance: 900 }] }, { id: 'c', type: 'auto', name: 'Car', balance: 5000, opened: '2022-10' }, { id: 'd', type: 'credit', name: 'Closed', closed: true, opened: '2010-01' }];
+  const ages = C.creditAges(accts, { oldest: '3' }, T); assert.strictEqual(ages.source, 'accounts'); assert.strictEqual(Math.round(ages.oldestYears), 10); assert.ok(Math.abs(ages.avgYears - (10 + 2 + 4) / 3) < 0.05, 'avg ' + ages.avgYears);
+  assert.deepStrictEqual([C.creditAges([{ id: 'x', type: 'credit' }], { oldest: '6' }, T).oldestYears, C.creditAges([], {}, T).oldestYears], [6, null]);
+  const ce = C.closeEffect(accts, 'a', T); assert.ok(ce.oldestLost && ce.after < ce.before); assert.strictEqual(C.closeEffect(accts, 'zzz', T), null);
+  // utilization on past dates from balance history
+  assert.ok(Math.abs(C.utilAt(accts, '2026-02-01') - 85) < 1e-9);          // (800+900)/2000
+  assert.ok(Math.abs(C.utilAt(accts, '2026-09-15') - 60) < 1e-9);          // (300+900)/2000
+  assert.strictEqual(C.utilAt([{ id: 'n', type: 'credit', limit: 0, balance: 5 }], '2026-01-01'), null);
+  // paydown plan: every card to the target, highest use first
+  const pp = C.paydownPlan(accts, 29); assert.deepStrictEqual(pp.plan.map((p) => [p.name, p.pay]), [['New', 610]]); assert.ok(pp.newPct < 29);
+  const p9 = C.paydownPlan(accts, 9); assert.strictEqual(p9.total, 810 + 10); assert.ok(p9.newPct <= 9.01);
+  assert.deepStrictEqual(C.paydownPlan([], 9).plan, []);
+  // impact estimate is only for improvements, and is a range
+  const ie = C.impactEstimate(80, 9); assert.ok(ie.low > 0 && ie.high > ie.low); assert.strictEqual(C.impactEstimate(8, 60), null); assert.strictEqual(C.impactEstimate(35, 32), null);
+  // insights
+  const ins = C.creditInsights(scores, accts, { late: 'none', inq: '3plus' }, T, (n) => '$' + Math.round(n)), titles = ins.map((i) => i.title).join(' | ');
+  assert.match(titles, /TransUnion went up 17 points/); assert.match(titles, /differ by 32 points/); assert.match(titles, /Several recent credit applications/); assert.match(titles, /is at 90% of its limit/);
+  assert.strictEqual(ins[0].k === 'bad' || ins[0].k === 'warn', true);
+  assert.match(C.creditInsights([], [], {}, T)[0].title, /Add your first score/);
+  assert.match(C.creditInsights([{ date: '2026-07-01', score: 700, source: 'FICO' }], [], {}, T).map((i) => i.title).join('|'), /Your unlabelled score is 105 days old/);
+});

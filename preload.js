@@ -59,6 +59,7 @@ contextBridge.exposeInMainWorld('tally', {
     statement: inv('ai:statement'),
     statementPdf: inv('ai:statementPdf'),
     carArt: inv('ai:carArt'),
+    creditShot: inv('ai:creditShot'),
     test: inv('ai:test'),
     categorize: inv('ai:categorize'),
     loans: inv('ai:loans'),

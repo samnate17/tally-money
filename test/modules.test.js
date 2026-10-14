@@ -508,3 +508,22 @@ test('biometric: Touch ID unlock hands over the saved password only after a succ
   }
   assert.strictEqual(createBiometric({ store, systemPreferences: undefined, platform: 'darwin' }).status().available, false);
 });
+
+test('ai: reading credit scores from a screenshot keeps only valid scores and sends the picture, not text', async () => {
+  const { cleanScoreShot } = require('../ai');
+  const c = cleanScoreShot({ scores: [{ bureau: 'TransUnion', model: 'VantageScore 3.0', score: 731.4, date: '2026-10-01' }, { bureau: 'Equifax', model: 'Made Up', score: 718, date: 'last week' }, { bureau: 'Unknown', model: 'FICO 8', score: 900, date: '' }, { bureau: 'Experian', model: 'FICO 8', score: 'abc' }, null], notes: '  Updated   today ' });
+  assert.deepStrictEqual(c.scores, [{ bureau: 'TransUnion', model: 'VantageScore 3.0', score: 731, date: '2026-10-01' }, { bureau: 'Equifax', model: 'Other', score: 718, date: '' }]);
+  assert.strictEqual(c.notes, 'Updated today'); assert.deepStrictEqual(cleanScoreShot(null).scores, []);
+  assert.strictEqual(cleanScoreShot({ scores: Array.from({ length: 20 }, () => ({ bureau: 'Equifax', model: 'FICO 8', score: 700, date: '' })) }).scores.length, 6);
+  const seen = [];
+  const ai = aiWith((req) => { seen.push(req); return final({ stop_reason: 'end_turn', content: [{ type: 'text', text: JSON.stringify({ scores: [{ bureau: 'Equifax', model: 'VantageScore 3.0', score: 701, date: '2026-10-02' }], notes: '' }) }] }); });
+  const img = 'data:image/jpeg;base64,' + Buffer.from('fakejpeg').toString('base64');
+  const r = await ai.creditShot({ image: img });
+  assert.deepStrictEqual(r.scores, [{ bureau: 'Equifax', model: 'VantageScore 3.0', score: 701, date: '2026-10-02' }]);
+  assert.strictEqual(seen[0].messages[0].content[0].type, 'image'); assert.strictEqual(seen[0].messages[0].content[0].source.media_type, 'image/jpeg'); assert.match(seen[0].system, /Never guess/);
+  assert.ok(seen[0].output_config.format.schema.properties.scores);
+  await assert.rejects(ai.creditShot({ image: 'data:text/html;base64,AAAA' }), /cannot be used/); await assert.rejects(ai.creditShot({}), /cannot be used/);
+  await assert.rejects(aiWith(() => final({ stop_reason: 'refusal', content: [] })).creditShot({ image: img }), /declined/);
+  await assert.rejects(aiWith(() => final({ stop_reason: 'end_turn', content: [{ type: 'text', text: 'not json' }] })).creditShot({ image: img }), /could not read/);
+  await assert.rejects(aiWith(() => final({}), '').creditShot({ image: img }), /API key/);
+});
