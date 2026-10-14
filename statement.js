@@ -255,6 +255,10 @@ async function parsePdf(data, opts = {}) {
   if (!count) return { rows: [], meta: { pages: pages.length, noText: true, type: opts.type || 'checking', mode: 'none', rows: 0 }, text: '', lines: [] };
   const r = parseStatement(lines, opts);
   r.meta.pages = pages.length;
+  for (const l of lines) {   // the balance printed on the statement, so the account can be brought up to date as well
+    const m = /\b(?:ending|closing|new|statement)\s+balance\b[^\d$()-]{0,25}(\(?-?\$?\s?[\d,]+\.\d{2}\)?)/i.exec(l.text);
+    if (m) { const v = parseFloat(m[1].replace(/[^\d.]/g, '')); if (Number.isFinite(v) && v >= 0) { r.meta.endBalance = v; break; } }
+  }
   r.text = text;
   r.lines = lines.map((l) => l.text);
   return r;

@@ -307,6 +307,15 @@ Change the assumptions (growth, return on investments, selling cost, rent, upkee
 
 - **Nelnet / Department of Education statements** that show one "Account Snapshot" column per loan group (AA, AB, AC...) are read group by group: each group becomes its own loan with its rate, balance (principal plus accrued interest), payment, amount due and past due. The groups add up to the totals on the statement. On the Bills tab those groups from one lender appear as one student-loan bill, because you pay them together.
 
+## Statements for every category, and decisions from your history
+
+- **Mortgage:** on the Mortgage tab press *Fill this in from my mortgage statement* (desktop app, free, no key). It reads the balance, rate, principal-and-interest, escrow, due day, original amount and term, shows what it found, and fills the form for you to check before saving. If you leave tax and insurance blank, the escrow payment is counted as both until you split them.
+- **Loans and cards:** student, car, other loans and credit cards each have *Update from a statement* on the Loans page (free reader, local assistant, or Claude).
+- **Bank and card statements:** the PDF/CSV import on the Transactions tab reads the transactions, and now also the closing balance, so you can bring an account's balance up to date from the same file.
+- **Not covered:** investment and retirement statements are not read yet; add holdings on the Investments tab.
+- **Your history drives the advice.** "Can I afford it?" and the Loans page now use up to six months of income and spending (one unusually high and one unusually low month ignored; transfers left out). The Overview shows *What your history says*: a typical month, how steady it is, whether spending is rising, and a safe monthly amount for debt, which the debt plan offers as a starting point.
+- **Mortgage double check:** the Mortgage tab compares the property tax, insurance, HOA, repairs and mortgage payments found in your transactions with the figures you saved, and offers to use the real ones.
+
 ## Windows
 
 A Windows installer (`Tally.Money-Setup-<version>.exe`, 64-bit; it also runs on Windows on ARM) is built by the same GitHub Actions workflow and attached to each release, after the Mac files. Run it, and if Windows SmartScreen says it protected your PC, choose **More info**, then **Run anyway** (the installer is not signed, which would need a paid certificate). Your data lives on that computer only; to move it from the Mac use Download backup on the Mac and Restore from file on Windows, or use the hosted version.

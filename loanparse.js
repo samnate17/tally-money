@@ -219,5 +219,41 @@ function parseLoanStatement(text, kind, clean) {
   return clean({ loans, notes: notes.join(' ') });
 }
 
+// A mortgage statement: balance, rate, the principal-and-interest part of the payment, escrow, due date and a few details about the loan.
+const MORT_LENDERS = ['Mr. Cooper', 'Mr Cooper', 'Chase', 'Wells Fargo', 'Bank of America', 'Rocket Mortgage', 'Quicken Loans', 'loanDepot', 'PennyMac', 'Freedom Mortgage', 'U.S. Bank', 'US Bank', 'Truist', 'Citizens', 'PNC', 'Fifth Third', 'Newrez', 'Shellpoint', 'Lakeview', 'Carrington', 'Guild', 'Navy Federal', 'USAA', 'Regions', 'TD Bank', 'Cenlar', 'Flagstar', 'Ocwen', 'Mortgage Service Center', 'Santander', 'Huntington', 'Citi', 'CrossCountry', 'Fairway', 'AmeriHome', 'Planet Home Lending'];
+function parseMortgageText(text) {
+  const lines = String(text || '').split(/\r?\n/).map((l) => l.replace(/\s+/g, ' ').trim()).filter(Boolean);
+  const notes = [];
+  const money = (labels) => findField(lines, labels, mval);
+  const balance = money([/(?:unpaid|outstanding|current|remaining)\s+principal\s+balance/i, /principal\s+balance/i, /(?:loan|mortgage)\s+balance/i, /(?:unpaid|outstanding)\s+balance/i]);
+  let apr = findField(lines, [/(?:current\s+)?interest\s+rate/i, /note\s+rate/i, /rate\s+of\s+interest/i], (s) => pctIn(s, true));
+  let pi = money([/principal\s*(?:and|&|\/|\+)\s*interest(?:\s+payment)?/i, /\bP\s*&\s*I\b/i]);
+  const princ = money([/^(?:\W*)principal(?!\s*(?:balance|and|&|paid))(?:\s+payment)?\b/i]);
+  const intr = money([/^(?:\W*)interest(?!\s*(?:rate|paid|accrued|due\s+date))(?:\s+payment)?\b/i]);
+  if (pi === null && princ !== null && intr !== null) pi = Math.round((princ + intr) * 100) / 100;
+  const escrow = money([/escrow\s*(?:\(.*?\))?\s*(?:payment|amount|deposit)?(?!\s*(?:balance|shortage|advance))/i, /taxes\s+and\s+insurance/i]);
+  const total = money([/total\s+(?:monthly\s+)?(?:payment|amount)(?:\s+(?:due|amount))?/i, /regular\s+monthly\s+payment/i, /monthly\s+payment/i, /(?:total\s+)?(?:amount|payment)\s+due(?!\s*(?:date|on|by))/i]);
+  const past = money([/past\s+due(?:\s+(?:amount|payment))?/i, /overdue\s+amount/i]);
+  const lateFees = money([/(?:unpaid\s+)?late\s+(?:charges?|fees?)/i]);
+  const orig = money([/(?:original|initial)\s+(?:principal|loan)\s*(?:amount|balance)?/i, /original\s+(?:mortgage\s+)?amount/i, /loan\s+amount/i]);
+  const dueDate = findField(lines, [/(?:payment\s+)?due\s+date/i, /next\s+payment\s+(?:due|date)/i, /payment\s+due(?:\s+on|\s+by)?/i, /due\s+on/i], (x) => dateIn(x, 'first'));
+  const asOf = findField(lines, [/statement\s+date/i, /as\s+of/i, /statement\s+period/i], (x) => dateIn(x, 'last'));
+  const maturity = findField(lines, [/maturity\s+date/i, /final\s+payment\s+date/i], (x) => dateIn(x, 'first'));
+  const escrowBal = money([/escrow\s+balance/i]);
+  let termYears = findField(lines, [/(?:original\s+)?(?:loan\s+)?term/i], (x) => { const m = /(\d{1,3})\s*(years?|yrs?|months?|mos?)/i.exec(x); return m ? (/^m/i.test(m[2]) ? Math.round(+m[1] / 12) : +m[1]) : null; });
+  let lender = ''; { const low = text.toLowerCase(); let best = null; for (const n of MORT_LENDERS) { const i = low.indexOf(n.toLowerCase()); if (i >= 0 && (best === null || i < best.i)) best = { i, n }; } if (best) lender = best.n; }
+  if (apr !== null && (apr <= 0 || apr > 25)) apr = null;
+  if (pi === null && total !== null && escrow !== null && total > escrow) { pi = Math.round((total - escrow) * 100) / 100; notes.push('Principal and interest worked out as the total payment minus escrow.'); }
+  if (!termYears && orig && maturity && asOf) { const y = Math.round((new Date(maturity) - new Date(asOf)) / 31557600000); if (y > 0 && y <= 40) notes.push('Time left on the loan is about ' + y + ' years (to ' + maturity + ').'); }
+  const miss = [];
+  if (balance === null) miss.push('balance'); if (apr === null) miss.push('interest rate'); if (pi === null) miss.push('principal-and-interest payment');
+  if (miss.length) notes.push('Not found: ' + miss.join(', ') + '. Type them in below.');
+  return {
+    ok: balance !== null || apr !== null || pi !== null,
+    mortgage: { lender, balance: balance || 0, apr: apr || 0, pi: pi || 0, escrow: escrow || 0, total: total || 0, pastDue: past || 0, lateFees: lateFees || 0, origLoan: orig || 0, dueDate: dueDate || '', dueDay: dueDate ? +dueDate.slice(8) : 0, asOf: asOf || '', maturity: maturity || '', termYears: termYears || 0, escrowBalance: escrowBal || 0 },
+    notes: ['Read without AI by matching the labels on the statement. Check every figure.'].concat(notes).join(' '),
+  };
+}
+
 const parseLoanText = (text, kind) => parseLoanStatement(text, kind, require('./ai').cleanLoans);
-module.exports = { parseLoanText, parseLoanStatement, dateIn, moneyIn, pctIn };
+module.exports = { parseMortgageText, parseLoanText, parseLoanStatement, dateIn, moneyIn, pctIn };

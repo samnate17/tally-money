@@ -10,7 +10,7 @@ const { createWidget } = require('./widget');
 const glassLib = require('./glass');
 const { createUpdater } = require('./updater');
 const { createLocalAI } = require('./local-ai');
-const { parseLoanText } = require('./loanparse');
+const { parseLoanText, parseMortgageText } = require('./loanparse');
 const aiMod = require('./ai');
 const { spawn } = require('child_process');
 
@@ -208,7 +208,7 @@ function wireIpc() {
     while (statementBytes.size > 3) statementBytes.delete(statementBytes.keys().next().value);
     return {
       rows: r.rows,
-      meta: { type: r.meta.type, mode: r.meta.mode, pages: r.meta.pages, noText: !!r.meta.noText, rows: r.rows.length },
+      meta: { type: r.meta.type, mode: r.meta.mode, pages: r.meta.pages, noText: !!r.meta.noText, rows: r.rows.length, endBalance: Number.isFinite(r.meta.endBalance) ? r.meta.endBalance : undefined },
       textId, chars: masked.length, bytes: buf.length,
       preview: (r.lines || []).slice(0, 120).map((l) => maskText(l)),
     };
@@ -244,6 +244,7 @@ function wireIpc() {
   handle('loan:parse', (textId, kind) => {
     const text = statementText.get(String(textId));
     if (!text) throw new Error('That file is no longer in memory. Choose it again.');
+    if (kind === 'mortgage') return parseMortgageText(text);
     return parseLoanText(text, loanKind(kind));
   });
   ipcMain.handle('localai:loans', async (e, r) => {

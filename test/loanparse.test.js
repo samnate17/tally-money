@@ -64,3 +64,16 @@ test('servicer statement with one Account Snapshot column per loan group: each g
   assert.strictEqual(loans[0].lender, 'Nelnet');
   assert.strictEqual(loans.reduce((a, l) => a + l.balance, 0), 1500);
 });
+
+test('mortgage statement: balance, rate, principal and interest, escrow, due date and loan details', () => {
+  const { parseMortgageText } = require('../loanparse');
+  const text = ['Mr. Cooper', 'Statement Date: 10/05/2026', 'Payment Due Date: 11/01/2026', 'Unpaid Principal Balance $245,102.33', 'Interest Rate 6.250%', 'Original Loan Amount $260,000.00', 'Loan Term 30 years', 'Maturity Date 05/01/2053',
+    'Explanation of Amount Due', 'Principal $350.12', 'Interest $1,276.60', 'Escrow (Taxes and Insurance) $612.40', 'Total Payment Amount $2,239.12', 'Past Due Amount $0.00', 'Escrow Balance $1,840.00'].join('\n');
+  const r = parseMortgageText(text);
+  assert.ok(r.ok);
+  assert.deepStrictEqual([r.mortgage.lender, r.mortgage.balance, r.mortgage.apr, r.mortgage.pi, r.mortgage.escrow, r.mortgage.total, r.mortgage.dueDate, r.mortgage.dueDay, r.mortgage.origLoan, r.mortgage.termYears, r.mortgage.escrowBalance],
+    ['Mr. Cooper', 245102.33, 6.25, 1626.72, 612.4, 2239.12, '2026-11-01', 1, 260000, 30, 1840]);
+  const alt = parseMortgageText('Principal and Interest $1,500.00\nEscrow $400.00\nTotal Payment $1,900.00\nPrincipal Balance $200,000.00\nInterest Rate 5.5%');
+  assert.deepStrictEqual([alt.mortgage.pi, alt.mortgage.escrow, alt.mortgage.apr], [1500, 400, 5.5]);
+  assert.strictEqual(parseMortgageText('nothing useful here').ok, false);
+});

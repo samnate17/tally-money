@@ -647,7 +647,19 @@ function vOverview(){
   var upH=up.length?up.map(function(o){var n=dayDiff(TODAY,o.d);return '<div class="row">'+logo(o.s.name)+'<div class="grow"><div class="nm">'+esc(o.s.name)+'</div><div class="sub">'+(n===0?'Today':n===1?'Tomorrow':'In '+n+' days')+' · '+shortDate(iso(o.d))+'</div></div><div class="amt num">'+money(o.s.amount)+'</div></div>'}).join(''):'<div class="empty">Nothing due in the next 14 days.</div>';
   return '<div class="top"><h1>Overview</h1>'+monthNav()+'</div>'+tiles+
    '<div class="grid two"><section class="panel"><h2>Where it went</h2>'+donut(sp.by,sp.total)+'</section><section class="panel"><h2>Last six months</h2>'+trend()+'</section></div>'+
-   '<div class="grid two"><section class="panel"><h2>Budgets<small>most used first</small></h2>'+budgetRows(5,month)+'</section><section class="panel"><h2>Bills coming up<small>next 14 days</small></h2>'+upH+'</section></div>';
+   '<div class="grid two"><section class="panel"><h2>Budgets<small>most used first</small></h2>'+budgetRows(5,month)+'</section><section class="panel"><h2>Bills coming up<small>next 14 days</small></h2>'+upH+'</section></div>'+historyPanel();
+}
+function historyPanel(){
+  var hs=historyStats(ledger(),NOWKEY,12);
+  if(hs.n<2)return '<section class="panel"><h2>What your history says</h2><div class="empty">Add or import at least two full months of transactions and this page will show your real habits: what you usually earn and spend, how steady it is, and how much you can safely put toward debt or a purchase.</div></section>';
+  var up=hs.trend,top=hs.cats.slice(0,3).map(function(c){return esc(c.cat)+' '+money0(c.avg)}).join(', '),lines=[];
+  lines.push('<b>Typical month:</b> you take in about '+money0(hs.avgIncome)+' and spend about '+money0(hs.avgSpend)+', leaving '+(hs.surplus>=0?'about '+money0(hs.surplus):'<span class="bad">a shortfall of about '+money0(-hs.surplus)+'</span>')+' ('+Math.round(hs.savingsRate*100)+'% of income). One unusually high and one unusually low month are ignored.');
+  if(hs.badMonths>0)lines.push(hs.badMonths+' of the last '+hs.n+' months you spent more than you took in, so treat the leftover as less certain than the average says.');
+  lines.push(hs.spendVar>0.25?'Your spending swings a lot from month to month (by about '+money0(hs.spendSd)+'). Keep a bigger cash cushion before committing to a larger payment.':'Your spending is fairly steady (it moves by about '+money0(hs.spendSd)+' a month), which makes planning easier.');
+  if(up!==null&&Math.abs(up)>=0.08)lines.push('Your spending over the last three months is '+(up>0?'<span class="bad">up ':'<span class="good">down ')+Math.round(Math.abs(up)*100)+'%</span> compared with the months before.');
+  if(top)lines.push('Biggest categories on average: '+top+'.');
+  if(hs.safeExtra>0)lines.push('<b>Safe to put toward debt each month: about '+money0(hs.safeExtra)+'.</b> That is your usual leftover minus room for a bad month. The Loans page and the mortgage extra-payment table use it as a starting point.');
+  return '<section class="panel"><h2>What your history says<small>from '+hs.n+' full month'+(hs.n===1?'':'s')+' of transactions, transfers left out</small></h2>'+lines.map(function(x){return '<div class="row" style="align-items:flex-start"><div class="grow" style="white-space:normal">'+x+'</div></div>'}).join('')+'</section>';
 }
 function tile(l,v,s){return '<div class="tile"><div class="l">'+l+'</div><div class="v num">'+v+'</div><div class="s">'+(s||'&nbsp;')+'</div></div>'}
 var LOGOCOLS=['#3b4cf0','#16a085','#e8833a','#c2399a','#2e9fd8','#8a63d2','#b8860b'];
@@ -1939,6 +1951,42 @@ function monthlyStack(txns,nowKey,n){
   return keys.map(function(k){var by={},inc=0,sp=0;txns.forEach(function(x){if(monthKey(x.date)!==k)return;if(x.amount>0)inc+=x.amount;else if(x.cat!=='Income'){by[x.cat]=(by[x.cat]||0)-x.amount;sp-=x.amount}});return {k:k,income:inc,spend:sp,by:by}});
 }
 /*BUDGET-END*/
+/*HISTORY-START*/
+// What your past months say, so decisions use real habits instead of one month. txns should already leave out transfers.
+function trimmedMean(a){
+  if(!a.length)return 0;
+  var b=a.slice().sort(function(x,y){return x-y});
+  if(b.length>=5)b=b.slice(1,-1);                                  // one unusual month (a big repair, a bonus) should not decide the answer
+  return b.reduce(function(s,v){return s+v},0)/b.length;
+}
+function stdev(a){if(a.length<2)return 0;var m=a.reduce(function(s,v){return s+v},0)/a.length;return Math.sqrt(a.reduce(function(s,v){return s+(v-m)*(v-m)},0)/(a.length-1))}
+function historyStats(txns,nowKey,n){
+  var months=pastMonths(txns,nowKey,n||12),inc=[],sp=[],by={};
+  months.forEach(function(k){var i=0,s2=0;txns.forEach(function(x){if(monthKey(x.date)!==k)return;if(x.amount>0)i+=x.amount;else if(x.cat!=='Income'){s2-=x.amount;by[x.cat]=by[x.cat]||{};by[x.cat][k]=(by[x.cat][k]||0)-x.amount}});inc.push(i);sp.push(s2)});
+  var cnt=months.length,avgI=trimmedMean(inc),avgS=trimmedMean(sp),sur=inc.map(function(v,i){return v-sp[i]});
+  var cats=Object.keys(by).map(function(c){var vals=months.map(function(k){return by[c][k]||0});return {cat:c,avg:trimmedMean(vals),sd:stdev(vals)}}).sort(function(a,b){return b.avg-a.avg});
+  var recent=cnt>=6?trimmedMean(sp.slice(-3).concat([0]).slice(0,3)):null,older=cnt>=6?trimmedMean(sp.slice(0,-3)):null,trend=(recent!==null&&older>0)?(sp.slice(-3).reduce(function(a,v){return a+v},0)/3-older)/older:null;
+  var safe=cnt>=2?Math.max(0,Math.floor((trimmedMean(sur)-stdev(sur)*0.5)/5)*5):0;     // leftover money you can count on, with room for a bad month
+  return {n:cnt,months:months,income:inc,spend:sp,surplusList:sur,avgIncome:avgI,avgSpend:avgS,surplus:avgI-avgS,spendSd:stdev(sp),incomeSd:stdev(inc),
+    spendVar:avgS>0?stdev(sp)/avgS:0,incomeVar:avgI>0?stdev(inc)/avgI:0,trend:trend,cats:cats,safeExtra:safe,
+    badMonths:sur.filter(function(v){return v<0}).length,savingsRate:avgI>0?(avgI-avgS)/avgI:0};
+}
+// What the Housing payments in your transactions say about owning the home (last 12 months).
+function homeHints(txns,nowKey){
+  var keys=[];for(var i=1;i<=12;i++)keys.push(shiftMonth(nowKey,-i));
+  var sum={tax:0,ins:0,hoa:0,repair:0},mort={},seen={},hoaM={};
+  txns.forEach(function(x){
+    var k=monthKey(x.date);if(x.amount>=0||keys.indexOf(k)<0)return;seen[k]=1;var a=-x.amount,n=x.name||'';
+    if(/property tax|real estate tax|tax collector|town of|city of|county tax|\btaxes\b/i.test(n)&&x.cat!=='Income')sum.tax+=a;
+    else if(/homeowner|home ?insurance|hippo|lemonade|\bhome\b.*insur|insur.*\bhome\b/i.test(n))sum.ins+=a;
+    else if(/\bhoa\b|homeowners? assoc|condo (fee|assoc)|association dues/i.test(n)){sum.hoa+=a;hoaM[k]=1}
+    else if(x.sub==='Repairs and supplies')sum.repair+=a;
+    else if(x.sub==='Mortgage'||/mortgage/i.test(n)){mort[k]=(mort[k]||0)+a}
+  });
+  var months=Math.max(1,Object.keys(seen).length),mk=Object.keys(mort).map(function(k){return mort[k]}).sort(function(a,b){return a-b});
+  return {months:months,taxYear:Math.round(sum.tax),insYear:Math.round(sum.ins),hoaMonth:Math.round(sum.hoa/Math.max(1,Object.keys(hoaM).length)),repairYear:Math.round(sum.repair),mortMonth:mk.length?Math.round(mk[Math.floor(mk.length/2)]*100)/100:0,mortCount:mk.length};
+}
+/*HISTORY-END*/
 /*PLAN-START*/
 // A plan for affording something: how big the gap is, what could close it (leftover money, trimming spending, earning more) and how long it takes.
 var TRIM_PCT={'Personal care':.20,'Pets':.10,'Education':0,'Gifts and donations':.25,'Dining':.25,'Shopping':.30,'Entertainment':.30,'Travel':.35,'Cash and transfers':.15,'Subscriptions':.20,'Other':.15,'Groceries':.08,'Transport':.07,'Health':0,'Housing':0,'Debt and loans':0,'Income':0};
@@ -2024,14 +2072,13 @@ function affordPlan(a){
 /*PLAN-END*/
 /*AFFORD-START*/
 function afCtx(cat){
-  var ks=[],i,inc=0,sp=0,n=0;
-  for(i=1;i<=3;i++){var k=shiftMonth(NOWKEY,-i),s1=spendBy(k).total,i1=incomeOf(k);if(s1>0||i1>0){ks.push(k);inc+=i1;sp+=s1;n++}}
+  var hs=historyStats(ledger(),NOWKEY,6),ks=hs.months,inc=hs.avgIncome,sp=hs.avgSpend,n=hs.n;
   if(!n){var k0=NOWKEY,s0=spendBy(k0).total,i0=incomeOf(k0);if(s0>0||i0>0){inc=i0;sp=s0;n=1;ks=[k0]}}
   var liquid=null;S.accounts.forEach(function(a){if(a.type==='checking'||a.type==='savings'||a.type==='cash')liquid=(liquid||0)+a.balance});
   var up=0;activeSubs().forEach(function(s){var d=nextDate(s);if(dayDiff(TODAY,d)<=30)up+=s.amount});
   var hd=null;S.accounts.forEach(function(a){if(isDebt(a)&&a.balance>0&&a.apr>=10){hd=hd||{total:0,maxApr:0};hd.total+=a.balance;hd.maxApr=Math.max(hd.maxApr,a.apr)}});
   var bl=null;if(cat&&S.budgets[cat]>0)bl=S.budgets[cat]-(spendBy(NOWKEY).by[cat]||0);
-  return {months:n,ks:ks,avgIncome:n?inc/n:0,avgSpend:n?sp/n:0,liquid:liquid,upcoming:up,highDebt:hd,budgetLeft:bl};
+  return {months:n,ks:ks,avgIncome:n?inc:0,avgSpend:n?sp:0,hist:hs,liquid:liquid,upcoming:up,highDebt:hd,budgetLeft:bl};
 }
 function assessAfford(inp,c){
   var amt=inp.amount,monthly=inp.type==='monthly'?amt:inp.type==='yearly'?amt/12:0,upfront=inp.type==='once'||inp.type==='yearly'?amt:0;
@@ -2436,7 +2483,7 @@ function vDebtStrategy(){
   var when=function(pl){return pl.ok?(pl.months?monthYear(addMonths(TODAY,pl.months)):'Done'):'Never'};
   var tiles='<div class="grid tiles">'+tile('You owe',money0(total),debts.length+' debt'+(debts.length===1?'':'s'))+tile('Average rate',wapr.toFixed(2)+'%','Weighted by balance')+tile('Minimums',money0(mins)+'<span class="muted" style="font-size:14px">/mo</span>',pm.ok?'Done '+when(pm)+' at minimums':'Minimums alone never clear it')+
     tile('Debt-free','<span class="good">'+when(cur)+'</span>',cur.ok?dur(cur.months)+' · '+money0(cur.interest)+' interest':(cur.reason==='below'?'Raise the monthly amount':'Not possible at this amount'))+'</div>';
-  var ctrl='<section class="panel"><h2>Build your plan</h2><div class="form" style="align-items:end"><label>I can pay this much a month in total<input id="dp-monthly" type="number" min="0" step="10" value="'+(Math.round(monthly*100)/100)+'"></label><label>One-time extra now<input id="dp-lump" type="number" min="0" step="100" value="'+(debtUI.lump||'')+'" placeholder="0"></label>'+
+  var ctrl='<section class="panel"><h2>Build your plan</h2><div class="form" style="align-items:end"><label>I can pay this much a month in total<input id="dp-monthly" type="number" min="0" step="10" value="'+(Math.round(monthly*100)/100)+'"></label>'+(function(){var hs=historyStats(ledger(),NOWKEY,12);return hs.safeExtra>0?'<span class="sub muted" style="flex:1 1 100%;font-size:12px">Your history says you can safely add about '+money0(hs.safeExtra)+' a month beyond what you already spend, so a total near '+money0(mins+hs.safeExtra)+' is realistic. <button type="button" class="btn small" data-act="dp-usehist" data-v="'+Math.round(mins+hs.safeExtra)+'">Use it</button></span>':''})()+'<label>One-time extra now<input id="dp-lump" type="number" min="0" step="100" value="'+(debtUI.lump||'')+'" placeholder="0"></label>'+
     '<label>Pay off first<select id="dp-strat"><option value="avalanche"'+(debtUI.strat==='avalanche'?' selected':'')+'>Highest interest rate (least interest)</option><option value="snowball"'+(debtUI.strat==='snowball'?' selected':'')+'>Smallest balance (fewest debts, soonest)</option></select></label>'+
     '<label style="flex-direction:row;gap:6px;align-items:center"><input id="dp-incl" type="checkbox"'+(debtUI.incl?' checked':'')+'> Include my mortgage</label></div>'+
     '<p class="sub muted" style="margin:6px 0 0;font-size:13px;white-space:normal">Your minimums add up to <b>'+money0(mins)+'</b> a month'+(monthly>=mins?', so <b>'+money0(monthly-mins)+'</b> a month goes on top. As each debt is paid off, its payment rolls into the next one.':'. The amount above is lower than that, so it cannot work. Raise it to at least '+money0(mins)+'.')+'</p></section>';
@@ -2457,7 +2504,7 @@ function vDebtStrategy(){
   return tiles+ctrl+cmp+adv+order+deadline+cons+byGroup;
 }
 /* ---------- Mortgage and home ---------- */
-var mortUI={edit:false,horizon:10,refi:{rate:'',years:'30',cost:''},tryExtra:''};
+var mortUI={edit:false,pre:null,imp:null,horizon:10,refi:{rate:'',years:'30',cost:''},tryExtra:''};
 function homeSet(){var H=S.home||{};return !!(H.setup&&H.valueId&&S.accounts.some(function(a){return a.id===H.valueId}))}
 function homeFrom(){
   var H=S.home||{},ma=S.accounts.filter(function(a){return a.id===H.mortId})[0],va=S.accounts.filter(function(a){return a.id===H.valueId})[0],o={};
@@ -2478,14 +2525,28 @@ function saveHome(v){
   H.purchaseDate=v.purchaseDate||'';H.startDate=v.startDate||'';H.setup=true;
 }
 function monthsSinceDate(iso0){var m=/^(\d{4})-(\d{2})/.exec(iso0||'');if(!m)return null;return Math.max(0,(TODAY.getFullYear()-(+m[1]))*12+(TODAY.getMonth()+1-(+m[2])))}
+function mortImportPanel(){
+  var I=mortUI.imp||{},P=mortUI.pre;
+  if(!(window.tally&&window.tally.loan))return '<p class="sub muted" style="margin:0 0 10px;font-size:13px;white-space:normal">Reading a mortgage statement works in the desktop app. Here you can type the numbers in.</p>';
+  var h='<div style="margin:0 0 12px"><label class="btn primary small" style="cursor:pointer">Fill this in from my mortgage statement<input type="file" data-mortfile="1" accept=".pdf,.txt,.csv,application/pdf,text/plain" hidden></label> <span class="sub muted" style="font-size:12px">Free. Read on this computer; account numbers are masked. Nothing is saved until you press Save.</span></div>';
+  if(I.busy)h+='<div class="banner" style="margin-bottom:10px"><span>'+esc(I.busy)+'</span></div>';
+  if(I.err)h+='<div class="banner" style="margin-bottom:10px"><span>'+esc(I.err)+'</span></div>';
+  if(P){
+    var esc0=P.escrow>0?' Your escrow is '+money(P.escrow)+' a month ('+money0(P.escrow*12)+' a year) for property tax and home insurance together; enter the yearly amount of each below (the tax bill and your policy show them).':'';
+    h+='<div class="banner" style="margin-bottom:10px;align-items:flex-start"><span><b>Read from '+esc(I.file||'your statement')+'.</b> Check each number below against the paper before saving.'+(P.lender?' Lender: '+esc(P.lender)+'.':'')+(P.pastDue>0?' <b class="bad">Past due '+money(P.pastDue)+'.</b>':'')+esc0+(I.notes?' '+esc(I.notes):'')+'</span></div>';
+  }
+  return h;
+}
 function homeFormPanel(){
-  var H=S.home||{},h=homeFrom(),set=homeSet(),v=function(k){return h[k]?h[k]:''};
+  var H=S.home||{},h=homeFrom(),set=homeSet(),P=mortUI.pre||{};['balance','apr','pi','origLoan','termYears'].forEach(function(k){if(P[k]>0)h[k]=P[k]});
+  var v=function(k){return h[k]?h[k]:''};
   var f=function(label,name,val,step,ph,extra){return '<label>'+label+'<input name="'+name+'" type="'+(extra==='date'?'date':'number')+'" '+(extra==='date'?'':'step="'+(step||'0.01')+'" min="0" ')+'value="'+esc(val===undefined||val===0?'':val)+'"'+(ph?' placeholder="'+ph+'"':'')+'></label>'};
   return '<section class="panel"><h2>'+(set?'Edit your home':'Tell me about your home')+'<small>'+(set?'saved on this device':'a few minutes, and you can change it any time')+'</small></h2>'+
    (set?'':'<p class="sub" style="margin:0 0 10px;white-space:normal">Enter what you know. The mortgage and the home appear in your net worth and debts, and everything below is worked out from these figures. Leave a box empty if you do not have it.</p>')+
+   mortImportPanel()+
    '<form id="homeform" class="form" style="align-items:end">'+
    f('Home value now','value',h.value||'','1','e.g. 420000')+f('Purchase price','purchasePrice',v('purchasePrice'),'1')+f('Purchase date','purchaseDate',H.purchaseDate||'',null,null,'date')+f('Down payment','down',v('down'),'1')+f('Closing costs you paid','closing',v('closing'),'1')+
-   f('Mortgage balance now','balance',h.balance||'','0.01','0 if paid off')+f('Interest rate (APR %)','apr',h.apr||'','0.001','e.g. 6.25')+f('Monthly payment (principal and interest only)','pi',h.pi||'','0.01')+f('Payment due day (1 to 31)','dueDay',(S.accounts.filter(function(a){return a.id===H.mortId})[0]||{}).dueDay||'','1')+
+   f('Mortgage balance now','balance',h.balance||'','0.01','0 if paid off')+f('Interest rate (APR %)','apr',h.apr||'','0.001','e.g. 6.25')+f('Monthly payment (principal and interest only)','pi',h.pi||'','0.01')+f('Payment due day (1 to 31)','dueDay',P.dueDay||(S.accounts.filter(function(a){return a.id===H.mortId})[0]||{}).dueDay||'','1')+
    f('Original loan amount','origLoan',v('origLoan'),'1')+f('Loan term (years)','termYears',H.termYears||30,'1')+f('Property tax per year','taxYear',v('taxYear'),'1')+f('Home insurance per year','insYear',v('insYear'),'1')+f('HOA per month','hoaMonth',v('hoaMonth'),'1')+f('PMI per month (if any)','pmiMonth',v('pmiMonth'),'1')+
    '<div style="flex:1 1 100%"><button class="btn primary">'+(set?'Save changes':'Save my home')+'</button> '+(set?'<button type="button" class="btn" data-act="mort-cancel">Cancel</button>':'')+'</div></form>'+
    '<p class="sub muted" style="margin:10px 0 0;font-size:12px;white-space:normal">Your lender\'s statement shows the balance, rate and payment. Tax and insurance are on your tax bill and policy (or on your escrow statement). The payment to enter is principal and interest only, not the escrow total.</p></section>';
@@ -2499,6 +2560,18 @@ function homeChart(rows,series){
   var lines=series.map(function(s2){return '<polyline points="'+rows.map(function(r,i){return X(i)+','+Y(r[s2.k])}).join(' ')+'" fill="none" stroke="'+s2.c+'" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"'+(s2.d?' stroke-dasharray="5 4"':'')+'/>'}).join('');
   var ticks=[0,Math.floor((rows.length-1)/2),rows.length-1].filter(function(v,i,a){return a.indexOf(v)===i}).map(function(i){return '<text x="'+X(i)+'" y="'+(H-7)+'" text-anchor="'+(i===0?'start':i===rows.length-1?'end':'middle')+'" font-size="11">Year '+rows[i].year+'</text>'}).join('');
   return '<svg viewBox="0 0 '+W+' '+H+'" width="100%" style="max-width:640px" role="img" aria-label="Net worth in each choice over the years">'+g+lines+ticks+'</svg><div class="legend" style="flex-direction:row;flex-wrap:wrap;gap:6px 16px;margin-top:4px">'+series.map(function(s2){return '<div><span style="display:inline-block;width:16px;border-top:3px '+(s2.d?'dashed':'solid')+' '+s2.c+'"></span> '+s2.label+'</div>'}).join('')+'</div>';
+}
+function homeHintsPanel(h,mo){
+  var hh=homeHints(S.txns,NOWKEY),rows=[];
+  var add=function(label,found,have,key,fmt){if(!(found>0))return;var same=Math.abs(found-have)<=Math.max(1,have*0.05);rows.push('<div class="row wrap" style="align-items:center"><div class="grow" style="flex-basis:240px"><div class="nm">'+label+': '+fmt(found)+'</div><div class="sub">'+(have>0?'You have '+fmt(have)+' saved.'+(same?' That matches.':''):'Nothing saved yet.')+'</div></div>'+(same?'<span class="pill good">Matches</span>':'<button class="btn small" data-act="mort-hint" data-k="'+key+'" data-v="'+found+'">Use '+fmt(found)+'</button>')+'</div>')};
+  add('Property tax per year',hh.taxYear,h.taxYear,'taxYear',money0);
+  add('Home insurance per year',hh.insYear,h.insYear,'insYear',money0);
+  add('HOA per month',hh.hoaMonth,h.hoaMonth,'hoaMonth',money0);
+  if(hh.repairYear>0&&h.value>0){var pct=Math.round(hh.repairYear/h.value*1000)/10;rows.push('<div class="row wrap" style="align-items:center"><div class="grow" style="flex-basis:240px"><div class="nm">Repairs and supplies: '+money0(hh.repairYear)+' a year ('+pct+'% of the value)</div><div class="sub">Your upkeep assumption is '+h.maintPct+'% ('+money0(h.value*h.maintPct/100)+' a year).</div></div>'+(Math.abs(pct-h.maintPct)<=0.15?'<span class="pill good">Close</span>':'<button class="btn small" data-act="mort-hint" data-k="maintPct" data-v="'+pct+'">Use '+pct+'%</button>')+'</div>')}
+  var chk='';
+  if(hh.mortMonth>0&&h.pi>0){var expect=h.pi+(h.taxYear+h.insYear)/12,diff=hh.mortMonth-expect;chk='<p class="sub" style="margin:8px 0 0;white-space:normal">Your transactions show about <b>'+money(hh.mortMonth)+'</b> going to the mortgage each month. The figures saved here add up to '+money(expect)+' (principal and interest'+(h.taxYear+h.insYear>0?' plus tax and insurance':'')+'). '+(Math.abs(diff)<=Math.max(5,expect*0.03)?'<span class="good">They agree.</span>':'<span class="warn">They differ by '+money(Math.abs(diff))+'. '+(diff>0?'If escrow is included in your payment, enter the tax and insurance so it is counted; otherwise check the payment amount.':'Check that the payment is entered correctly.')+'</span>')+'</p>'}
+  if(!rows.length&&!chk)return '';
+  return '<section class="panel"><h2>From your own transactions<small>last '+hh.months+' month'+(hh.months===1?'':'s')+', to double check the figures above</small></h2>'+rows.join('')+chk+'</section>';
 }
 function vMortgage(){
   var set=homeSet(),head='<div class="top"><h1>Mortgage and home</h1>'+(set&&!mortUI.edit?'<button class="btn small" data-act="mort-edit">Edit details</button>':'')+'</div>';
@@ -2545,7 +2618,7 @@ function vMortgage(){
   var rf=mortUI.refi,rr=h.balance>0&&parseFloat(rf.rate)>=0&&rf.rate!==''?homeRefi(h,{rate:parseFloat(rf.rate),years:parseFloat(rf.years)||30,cost:parseFloat(rf.cost)||0}):null;
   var refi=h.balance>0?'<section class="panel"><h2>Refinance or lower the payment<small>what a new loan would do</small></h2><div class="form"><label>New rate (%)<input id="rf-rate" type="number" min="0" step="0.01" value="'+esc(rf.rate)+'" placeholder="e.g. 5.5"></label><label>New term (years)<input id="rf-years" type="number" min="1" step="1" value="'+esc(rf.years)+'"></label><label>Closing costs<input id="rf-cost" type="number" min="0" step="100" value="'+esc(rf.cost)+'" placeholder="e.g. 5000"></label></div>'+
     (rr?'<p style="margin:10px 0 0;white-space:normal">New payment <b>'+money0(rr.newPay)+'</b> a month against '+money0(h.pi)+' now ('+(rr.monthlySaving>=0?'<b class="good">'+money0(rr.monthlySaving)+' less</b>':'<b class="bad">'+money0(-rr.monthlySaving)+' more</b>')+'). '+(rr.breakEvenMonths!==null?'The closing costs are paid back in <b>'+yrs(rr.breakEvenMonths)+'</b>, so it only pays if you stay longer than that. ':'It never pays back the closing costs. ')+'Interest left on your current loan is '+money0(rr.oldInterest)+' ('+yrs(rr.oldMonths)+' left); the new loan would cost '+money0(rr.newInterest)+' over '+yrs(rr.newMonths)+'. '+(rr.lifetimeSaving>=0?'<b class="good">After closing costs the new loan saves '+money0(rr.lifetimeSaving)+' over the full term.</b>':'<b class="bad">Over the full term the new loan costs '+money0(-rr.lifetimeSaving)+' more.</b>')+(rr.extendsBy>12?' Note that it stretches payments out by '+yrs(rr.extendsBy)+', which is why a lower payment can cost more overall.':'')+'</p>':'<p class="sub muted" style="margin:10px 0 0;font-size:13px">Enter a rate you were quoted to compare. A lower payment from a longer term usually means more interest overall.</p>')+'</section>':'';
-  return head+tiles+adv+assum+cost+extra+decide+rental+sinceP+refi+'<p class="sub muted" style="margin:14px 0 0;font-size:12px;white-space:normal">This is a model built from the figures and assumptions above. It is not a prediction and not tax, legal or investment advice, and it leaves out income tax effects, repairs beyond the upkeep percentage and market swings.</p>';
+  return head+tiles+adv+assum+homeHintsPanel(h,mo)+cost+extra+decide+rental+sinceP+refi+'<p class="sub muted" style="margin:14px 0 0;font-size:12px;white-space:normal">This is a model built from the figures and assumptions above. It is not a prediction and not tax, legal or investment advice, and it leaves out income tax effects, repairs beyond the upkeep percentage and market swings.</p>';
 }
 /* ---------- Car loan and student loans ---------- */
 var LOANKIND={
@@ -2826,7 +2899,9 @@ function pdfInner(){
   var list=pdf.showAll?pdf.rows:pdf.rows.slice(0,300);
   var cats=CATS;
   var rows=list.map(function(r){var i=pdf.rows.indexOf(r);return '<div class="row wrap pdfrow"><input type="checkbox" data-pc="on" data-i="'+i+'"'+(r.on?' checked':'')+' aria-label="Include"><input type="date" data-pc="date" data-i="'+i+'" value="'+r.date+'" aria-label="Date"><input type="text" class="grow" style="flex-basis:140px" data-pc="name" data-i="'+i+'" value="'+esc(r.name)+'" aria-label="Description"><select data-pc="cat" data-i="'+i+'" aria-label="Category">'+cats.map(function(c){return '<option'+(c===r.cat?' selected':'')+'>'+c+'</option>'}).join('')+'</select>'+(r.ai?'<span class="pill '+(r.ai==='high'?'good':r.ai==='medium'?'warn':'mute')+'" title="Predicted by Claude ('+r.ai+' confidence). Change it if it is wrong.">AI</span>':'')+'<button class="btn small" data-pdf="flip" data-i="'+i+'" title="Switch between money in and money out" aria-label="Flip sign">'+(r.uncertain?'\u26a0 ':'')+'<span class="num '+(r.amount>0?'good':'')+'">'+(r.amount>0?'+':'-')+money(Math.abs(r.amount))+'</span></button>'+(r.dup?'<span class="pill mute">Already have</span>':'')+'</div>'}).join('');
-  return h+note+pick+files+(pdf.rows.length?'<p style="margin:14px 0 8px"><b>'+pdf.rows.length+'</b> transaction'+(pdf.rows.length===1?'':'s')+' found'+(dups?', '+dups+' already in the app (unchecked)':'')+(trs?', '+trs+' look like transfers between your own accounts (unchecked, so they are not counted as spending or income)':'')+'. '+(unc?'<b class="warn">'+unc+' have a guessed sign</b> (marked \u26a0). Check them, and use the amount button to flip money in and out.':'Check the amounts and signs before importing.')+'</p><div class="pdfscroll">'+rows+'</div>'+(pdf.rows.length>300&&!pdf.showAll?'<div class="empty"><button class="btn small" data-pdf="all">Show all '+pdf.rows.length+'</button></div>':'')+'<div class="actions" style="justify-content:flex-start;margin-top:12px"><button class="btn primary" data-pdf="import"'+(on?'':' disabled')+'>Import '+on+' transaction'+(on===1?'':'s')+'</button>'+(window.tally&&window.tally.ai&&aiSt&&aiSt.hasKey&&pdf.rows.some(function(r){return r.on&&r.cat==='Other'})?'<button class="btn" data-pdf="aicat"'+(pdf.aiBusy?' disabled':'')+'>'+(pdf.aiBusy?'Asking Claude…':'Predict categories with AI')+'</button>':'')+'<button class="btn" data-pdf="cancel">Cancel</button></div>':'<div class="actions" style="justify-content:flex-start;margin-top:12px"><button class="btn" data-pdf="cancel">Done</button></div>');
+  var bal=pdf.files.map(function(f,i){if(!(f.meta&&f.meta.endBalance>0))return '';
+    return '<div class="row wrap" style="align-items:center"><div class="grow" style="flex-basis:240px"><div class="nm">'+esc(f.name)+' shows a closing balance of '+money(f.meta.endBalance)+'</div><div class="sub" style="white-space:normal">Bring an account up to date with it (optional).</div></div><select data-pdfbal="'+i+'" aria-label="Account to update">'+S.accounts.map(function(a){return '<option value="'+esc(a.id)+'">'+esc(a.name)+'</option>'}).join('')+'</select><button class="btn small" data-pdf="setbal" data-i="'+i+'"'+(S.accounts.length?'':' disabled')+'>Set balance</button></div>'}).join('');
+  return h+note+pick+files+bal+(pdf.rows.length?'<p style="margin:14px 0 8px"><b>'+pdf.rows.length+'</b> transaction'+(pdf.rows.length===1?'':'s')+' found'+(dups?', '+dups+' already in the app (unchecked)':'')+(trs?', '+trs+' look like transfers between your own accounts (unchecked, so they are not counted as spending or income)':'')+'. '+(unc?'<b class="warn">'+unc+' have a guessed sign</b> (marked \u26a0). Check them, and use the amount button to flip money in and out.':'Check the amounts and signs before importing.')+'</p><div class="pdfscroll">'+rows+'</div>'+(pdf.rows.length>300&&!pdf.showAll?'<div class="empty"><button class="btn small" data-pdf="all">Show all '+pdf.rows.length+'</button></div>':'')+'<div class="actions" style="justify-content:flex-start;margin-top:12px"><button class="btn primary" data-pdf="import"'+(on?'':' disabled')+'>Import '+on+' transaction'+(on===1?'':'s')+'</button>'+(window.tally&&window.tally.ai&&aiSt&&aiSt.hasKey&&pdf.rows.some(function(r){return r.on&&r.cat==='Other'})?'<button class="btn" data-pdf="aicat"'+(pdf.aiBusy?' disabled':'')+'>'+(pdf.aiBusy?'Asking Claude…':'Predict categories with AI')+'</button>':'')+'<button class="btn" data-pdf="cancel">Cancel</button></div>':'<div class="actions" style="justify-content:flex-start;margin-top:12px"><button class="btn" data-pdf="cancel">Done</button></div>');
 }
 function renderPdf(){
   var el=$('#pdfpanel');if(!el)return;el.innerHTML=pdfInner();
@@ -2885,6 +2960,7 @@ function csvEditor(f,i){
 }
 function pdfClick(b){
   var a=b.dataset.pdf,i=+b.dataset.i;
+  if(a==='setbal'){var sel=document.querySelector('[data-pdfbal="'+i+'"]'),acc=sel&&S.accounts.filter(function(x){return x.id===sel.value})[0],ff=pdf.files[i];if(acc&&ff&&ff.meta&&ff.meta.endBalance>=0){acctSetBalance(acc,ff.meta.endBalance);save();toast(acc.name+' is now '+money(ff.meta.endBalance)+'.');renderPdf()}return}
   if(a==='cancel'){pdf={stage:'idle',type:pdf.type,files:[],rows:[],msg:'',busy:'',aiConfirm:-1,aiPdfConfirm:-1,showText:-1,mapIdx:-1,showAll:false};renderPdf();return}
   if(a==='all'){pdf.showAll=true;renderPdf();return}
   if(a==='aicat'){
@@ -3349,8 +3425,10 @@ document.addEventListener('click',function(e){
     })},'Waiting for the servicer window…').then(function(){render()});return;
   }
   else if(a==='loan-prefresh'){plRun(function(){return plSyncIds(Object.keys(PL.items).filter(function(id){return PL.items[id].loan}))},'Refreshing…').then(function(){render()});return}
+  else if(a==='mort-hint'){var hv=parseFloat(b.dataset.v);if(hv>=0&&/^(taxYear|insYear|hoaMonth|maintPct)$/.test(b.dataset.k))S.home[b.dataset.k]=hv}
   else if(a==='mort-edit'){mortUI.edit=true}
-  else if(a==='mort-cancel'){mortUI.edit=false}
+  else if(a==='mort-cancel'){mortUI.edit=false;mortUI.pre=null;mortUI.imp=null}
+  else if(a==='dp-usehist'){debtUI.monthly=b.dataset.v;S.debtMonthly=+b.dataset.v||0}
   else if(a==='loan-filter'){loanFilter=b.dataset.f}
   else if(a==='loan-add'){loanUI[b.dataset.kind].adding=true;loanUI[b.dataset.kind].edit=''}
   else if(a==='loan-cancel'){loanUI[b.dataset.kind].adding=false;loanUI[b.dataset.kind].edit=''}
@@ -3444,6 +3522,17 @@ function thBind(m){
       }).catch(function(e){loanUI[kind].imp={stage:'idle',msg:e.message};render()});
     };rd.readAsArrayBuffer(f);inp.value='';
   }});
+  m.querySelectorAll('[data-mortfile]').forEach(function(inp){inp.onchange=function(){
+    var f=inp.files[0];if(!f)return;var rd=new FileReader();
+    rd.onload=function(){
+      mortUI.imp={busy:'Reading '+f.name+'…'};render();
+      tcall(T.loan.readFile(rd.result,f.name)).then(function(r){return tcall(T.loan.parse(r.textId,'mortgage'))}).then(function(res){
+        if(!res||!res.ok){mortUI.imp={err:'No mortgage figures were found in '+f.name+'. Check that it is a mortgage statement, or type the numbers in.'};mortUI.pre=null}
+        else{mortUI.pre=res.mortgage;mortUI.imp={file:f.name,notes:res.notes}}
+        mortUI.edit=true;render();
+      }).catch(function(e){mortUI.imp={err:e.message};render()});
+    };rd.readAsArrayBuffer(f);inp.value='';
+  }});
   var af=$('#asstform',m);if(af)af.onsubmit=function(e){e.preventDefault();var inp=$('#asst-in');var t=inp.value;inp.value='';assistSend(t)};
   var pf=$('#pullform',m);if(pf)pf.onsubmit=function(e){e.preventDefault();assistPull($('#pull-name').value)};
   var am=$('#asst-model',m);if(am)am.onchange=function(){ASSIST.model=am.value;assistSave()};
@@ -3457,7 +3546,8 @@ function thBind(m){
     if(!(v.value>0)){toast('Enter what the home is worth now.');return}
     if(v.apr>40||v.balance<0){toast('Check the rate and balance.');return}
     if(v.balance>0&&!(v.pi>0)){toast('Enter your monthly principal-and-interest payment so the payoff can be worked out.');return}
-    saveHome(v);mortUI.edit=false;save();render();toast('Saved.')};
+    var escNote=false;if(!(v.taxYear>0)&&!(v.insYear>0)&&mortUI.pre&&mortUI.pre.escrow>0){v.taxYear=Math.round(mortUI.pre.escrow*12);escNote=true}   // escrow covers tax and insurance together: until you split them, count it all
+    saveHome(v);mortUI.edit=false;mortUI.pre=null;mortUI.imp=null;save();render();toast(escNote?'Saved. Property tax and insurance use your whole escrow payment for now; split them under Edit details.':'Saved.')};
   m.querySelectorAll('[data-ha]').forEach(function(i){i.onchange=function(){var v=parseFloat(i.value);if(!(v>=0))return;S.home[i.dataset.ha]=v;save();render()}});
   m.querySelectorAll('[data-hv]').forEach(function(i){i.onchange=function(){var v=parseFloat(i.value);if(!(v>=0))return;var H=S.home,a=S.accounts.filter(function(x){return x.id===(i.dataset.hv==='value'?H.valueId:H.mortId)})[0];if(!a)return;acctSetBalance(a,v);save();render()}});
   var hmh=$('#hm-horizon',m);if(hmh)hmh.onchange=function(){mortUI.horizon=+hmh.value;render()};

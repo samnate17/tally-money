@@ -31,6 +31,7 @@ function world(overrides = {}) {
   const aiKey = (n) => normName(n) || '(blank)';
   const DEBT_TYPES = { credit: 1, student: 1, auto: 1, mortgage: 1, loan: 1 };
   const deps = { aiKey, DEBT_TYPES, CATS, S, TODAY, iso, parseD, addDays, dayDiff, monthKey, shiftMonth, normName, guessCat, guessSub: () => '', uid, NOWKEY, spendBy, incomeOf, isDebt, activeSubs, nextDate, money0 };
+  Object.assign(deps, new Function(...Object.keys(deps), block('BUDGET') + block('HISTORY') + ';return {historyStats, homeHints, trimmedMean, pastMonths}')(...Object.values(deps)), { ledger: () => S.txns });
   const names = Object.keys(deps);
   const mk = (blk, ret) => new Function(...names, block(blk) + ';return {' + ret + '}')(...names.map((n) => deps[n]));
   return { S, deps,
@@ -1219,4 +1220,31 @@ test('bills: student loan groups from one lender are one bill that adds up and c
   assert.deepStrictEqual([g.name, g.amount, g.dueDay, g.raw.pastDue], ['Nelnet student loans (2)', 72.19, 28, 15]);
   const st = B.billStatus(g, '2026-10', [{ date: '2026-10-27', name: 'DEPT EDUCATION NELNET PMT', amount: -72.19 }], {}, new Date(2026, 9, 28));
   assert.strictEqual(st.state, 'paid');
+});
+
+test('history: typical month ignores one-off extremes, flags swings and gives a safe extra', () => {
+  const w = budgetWorld();
+  const H = w.deps.historyStats;
+  const mkT = (m, inc, sp) => [{ date: m + '-05', name: 'PAY', amount: inc, cat: 'Income' }, { date: m + '-10', name: 'STUFF', amount: -sp, cat: 'Shopping' }];
+  const months = ['2026-03', '2026-04', '2026-05', '2026-06', '2026-07', '2026-08', '2026-09'];
+  const spends = [2000, 2100, 1900, 6000, 2050, 1950, 2000];             // June had a one-off
+  const txns = months.flatMap((m, i) => mkT(m, 3000, spends[i]));
+  const h = H(txns, '2026-10', 12);
+  assert.strictEqual(h.n, 7);
+  assert.ok(h.avgSpend < 2500, 'one big month must not decide the average: ' + h.avgSpend);
+  assert.ok(h.surplus > 800);
+  assert.ok(h.safeExtra > 0 && h.safeExtra <= h.surplus);
+  assert.strictEqual(h.badMonths, 1);
+  assert.strictEqual(H([], '2026-10', 12).n, 0);
+});
+
+test('history: hints from housing payments in transactions (tax, insurance, HOA, repairs, mortgage)', () => {
+  const w = budgetWorld();
+  const hints = w.deps.homeHints;
+  const t = [];
+  for (let i = 1; i <= 12; i++) { const m = i <= 9 ? '2026-' + String(10 - i).padStart(2, '0') : '2025-' + String(22 - i).padStart(2, '0'); t.push({ date: m + '-03', name: 'MR COOPER MORTGAGE', amount: -2200, cat: 'Housing', sub: 'Mortgage' }, { date: m + '-04', name: 'HOA DUES', amount: -150, cat: 'Housing' }); }
+  t.push({ date: '2026-04-15', name: 'TOWN OF BENNINGTON PROPERTY TAX', amount: -3000, cat: 'Housing' }, { date: '2025-11-15', name: 'TOWN OF BENNINGTON PROPERTY TAX', amount: -3000, cat: 'Housing' },
+    { date: '2026-02-01', name: 'LEMONADE HOMEOWNERS', amount: -1200, cat: 'Housing' }, { date: '2026-06-02', name: 'ACE HARDWARE', amount: -400, cat: 'Housing', sub: 'Repairs and supplies' });
+  const r = hints(t, '2026-10');
+  assert.deepStrictEqual([r.mortMonth, r.hoaMonth, r.taxYear, r.insYear, r.repairYear], [2200, 150, 6000, 1200, 400]);
 });
