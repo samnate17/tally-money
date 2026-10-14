@@ -1600,3 +1600,17 @@ test('imports: duplicates, import batches, removal and the backup cleaner', () =
   const c = I.cleanImports([{ id: 'ok_1', date: '2026-10-01', label: '<b>Apple</b>', count: 9, acct: 'a1' }, { id: 'bad id' }, null, { id: 'z', date: 'x', count: -4 }], () => 'n');
   assert.deepStrictEqual(c, [{ id: 'ok_1', date: '2026-10-01', label: 'bApple/b', count: 9, acct: 'a1' }, { id: 'z', date: '', label: 'Import', count: 0, acct: '' }]);
 });
+
+test('bills: autopay bills are expected, turn paid when the payment shows up, and are flagged only if it does not', () => {
+  const B = billsWorld(), today = new Date(2026, 9, 12);                      // Oct 12
+  const mk = (day, extra) => Object.assign({ id: 'b' + day, name: 'Cell phone', amount: 80, dueDay: day, match: 'tmobile', autopay: true }, extra || {});
+  const stt = (b, txns) => B.billStatus(B.billItems([b], [])[0], '2026-10', txns || [], {}, today);
+  assert.strictEqual(stt(mk(20)).state, 'autopay');                            // due later this month
+  assert.strictEqual(stt(mk(11)).state, 'autopay');                            // due yesterday: give it a few days
+  assert.strictEqual(stt(mk(5)).state, 'overdue');                             // a week late: autopay did not go through
+  assert.strictEqual(stt(mk(5)).auto, true);
+  assert.strictEqual(stt(mk(11), [{ date: '2026-10-11', name: 'TMOBILE PAYMENT', amount: -80 }]).state, 'paid');
+  assert.strictEqual(B.billStatus(B.billItems([mk(20, { autopay: false })], [])[0], '2026-10', [], {}, today).state, 'upcoming');
+  const sum = B.billsSummary(B.billItems([mk(20)], []), '2026-10', [], {}, today);
+  assert.strictEqual(sum.pending, 80); assert.strictEqual(sum.next.item.name, 'Cell phone');   // still counted as money going out
+});

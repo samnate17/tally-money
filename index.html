@@ -1199,21 +1199,21 @@ function cardMatchRe(a){
   return new RegExp(who+'.*'+pay+'|'+pay+'.*'+who,'i');
 }
 function billItems(bills,accounts,txns){
-  var out=(bills||[]).map(function(b){return {id:b.id,name:b.name,amount:+b.amount||0,dueDay:+b.dueDay||0,source:'bill',cat:b.cat||'',sub:b.sub||'',re:billMatchRe(b),raw:b}});
+  var out=(bills||[]).map(function(b){return {id:b.id,name:b.name,amount:+b.amount||0,dueDay:+b.dueDay||0,source:'bill',cat:b.cat||'',sub:b.sub||'',autopay:b.autopay===true,re:billMatchRe(b),raw:b}});
   var manual=(bills||[]).map(function(b){return String(b.name||'').toLowerCase()});
   (accounts||[]).forEach(function(a){if(BILL_LOAN_TYPES[a.type]&&a.minPay>0&&a.balance>0){
     var nm=String(a.name||'').toLowerCase();
     if(nm.length>=5&&manual.some(function(m){return m===nm||(m.length>=5&&(m.indexOf(nm)>-1||nm.indexOf(m)>-1))}))return;   // you already added this one by hand
     var re=a.type==='credit'?cardMatchRe(a):loanMatchRe(a),day=+a.dueDay>0?+a.dueDay:0,guessed=false;
     if(!day&&re&&txns){var ds=txns.filter(function(x){return x.amount<0&&re.test(x.name)}).map(function(x){return +x.date.slice(8)}).sort(function(p,q){return p-q});if(ds.length){day=ds[Math.floor(ds.length/2)];guessed=true}}   // no due day set: use the day your payments usually land
-    out.push({id:'loan:'+a.id,name:a.name,amount:a.minPay,dueDay:day,dayGuessed:guessed,source:'loan',kind:a.type,cat:'Debt and loans',sub:a.type==='credit'?'Credit card':(a.type==='auto'?'Car loan':(a.type==='student'?'Student loan':'')),re:re,raw:a})}});
+    out.push({id:'loan:'+a.id,autopay:a.autopay===true,name:a.name,amount:a.minPay,dueDay:day,dayGuessed:guessed,source:'loan',kind:a.type,cat:'Debt and loans',sub:a.type==='credit'?'Credit card':(a.type==='auto'?'Car loan':(a.type==='student'?'Student loan':'')),re:re,raw:a})}});
   // Several loans from one lender (a student loan split into groups) are paid as one payment, so they are one bill.
   var grp={};out.forEach(function(it){if(it.source==='loan'&&it.kind==='student'&&it.raw.lender){var k=String(it.raw.lender).toLowerCase()+'|'+it.kind;(grp[k]=grp[k]||[]).push(it)}});
   Object.keys(grp).forEach(function(k){
     var g=grp[k];if(g.length<2)return;
     var days={},best=g[0],top=0,total=0,past=0;
     g.forEach(function(it){total+=it.amount;past+=+it.raw.pastDue||0;if(it.dueDay){days[it.dueDay]=(days[it.dueDay]||0)+1;if(days[it.dueDay]>top){top=days[it.dueDay];best=it}}});
-    var merged={id:'loan:grp:'+k,name:g[0].raw.lender+' student loans ('+g.length+')',amount:Math.round(total*100)/100,dueDay:best.dueDay,dayGuessed:best.dayGuessed,source:'loan',kind:'student',cat:'Debt and loans',sub:'Student loan',re:g[0].re,raw:{lender:g[0].raw.lender,pastDue:past}};
+    var merged={id:'loan:grp:'+k,autopay:g.every(function(it){return it.autopay}),name:g[0].raw.lender+' student loans ('+g.length+')',amount:Math.round(total*100)/100,dueDay:best.dueDay,dayGuessed:best.dayGuessed,source:'loan',kind:'student',cat:'Debt and loans',sub:'Student loan',re:g[0].re,raw:{lender:g[0].raw.lender,pastDue:past}};
     out=out.filter(function(it){return g.indexOf(it)<0});out.push(merged);
   });
   return out;
@@ -1241,7 +1241,9 @@ function billStatus(it,mk,txns,marks,today){
   else if(mk===nowK&&due&&due<midnight)state='overdue';
   else if(mk===nowK&&due&&due-midnight<=7*864e5)state='soon';
   else state='upcoming';
-  return {state:state,due:due,found:mark==='unpaid'?null:found,manual:!!mark,paidAmount:paid?(found?found.amount:it.amount):0};
+  var apDays=due?Math.round((midnight-due)/864e5):0,ap=!!it.autopay&&!paid;   // on autopay: expected to go out by itself, so only flag it when it has not shown up a few days after the due date
+  if(ap&&(state==='soon'||state==='upcoming'||(state==='overdue'&&apDays<=3)))state='autopay';
+  return {state:state,auto:!!it.autopay,due:due,found:mark==='unpaid'?null:found,manual:!!mark,paidAmount:paid?(found?found.amount:it.amount):0};
 }
 function billsSummary(items,mk,txns,marks,today){
   var rows=items.map(function(it){return {item:it,st:billStatus(it,mk,txns,marks,today)}}).sort(function(a,b){return (a.st.due?a.st.due.getTime():9e15)-(b.st.due?b.st.due.getTime():9e15)||a.item.name.localeCompare(b.item.name)});
@@ -1249,7 +1251,7 @@ function billsSummary(items,mk,txns,marks,today){
   rows.forEach(function(r){
     out.total+=r.item.amount;
     if(r.st.state==='paid'){out.paid+=r.st.paidAmount;out.paidCount++}
-    else{out.pending+=r.item.amount;if(r.st.state==='overdue')out.overdue++;if(!out.next&&r.st.due&&(r.st.state==='soon'||r.st.state==='upcoming'||r.st.state==='overdue'))out.next=r}
+    else{out.pending+=r.item.amount;if(r.st.state==='overdue')out.overdue++;if(!out.next&&r.st.due&&(r.st.state==='soon'||r.st.state==='upcoming'||r.st.state==='overdue'||r.st.state==='autopay'))out.next=r}
   });
   return out;
 }
@@ -2906,6 +2908,7 @@ function billForm(b){
    '<label class="newc" style="display:none">New category name<input name="nc" maxlength="24" placeholder="e.g. Haircuts"></label>'+
    '<label>Sub-category<select name="u">'+subOptions(v.cat||'Housing',v.sub||'')+'<option value="__new">+ New sub-category…</option></select></label>'+
    '<label class="news" style="display:none">New sub-category name<input name="ns" maxlength="32" placeholder="e.g. Barber"></label>'+
+   '<label style="flex-direction:row;align-items:center;gap:6px"><input name="ap" type="checkbox"'+(v.autopay?' checked':'')+'> On autopay</label>'+
    '<label>Words in the payment name<input name="m" maxlength="80" value="'+esc(v.match||'')+'" placeholder="e.g. eversource" style="width:170px"></label></div>'+
    '<p class="sub muted" style="margin:8px 0 0;font-size:12px">A payment counts toward this bill if its description has one of the words, or, when you pick a sub-category, if it is filed under that category and sub-category (for example Housing, Electric). Leave both out to mark it paid by hand.</p>'+
    '<div class="actions" style="justify-content:flex-start;margin-top:10px"><button class="btn primary small">'+(b?'Save changes':'Add bill')+'</button><button type="button" class="btn small" data-act="bill-cancel">Cancel</button></div></form>';
@@ -2913,7 +2916,8 @@ function billForm(b){
 function billPill(st){
   var d=st.due?shortDate(iso(st.due)):'';
   if(st.state==='paid')return '<span class="pill good">'+(st.found?'Paid '+shortDate(st.found.date):'Marked paid')+'</span>';
-  if(st.state==='overdue')return '<span class="pill bad">Overdue · was '+d+'</span>';
+  if(st.state==='autopay')return '<span class="pill good" title="Comes out by itself. It turns to Paid once the payment shows up in your transactions.">Autopay'+(d?' · '+d:'')+'</span>';
+  if(st.state==='overdue')return '<span class="pill bad">'+(st.auto?'Autopay not seen':'Overdue')+' · was '+d+'</span>';
   if(st.state==='missed')return '<span class="pill bad">Not found</span>';
   if(st.state==='soon'){var n=Math.max(0,Math.round((st.due-new Date(TODAY.getFullYear(),TODAY.getMonth(),TODAY.getDate()))/864e5));return '<span class="pill warn">Due '+(n===0?'today':'in '+n+' day'+(n===1?'':'s'))+'</span>'}
   return '<span class="pill mute">'+(d?'Due '+d:'Pending')+'</span>';
@@ -2927,6 +2931,7 @@ function vBills(){
     if(it.source==='bill'&&billUI.edit===it.id)return billForm(it.raw);
     var act=st.state==='paid'?'<button class="btn small" data-act="bill-undo" data-id="'+esc(it.id)+'">'+(st.manual?'Undo':'Not paid?')+'</button>':'<button class="btn small primary" data-act="bill-paid" data-id="'+esc(it.id)+'">Mark paid</button>';
     var more=it.source==='auto'?'<button class="btn small" data-act="bill-keep" data-id="'+esc(it.id)+'" title="Save it as your own bill so you can edit it">Keep</button><button class="btn small" data-act="bill-ignore" data-id="'+esc(it.id)+'" aria-label="Not a bill" title="This is not a bill. Stop showing it.">Not a bill</button>':it.source==='bill'?'<button class="btn small" data-act="bill-edit" data-id="'+esc(it.id)+'">Edit</button><button class="btn small" data-act="bill-del" data-id="'+esc(it.id)+'" aria-label="Remove">&times;</button>':'<span class="sub muted" style="font-size:12px">from your '+(it.kind==='credit'?'card':'loan')+'</span>';
+    if(it.source==='bill'||it.source==='loan')more='<button class="btn small'+(it.autopay?' primary':'')+'" data-act="bill-autopay" data-id="'+esc(it.id)+'" aria-pressed="'+(it.autopay?'true':'false')+'" title="'+(it.autopay?'On autopay. Press to turn off.':'Press if this comes out automatically.')+'">'+(it.autopay?'Autopay on':'Autopay')+'</button>'+more;
     if(it.source==='maint'){act='<button class="btn small primary" data-act="maint-done" data-id="'+esc(it.id)+'">Done</button>';more='<button class="btn small" data-view="assets">Open</button>'}
     var paidNote=(st.state==='paid'&&st.found&&Math.abs(st.found.amount-it.amount)>=1?' · paid '+money(st.found.amount):'')+(it.source==='loan'&&it.raw.pastDue>0?' · <span class="bad">past due '+money(it.raw.pastDue)+'</span>':'');
     return '<div class="row wrap">'+logo(it.name)+'<div class="grow" style="flex-basis:200px"><div class="nm">'+esc(it.name)+'</div><div class="sub">'+(it.dueDay?(it.dayGuessed?'Usually paid around the ':'Due on the ')+it.dueDay+ordinal(it.dueDay):'No due day')+(it.source==='auto'?' · <span class="pill good" style="font-size:11px">Found in your transactions</span>':'')+(it.cat?' · '+esc(it.cat)+(it.sub?' › '+esc(it.sub):''):'')+paidNote+'</div>'+(it.source==='bill'||it.source==='loan'?'<div style="margin-top:6px">'+payBtn(it.id.indexOf('loan:')===0||it.source==='bill'?(it.source==='bill'?'bill:'+it.id:it.id):it.id)+'</div>':'')+'</div>'+billPill(st)+'<div class="amt num">'+money(it.amount)+'</div><div class="actions" style="flex:none;flex-wrap:nowrap">'+act+more+'</div></div>';
@@ -5036,7 +5041,7 @@ function cleanBackup(j){
   var setAside=(Array.isArray(d.setAside)?d.setAside:[]).filter(okTx).slice(0,5000).map(cleanTx);
   var subCats={};if(d.subCats&&typeof d.subCats==='object'&&!Array.isArray(d.subCats))Object.keys(d.subCats).forEach(function(c){if(allowed.indexOf(c)>-1&&Array.isArray(d.subCats[c]))subCats[c]=parseSubList(d.subCats[c].join(','))});
   var merchantSubs={};if(d.merchantSubs&&typeof d.merchantSubs==='object'&&!Array.isArray(d.merchantSubs))Object.keys(d.merchantSubs).slice(0,3000).forEach(function(k){var n=cleanSubName(d.merchantSubs[k]);if(n&&String(k).length<=120)merchantSubs[String(k)]=n});
-  var bills=(Array.isArray(d.bills)?d.bills:[]).filter(function(x){return x&&x.name&&isFinite(x.amount)}).slice(0,100).map(function(x){return {id:String(x.id||uid()).slice(0,40),name:cleanSubName(x.name).slice(0,40)||'Bill',amount:Math.max(0,Math.round(+x.amount*100)/100),dueDay:Math.min(31,Math.max(0,Math.round(+x.dueDay||0))),cat:allowed.indexOf(x.cat)>-1?x.cat:'Housing',sub:cleanSubName(x.sub),match:String(x.match||'').replace(/[<>"]/g,'').slice(0,80)}});
+  var bills=(Array.isArray(d.bills)?d.bills:[]).filter(function(x){return x&&x.name&&isFinite(x.amount)}).slice(0,100).map(function(x){return {id:String(x.id||uid()).slice(0,40),name:cleanSubName(x.name).slice(0,40)||'Bill',amount:Math.max(0,Math.round(+x.amount*100)/100),dueDay:Math.min(31,Math.max(0,Math.round(+x.dueDay||0))),cat:allowed.indexOf(x.cat)>-1?x.cat:'Housing',sub:cleanSubName(x.sub),match:String(x.match||'').replace(/[<>"]/g,'').slice(0,80),autopay:x.autopay===true}});
   var billMarks={};if(d.billMarks&&typeof d.billMarks==='object'&&!Array.isArray(d.billMarks))Object.keys(d.billMarks).slice(0,5000).forEach(function(k){if(/^[\w:.-]{1,60}:\d{4}-\d{2}$/.test(k)&&(d.billMarks[k]==='paid'||d.billMarks[k]==='unpaid'))billMarks[k]=d.billMarks[k]});
   var energy=(Array.isArray(d.energy)?d.energy:[]).filter(function(x){return x&&/^\d{4}-\d{2}$/.test(x.month)&&isFinite(x.kwh)&&+x.kwh>=0}).slice(0,240).map(function(x){return {month:x.month,kwh:Math.round(+x.kwh*10)/10,cost:x.cost!==null&&x.cost!==undefined&&isFinite(x.cost)&&+x.cost>=0?Math.round(+x.cost*100)/100:null,days:Math.min(62,Math.max(0,Math.round(+x.days||0)))}});
   var merchantCats={};if(d.merchantCats&&typeof d.merchantCats==='object'&&!Array.isArray(d.merchantCats))Object.keys(d.merchantCats).slice(0,3000).forEach(function(k){if(allowed.indexOf(d.merchantCats[k])>-1&&String(k).length<=120)merchantCats[String(k)]=d.merchantCats[k]});
@@ -5047,7 +5052,7 @@ function cleanBackup(j){
   var accounts=(Array.isArray(d.accounts)?d.accounts:[]).filter(function(x){return x&&x.name&&isFinite(x.balance)&&+x.balance>=0&&(ASSET_TYPES[x.type]||DEBT_TYPES[x.type])}).map(function(x){
     var hist=(Array.isArray(x.history)?x.history:[]).filter(function(h){return h&&dre.test(h.date)&&isFinite(h.balance)}).map(function(h){return {date:h.date,balance:+h.balance}}).sort(function(a,b){return a.date<b.date?-1:1});
     if(!hist.length)hist=[{date:iso(TODAY),balance:+x.balance}];
-    var ac={id:String(x.id||uid()),name:String(x.name).slice(0,120),type:x.type,balance:+x.balance,apr:DEBT_TYPES[x.type]?Math.max(0,+x.apr||0):0,minPay:DEBT_TYPES[x.type]?Math.max(0,+x.minPay||0):0,history:hist};if(x.type==='credit'&&+x.limit>0)ac.limit=+x.limit;if(x.type==='credit'&&x.closed===true)ac.closed=true;if(DEBT_TYPES[x.type]&&x.contract){var cc=cleanContract(x.contract);if(cc)ac.contract=cc}if(DEBT_TYPES[x.type]){if(photoOk(x.photo))ac.photo=x.photo;if(/^#[0-9a-f]{6}$/i.test(x.carColor||''))ac.carColor=x.carColor;if(CAR_TYPES[x.carType])ac.carType=x.carType;if(/^\d{4}-\d{2}(-\d{2})?$/.test(x.opened||''))ac.opened=x.opened;if(/^\d{4}$/.test(x.last4||''))ac.last4=x.last4;if(typeof x.carSvg==='string'){var csv=cleanCarSvg(x.carSvg);if(csv)ac.carSvg=csv}if(x.showPhoto===true)ac.showPhoto=true}if(DEBT_TYPES[x.type]){var dd=Math.round(+x.dueDay);if(dd>=1&&dd<=31)ac.dueDay=dd;if(+x.origBalance>0)ac.origBalance=+x.origBalance;if(typeof x.lender==='string'&&x.lender)ac.lender=cleanSubName(x.lender).slice(0,40);var stm=cleanStmt(x);Object.keys(stm).forEach(function(k){ac[k]=stm[k]})}if(x.plaid&&typeof x.plaid.accountId==='string')ac.plaid={itemId:String(x.plaid.itemId||'').slice(0,100),accountId:x.plaid.accountId.slice(0,100)};if(x.wallet===true&&x.type==='cash')ac.wallet=true;if(x.type==='property'&&x.asset){var as1=cleanAsset(x.asset,uid);if(as1)ac.asset=as1}return ac});
+    var ac={id:String(x.id||uid()),name:String(x.name).slice(0,120),type:x.type,balance:+x.balance,apr:DEBT_TYPES[x.type]?Math.max(0,+x.apr||0):0,minPay:DEBT_TYPES[x.type]?Math.max(0,+x.minPay||0):0,history:hist};if(x.type==='credit'&&+x.limit>0)ac.limit=+x.limit;if(x.type==='credit'&&x.closed===true)ac.closed=true;if(DEBT_TYPES[x.type]&&x.contract){var cc=cleanContract(x.contract);if(cc)ac.contract=cc}if(DEBT_TYPES[x.type]){if(photoOk(x.photo))ac.photo=x.photo;if(/^#[0-9a-f]{6}$/i.test(x.carColor||''))ac.carColor=x.carColor;if(CAR_TYPES[x.carType])ac.carType=x.carType;if(/^\d{4}-\d{2}(-\d{2})?$/.test(x.opened||''))ac.opened=x.opened;if(/^\d{4}$/.test(x.last4||''))ac.last4=x.last4;if(typeof x.carSvg==='string'){var csv=cleanCarSvg(x.carSvg);if(csv)ac.carSvg=csv}if(x.showPhoto===true)ac.showPhoto=true}if(DEBT_TYPES[x.type]){var dd=Math.round(+x.dueDay);if(dd>=1&&dd<=31)ac.dueDay=dd;if(+x.origBalance>0)ac.origBalance=+x.origBalance;if(typeof x.lender==='string'&&x.lender)ac.lender=cleanSubName(x.lender).slice(0,40);var stm=cleanStmt(x);Object.keys(stm).forEach(function(k){ac[k]=stm[k]})}if(x.plaid&&typeof x.plaid.accountId==='string')ac.plaid={itemId:String(x.plaid.itemId||'').slice(0,100),accountId:x.plaid.accountId.slice(0,100)};if(x.wallet===true&&x.type==='cash')ac.wallet=true;if(x.autopay===true&&DEBT_TYPES[x.type])ac.autopay=true;if(x.type==='property'&&x.asset){var as1=cleanAsset(x.asset,uid);if(as1)ac.asset=as1}return ac});
   var home={};if(d.home&&typeof d.home==='object'&&!Array.isArray(d.home)){['purchasePrice','down','closing','origLoan','termYears','taxYear','insYear','hoaMonth','pmiMonth','maintPct','mgmtPct','vacancyPct','appreciation','ret','sellPct','rentGrowth','costGrowth','rentMonth','extra'].forEach(function(k){var n=parseFloat(d.home[k]);if(isFinite(n)&&n>=0&&n<1e9)home[k]=n});['purchaseDate','startDate'].forEach(function(k){if(/^\d{4}-\d{2}-\d{2}$/.test(d.home[k]||''))home[k]=d.home[k]});['mortId','valueId'].forEach(function(k){if(typeof d.home[k]==='string'&&/^[\w-]{1,40}$/.test(d.home[k])&&accounts.some(function(a){return a.id===d.home[k]}))home[k]=d.home[k]});if(d.home.setup===true&&home.valueId)home.setup=true;if(photoOk(d.home.photo))home.photo=d.home.photo}
   return {imports:cleanImports(d.imports,uid),txns:txns,subs:subs,budgets:budgets,goals:goals,accounts:accounts,extraPay:Math.max(0,+d.extraPay||0),plaidIgnored:(Array.isArray(d.plaidIgnored)?d.plaidIgnored:[]).filter(function(x){return typeof x==='string'}).slice(0,200),credit:cleanCredit(d.credit),holdings:cleanHoldings(d.holdings),customCats:custom,setAside:setAside,merchantCats:merchantCats,subCats:subCats,merchantSubs:merchantSubs,bills:bills,billMarks:billMarks,energy:energy,home:home,debtMonthly:Math.max(0,+d.debtMonthly||0),billIgnore:(function(){var o={};if(d.billIgnore&&typeof d.billIgnore==='object'&&!Array.isArray(d.billIgnore))Object.keys(d.billIgnore).slice(0,500).forEach(function(k){if(k.length<=120&&k!=='__proto__')o[k]=1});return o})(),cardPay:d.cardPay==='skip'||d.cardPay==='count'?d.cardPay:'auto',apple:(function(){var a=d.apple||{},o={};if(typeof a.acct==='string'&&a.acct.length<=40)o.acct=a.acct;if(/^\d{4}-\d{2}-\d{2}$/.test(a.last||''))o.last=a.last;if(+a.count>=0)o.count=Math.min(1e6,Math.round(+a.count));return o})(),payLinks:cleanPayLinks(d.payLinks)};
 }
@@ -5280,6 +5285,7 @@ document.addEventListener('click',function(e){
   else if(a==='bill-cancel'){billUI.adding=false;billUI.edit=''}
   else if(a==='bill-edit'){billUI.edit=id;billUI.adding=false}
   else if(a==='bill-del'){S.bills=S.bills.filter(function(x){return x.id!==id});Object.keys(S.billMarks).forEach(function(k){if(k.indexOf(id+':')===0)delete S.billMarks[k]})}
+  else if(a==='bill-autopay'){var apb=S.bills.filter(function(x){return x.id===id})[0];if(apb)apb.autopay=!apb.autopay;else if(String(id).indexOf('loan:')===0){var apIt=allBillItems(month).filter(function(x){return x.id===id})[0];if(apIt){var on=!apIt.autopay,accs=String(id).indexOf('loan:grp:')===0?S.accounts.filter(function(x){return x.type==='student'&&String(x.lender||'').toLowerCase()===String(apIt.raw.lender||'').toLowerCase()}):S.accounts.filter(function(x){return 'loan:'+x.id===id});accs.forEach(function(x){if(on)x.autopay=true;else delete x.autopay})}}}
   else if(a==='bill-paid'){S.billMarks[id+':'+month]='paid'}
   else if(a==='bill-undo'){var bk=id+':'+month;if(S.billMarks[bk]==='paid')delete S.billMarks[bk];else S.billMarks[bk]='unpaid'}
   else if(a==='bill-keep'||a==='bill-ignore'){var ab=allBillItems(month).filter(function(x){return x.id===id})[0];if(ab&&ab.source==='auto'){if(a==='bill-keep')S.bills.push({id:uid(),name:ab.name,amount:ab.amount,dueDay:ab.dueDay,cat:ab.cat,sub:ab.sub||guessSub(ab.cat,ab.name),match:''});else{S.billIgnore[ab.key]=1;toast('Hidden. It will not come back as a bill.')}}}
@@ -5493,7 +5499,7 @@ function thBind(m){
     if(sub==='__new'){var sn=cleanSubName(g('ns'));if(!sn){toast('Type a name for the new sub-category.');return}
       var sl=subList(cat).slice(),hit=sl.filter(function(x){return x.toLowerCase()===sn.toLowerCase()})[0];if(!hit){sl.push(sn);if(sl.length<=24){S.subCats[cat]=sl}}sub=hit||sn}
     var b=id?S.bills.filter(function(x){return x.id===id})[0]:null;if(!b){b={id:uid()};S.bills.push(b)}
-    b.name=g('n').trim().slice(0,40);b.amount=Math.round(amt*100)/100;b.dueDay=dd>=1&&dd<=31?dd:0;b.cat=cat;b.sub=sub;b.match=g('m').trim().slice(0,80);
+    b.name=g('n').trim().slice(0,40);b.amount=Math.round(amt*100)/100;b.dueDay=dd>=1&&dd<=31?dd:0;b.cat=cat;b.sub=sub;b.match=g('m').trim().slice(0,80);b.autopay=!!fm.elements['ap']&&fm.elements['ap'].checked;
     billUI.adding=false;billUI.edit='';save();render();toast(id?'Bill saved.':'Bill added.')}});
   m.querySelectorAll('.loanform').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();var g=function(n){return fm.elements[n].value},kind=fm.dataset.kind,id=fm.dataset.id,bal=parseFloat(g('b')),apr=parseFloat(g('a')),pay=parseFloat(g('p'));
     if(!(bal>=0)||!(apr>=0)||!(pay>=0)||!g('n').trim())return;
