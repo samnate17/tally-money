@@ -53,7 +53,7 @@ Pages project, Settings, General, Access policy, Enable. Then in Zero Trust, edi
 
 ## Appearance and liquid glass
 
-The Appearance tab changes how the whole app looks, live, and remembers it on this device:
+The Settings tab (Appearance section) changes how the whole app looks, live, and remembers it on this device:
 
 - **Colour:** eight presets (Indigo, Ocean, Violet, Emerald, Sunset, Rose, Gold, Graphite) or any custom accent. Buttons, progress bars, highlights, the first chart colour, the background glow and the desktop widget follow it. Light and dark variants are derived automatically so text stays readable.
 - **Glass and light:** Auto, Light or Dark; an Aurora background that drifts slowly behind the glass, a Still version, or Plain; a Frost slider for how blurred and opaque panels are (raise it if text is hard to read); corner roundness.
@@ -94,7 +94,7 @@ Limits: glass is one layer behind the whole window, not a separate lens on every
 
 ## Updating the app from inside the app
 
-Appearance tab, App updates (or Help, Check for Updates in the menu bar). Because the repository is private and the app is not signed by Apple, the usual auto-update libraries do not work, so this is built by hand:
+Settings tab, App updates (or Help, Check for Updates in the menu bar). Because the repository is private and the app is not signed by Apple, the usual auto-update libraries do not work, so this is built by hand:
 
 1. **One-time setup:** paste a read-only GitHub token. Create a fine-grained token at https://github.com/settings/personal-access-tokens/new, repository access: only `tally-money`, permission Repository, Contents: Read-only, with an expiry of up to a year. It is kept in the macOS Keychain (the same encrypted store as your other keys) and is never sent to the page. When it expires, paste a new one.
 2. **Check for updates** asks GitHub for the latest release. Once a day-ish (each launch) the app also checks quietly and shows a banner when a newer version exists.
@@ -230,7 +230,7 @@ Investments tab. Add each holding as ticker, shares and total invested. In the M
 - **Can I afford it?** suggests cutting categories, earning extra, or waiting.
 - **Electricity**: Eversource has no public API. Download your data from eversource.com (My Account, Usage, Green Button, Download My Data; CSV or XML, about 13 months) and choose the file on the Bills tab, or type months in. The app charts use and cost and gives savings advice. The file parsers follow the standard Green Button formats but have only been tested on made-up samples, so tell me if your real file is rejected.
 
-**Refresh button.** Every tab except Investments (which has Refresh prices) and Appearance has a Refresh button beside its title. It updates the date, re-runs the Can I afford it? check on your latest numbers, pulls changes made on another device (hosted accounts), and syncs your linked banks and loans in the Mac app.
+**Refresh button.** Every tab except Investments (which has Refresh prices) and Settings has a Refresh button beside its title. It updates the date, re-runs the Can I afford it? check on your latest numbers, pulls changes made on another device (hosted accounts), and syncs your linked banks and loans in the Mac app.
 
 ## Live dashboard
 
@@ -339,11 +339,11 @@ Apple only shares Apple Card activity with apps on an iPhone (Rocket Money does 
 - **Your house fills up.** On the Mortgage tab a house fills from the bottom as the share you own grows, windows light up and the chimney puffs. Add a photo of your own home if you like.
 - **Photos stay on your computer.** They are shrunk to about 100 KB, kept with your data (and in your backup file), and never uploaded. The app does not download photos of cars from the internet.
 - **Waffle chart.** Overview has "If you earned $100": 100 squares, one per dollar, colored by where the money went. It is easier to read than percentages.
-- **Charts move.** Rings, donuts, gauges and bars fill in, lines draw themselves, and goals have progress rings. Everything respects the reduced-motion setting in Appearance.
+- **Charts move.** Rings, donuts, gauges and bars fill in, lines draw themselves, and goals have progress rings. Everything respects the reduced-motion setting in Settings.
 
 ## Studio look
 
-Appearance has a new **Look** choice: *Studio* is near-black and cinematic, with large light numbers, flat dark panels, a spotlight glow and, on the car loan page, your car on a lit stage with a floor reflection and headlight glow. Quick-action buttons (Payoff, Charts, Extra payment, Refinance, Payments, Contract) jump to each section, and the Mortgage tab has the same for the house. *Glass* is the original light look. A one-time banner on Overview offers Studio; you can switch any time.
+Settings → Appearance has a new **Look** choice: *Studio* is near-black and cinematic, with large light numbers, flat dark panels, a spotlight glow and, on the car loan page, your car on a lit stage with a floor reflection and headlight glow. Quick-action buttons (Payoff, Charts, Extra payment, Refinance, Payments, Contract) jump to each section, and the Mortgage tab has the same for the house. *Glass* is the original light look. A one-time banner on Overview offers Studio; you can switch any time.
 
 ## Overview home screen
 
@@ -383,7 +383,7 @@ The app starts with made-up example data. "Start fresh" clears it, and so does y
 
 ## Backup and restore
 
-Transactions tab, Backup panel. "Download backup" saves a JSON file with everything. "Restore from file" reads one back, shows what it contains, and asks before replacing your current data. Use it to move between devices or to recover after clearing site data.
+Settings tab, Backup panel. "Download backup" saves a JSON file with everything. "Restore from file" reads one back, shows what it contains, and asks before replacing your current data. Use it to move between devices or to recover after clearing site data.
 
 ## Importing CSV and PDF statements
 
@@ -407,4 +407,8 @@ Open **Security** in the sidebar.
 
 ## Updating on Windows
 
-In **Appearance → App updates**, when a newer release exists the Windows app shows **Download and run installer**. It downloads the Setup file, checks its SHA-256 against the checksum GitHub publishes, opens it and closes the app so the installer can replace it. Click through the installer, then reopen Tally Money; your data stays. Windows may show a SmartScreen warning because the installer is unsigned (More info → Run anyway). The Mac app still replaces itself in place.
+In **Settings → App updates**, when a newer release exists the Windows app shows **Download and run installer**. It downloads the Setup file, checks its SHA-256 against the checksum GitHub publishes, opens it and closes the app so the installer can replace it. Click through the installer, then reopen Tally Money; your data stays. Windows may show a SmartScreen warning because the installer is unsigned (More info → Run anyway). The Mac app still replaces itself in place.
+
+## Settings tab
+
+The former Appearance tab is now **Settings**. It holds Appearance (look, colour, type and motion), App updates, and **Backup** (Download backup / Restore from file), which moved here from Transactions. Security (password and moving to another computer) keeps its own tab.

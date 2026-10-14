@@ -65,6 +65,7 @@ main{min-width:0;display:flex;flex-direction:column;gap:16px}
 .btn.danger{color:var(--bad)}
 .monthnav{display:flex;align-items:center;gap:6px}
 .monthnav b{min-width:128px;text-align:center;font-family:var(--font-display)}
+.setsec{font-size:13px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:22px 2px 8px}
 .gate{position:fixed;inset:0;z-index:50;background:var(--bg);display:flex;align-items:flex-start;justify-content:center;padding:24px 16px;overflow:auto}
 .gate .card{width:100%;max-width:420px;margin-top:6vh;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:24px}
 .gate h1{font-size:26px;margin:0 0 4px}
@@ -134,7 +135,7 @@ input[type=number]{width:110px}
 .tabbar .nav span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 @media (prefers-reduced-motion:no-preference){.bar>i{transition:width .4s ease}}
 
-/* ---------- Appearance: theme variables, aurora backdrop, liquid glass ---------- */
+/* ---------- Appearance (in Settings): theme variables, aurora backdrop, liquid glass ---------- */
 :root{--radius:16px;--glass-pct:62%;--glass-blur:24px;--glow:rgba(59,76,240,.45);--mesh1:#7a86ff;--mesh2:#c58bff;--mesh3:#4fd6ee;--fs:15px;
   --edge:rgba(255,255,255,.62);--edge-soft:rgba(255,255,255,.34);--shade:rgba(20,27,52,.22)}
 :root[data-theme="dark"]{--edge:rgba(255,255,255,.26);--edge-soft:rgba(255,255,255,.10);--shade:rgba(0,0,0,.5)}
@@ -545,7 +546,7 @@ var ICON={
  budgets:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v9h9"/><path d="M20.5 15A9 9 0 1 1 9 3.5"/></svg>',
  transactions:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h13M13 3l4 4-4 4M20 17H7M11 13l-4 4 4 4"/></svg>',
  goals:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg>'};
-var TABS=[['overview','Overview'],['dash','Dashboard','Live'],['accounts','Accounts'],['subscriptions','Subscriptions','Subs'],['bills','Bills','Bills'],['budgets','Budgets'],['report','Monthly report','Report'],['afford','Can I afford it?','Afford'],['credit','Credit'],['invest','Investments','Invest'],['transactions','Transactions','Activity'],['goals','Goals'],['loans','Loans'],['mortgage','Mortgage','Home'],['assist','Assistant','Chat'],['security','Security','Lock'],['look','Appearance','Look']];
+var TABS=[['overview','Overview'],['dash','Dashboard','Live'],['accounts','Accounts'],['subscriptions','Subscriptions','Subs'],['bills','Bills','Bills'],['budgets','Budgets'],['report','Monthly report','Report'],['afford','Can I afford it?','Afford'],['credit','Credit'],['invest','Investments','Invest'],['transactions','Transactions','Activity'],['goals','Goals'],['loans','Loans'],['mortgage','Mortgage','Home'],['assist','Assistant','Chat'],['security','Security','Lock'],['look','Settings','Settings']];
 function nav(){
   function items(short){return TABS.map(function(t){return '<button class="nav" data-view="'+t[0]+'"'+(view===t[0]?' aria-current="page"':'')+'>'+ICON[t[0]]+'<span>'+(short&&t[2]||t[1])+'</span></button>'}).join('')}
   var h=items(false);
@@ -842,7 +843,7 @@ function qaView(icon,label,view){return '<button type="button" data-view="'+view
 function lookOffer(){
   var seen=false;try{seen=localStorage.getItem('tally-look-offer')==='1'}catch(e){}
   if(seen||TH.bg==='studio')return '';
-  return '<div class="banner" style="margin-bottom:12px;align-items:center"><span><b>New look: Studio.</b> Dark and cinematic, with a lit stage for your car and home. You can switch back any time in Appearance.</span><span class="actions" style="flex:none"><button class="btn small primary" data-act="th-look" data-v="studio">Try it</button><button class="btn small" data-act="look-dismiss">Not now</button></span></div>';
+  return '<div class="banner" style="margin-bottom:12px;align-items:center"><span><b>New look: Studio.</b> Dark and cinematic, with a lit stage for your car and home. You can switch back any time in Settings.</span><span class="actions" style="flex:none"><button class="btn small primary" data-act="th-look" data-v="studio">Try it</button><button class="btn small" data-act="look-dismiss">Not now</button></span></div>';
 }
 function vOverview(){
   var nw=netWorth(),sp=spendBy(month),inc=incomeOf(month),left=inc-sp.total,subTotal=activeSubs().reduce(function(a,s){return a+perMonth(s)},0);
@@ -986,7 +987,7 @@ function vTx(){
   var xpanel='<section class="panel"><h2>Not double counted<small>'+nx+' transfer'+(nx===1?'':'s')+' left out of your numbers</small></h2><p class="sub muted" style="margin:0 0 8px;font-size:13px">Paying a credit card from checking moves money you already counted when you made the purchases, and "payment thank you" on a card statement is not income. Transfers between your own accounts are skipped too. Press <b>Transfer</b> on any row the app got wrong.</p><label style="font-size:13px">Payments to my credit cards <select id="cardpay"><option value="auto"'+(S.cardPay==='auto'?' selected':'')+'>Skip when my card purchases are here too (recommended)</option><option value="skip"'+(S.cardPay==='skip'?' selected':'')+'>Always skip</option><option value="count"'+(S.cardPay==='count'?' selected':'')+'>Count them as spending</option></select></label></section>';
   return '<div class="top"><h1>Transactions</h1></div>'+catTools()+xpanel+
    '<section class="panel"><form class="form" id="txform"><label>Date<input id="tf-date" type="date" required value="'+iso(TODAY)+'"></label><label>Description<input id="tf-name" required placeholder="e.g. Trader Joe\'s"></label><label>Amount<input id="tf-amt" type="number" step="0.01" required placeholder="-24.50"></label><label>Category<select id="tf-cat"><option value="">Auto</option>'+CATS.map(function(c){return '<option>'+c+'</option>'}).join('')+'</select></label><button class="btn primary">Add</button></form><p class="sub muted" style="margin:10px 0 0;font-size:13px">Spending is negative, income is positive. CSV needs columns for date, description and amount.</p></section>'+appleCardPanel()+pdfShell()+aiShell()+
-   '<section class="panel"><div class="form" style="margin-bottom:8px"><input id="q" class="search" type="search" placeholder="Search transactions" value="'+esc(filter.q)+'" aria-label="Search"><select id="fcat" aria-label="Filter by category"><option value="">All categories</option>'+CATS.map(function(c){return '<option'+(c===filter.cat?' selected':'')+'>'+c+'</option>'}).join('')+'</select></div>'+(rows||'<div class="empty">No transactions match.</div>')+(list.length>150?'<div class="empty">Showing the latest 150 of '+list.length+'.</div>':'')+'</section>'+asidePanel()+backupPanel()+widgetPanel()+accountPanel();
+   '<section class="panel"><div class="form" style="margin-bottom:8px"><input id="q" class="search" type="search" placeholder="Search transactions" value="'+esc(filter.q)+'" aria-label="Search"><select id="fcat" aria-label="Filter by category"><option value="">All categories</option>'+CATS.map(function(c){return '<option'+(c===filter.cat?' selected':'')+'>'+c+'</option>'}).join('')+'</select></div>'+(rows||'<div class="empty">No transactions match.</div>')+(list.length>150?'<div class="empty">Showing the latest 150 of '+list.length+'.</div>':'')+'</section>'+asidePanel()+widgetPanel()+accountPanel();
 }
 /* ---------- Accounts and debts ---------- */
 var ASSET_TYPES={checking:'Checking',savings:'Savings',cash:'Cash',investment:'Investments',property:'Property or other asset'};
@@ -4315,7 +4316,8 @@ function glassPanel(){
   return '<section class="panel"><h2>Window material<small>real Liquid Glass on macOS 26</small></h2>'+body+'<p class="sub muted" style="margin:10px 0 0;font-size:12px">With native glass the Aurora background is replaced by your desktop. If text is hard to read, raise Frost below. Switching restarts the app.</p></section>'}
 function vLook(){
   var sw=PRESETS.map(function(p){return '<button type="button" class="sw'+(TH.preset===p.id?' on':'')+'" data-act="th-preset" data-v="'+p.id+'" style="--sw:'+p.accent+'" aria-pressed="'+(TH.preset===p.id)+'">'+p.name+'</button>'}).join('');
-  return '<div class="top"><h1>Appearance</h1><button class="btn small" data-act="th-reset">Reset to default</button></div>'+
+  return '<div class="top"><h1>Settings</h1><button class="btn small" data-act="th-reset">Reset appearance</button></div>'+
+  '<h2 class="setsec">Appearance</h2>'+
   '<section class="panel"><h2>Look<small>one tap changes the whole app</small></h2><div class="lookcards"><button type="button" class="lookcard'+(TH.bg==='studio'?' on':'')+'" data-act="th-look" data-v="studio"><div class="pv" style="background:radial-gradient(120px 60px at 50% 0%,#3e6ae155,transparent),#0a0c10;border:1px solid #1e222a"></div><b>Studio</b><div class="sub">Dark and cinematic, like a car app. Big light numbers, a lit stage for your car and home.</div></button><button type="button" class="lookcard'+(TH.bg!=='studio'?' on':'')+'" data-act="th-look" data-v="glass"><div class="pv" style="background:linear-gradient(135deg,#c7d2ff,#f3c6ff);border:1px solid #fff8"></div><b>Glass</b><div class="sub">Light, frosted and colourful.</div></button></div></section>'+
   glassPanel()+'<section class="panel"><h2>Colour<small>pick a preset or make your own</small></h2><div class="swatches">'+sw+'</div>'+
     '<div class="lookrow" style="margin-top:12px"><span class="lbl">Custom accent<small>Buttons, bars, highlights and the background glow follow it.</small></span><span class="ctl"><input id="th-accent" type="color" value="'+TH.accent+'" aria-label="Custom accent colour"><span class="muted num">'+TH.accent.toUpperCase()+'</span></span></div></section>'+
@@ -4327,7 +4329,7 @@ function vLook(){
   '<section class="panel"><h2>Type and motion</h2>'+
     '<div class="lookrow"><span class="lbl">Text size</span><span class="ctl">'+seg('th-size',TH.size,[['s','Small'],['m','Normal'],['l','Large']])+'</span></div>'+
     '<div class="lookrow"><span class="lbl">Font</span><span class="ctl">'+seg('th-font',TH.font,[['modern','Modern'],['system','System'],['rounded','Rounded'],['serif','Serif']])+'</span></div>'+
-    '<div class="lookrow"><span class="lbl">Motion<small>Page transitions, count-ups, the drifting background and confetti. Your system "reduce motion" setting always wins.</small></span><span class="ctl">'+seg('th-motion',TH.motion,[['full','Full'],['reduced','Calm']])+'</span></div></section>'+updatesPanel();
+    '<div class="lookrow"><span class="lbl">Motion<small>Page transitions, count-ups, the drifting background and confetti. Your system "reduce motion" setting always wins.</small></span><span class="ctl">'+seg('th-motion',TH.motion,[['full','Full'],['reduced','Calm']])+'</span></div></section>'+'<h2 class="setsec">App and data</h2>'+updatesPanel()+backupPanel();
 }
 function thClick(a,b){
   if(a==='th-preset'){var p=PRESETS.filter(function(x){return x.id===b.dataset.v})[0];if(p){TH.preset=p.id;TH.accent=p.accent}}
