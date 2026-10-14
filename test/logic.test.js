@@ -1516,3 +1516,24 @@ test('credit score: bands per scoring model, per-bureau series, gaps, ages, util
   assert.match(C.creditInsights([], [], {}, T)[0].title, /Add your first score/);
   assert.match(C.creditInsights([{ date: '2026-07-01', score: 700, source: 'FICO' }], [], {}, T).map((i) => i.title).join('|'), /Your unlabelled score is 105 days old/);
 });
+
+test('cash: ATM rows, receipt duplicates and receipt to transaction', () => {
+  const C = new Function(srcBlock('/*CASH-START*/', '/*CASH-END*/') + '\nreturn {atmRows, receiptDup, receiptNote, txnFromReceipt};')();
+  const tx = [
+    { id: 'a', date: '2026-10-10', name: 'ATM WITHDRAWAL MAIN ST', amount: -100 },
+    { id: 'b', date: '2026-10-10', name: 'ATM FEE', amount: -3 },
+    { id: 'c', date: '2026-10-11', name: 'Corner Deli #12', amount: -12.5 },
+    { id: 'd', date: '2026-10-11', name: 'Wallet snack', amount: -5, cash: true },
+    { id: 'e', date: '2026-10-09', name: 'ATM deposit refund', amount: 40 },
+  ];
+  assert.deepStrictEqual(C.atmRows(tx).map((x) => x.id), ['a']);
+  assert.strictEqual(C.receiptDup({ merchant: 'Corner Deli', date: '2026-10-12', total: 12.5 }, tx).id, 'c');   // a day apart, shared word
+  assert.strictEqual(C.receiptDup({ merchant: 'Other Shop', date: '2026-10-11', total: 12.5 }, tx), null);        // same amount, different merchant
+  assert.strictEqual(C.receiptDup({ merchant: 'Corner Deli', date: '2026-10-20', total: 12.5 }, tx), null);       // too far apart
+  assert.strictEqual(C.receiptDup({ merchant: 'Corner Deli', date: '2026-10-11', total: 0 }, tx), null);
+  const rec = { merchant: 'Corner Deli', date: '2026-10-12', total: 12.499, category: 'Dining', items: [{ name: 'Sandwich', amount: 11.5 }] };
+  assert.strictEqual(C.receiptNote(rec), '1 item: Sandwich 11.50');
+  assert.deepStrictEqual(C.txnFromReceipt(rec, { today: '2026-10-14', guess: () => 'Other', cash: true }), { date: '2026-10-12', name: 'Corner Deli', amount: -12.5, cat: 'Dining', cash: true, note: '1 item: Sandwich 11.50' });
+  const bare = C.txnFromReceipt({ total: 4 }, { today: '2026-10-14', guess: () => 'Other' });
+  assert.deepStrictEqual(bare, { date: '2026-10-14', name: 'Receipt', amount: -4, cat: 'Other' });
+});

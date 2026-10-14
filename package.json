@@ -34,6 +34,7 @@
       "fundamentals.js",
       "loanparse.js",
       "biometric.js",
+      "phonecapture.js",
       "widget.html",
       "widget-preload.js",
       "!**/*.map",
@@ -93,6 +94,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.133.0",
-    "pdfjs-dist": "^4.10.38"
+    "pdfjs-dist": "^4.10.38",
+    "qrcode-generator": "^2.0.4"
   }
 }

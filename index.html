@@ -1016,10 +1016,10 @@ function vTx(){
   var shown=list.slice(0,150),xinf=transferInfo(S.txns,S.cardPay),nx=S.txns.filter(function(x){return isTransfer(x,xinf)}).length;
   var rows=shown.map(function(x){
     if(editTx===x.id)return txEditForm(x);
-    return '<div class="row">'+logo(x.name)+'<div class="grow"><div class="nm">'+esc(x.name)+'</div><div class="sub">'+shortDate(x.date)+(x.sub?' \u00b7 '+esc(x.sub):'')+(isTransfer(x,xinf)?' \u00b7 <span class="pill mute" style="font-size:11px" title="Money moving between your own accounts. It is not counted as spending or income.">Transfer, not counted</span>':'')+(isCashback(x)?' \u00b7 <span class="pill good" style="font-size:11px" title="A reward from a credit card. It is not counted as income; see Loans, Credit cards, Cash back.">Cash back</span>':'')+'</div></div><select data-cat="'+x.id+'" aria-label="Category for '+esc(x.name)+'" class="hide-s">'+CATS.map(function(c){return '<option'+(c===x.cat?' selected':'')+'>'+c+'</option>'}).join('')+'</select><div class="amt num '+(x.amount>0?'good':'')+'">'+(x.amount>0?'+':'')+money(x.amount)+'</div><div class="actions" style="flex:none;flex-wrap:nowrap"><button class="btn small" data-act="tx-edit" data-id="'+x.id+'" aria-label="Edit '+esc(x.name)+'">Edit</button><button class="btn small" data-act="tx-xfer" data-id="'+x.id+'" title="'+(isTransfer(x,xinf)?'Count this as real spending or income':'This only moved money between my own accounts. Do not count it.')+'">'+(isTransfer(x,xinf)?'Count it':'Transfer')+'</button>'+(x.amount>0&&!isTransfer(x,xinf)?'<button class="btn small" data-act="tx-cb" data-id="'+x.id+'" title="'+(isCashback(x)?'This is not cash back. Count it normally.':'This is cash back or a card reward. Keep it out of income.')+'">'+(isCashback(x)?'Not cash back':'Cash back')+'</button>':'')+'<button class="btn small" data-act="tx-aside" data-id="'+x.id+'" title="This money was not mine. Remove it from all my numbers; you can restore it later." aria-label="Not mine">Not mine</button><button class="btn small" data-act="tx-del" data-id="'+x.id+'" aria-label="Delete">&times;</button></div></div>';
+    return '<div class="row">'+logo(x.name)+'<div class="grow"><div class="nm">'+esc(x.name)+'</div><div class="sub">'+shortDate(x.date)+(x.sub?' \u00b7 '+esc(x.sub):'')+(isTransfer(x,xinf)?' \u00b7 <span class="pill mute" style="font-size:11px" title="Money moving between your own accounts. It is not counted as spending or income.">Transfer, not counted</span>':'')+(isCashback(x)?' \u00b7 <span class="pill good" style="font-size:11px" title="A reward from a credit card. It is not counted as income; see Loans, Credit cards, Cash back.">Cash back</span>':'')+(x.cash?' \u00b7 <span class="pill mute" style="font-size:11px">Paid in cash</span>':'')+(x.note?'<div class="sub" style="white-space:normal;font-size:12px">'+esc(x.note)+'</div>':'')+'</div></div><select data-cat="'+x.id+'" aria-label="Category for '+esc(x.name)+'" class="hide-s">'+CATS.map(function(c){return '<option'+(c===x.cat?' selected':'')+'>'+c+'</option>'}).join('')+'</select><div class="amt num '+(x.amount>0?'good':'')+'">'+(x.amount>0?'+':'')+money(x.amount)+'</div><div class="actions" style="flex:none;flex-wrap:nowrap"><button class="btn small" data-act="tx-edit" data-id="'+x.id+'" aria-label="Edit '+esc(x.name)+'">Edit</button><button class="btn small" data-act="tx-xfer" data-id="'+x.id+'" title="'+(isTransfer(x,xinf)?'Count this as real spending or income':'This only moved money between my own accounts. Do not count it.')+'">'+(isTransfer(x,xinf)?'Count it':'Transfer')+'</button>'+(x.amount>0&&!isTransfer(x,xinf)?'<button class="btn small" data-act="tx-cb" data-id="'+x.id+'" title="'+(isCashback(x)?'This is not cash back. Count it normally.':'This is cash back or a card reward. Keep it out of income.')+'">'+(isCashback(x)?'Not cash back':'Cash back')+'</button>':'')+'<button class="btn small" data-act="tx-aside" data-id="'+x.id+'" title="This money was not mine. Remove it from all my numbers; you can restore it later." aria-label="Not mine">Not mine</button><button class="btn small" data-act="tx-del" data-id="'+x.id+'" aria-label="Delete">&times;</button></div></div>';
   }).join('');
   var xpanel='<section class="panel"><h2>Not double counted<small>'+nx+' transfer'+(nx===1?'':'s')+' left out of your numbers</small></h2><p class="sub muted" style="margin:0 0 8px;font-size:13px">Paying a credit card from checking moves money you already counted when you made the purchases, and "payment thank you" on a card statement is not income. Transfers between your own accounts are skipped too. Press <b>Transfer</b> on any row the app got wrong.</p><label style="font-size:13px">Payments to my credit cards <select id="cardpay"><option value="auto"'+(S.cardPay==='auto'?' selected':'')+'>Skip when my card purchases are here too (recommended)</option><option value="skip"'+(S.cardPay==='skip'?' selected':'')+'>Always skip</option><option value="count"'+(S.cardPay==='count'?' selected':'')+'>Count them as spending</option></select></label></section>';
-  return '<div class="top"><h1>Transactions</h1></div>'+catTools()+xpanel+
+  return '<div class="top"><h1>Transactions</h1></div>'+catTools()+xpanel+cashPanel()+
    '<section class="panel"><form class="form" id="txform"><label>Date<input id="tf-date" type="date" required value="'+iso(TODAY)+'"></label><label>Description<input id="tf-name" required placeholder="e.g. Trader Joe\'s"></label><label>Amount<input id="tf-amt" type="number" step="0.01" required placeholder="-24.50"></label><label>Category<select id="tf-cat"><option value="">Auto</option>'+CATS.map(function(c){return '<option>'+c+'</option>'}).join('')+'</select></label><button class="btn primary">Add</button></form><p class="sub muted" style="margin:10px 0 0;font-size:13px">Spending is negative, income is positive. CSV needs columns for date, description and amount.</p></section>'+appleCardPanel()+pdfShell()+aiShell()+
    '<section class="panel"><div class="form" style="margin-bottom:8px"><input id="q" class="search" type="search" placeholder="Search transactions" value="'+esc(filter.q)+'" aria-label="Search"><select id="fcat" aria-label="Filter by category"><option value="">All categories</option>'+CATS.map(function(c){return '<option'+(c===filter.cat?' selected':'')+'>'+c+'</option>'}).join('')+'</select></div>'+(rows||'<div class="empty">No transactions match.</div>')+(list.length>150?'<div class="empty">Showing the latest 150 of '+list.length+'.</div>':'')+'</section>'+asidePanel()+accountPanel();
 }
@@ -1286,6 +1286,37 @@ function autoBillItems(txns,items,mk,ignore,catOf){
   });
 }
 /*BILLS-END*/
+/*CASH-START*/
+// Cash and receipts: spending paid in cash, a wallet balance, and the checks that stop a receipt being counted twice.
+var ATM_RE=/\b(atm|cash withdrawal|withdrawal at|cash wd|cash out)\b/i;
+// ATM withdrawals counted as spending: once cash spending is logged, the withdrawal and the purchases would count the same money twice.
+function atmRows(txns){return txns.filter(function(x){return x.amount<0&&x.transfer!==true&&!x.cash&&ATM_RE.test(x.name||'')&&!/\bfee\b/i.test(x.name||'')})}
+function receiptKey(n){return String(n||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim().split(' ').filter(function(w){return w.length>2})}
+// An existing transaction that is probably this receipt: same amount, within a day, and some word in common (or no merchant to compare).
+function receiptDup(rec,txns){
+  var tot=Math.abs(+rec.total||0);if(!(tot>0)||!rec.date)return null;
+  var d0=Date.parse(rec.date),words=receiptKey(rec.merchant),i,x;
+  for(i=0;i<txns.length;i++){x=txns[i];
+    if(Math.abs(Math.abs(x.amount)-tot)>=0.01||x.amount>0)continue;
+    if(Math.abs(Date.parse(x.date)-d0)>864e5*1.01)continue;
+    var xw=receiptKey(x.name);
+    if(!words.length||!xw.length||words.some(function(w){return xw.some(function(v){return v.indexOf(w)>-1||w.indexOf(v)>-1})}))return x;
+  }
+  return null;
+}
+function receiptNote(rec){
+  var it=(rec.items||[]).filter(function(x){return x.name});
+  if(!it.length)return '';
+  var t=it.length+' item'+(it.length===1?'':'s')+': '+it.slice(0,6).map(function(x){return x.name+' '+(Math.round(x.amount*100)/100).toFixed(2)}).join(', ')+(it.length>6?', …':'');
+  return t.slice(0,190);
+}
+function txnFromReceipt(rec,o){
+  var t={date:rec.date||o.today,name:(rec.merchant||'Receipt').slice(0,120),amount:-Math.abs(Math.round(rec.total*100)/100),cat:rec.category||o.guess(rec.merchant||'')};
+  if(o.cash)t.cash=true;
+  var n=receiptNote(rec);if(n)t.note=n;
+  return t;
+}
+/*CASH-END*/
 /*TRANSFER-START*/
 // Money that only moves between your own accounts is not spending or income. Without this a card purchase is counted once on the card
 // and again when you pay the card from checking, and "payment thank you" credits on a card statement look like pay.
@@ -4128,6 +4159,73 @@ function cardStmtSave(){
   cardStmt={stage:'idle',msg:'',err:'',card:null,sel:'',rows:[],importTx:true};
   save();render();toast((created?'Card added':'Card updated')+(n?' with '+n+' transaction'+(n===1?'':'s'):'')+'.');
 }
+// ---------- Cash and receipts ----------
+var rcpt={items:[],phone:{on:false,url:'',qr:'',msg:'',expires:0},msg:'',phoneHooked:false};
+function walletAcct(){return S.accounts.filter(function(a){return a.wallet===true})[0]||null}
+function walletSet(v){
+  var w=walletAcct(),t0=iso(TODAY);
+  if(!w){w={id:uid(),name:'Wallet cash',type:'cash',balance:0,apr:0,minPay:0,history:[],wallet:true};S.accounts.push(w)}
+  w.balance=Math.max(0,Math.round(v*100)/100);
+  var h=w.history.filter(function(x){return x.date===t0})[0];if(h)h.balance=w.balance;else w.history.push({date:t0,balance:w.balance});
+  return w;
+}
+function walletAdd(delta){var w=walletAcct();if(!w)return null;return walletSet(w.balance+delta)}
+function rcptEstimateNote(){return 'about 3 to 8 cents a receipt'}
+function receiptRead(dataUrl){
+  var it={id:uid(),img:dataUrl,stage:'reading',rec:null,paid:'cash',fromWallet:true,err:''};
+  rcpt.items.unshift(it);rcpt.items=rcpt.items.slice(0,12);render();
+  if(!(T&&T.ai&&T.ai.receipt)){it.stage='error';it.err='Reading receipts needs the desktop app and your Anthropic API key.';render();return}
+  tcall(T.ai.receipt({image:dataUrl,cats:CATS.slice(0,60)})).then(function(r){
+    it.rec=r;it.paid=r.payment==='card'?'card':'cash';it.stage=r.total>0?'review':'error';if(!(r.total>0))it.err=r.notes||'I could not find a total on that picture. Try a clearer, flatter photo, or add it by hand below.';render();
+  }).catch(function(e){it.stage='error';it.err=(e&&e.message)||'Could not read that receipt.';render()});
+}
+function receiptCard(it){
+  var tag='style="margin-bottom:12px;border:1px solid var(--line);border-radius:14px;padding:12px;display:flex;gap:12px;flex-wrap:wrap;align-items:flex-start"',img='<img alt="Receipt" src="'+it.img+'" style="width:84px;height:112px;object-fit:cover;border-radius:8px;border:1px solid var(--line)">';
+  if(it.stage==='reading')return '<div '+tag+'>'+img+'<div class="sub">Reading the receipt… a few seconds.</div></div>';
+  if(it.stage==='error')return '<div '+tag+'>'+img+'<div class="grow" style="flex-basis:220px"><div class="sub bad" style="white-space:normal">'+esc(it.err)+'</div><div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn small" data-act="rc-skip" data-id="'+it.id+'">Dismiss</button></div></div></div>';
+  var r=it.rec,dup=receiptDup(r,S.txns),w=walletAcct();
+  var f=function(k,lab,w2,type,extra){return '<label>'+lab+'<input data-rc="'+it.id+':'+k+'" type="'+type+'" value="'+esc(k==='total'?r.total:r[k])+'" style="width:'+w2+'px"'+(extra||'')+'></label>'};
+  return '<div '+tag+'>'+img+'<div class="grow" style="flex-basis:300px"><div class="form" style="align-items:flex-end">'+f('merchant','Where',170,'text')+f('date','Date',140,'date')+f('total','Total $',96,'number',' step="0.01" min="0"')+'<label>Category<select data-rc="'+it.id+':category">'+CATS.map(function(c){return '<option'+(c===(r.category||guessCat(r.merchant||''))?' selected':'')+'>'+c+'</option>'}).join('')+'</select></label><label>Paid with<select data-rc="'+it.id+':paid"><option value="cash"'+(it.paid==='cash'?' selected':'')+'>Cash</option><option value="card"'+(it.paid==='card'?' selected':'')+'>Card</option><option value="other"'+(it.paid==='other'?' selected':'')+'>Something else</option></select></label></div>'+
+    (r.tax>0||r.tip>0?'<div class="sub" style="margin-top:6px">'+(r.tax>0?'Tax '+money(r.tax):'')+(r.tax>0&&r.tip>0?' · ':'')+(r.tip>0?'Tip '+money(r.tip):'')+' (included in the total)</div>':'')+
+    (receiptNote(r)?'<div class="sub" style="margin-top:4px;white-space:normal">'+esc(receiptNote(r))+'</div>':'')+
+    (dup?'<div class="sub warn" style="margin-top:6px;white-space:normal">Looks like this is already in the app: <b>'+esc(dup.name)+'</b> on '+shortDate(dup.date)+' for '+money(Math.abs(dup.amount))+'. Skip it unless it is a different purchase.</div>':'')+
+    (it.paid==='card'?'<div class="sub" style="margin-top:6px;white-space:normal">A card purchase also arrives from your bank, so adding it here can double it. Add it only if that card is not linked or imported.</div>':'')+
+    (it.paid==='cash'&&w?'<label class="sub" style="display:flex;gap:6px;align-items:center;margin-top:6px;cursor:pointer"><input type="checkbox" data-rc="'+it.id+':fromWallet"'+(it.fromWallet?' checked':'')+'> Take it out of my wallet cash ('+money(w.balance)+' now)</label>':'')+
+    '<div class="actions" style="justify-content:flex-start;margin-top:10px"><button class="btn primary small" data-act="rc-save" data-id="'+it.id+'">Add to my spending</button><button class="btn small" data-act="rc-skip" data-id="'+it.id+'">Skip</button></div></div></div>';
+}
+function receiptSave(id){
+  var it=rcpt.items.filter(function(x){return x.id===id})[0];if(!it||!it.rec)return;
+  var r=it.rec,tot=parseFloat(r.total);if(!(tot>0)){toast('Type the total first.');return}
+  if(S.sample){toast('You are still on the example data. Press Start fresh first, then add your receipts.');return}
+  r.total=tot;var t=txnFromReceipt(r,{today:iso(TODAY),guess:guessCat,cash:it.paid==='cash'});
+  t.id=uid();if(r.category)t.cat=r.category;var sb=subFor(t.cat,t.name,'');if(sb)t.sub=sb;
+  S.txns.push(t);S.txns.sort(function(x,y){return x.date<y.date?1:-1});
+  if(it.paid==='cash'&&it.fromWallet&&walletAcct())walletAdd(t.amount);
+  rcpt.items=rcpt.items.filter(function(x){return x.id!==id});save();render();toast('Added '+money(Math.abs(t.amount))+(it.paid==='cash'?' in cash':'')+'.');
+}
+function cashPanel(){
+  var w=walletAcct(),h='<section class="panel cashpanel"><h2>Cash and receipts<small>spending that never shows up at the bank</small></h2>';
+  // wallet
+  h+='<div class="grid tiles" style="margin-bottom:10px">'+tile('Cash in my wallet',w?money(w.balance):'<span class="muted">Not set</span>',w?'counts toward your net worth':'Type what you have on you')+'</div>'+
+    '<form class="form walletform" style="align-items:flex-end"><label>I have $ in my wallet right now<input name="v" type="number" min="0" step="0.01" required placeholder="e.g. 60" value="'+(w?w.balance:'')+'" style="width:150px"></label><button class="btn primary">'+(w?'Update':'Set it')+'</button></form>'+
+    (w?'<form class="form walletadd" style="margin-top:6px;align-items:flex-end"><label>I took out cash (ATM or cash back) $<input name="v" type="number" min="0.01" step="0.01" required placeholder="e.g. 40" style="width:130px"></label><button class="btn">Add to my wallet</button></form>':'');
+  // quick add
+  h+='<h3 style="font-size:15px;margin:16px 0 6px">I spent cash</h3><form class="form cashform" style="align-items:flex-end"><label>Where<input name="name" required placeholder="e.g. Farmers market" style="width:170px"></label><label>Amount $<input name="amt" type="number" min="0.01" step="0.01" required style="width:96px"></label><label>Category<select name="cat">'+CATS.filter(function(c){return c!=='Income'}).map(function(c){return '<option'+(c==='Other'?' selected':'')+'>'+c+'</option>'}).join('')+'</select></label><label>Date<input name="date" type="date" value="'+iso(TODAY)+'" required></label><button class="btn primary">Add cash spending</button></form>';
+  // receipts
+  var shot=!!(T&&T.ai&&T.ai.receipt),hasKey=!!(aiSt&&aiSt.hasKey),canPhone=!!(T&&T.phone);
+  h+='<h3 style="font-size:15px;margin:16px 0 6px">Scan a receipt</h3><div class="actions" style="justify-content:flex-start;flex-wrap:wrap;align-items:center"><label class="btn'+(shot&&hasKey?'':' disabled')+'" style="cursor:'+(shot&&hasKey?'pointer':'not-allowed')+(shot&&hasKey?'':';opacity:.5')+'">Choose a receipt photo<input type="file" class="rc-file" accept="image/*" multiple hidden'+(shot&&hasKey?'':' disabled')+'></label>'+(canPhone?'<button class="btn'+(hasKey?'':' disabled')+'" data-act="ph-start"'+(hasKey&&!rcpt.phone.on?'':' disabled')+'>Scan with my iPhone</button>':'')+'</div>'+
+    '<p class="sub muted" style="margin:8px 0 0;font-size:12px;white-space:normal">'+(shot?(hasKey?'Claude reads the merchant, date, total and category ('+rcptEstimateNote()+'). You check it before anything is added. The picture is sent to Anthropic and not kept.':'Reading receipts needs your Anthropic API key (Transactions tab, AI analysis, below).'):'Reading receipts works in the desktop app. Here you can add cash spending by hand.')+'</p>';
+  if(rcpt.phone.on)h+='<div class="banner" style="margin-top:12px;display:flex;gap:14px;align-items:center;flex-wrap:wrap"><img alt="QR code to open on your iPhone" src="data:image/svg+xml;utf8,'+encodeURIComponent(rcpt.phone.qr)+'" style="width:150px;height:150px;background:#fff;border-radius:8px"><div style="flex:1 1 240px;white-space:normal"><b>On your iPhone</b>, point the camera at this code (same Wi-Fi as this computer), tap the link, and take a photo of each receipt. They appear below.<div class="sub" style="margin-top:6px;word-break:break-all">'+esc(rcpt.phone.url)+'</div><div class="sub" style="margin-top:6px">It switches itself off after 15 minutes. Your computer may ask to allow incoming connections the first time: choose Allow.</div><div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn small" data-act="ph-stop">Stop</button></div></div></div>';
+  if(rcpt.phone.msg)h+='<div class="sub bad" role="alert" style="margin-top:8px;white-space:normal">'+esc(rcpt.phone.msg)+'</div>';
+  if(rcpt.items.length)h+='<div style="margin-top:12px">'+rcpt.items.map(receiptCard).join('')+'</div>';
+  var atm=atmRows(S.txns),hasCash=S.txns.some(function(x){return x.cash});
+  if(hasCash&&atm.length)h+='<div class="banner" style="margin-top:12px;display:block;white-space:normal"><b>'+atm.length+' ATM withdrawal'+(atm.length===1?'':'s')+' ('+money(atm.reduce(function(n,x){return n-x.amount},0))+') '+(atm.length===1?'is':'are')+' counted as spending</b>, and you also log what you buy with cash, so the same money would be counted twice. Mark them as transfers to your wallet?<div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn small primary" data-act="atm-mark">Mark them as transfers</button></div></div>';
+  return h+'</section>';
+}
+function phoneHook(){
+  if(rcpt.phoneHooked||!(T&&T.phone&&T.phone.onImage))return;rcpt.phoneHooked=true;
+  T.phone.onImage(function(m){if(m&&/^data:image\/(jpeg|png|webp);base64,/.test(m.dataUrl||''))receiptRead(m.dataUrl)});
+}
 // ---------- Credit score tab ----------
 var creditShot={msg:'',rows:null,busy:false};
 // A screenshot of a score screen, shrunk to a size the API takes, as a JPEG data URL.
@@ -4684,7 +4782,7 @@ function cleanCustomCats(c){
 function cleanBackup(j){
   var d=j&&j.data?j.data:j,dre=/^\d{4}-\d{2}-\d{2}$/,custom=cleanCustomCats(d&&d.customCats),allowed=BASECATS.concat(custom.map(function(c){return c.name}),['Other','Income']);
   if(!d||!Array.isArray(d.txns)||!Array.isArray(d.subs)||!Array.isArray(d.goals)||!d.budgets||typeof d.budgets!=='object')return null;
-  var cleanTx=function(x){var t={id:String(x.id||uid()),date:x.date,name:String(x.name).slice(0,120),amount:+x.amount,cat:allowed.indexOf(x.cat)>-1?x.cat:'Other'};if(typeof x.plaidId==='string'&&x.plaidId)t.plaidId=x.plaidId.slice(0,100);if(dre.test(x.asideAt||''))t.asideAt=x.asideAt;if(x.transfer===true||x.transfer===false)t.transfer=x.transfer;if(x.cardPay===true)t.cardPay=true;if(typeof x.acct==='string'&&x.acct&&x.acct.length<=100)t.acct=x.acct;if(x.cashback===true||x.cashback===false)t.cashback=x.cashback;var sb=cleanSubName(x.sub);if(sb)t.sub=sb;return t};
+  var cleanTx=function(x){var t={id:String(x.id||uid()),date:x.date,name:String(x.name).slice(0,120),amount:+x.amount,cat:allowed.indexOf(x.cat)>-1?x.cat:'Other'};if(typeof x.plaidId==='string'&&x.plaidId)t.plaidId=x.plaidId.slice(0,100);if(dre.test(x.asideAt||''))t.asideAt=x.asideAt;if(x.transfer===true||x.transfer===false)t.transfer=x.transfer;if(x.cardPay===true)t.cardPay=true;if(typeof x.acct==='string'&&x.acct&&x.acct.length<=100)t.acct=x.acct;if(x.cash===true)t.cash=true;if(typeof x.note==='string'&&x.note)t.note=x.note.slice(0,200);if(x.cashback===true||x.cashback===false)t.cashback=x.cashback;var sb=cleanSubName(x.sub);if(sb)t.sub=sb;return t};
   var okTx=function(x){return x&&dre.test(x.date)&&isFinite(x.amount)&&x.name};
   var txns=d.txns.filter(okTx).map(cleanTx);
   var setAside=(Array.isArray(d.setAside)?d.setAside:[]).filter(okTx).slice(0,5000).map(cleanTx);
@@ -4701,7 +4799,7 @@ function cleanBackup(j){
   var accounts=(Array.isArray(d.accounts)?d.accounts:[]).filter(function(x){return x&&x.name&&isFinite(x.balance)&&+x.balance>=0&&(ASSET_TYPES[x.type]||DEBT_TYPES[x.type])}).map(function(x){
     var hist=(Array.isArray(x.history)?x.history:[]).filter(function(h){return h&&dre.test(h.date)&&isFinite(h.balance)}).map(function(h){return {date:h.date,balance:+h.balance}}).sort(function(a,b){return a.date<b.date?-1:1});
     if(!hist.length)hist=[{date:iso(TODAY),balance:+x.balance}];
-    var ac={id:String(x.id||uid()),name:String(x.name).slice(0,120),type:x.type,balance:+x.balance,apr:DEBT_TYPES[x.type]?Math.max(0,+x.apr||0):0,minPay:DEBT_TYPES[x.type]?Math.max(0,+x.minPay||0):0,history:hist};if(x.type==='credit'&&+x.limit>0)ac.limit=+x.limit;if(x.type==='credit'&&x.closed===true)ac.closed=true;if(DEBT_TYPES[x.type]&&x.contract){var cc=cleanContract(x.contract);if(cc)ac.contract=cc}if(DEBT_TYPES[x.type]){if(photoOk(x.photo))ac.photo=x.photo;if(/^#[0-9a-f]{6}$/i.test(x.carColor||''))ac.carColor=x.carColor;if(CAR_TYPES[x.carType])ac.carType=x.carType;if(/^\d{4}-\d{2}(-\d{2})?$/.test(x.opened||''))ac.opened=x.opened;if(/^\d{4}$/.test(x.last4||''))ac.last4=x.last4;if(typeof x.carSvg==='string'){var csv=cleanCarSvg(x.carSvg);if(csv)ac.carSvg=csv}if(x.showPhoto===true)ac.showPhoto=true}if(DEBT_TYPES[x.type]){var dd=Math.round(+x.dueDay);if(dd>=1&&dd<=31)ac.dueDay=dd;if(+x.origBalance>0)ac.origBalance=+x.origBalance;if(typeof x.lender==='string'&&x.lender)ac.lender=cleanSubName(x.lender).slice(0,40);var stm=cleanStmt(x);Object.keys(stm).forEach(function(k){ac[k]=stm[k]})}if(x.plaid&&typeof x.plaid.accountId==='string')ac.plaid={itemId:String(x.plaid.itemId||'').slice(0,100),accountId:x.plaid.accountId.slice(0,100)};return ac});
+    var ac={id:String(x.id||uid()),name:String(x.name).slice(0,120),type:x.type,balance:+x.balance,apr:DEBT_TYPES[x.type]?Math.max(0,+x.apr||0):0,minPay:DEBT_TYPES[x.type]?Math.max(0,+x.minPay||0):0,history:hist};if(x.type==='credit'&&+x.limit>0)ac.limit=+x.limit;if(x.type==='credit'&&x.closed===true)ac.closed=true;if(DEBT_TYPES[x.type]&&x.contract){var cc=cleanContract(x.contract);if(cc)ac.contract=cc}if(DEBT_TYPES[x.type]){if(photoOk(x.photo))ac.photo=x.photo;if(/^#[0-9a-f]{6}$/i.test(x.carColor||''))ac.carColor=x.carColor;if(CAR_TYPES[x.carType])ac.carType=x.carType;if(/^\d{4}-\d{2}(-\d{2})?$/.test(x.opened||''))ac.opened=x.opened;if(/^\d{4}$/.test(x.last4||''))ac.last4=x.last4;if(typeof x.carSvg==='string'){var csv=cleanCarSvg(x.carSvg);if(csv)ac.carSvg=csv}if(x.showPhoto===true)ac.showPhoto=true}if(DEBT_TYPES[x.type]){var dd=Math.round(+x.dueDay);if(dd>=1&&dd<=31)ac.dueDay=dd;if(+x.origBalance>0)ac.origBalance=+x.origBalance;if(typeof x.lender==='string'&&x.lender)ac.lender=cleanSubName(x.lender).slice(0,40);var stm=cleanStmt(x);Object.keys(stm).forEach(function(k){ac[k]=stm[k]})}if(x.plaid&&typeof x.plaid.accountId==='string')ac.plaid={itemId:String(x.plaid.itemId||'').slice(0,100),accountId:x.plaid.accountId.slice(0,100)};if(x.wallet===true&&x.type==='cash')ac.wallet=true;return ac});
   var home={};if(d.home&&typeof d.home==='object'&&!Array.isArray(d.home)){['purchasePrice','down','closing','origLoan','termYears','taxYear','insYear','hoaMonth','pmiMonth','maintPct','mgmtPct','vacancyPct','appreciation','ret','sellPct','rentGrowth','costGrowth','rentMonth','extra'].forEach(function(k){var n=parseFloat(d.home[k]);if(isFinite(n)&&n>=0&&n<1e9)home[k]=n});['purchaseDate','startDate'].forEach(function(k){if(/^\d{4}-\d{2}-\d{2}$/.test(d.home[k]||''))home[k]=d.home[k]});['mortId','valueId'].forEach(function(k){if(typeof d.home[k]==='string'&&/^[\w-]{1,40}$/.test(d.home[k])&&accounts.some(function(a){return a.id===d.home[k]}))home[k]=d.home[k]});if(d.home.setup===true&&home.valueId)home.setup=true;if(photoOk(d.home.photo))home.photo=d.home.photo}
   return {txns:txns,subs:subs,budgets:budgets,goals:goals,accounts:accounts,extraPay:Math.max(0,+d.extraPay||0),plaidIgnored:(Array.isArray(d.plaidIgnored)?d.plaidIgnored:[]).filter(function(x){return typeof x==='string'}).slice(0,200),credit:cleanCredit(d.credit),holdings:cleanHoldings(d.holdings),customCats:custom,setAside:setAside,merchantCats:merchantCats,subCats:subCats,merchantSubs:merchantSubs,bills:bills,billMarks:billMarks,energy:energy,home:home,debtMonthly:Math.max(0,+d.debtMonthly||0),billIgnore:(function(){var o={};if(d.billIgnore&&typeof d.billIgnore==='object'&&!Array.isArray(d.billIgnore))Object.keys(d.billIgnore).slice(0,500).forEach(function(k){if(k.length<=120&&k!=='__proto__')o[k]=1});return o})(),cardPay:d.cardPay==='skip'||d.cardPay==='count'?d.cardPay:'auto',apple:(function(){var a=d.apple||{},o={};if(typeof a.acct==='string'&&a.acct.length<=40)o.acct=a.acct;if(/^\d{4}-\d{2}-\d{2}$/.test(a.last||''))o.last=a.last;if(+a.count>=0)o.count=Math.min(1e6,Math.round(+a.count));return o})(),payLinks:cleanPayLinks(d.payLinks)};
 }
@@ -4738,6 +4836,17 @@ function bindView(){
   m.querySelectorAll('[data-cs]').forEach(function(i){i.onchange=function(){if(cardStmt.card)cardStmt.card[i.dataset.cs]=i.value}});
   var cssel=$('#cs-sel',m);if(cssel)cssel.onchange=function(){cardStmt.sel=cssel.value;var a=S.accounts.filter(function(x){return x.id===cssel.value})[0];if(a&&cardStmt.card){cardStmt.card.name=a.name;cardPrefill(cardStmt.card,a)}render()};
   var cstx=$('#cs-tx',m);if(cstx)cstx.onchange=function(){cardStmt.importTx=cstx.checked};
+  m.querySelectorAll('.walletform').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();var v=parseFloat(fm.elements['v'].value);if(!(v>=0))return;if(S.sample){toast('Press Start fresh first, then set your wallet cash.');return}walletSet(v);save();render();toast('Wallet cash set to '+money(v)+'.')}});
+  m.querySelectorAll('.walletadd').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();var v=parseFloat(fm.elements['v'].value);if(!(v>0))return;walletAdd(v);save();render();toast('Added '+money(v)+' to your wallet.')}});
+  m.querySelectorAll('.cashform').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();
+    if(S.sample){toast('You are still on the example data. Press Start fresh first.');return}
+    var amt=parseFloat(fm.elements['amt'].value),nm=fm.elements['name'].value.trim(),d=fm.elements['date'].value;if(!(amt>0)||!nm||!d)return;
+    var t={id:uid(),date:d,name:nm,amount:-Math.round(amt*100)/100,cat:fm.elements['cat'].value,cash:true},sb=subFor(t.cat,nm,'');if(sb)t.sub=sb;
+    S.txns.push(t);S.txns.sort(function(x,y){return x.date<y.date?1:-1});if(walletAcct())walletAdd(t.amount);save();render();toast('Added '+money(amt)+' in cash.')}});
+  m.querySelectorAll('.rc-file').forEach(function(i){i.onchange=function(){var fl=Array.prototype.slice.call(i.files);i.value='';fl.slice(0,6).forEach(function(f){shotToData(f,function(url){if(url)receiptRead(url);else toast('That file could not be opened as a picture.')})})}});
+  m.querySelectorAll('[data-rc]').forEach(function(i){i.onchange=function(){var q=i.dataset.rc.split(':'),it=rcpt.items.filter(function(x){return x.id===q[0]})[0];if(!it||!it.rec)return;
+    if(q[1]==='paid'){it.paid=i.value;render()}else if(q[1]==='fromWallet')it.fromWallet=i.checked;else if(q[1]==='total')it.rec.total=parseFloat(i.value)||0;else it.rec[q[1]]=i.value}});
+  phoneHook();
   var shin=$('#sc-shot',m);
   if(shin)shin.onchange=function(){
     var f=shin.files[0];shin.value='';if(!f||creditShot.busy)return;
@@ -4834,6 +4943,12 @@ document.addEventListener('click',function(e){
   else if(a==='imp-no'){pendingImport=null;pendingEnc=null;secMsg=''}
   else if(a==='undo'){undoStep('undo');return}
   else if(a==='redo'){undoStep('redo');return}
+  else if(a==='rc-save'){receiptSave(id);return}
+  else if(a==='rc-skip'){rcpt.items=rcpt.items.filter(function(x){return x.id!==id})}
+  else if(a==='atm-mark'){var nA=0;atmRows(S.txns).forEach(function(x){x.transfer=true;nA++});toast(nA+' withdrawal'+(nA===1?'':'s')+' marked as transfers.')}
+  else if(a==='ph-start'){
+    rcpt.phone.msg='';tcall(T.phone.start()).then(function(r){rcpt.phone={on:true,url:r.url,qr:r.qr,msg:'',expires:r.expires};render()}).catch(function(e){rcpt.phone={on:false,url:'',qr:'',msg:(e&&e.message)||'Could not start.',expires:0};render()});return}
+  else if(a==='ph-stop'){tcall(T.phone.stop()).catch(function(){});rcpt.phone={on:false,url:'',qr:'',msg:'',expires:0}}
   else if(a==='cs-save'){cardStmtSave();return}
   else if(a==='cs-cancel'){cardStmt={stage:'idle',msg:'',err:'',card:null,sel:'',rows:[],importTx:true}}
   else if(a==='shot-cancel'){creditShot={msg:'',rows:null,busy:false}}

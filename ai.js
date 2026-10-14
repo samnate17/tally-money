@@ -293,6 +293,48 @@ function cleanScoreShot(raw) {
   return out;
 }
 
+const RECEIPT_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    merchant: { type: 'string' },
+    date: { type: 'string' },
+    total: { type: 'number' },
+    tax: { type: 'number' },
+    tip: { type: 'number' },
+    payment: { type: 'string', enum: ['cash', 'card', 'unknown'] },
+    category: { type: 'string' },
+    items: { type: 'array', items: { type: 'object', additionalProperties: false, properties: { name: { type: 'string' }, amount: { type: 'number' } }, required: ['name', 'amount'] } },
+    notes: { type: 'string' },
+  },
+  required: ['merchant', 'date', 'total', 'tax', 'tip', 'payment', 'category', 'items', 'notes'],
+};
+const RECEIPT_SYSTEM = [
+  'You read a photo of one store, restaurant or service receipt for a personal-finance app.',
+  'merchant: the business name as printed, tidied (no store numbers or addresses). date: the purchase date as YYYY-MM-DD (empty string if not shown). total: the amount actually charged, including tax and tip, as a positive number. tax and tip: 0 if not shown.',
+  'payment: "cash" only if the receipt shows cash tendered or change given; "card" if it shows a card brand, last digits or an authorisation; otherwise "unknown".',
+  'category: pick the single best match from the list the user gives you, or an empty string if none fits. items: up to 30 line items with their amounts (skip tax, tip and totals).',
+  'Never guess a number you cannot read. If the picture is not a receipt, is unreadable, or shows several receipts, return total 0 and explain in notes. Never repeat card numbers, names or addresses.',
+].join(' ');
+// What the page gets from a receipt: tidy values only, the category must be one of the app\'s own.
+function cleanReceipt(raw, cats) {
+  const out = { merchant: '', date: '', total: 0, tax: 0, tip: 0, payment: 'unknown', category: '', items: [], notes: '' };
+  if (!raw || typeof raw !== 'object') return out;
+  const money = (v, max) => { const n = Math.round(Number(v) * 100) / 100; return Number.isFinite(n) && n >= 0 && n <= max ? n : 0; };
+  out.merchant = String(raw.merchant || '').replace(/\s+/g, ' ').trim().slice(0, 60);
+  out.date = /^\d{4}-\d{2}-\d{2}$/.test(String(raw.date || '')) ? String(raw.date) : '';
+  out.total = money(raw.total, 100000); out.tax = money(raw.tax, 100000); out.tip = money(raw.tip, 100000);
+  out.payment = ['cash', 'card'].includes(raw.payment) ? raw.payment : 'unknown';
+  out.category = Array.isArray(cats) && cats.includes(raw.category) ? raw.category : '';
+  for (const x of Array.isArray(raw.items) ? raw.items : []) {
+    const name = String((x && x.name) || '').replace(/\s+/g, ' ').trim().slice(0, 60), amount = Math.round(Number(x && x.amount) * 100) / 100;
+    if (name && Number.isFinite(amount) && Math.abs(amount) <= 100000) out.items.push({ name, amount });
+    if (out.items.length >= 30) break;
+  }
+  out.notes = String(raw.notes || '').replace(/\s+/g, ' ').trim().slice(0, 200);
+  return out;
+}
+
 function createAI({ store, clientFactory }) {
   const make = clientFactory || ((apiKey) => new Anthropic({ apiKey }));
 
@@ -507,7 +549,32 @@ function createAI({ store, clientFactory }) {
     return cleanScoreShot(parsed);
   }
 
-  return { status, saveKey, clearKey, analyze, categorize, loansFromText, statement, statementPdf, testKey, carArt, creditShot };
+  // Reads one receipt photo. The page shows the result to the user before anything is added.
+  async function receipt(req) {
+    const apiKey = store.get('anthropicKey');
+    if (!apiKey) throw new Error('Add your Anthropic API key first.');
+    const m = /^data:image\/(jpeg|png|webp);base64,([A-Za-z0-9+/=]+)$/.exec(String((req && req.image) || ''));
+    if (!m || m[2].length > 6000000) throw new Error('That picture cannot be used. Send a JPEG or PNG photo of the receipt.');
+    const cats = (Array.isArray(req.cats) ? req.cats : []).map((c) => String(c).slice(0, 40)).slice(0, 60);
+    let msg;
+    try {
+      const stream = make(apiKey).messages.stream({
+        model: MODEL, max_tokens: 3000, system: RECEIPT_SYSTEM,
+        output_config: { effort: 'low', format: { type: 'json_schema', schema: RECEIPT_SCHEMA } },
+        messages: [{ role: 'user', content: [{ type: 'image', source: { type: 'base64', media_type: 'image/' + m[1], data: m[2] } }, { type: 'text', text: 'Read this receipt. Categories to choose from: ' + JSON.stringify(cats) + '.' }] }],
+      });
+      msg = await stream.finalMessage();
+    } catch (err) {
+      throw new Error(friendlyError(err));
+    }
+    if (msg.stop_reason === 'refusal') throw new Error('Claude declined to read this picture.');
+    const body = (msg.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('');
+    let parsed;
+    try { parsed = JSON.parse(body); } catch (e) { throw new Error('Claude returned an answer the app could not read. Try again.'); }
+    return cleanReceipt(parsed, cats);
+  }
+
+  return { status, saveKey, clearKey, analyze, categorize, loansFromText, statement, statementPdf, testKey, carArt, creditShot, receipt };
 }
 
 // For a model running on this computer: the same job as the Claude version, but it must answer with plain JSON text.
@@ -521,4 +588,4 @@ function parseLocalLoans(reply) {
   return cleanLoans(parsed);
 }
 module.exports = {
-  LOANS_LOCAL_SYSTEM, parseLocalLoans, cleanLoans, cleanScoreShot, createAI, cleanResult, cleanStatement, friendlyError, detailOf, MODEL, SCHEMA, schemaFor, SYSTEM, MAX_STATEMENT_CHARS };
+  LOANS_LOCAL_SYSTEM, parseLocalLoans, cleanLoans, cleanScoreShot, cleanReceipt, createAI, cleanResult, cleanStatement, friendlyError, detailOf, MODEL, SCHEMA, schemaFor, SYSTEM, MAX_STATEMENT_CHARS };

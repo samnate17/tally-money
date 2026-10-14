@@ -11,6 +11,8 @@ const { createWidget } = require('./widget');
 const glassLib = require('./glass');
 const { createUpdater } = require('./updater');
 const { createBiometric } = require('./biometric');
+const { createPhoneCapture } = require('./phonecapture');
+const qrcode = require('qrcode-generator');
 const { createLocalAI } = require('./local-ai');
 const { parseLoanText, parseMortgageText, parseCardStatement } = require('./loanparse');
 const aiMod = require('./ai');
@@ -20,6 +22,7 @@ let localAi = null;
 let store, plaid, ai, market, fundamentals, widget, updater, mainWin = null, linkState = null;
 let glassAddon = null, glassState = { available: false, active: false, reason: '' }, glassId = -1, glassPrefsFile = '';
 const statementText = new Map();
+let phone = null;      // the "scan with my iPhone" server, only running when switched on
 const statementBytes = new Map(); // PDFs with no text layer, kept briefly so they can be sent to Claude if the user chooses
 let textSeq = 0;
 
@@ -161,6 +164,14 @@ function wireIpc() {
     require('fs').writeFileSync(res.filePath, text, { mode: 0o600 });
     return { path: res.filePath };
   });
+  // Scan receipts with an iPhone over the local Wi-Fi (see phonecapture.js).
+  const getPhone = () => (phone = phone || createPhoneCapture({
+    onImage: ({ buf, type }) => { if (mainWin && !mainWin.isDestroyed()) mainWin.webContents.send('phone:image', { id: Date.now() + '-' + Math.random().toString(36).slice(2, 7), dataUrl: 'data:' + type + ';base64,' + buf.toString('base64'), bytes: buf.length }); },
+    qr: (u) => { const q = qrcode(0, 'M'); q.addData(u); q.make(); return q.createSvgTag({ cellSize: 4, margin: 2, scalable: true }); },
+  }));
+  mainOnly('phone:start', () => getPhone().start());
+  mainOnly('phone:stop', () => { if (phone) phone.stop(); return true; });
+  mainOnly('phone:status', () => (phone ? phone.status() : { on: false, url: '', expires: 0, received: 0 }));
   // Touch ID unlock for the app password (see biometric.js).
   mainOnly('bio:status', () => createBiometric({ store, systemPreferences }).status());
   mainOnly('bio:enable', (pw) => createBiometric({ store, systemPreferences }).enable(pw));
@@ -288,6 +299,7 @@ function wireIpc() {
   });
   handle('ai:carArt', (r) => ai.carArt(r));
   handle('ai:creditShot', (r) => ai.creditShot(r));
+  handle('ai:receipt', (r) => ai.receipt(r));
   handle('ai:statementPdf', (textId, type) => {
     const buf = statementBytes.get(String(textId));
     if (!buf) throw new Error('That statement is no longer in memory. Choose the file again.');

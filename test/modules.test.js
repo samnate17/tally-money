@@ -527,3 +527,22 @@ test('ai: reading credit scores from a screenshot keeps only valid scores and se
   await assert.rejects(aiWith(() => final({ stop_reason: 'end_turn', content: [{ type: 'text', text: 'not json' }] })).creditShot({ image: img }), /could not read/);
   await assert.rejects(aiWith(() => final({}), '').creditShot({ image: img }), /API key/);
 });
+
+test('ai: reading a receipt photo returns tidy values, and the category must be one of the app\'s own', async () => {
+  const { cleanReceipt } = require('../ai');
+  const cats = ['Groceries', 'Dining', 'Other'];
+  const c = cleanReceipt({ merchant: '  TRADER   JOES #123 ', date: '2026-10-13', total: 54.2149, tax: 2.1, tip: -3, payment: 'cash', category: 'Groceries', items: [{ name: 'Milk', amount: 3.99 }, { name: '', amount: 1 }, { name: 'Bad', amount: 'x' }, null], notes: ' ok ' }, cats);
+  assert.deepStrictEqual(c, { merchant: 'TRADER JOES #123', date: '2026-10-13', total: 54.21, tax: 2.1, tip: 0, payment: 'cash', category: 'Groceries', items: [{ name: 'Milk', amount: 3.99 }], notes: 'ok' });
+  const w = cleanReceipt({ merchant: 'X', date: 'yesterday', total: 'abc', payment: 'bitcoin', category: 'Made up' }, cats);
+  assert.deepStrictEqual([w.date, w.total, w.payment, w.category], ['', 0, 'unknown', '']);
+  assert.strictEqual(cleanReceipt(null, cats).total, 0); assert.strictEqual(cleanReceipt({ total: 1e9 }, cats).total, 0);
+  const seen = [];
+  const ai = aiWith((req) => { seen.push(req); return final({ stop_reason: 'end_turn', content: [{ type: 'text', text: JSON.stringify({ merchant: 'Shaws', date: '2026-10-12', total: 31.07, tax: 0, tip: 0, payment: 'card', category: 'Groceries', items: [], notes: '' }) }] }); });
+  const img = 'data:image/jpeg;base64,' + Buffer.from('fakejpeg').toString('base64');
+  const r = await ai.receipt({ image: img, cats });
+  assert.strictEqual(r.merchant, 'Shaws'); assert.strictEqual(r.total, 31.07); assert.strictEqual(r.category, 'Groceries');
+  assert.strictEqual(seen[0].messages[0].content[0].type, 'image'); assert.match(seen[0].messages[0].content[1].text, /Groceries/); assert.match(seen[0].system, /Never guess/);
+  await assert.rejects(ai.receipt({ image: 'data:text/plain;base64,AAAA', cats }), /cannot be used/);
+  await assert.rejects(aiWith(() => final({ stop_reason: 'refusal', content: [] })).receipt({ image: img, cats }), /declined/);
+  await assert.rejects(aiWith(() => final({}), '').receipt({ image: img, cats }), /API key/);
+});

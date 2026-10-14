@@ -10,6 +10,12 @@ contextBridge.exposeInMainWorld('tally', {
   theme: {
     mode: inv('theme:mode'),
   },
+  phone: {
+    start: inv('phone:start'),
+    stop: inv('phone:stop'),
+    status: inv('phone:status'),
+    onImage: (cb) => ipcRenderer.on('phone:image', (_e, m) => cb(m)),
+  },
   bio: {
     status: inv('bio:status'),
     enable: inv('bio:enable'),
@@ -60,6 +66,7 @@ contextBridge.exposeInMainWorld('tally', {
     statementPdf: inv('ai:statementPdf'),
     carArt: inv('ai:carArt'),
     creditShot: inv('ai:creditShot'),
+    receipt: inv('ai:receipt'),
     test: inv('ai:test'),
     categorize: inv('ai:categorize'),
     loans: inv('ai:loans'),
