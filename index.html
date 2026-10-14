@@ -1577,7 +1577,7 @@ function vAccounts(){
   var nw=netWorth(),assets=S.accounts.filter(function(a){return !isDebt(a)}),debts=S.accounts.filter(isDebt);
   var tiles='<div class="grid tiles">'+tile('Net worth','<span class="'+(nw.net<0?'bad':'good')+'">'+(nw.net<0?'-':'')+money0(Math.abs(nw.net))+'</span>','Assets minus debts')+tile('Assets',money0(nw.assets),assets.length+' account'+(assets.length===1?'':'s'))+tile('Debts','<span class="'+(nw.debts>0?'bad':'')+'">'+money0(nw.debts)+'</span>',debts.length+' account'+(debts.length===1?'':'s'))+'</div>';
   var opts='<optgroup label="Assets">'+Object.keys(ASSET_TYPES).map(function(k){return '<option value="'+k+'">'+ASSET_TYPES[k]+'</option>'}).join('')+'</optgroup><optgroup label="Debts">'+Object.keys(DEBT_TYPES).map(function(k){return '<option value="'+k+'">'+DEBT_TYPES[k]+'</option>'}).join('')+'</optgroup>';
-  return '<div class="top"><h1>Accounts</h1></div>'+appleBalBanner()+tiles+
+  return '<div class="top"><h1>Accounts</h1></div>'+appleBalBanner()+'<div class="actions" style="justify-content:flex-end;margin:0 0 10px">'+cardStmtButton('Add a credit card from a statement','')+'</div>'+cardStmtPanel()+tiles+
    '<section class="panel"><h2>Net worth</h2>'+nwChart()+'</section>'+
    '<section class="panel"><h2>Assets</h2>'+(assets.length?assets.map(acctRow).join(''):'<div class="empty">No assets yet.</div>')+'</section>'+
    '<section class="panel"><h2>Debts</h2>'+(debts.length?debts.map(acctRow).join(''):'<div class="empty">No debts tracked.</div>')+'</section>'+
@@ -3279,7 +3279,8 @@ function vLoans(kind,hub){
   var head=hub?'<div class="actions" style="justify-content:flex-end;margin:0 0 10px"><button class="btn small primary" data-act="loan-add" data-kind="'+kind+'">'+(kind==='credit'?'Add a card':'Add a loan')+'</button></div>':'<div class="top"><h1>'+K.title+'</h1><button class="btn small" data-act="loan-add" data-kind="'+kind+'">Add a loan</button></div>';
   var msg=U.msg?'<div class="banner"><span>'+esc(U.msg)+'</span></div>':'';
   var adding=U.adding?'<section class="panel"><h2>Add '+({auto:'a car loan',student:'a student loan',credit:'a credit card',loan:'a loan'}[kind])+'</h2>'+loanForm(kind,null)+'<p class="sub muted" style="margin:0;font-size:12px">The balance, rate and payment are on your lender\'s website or monthly statement'+(kind==='student'?'. Federal loans often come as several separate loans with different rates, so add each one':'')+'.</p></section>':'';
-  if(!loans.length)return head+msg+adding+(U.adding?'':'<section class="panel"><div class="empty">No '+K.what+' yet. Add what you owe, the rate and the payment to see when it will be paid off and how to pay it off sooner.<div style="margin-top:12px"><button class="btn primary" data-act="loan-add" data-kind="'+kind+'">Add a loan</button></div></div></section>')+loanImportPanel(kind);
+  var csBlock=kind==='credit'?'<div class="actions" style="justify-content:flex-end;margin:0 0 10px">'+cardStmtButton()+'</div>'+cardStmtPanel():'';
+  if(!loans.length)return head+msg+csBlock+adding+(U.adding?'':'<section class="panel"><div class="empty">No '+K.what+' yet. Add what you owe, the rate and the payment to see when it will be paid off and how to pay it off sooner.<div style="margin-top:12px"><button class="btn primary" data-act="loan-add" data-kind="'+kind+'">Add a loan</button></div></div></section>')+loanImportPanel(kind);
   var total=loans.reduce(function(a,l){return a+l.balance},0),mins=loans.reduce(function(a,l){return a+l.minPay},0),wapr=total>0?loans.reduce(function(a,l){return a+l.balance*l.apr},0)/total:0;
   var cur=portfolio(loans,0,0),dues=loans.map(function(l){return nextDue(l.dueDay,TODAY)}).filter(Boolean).sort(function(a,b){return a-b});
   var tiles='<div class="grid tiles">'+tile('You owe',money0(total),loans.length+' loan'+(loans.length===1?'':'s'))+tile('Interest rate',wapr.toFixed(2)+'%',loans.length>1?'Average, weighted by balance':'APR')+tile('You pay',money0(mins)+'<span class="muted" style="font-size:14px">/mo</span>',dues.length?'Next due '+shortDate(iso(dues[0])):'Add a due day to see this')+
@@ -3314,7 +3315,7 @@ function vLoans(kind,hub){
   loans.forEach(function(l){var re=loanMatchRe(l),k=re?re.source:'';if(!k)return;if(!groups[k]){groups[k]=[];gOrder.push(k)}groups[k].push(l)});
   var seen=gOrder.map(function(k){var ls=groups[k],l=ls[0];var p=paymentsSeen(S.txns,l);if(!p.length)return '';var typ=p[0].amount,diff=ls.length===1&&Math.abs(typ-l.minPay)>5&&l.minPay>0;return '<div style="margin-bottom:10px"><div class="nm">'+esc(ls.map(function(x){return x.name}).join(', '))+'</div>'+p.map(function(x){return '<div class="row"><div class="grow"><div class="sub">'+shortDate(x.date)+' · '+esc(x.name)+'</div></div><div class="amt num">'+money(x.amount)+'</div></div>'}).join('')+(diff?'<p class="sub warn" style="margin:4px 0 0">Your latest payment was '+money(typ)+' but you entered '+money(l.minPay)+'. Edit the loan if the amount changed.</p>':'')+'</div>'}).join('');
   var seenP=seen?'<section class="panel histpanel"><h2>'+(kind==='auto'?'Payment history':'Payments I found')+'<small>found in your transactions</small></h2>'+seen+'</section>':'';
-  return head+msg+adding+(kind==='auto'?loans.map(autoHero).join(''):tiles)+loanVisuals(kind,loans)+(kind==='credit'?cashbackPanel():'')+cards+contractPanels(loans)+faster+pay+seenP+loanImportPanel(kind)+loanTips(kind);
+  return head+msg+csBlock+adding+(kind==='auto'?loans.map(autoHero).join(''):tiles)+loanVisuals(kind,loans)+(kind==='credit'?cashbackPanel():'')+cards+contractPanels(loans)+faster+pay+seenP+loanImportPanel(kind)+loanTips(kind);
 }
 function attackFirst(loans){return loans.filter(function(l){return l.balance>0}).slice().sort(function(a,b){return b.apr-a.apr||a.balance-b.balance})[0]||loans[0]}
 var plLoading=false;
@@ -4032,6 +4033,101 @@ document.addEventListener('click',function(e){
 
 /* ---------- Credit health ---------- */
 var credPay='';
+// ---------- Add a credit card from a statement ----------
+var cardStmt={stage:'idle',msg:'',err:'',card:null,sel:'',rows:[],importTx:true};
+function cardStmtButton(label,cls){return '<label class="btn '+(cls===undefined?'primary':cls)+'" style="cursor:pointer">'+(label||'Add a card from a statement')+'<input type="file" class="cs-file" accept=".pdf,.csv,.ofx,.qfx,.txt,application/pdf,text/csv" multiple hidden></label>'}
+// An existing card this statement is probably for: same last four digits, else the only card from the same bank.
+function cardMatch(C){
+  var cc=S.accounts.filter(function(a){return a.type==='credit'}),i;
+  if(C.last4){for(i=0;i<cc.length;i++)if(cc[i].last4===C.last4||(cc[i].name||'').indexOf(C.last4)>-1)return cc[i].id}
+  if(C.issuer){var low=C.issuer.toLowerCase(),hit=cc.filter(function(a){return ((a.lender||'')+' '+a.name).toLowerCase().indexOf(low)>-1});if(hit.length===1&&!hit[0].last4)return hit[0].id}
+  return '';
+}
+// Fill the empty boxes from a card the app already has.
+function cardPrefill(C,a){
+  if(!a)return;
+  if(!C.name)C.name=a.name;if(!C.issuer&&a.lender)C.issuer=a.lender;if(!C.last4&&a.last4)C.last4=a.last4;
+  [['limit','limit'],['apr','apr'],['minPay','minPay'],['dueDay','dueDay']].forEach(function(k){if((C[k[0]]===''||C[k[0]]===undefined)&&a[k[1]])C[k[0]]=a[k[1]]});
+}
+function cardStmtRead(fileList){
+  cardStmt={stage:'busy',msg:'Reading '+fileList.length+' file'+(fileList.length===1?'':'s')+'…',err:'',card:null,sel:'',rows:[],importTx:true};render();
+  var parsed=[],chain=Promise.resolve();
+  fileList.forEach(function(file){chain=chain.then(function(){
+    var isPdf=/\.pdf$/i.test(file.name)||file.type==='application/pdf';
+    if(isPdf){
+      if(!(T&&T.pdf&&T.loan))throw new Error('Reading PDF statements works in the desktop app. In the browser, use the CSV download from your card’s website.');
+      return file.arrayBuffer().then(function(buf){return tcall(T.pdf.parse(buf,'credit'))}).then(function(r){
+        return tcall(T.loan.parse(r.textId,'cardstmt')).then(function(c){parsed.push({name:file.name,rows:r.rows||[],card:c,endBalance:r.meta&&r.meta.endBalance})});
+      });
+    }
+    return file.text().then(function(text){
+      if(/\.(ofx|qfx)$/i.test(file.name)||/<OFX>/i.test(text.slice(0,3000))){var ox=ofxParse(text);parsed.push({name:file.name,rows:ox.rows,card:null,endBalance:ox.balance!==null&&ox.balance!==undefined?Math.abs(ox.balance):undefined});return}
+      var det=csvDetect(text);if(det.rows.length<2||!det.ok)throw new Error('I could not find the date, description and amount columns in '+file.name+'.');
+      parsed.push({name:file.name,rows:csvBuild(det.rows,det.headerIdx,det.map,{order:det.order,flip:det.flip}).rows,card:null});
+    });
+  }).catch(function(e){parsed.push({name:file.name,err:(e&&e.message)||'Could not read this file.',rows:[],card:null})})});
+  chain.then(function(){
+    var good=parsed.filter(function(x){return !x.err}),errs=parsed.filter(function(x){return x.err});
+    if(!good.length){cardStmt={stage:'idle',msg:'',err:errs.map(function(x){return x.name+': '+x.err}).join(' '),card:null,sel:'',rows:[],importTx:true};render();return}
+    // the newest statement decides the balance, due date and so on; older ones only fill gaps
+    var withCard=good.filter(function(x){return x.card}).sort(function(a,b){return (b.card.closingDate||'')>(a.card.closingDate||'')?1:-1}),C={issuer:'',product:'',last4:'',name:'',balance:'',limit:'',apr:'',minPay:'',dueDay:'',asOf:'',interestCharged:null,feesCharged:null,notes:[]};
+    withCard.forEach(function(x){var c=x.card;['issuer','product','last4'].forEach(function(k){if(!C[k]&&c[k])C[k]=c[k]});[['balance','balance'],['limit','limit'],['apr','apr'],['minPay','minPay'],['dueDay','dueDay']].forEach(function(k){if(C[k[0]]===''&&c[k[1]]!==null&&c[k[1]]!==undefined&&c[k[1]]!==0)C[k[0]]=c[k[1]]});if(!C.asOf&&c.closingDate)C.asOf=c.closingDate;if(C.interestCharged===null&&c.interestCharged!==null)C.interestCharged=c.interestCharged;if(C.feesCharged===null&&c.feesCharged!==null)C.feesCharged=c.feesCharged});
+    if(C.balance===''){var eb=good.filter(function(x){return x.endBalance>0})[0];if(eb)C.balance=eb.endBalance}
+    C.name=withCard.length&&withCard[0].card.name&&withCard[0].card.name!=='Credit card'?withCard[0].card.name:(C.issuer?C.issuer+' card'+(C.last4?' ••'+C.last4:''):'');
+    if(withCard.length)C.notes=withCard[0].card.notes.slice();else C.notes=['This file has transactions but no card details (limit, rate, due date). Type them in below.'];
+    errs.forEach(function(x){C.notes.push(x.name+': '+x.err)});
+    var sel=cardMatch(C),rows=pdfReviewRows(good.map(function(x){return {rows:x.rows}}),{card:true}),ccs=S.accounts.filter(function(a){return a.type==='credit'});
+    if(!sel&&!withCard.length&&ccs.length===1)sel=ccs[0].id;                 // a transactions-only file and one card: it can only be that one
+    if(sel){var ea=S.accounts.filter(function(a){return a.id===sel})[0];if(!withCard.length&&ea)C.name=ea.name;cardPrefill(C,ea)}
+    cardStmt={stage:'review',msg:'',err:'',card:C,sel:sel,rows:rows,importTx:true};render();
+  });
+}
+function cardStmtPanel(){
+  var st=cardStmt;
+  if(st.stage==='idle')return st.err?'<div class="banner" style="margin-bottom:12px"><span class="bad">'+esc(st.err)+'</span></div>':'';
+  if(st.stage==='busy')return '<section class="panel"><h2>Add a credit card</h2><div class="empty">'+esc(st.msg)+'</div></section>';
+  var C=st.card,cc=S.accounts.filter(function(a){return a.type==='credit'}),ex=st.sel&&S.accounts.filter(function(a){return a.id===st.sel})[0];
+  var n=st.rows.length,newN=st.rows.filter(function(r){return r.on}).length,pay=st.rows.filter(function(r){return r.card&&!r.dup}).length,dup=st.rows.filter(function(r){return r.dup}).length;
+  var inp=function(k,lab,w,o){o=o||{};return '<label>'+lab+'<input data-cs="'+k+'" type="'+(o.type||'text')+'"'+(o.step?' step="'+o.step+'"':'')+(o.min!==undefined?' min="'+o.min+'"':'')+(o.max?' max="'+o.max+'"':'')+' value="'+esc(C[k]===null||C[k]===undefined?'':C[k])+'" style="width:'+w+'px"'+(o.ph?' placeholder="'+o.ph+'"':'')+'></label>'};
+  return '<section class="panel"><h2>Add a credit card<small>from your statement</small></h2>'+
+    (S.sample?'<div class="banner" style="margin:0 0 10px;display:block;white-space:normal"><b class="warn">You are still using the example data.</b> Adding your card replaces it. You can press Undo afterwards.</div>':'')+
+    '<p class="sub" style="margin:0 0 10px;white-space:normal">Here is what I found. Check it, fix anything wrong, then add the card. The balance is the one on the statement: change it if you have paid since.</p>'+
+    '<div class="form" style="align-items:flex-end"><label>This is<select id="cs-sel"><option value="">A new card</option>'+cc.map(function(a){return '<option value="'+esc(a.id)+'"'+(st.sel===a.id?' selected':'')+'>'+esc(a.name)+'</option>'}).join('')+'</select></label>'+inp('name','Card name',210)+inp('issuer','Bank',110)+inp('last4','Last 4',64,{ph:'1234'})+'</div>'+
+    '<div class="form" style="align-items:flex-end;margin-top:8px">'+inp('balance','You owe $',104,{type:'number',step:'0.01',min:0})+inp('limit','Credit limit $',104,{type:'number',step:'1',min:0})+inp('apr','APR %',80,{type:'number',step:'0.01',min:0})+inp('minPay','Minimum payment $',112,{type:'number',step:'0.01',min:0})+inp('dueDay','Due day',70,{type:'number',min:0,max:31})+inp('asOf','Balance as of',150,{type:'date'})+'</div>'+
+    (C.interestCharged>0||C.feesCharged>0?'<p class="sub" style="margin:8px 0 0">This statement charged '+(C.interestCharged>0?money(C.interestCharged)+' in interest':'')+(C.interestCharged>0&&C.feesCharged>0?' and ':'')+(C.feesCharged>0?money(C.feesCharged)+' in fees':'')+'.</p>':'')+
+    (C.notes.length?'<ul style="margin:8px 0 0;padding-left:20px;font-size:13px" class="warn">'+C.notes.map(function(t){return '<li>'+esc(t)+'</li>'}).join('')+'</ul>':'')+
+    (n?'<label class="sub" style="display:flex;gap:8px;align-items:flex-start;margin:12px 0 0;cursor:pointer;white-space:normal"><input type="checkbox" id="cs-tx"'+(st.importTx?' checked':'')+' style="margin-top:3px"> <span>Also import the <b>'+newN+'</b> new transaction'+(newN===1?'':'s')+' on the statement'+(pay?' ('+pay+' payment'+(pay===1?'':'s')+' to the card '+(pay===1?'is':'are')+' kept as '+(pay===1?'a transfer':'transfers')+', not income)':'')+(dup?', '+dup+' already in the app skipped':'')+'. They are linked to this card, so its cash back and cost show up.</span></label>':'<p class="sub muted" style="margin:12px 0 0">No transactions were found on this statement.</p>')+
+    '<div class="actions" style="justify-content:flex-start;margin-top:12px"><button class="btn primary" data-act="cs-save">'+(ex?'Update this card':'Add this card')+'</button><button class="btn" data-act="cs-cancel">Cancel</button></div></section>';
+}
+// Put review rows into the transactions, linked to a card. Rows already in the app only get linked.
+function commitRows(rows,cardId){
+  if(cardId)rows.forEach(function(r){if(r.dup&&r.dupId){var e0=S.txns.filter(function(x){return x.id===r.dupId})[0];if(e0&&!e0.acct)e0.acct=cardId}});
+  var n=0;
+  rows.filter(function(r){return r.on}).forEach(function(r){var t={id:uid(),date:r.date,name:r.name,amount:Math.round(r.amount*100)/100,cat:r.cat},sb=subFor(r.cat,r.name,r.sub);if(sb)t.sub=sb;if(r.transfer){t.transfer=true;if(r.card)t.cardPay=true}if(cardId)t.acct=cardId;S.txns.push(t);n++});
+  S.txns.sort(function(x,y){return x.date<y.date?1:-1});
+  return n;
+}
+function cardStmtSave(){
+  var st=cardStmt,C=st.card;if(!C)return;
+  var bal=parseFloat(C.balance),haveBal=bal>=0,keep=st.sel&&S.accounts.filter(function(a){return a.id===st.sel})[0];
+  if(!haveBal&&!keep){toast('Type what you owe on the card first.');return}
+  if(S.sample){S.txns=[];S.subs=[];S.goals=[];S.accounts=[];S.budgets={};S.extraPay=0;S.credit=defCredit();S.holdings=[];S.sample=false}
+  var ac=st.sel&&S.accounts.filter(function(a){return a.id===st.sel})[0],created=!ac;
+  if(!ac){ac={id:uid(),name:'Credit card',type:'credit',balance:0,apr:0,minPay:0,history:[]};S.accounts.push(ac)}
+  ac.name=String(C.name||ac.name||'Credit card').slice(0,120);if(haveBal)ac.balance=bal;
+  if(parseFloat(C.limit)>0)ac.limit=parseFloat(C.limit);
+  if(parseFloat(C.apr)>=0&&C.apr!=='')ac.apr=parseFloat(C.apr);
+  if(parseFloat(C.minPay)>=0&&C.minPay!=='')ac.minPay=parseFloat(C.minPay);
+  var dd=Math.round(parseFloat(C.dueDay));if(dd>=1&&dd<=31)ac.dueDay=dd;
+  if(C.issuer)ac.lender=String(C.issuer).slice(0,40);
+  if(/^\d{4}$/.test(String(C.last4||'')))ac.last4=String(C.last4);
+  var d0=/^\d{4}-\d{2}-\d{2}$/.test(C.asOf||'')?C.asOf:iso(TODAY),h=ac.history.filter(function(x){return x.date===d0})[0];
+  if(haveBal){if(h)h.balance=bal;else ac.history.push({date:d0,balance:bal});ac.history.sort(function(a,b){return a.date<b.date?-1:1})}
+  var n=st.importTx&&st.rows.length?commitRows(st.rows,ac.id):0;
+  if(!st.importTx&&st.rows.length)commitRows(st.rows.map(function(r){return {dup:r.dup,dupId:r.dupId,on:false}}),ac.id);
+  cardStmt={stage:'idle',msg:'',err:'',card:null,sel:'',rows:[],importTx:true};
+  save();render();toast((created?'Card added':'Card updated')+(n?' with '+n+' transaction'+(n===1?'':'s'):'')+'.');
+}
 // ---------- Credit score tab ----------
 var creditShot={msg:'',rows:null,busy:false};
 // A screenshot of a score screen, shrunk to a size the API takes, as a JPEG data URL.
@@ -4114,7 +4210,7 @@ function factorCards(adv,ages,profile){
 function vCredit(){
   var cr=S.credit,P=cr.profile,series=scoreSeries(cr.scores),adv=creditAdvice(S.accounts,P,money0),u=adv.util,ages=creditAges(S.accounts,P,TODAY);
   var ins=creditInsights(cr.scores,S.accounts,P,TODAY,money0),story=scoreStory(series,S.accounts),gap=scoreGap(series);
-  var head='<div class="top"><h1>Credit score</h1></div>';
+  var head='<div class="top"><h1>Credit score</h1></div><div class="actions" style="justify-content:flex-end;margin:0 0 10px">'+cardStmtButton('Add a credit card from a statement','')+'</div>'+cardStmtPanel();
   var cards=series.length?'<div class="scgrid">'+series.map(scoreCardHTML).join('')+'</div>'+(gap&&gap.gap>=5?'<p class="sub" style="margin:10px 0 0;white-space:normal">'+esc(gap.hi.name)+' is <b>'+gap.gap+'</b> point'+(gap.gap===1?'':'s')+' higher than '+esc(gap.lo.name)+'. Small gaps are normal: each bureau holds slightly different information about you.</p>':''):'<div class="empty" style="white-space:normal">No score yet. Add the scores you see in Credit Karma, your bank or card app below, one per bureau.</div>';
   var scoresPanel='<section class="panel"><h2>Your scores<small>TransUnion, Equifax and Experian</small></h2>'+cards+(series.reduce(function(n,s){return n+s.entries.length},0)>1?'<div style="margin-top:16px">'+scoreTrend(series)+'</div>':'')+(story.length?'<div class="banner" style="margin-top:14px;display:block;white-space:normal"><b>What moved your score</b><ul style="margin:6px 0 0;padding-left:18px">'+story.map(function(t){return '<li style="margin:3px 0">'+esc(t)+'</li>'}).join('')+'</ul></div>':'')+'</section>';
   var insPanel=ins.length?'<section class="panel"><h2>For you<small>what the app noticed</small></h2>'+ins.slice(0,8).map(function(x){return '<div class="row" style="align-items:flex-start"><span class="dot" style="flex:none;width:10px;height:10px;border-radius:50%;margin-top:6px;background:var(--'+(x.k==='good'?'good':x.k==='bad'?'bad':x.k==='warn'?'warn':'accent')+')"></span><div class="grow" style="white-space:normal"><div class="nm" style="white-space:normal">'+esc(x.title)+'</div><div class="sub" style="white-space:normal">'+esc(x.detail)+'</div></div></div>'}).join('')+'</section>':'';
@@ -4605,7 +4701,7 @@ function cleanBackup(j){
   var accounts=(Array.isArray(d.accounts)?d.accounts:[]).filter(function(x){return x&&x.name&&isFinite(x.balance)&&+x.balance>=0&&(ASSET_TYPES[x.type]||DEBT_TYPES[x.type])}).map(function(x){
     var hist=(Array.isArray(x.history)?x.history:[]).filter(function(h){return h&&dre.test(h.date)&&isFinite(h.balance)}).map(function(h){return {date:h.date,balance:+h.balance}}).sort(function(a,b){return a.date<b.date?-1:1});
     if(!hist.length)hist=[{date:iso(TODAY),balance:+x.balance}];
-    var ac={id:String(x.id||uid()),name:String(x.name).slice(0,120),type:x.type,balance:+x.balance,apr:DEBT_TYPES[x.type]?Math.max(0,+x.apr||0):0,minPay:DEBT_TYPES[x.type]?Math.max(0,+x.minPay||0):0,history:hist};if(x.type==='credit'&&+x.limit>0)ac.limit=+x.limit;if(x.type==='credit'&&x.closed===true)ac.closed=true;if(DEBT_TYPES[x.type]&&x.contract){var cc=cleanContract(x.contract);if(cc)ac.contract=cc}if(DEBT_TYPES[x.type]){if(photoOk(x.photo))ac.photo=x.photo;if(/^#[0-9a-f]{6}$/i.test(x.carColor||''))ac.carColor=x.carColor;if(CAR_TYPES[x.carType])ac.carType=x.carType;if(/^\d{4}-\d{2}(-\d{2})?$/.test(x.opened||''))ac.opened=x.opened;if(typeof x.carSvg==='string'){var csv=cleanCarSvg(x.carSvg);if(csv)ac.carSvg=csv}if(x.showPhoto===true)ac.showPhoto=true}if(DEBT_TYPES[x.type]){var dd=Math.round(+x.dueDay);if(dd>=1&&dd<=31)ac.dueDay=dd;if(+x.origBalance>0)ac.origBalance=+x.origBalance;if(typeof x.lender==='string'&&x.lender)ac.lender=cleanSubName(x.lender).slice(0,40);var stm=cleanStmt(x);Object.keys(stm).forEach(function(k){ac[k]=stm[k]})}if(x.plaid&&typeof x.plaid.accountId==='string')ac.plaid={itemId:String(x.plaid.itemId||'').slice(0,100),accountId:x.plaid.accountId.slice(0,100)};return ac});
+    var ac={id:String(x.id||uid()),name:String(x.name).slice(0,120),type:x.type,balance:+x.balance,apr:DEBT_TYPES[x.type]?Math.max(0,+x.apr||0):0,minPay:DEBT_TYPES[x.type]?Math.max(0,+x.minPay||0):0,history:hist};if(x.type==='credit'&&+x.limit>0)ac.limit=+x.limit;if(x.type==='credit'&&x.closed===true)ac.closed=true;if(DEBT_TYPES[x.type]&&x.contract){var cc=cleanContract(x.contract);if(cc)ac.contract=cc}if(DEBT_TYPES[x.type]){if(photoOk(x.photo))ac.photo=x.photo;if(/^#[0-9a-f]{6}$/i.test(x.carColor||''))ac.carColor=x.carColor;if(CAR_TYPES[x.carType])ac.carType=x.carType;if(/^\d{4}-\d{2}(-\d{2})?$/.test(x.opened||''))ac.opened=x.opened;if(/^\d{4}$/.test(x.last4||''))ac.last4=x.last4;if(typeof x.carSvg==='string'){var csv=cleanCarSvg(x.carSvg);if(csv)ac.carSvg=csv}if(x.showPhoto===true)ac.showPhoto=true}if(DEBT_TYPES[x.type]){var dd=Math.round(+x.dueDay);if(dd>=1&&dd<=31)ac.dueDay=dd;if(+x.origBalance>0)ac.origBalance=+x.origBalance;if(typeof x.lender==='string'&&x.lender)ac.lender=cleanSubName(x.lender).slice(0,40);var stm=cleanStmt(x);Object.keys(stm).forEach(function(k){ac[k]=stm[k]})}if(x.plaid&&typeof x.plaid.accountId==='string')ac.plaid={itemId:String(x.plaid.itemId||'').slice(0,100),accountId:x.plaid.accountId.slice(0,100)};return ac});
   var home={};if(d.home&&typeof d.home==='object'&&!Array.isArray(d.home)){['purchasePrice','down','closing','origLoan','termYears','taxYear','insYear','hoaMonth','pmiMonth','maintPct','mgmtPct','vacancyPct','appreciation','ret','sellPct','rentGrowth','costGrowth','rentMonth','extra'].forEach(function(k){var n=parseFloat(d.home[k]);if(isFinite(n)&&n>=0&&n<1e9)home[k]=n});['purchaseDate','startDate'].forEach(function(k){if(/^\d{4}-\d{2}-\d{2}$/.test(d.home[k]||''))home[k]=d.home[k]});['mortId','valueId'].forEach(function(k){if(typeof d.home[k]==='string'&&/^[\w-]{1,40}$/.test(d.home[k])&&accounts.some(function(a){return a.id===d.home[k]}))home[k]=d.home[k]});if(d.home.setup===true&&home.valueId)home.setup=true;if(photoOk(d.home.photo))home.photo=d.home.photo}
   return {txns:txns,subs:subs,budgets:budgets,goals:goals,accounts:accounts,extraPay:Math.max(0,+d.extraPay||0),plaidIgnored:(Array.isArray(d.plaidIgnored)?d.plaidIgnored:[]).filter(function(x){return typeof x==='string'}).slice(0,200),credit:cleanCredit(d.credit),holdings:cleanHoldings(d.holdings),customCats:custom,setAside:setAside,merchantCats:merchantCats,subCats:subCats,merchantSubs:merchantSubs,bills:bills,billMarks:billMarks,energy:energy,home:home,debtMonthly:Math.max(0,+d.debtMonthly||0),billIgnore:(function(){var o={};if(d.billIgnore&&typeof d.billIgnore==='object'&&!Array.isArray(d.billIgnore))Object.keys(d.billIgnore).slice(0,500).forEach(function(k){if(k.length<=120&&k!=='__proto__')o[k]=1});return o})(),cardPay:d.cardPay==='skip'||d.cardPay==='count'?d.cardPay:'auto',apple:(function(){var a=d.apple||{},o={};if(typeof a.acct==='string'&&a.acct.length<=40)o.acct=a.acct;if(/^\d{4}-\d{2}-\d{2}$/.test(a.last||''))o.last=a.last;if(+a.count>=0)o.count=Math.min(1e6,Math.round(+a.count));return o})(),payLinks:cleanPayLinks(d.payLinks)};
 }
@@ -4638,6 +4734,10 @@ function bindView(){
   if($('#plaidpanel',m)){if(plSt)renderPl();else loadPl()}
   if($('#pdfpanel',m)){renderPdf();if(!aiSt)loadAi()}
   if($('#aipanel',m)){if(aiSt)renderAi();else loadAi()}
+  m.querySelectorAll('.cs-file').forEach(function(i){i.onchange=function(){var fl=Array.prototype.slice.call(i.files);i.value='';if(fl.length)cardStmtRead(fl)}});
+  m.querySelectorAll('[data-cs]').forEach(function(i){i.onchange=function(){if(cardStmt.card)cardStmt.card[i.dataset.cs]=i.value}});
+  var cssel=$('#cs-sel',m);if(cssel)cssel.onchange=function(){cardStmt.sel=cssel.value;var a=S.accounts.filter(function(x){return x.id===cssel.value})[0];if(a&&cardStmt.card){cardStmt.card.name=a.name;cardPrefill(cardStmt.card,a)}render()};
+  var cstx=$('#cs-tx',m);if(cstx)cstx.onchange=function(){cardStmt.importTx=cstx.checked};
   var shin=$('#sc-shot',m);
   if(shin)shin.onchange=function(){
     var f=shin.files[0];shin.value='';if(!f||creditShot.busy)return;
@@ -4734,6 +4834,8 @@ document.addEventListener('click',function(e){
   else if(a==='imp-no'){pendingImport=null;pendingEnc=null;secMsg=''}
   else if(a==='undo'){undoStep('undo');return}
   else if(a==='redo'){undoStep('redo');return}
+  else if(a==='cs-save'){cardStmtSave();return}
+  else if(a==='cs-cancel'){cardStmt={stage:'idle',msg:'',err:'',card:null,sel:'',rows:[],importTx:true}}
   else if(a==='shot-cancel'){creditShot={msg:'',rows:null,busy:false}}
   else if(a==='shot-save'){
     var n1=0;(creditShot.rows||[]).forEach(function(r){if(!r.on||!(r.score>=300&&r.score<=850))return;var d=/^\d{4}-\d{2}-\d{2}$/.test(r.date||'')?r.date:iso(TODAY),e={date:d,score:r.score,source:SCORE_MODELS.indexOf(r.model)>-1?r.model:'Other'};if(BUREAUS.indexOf(r.bureau)>-1)e.bureau=r.bureau;

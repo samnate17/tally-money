@@ -95,3 +95,84 @@ test('car loan contract: the Truth-in-Lending row, payment schedule, vehicle and
   assert.strictEqual(parseLoanText('Statement Date 10/01/2026 Amount Due $300.00 Interest rate 5%', 'auto').contract, undefined);
   assert.strictEqual(parseLoanText('Amount Due $300.00 Interest Rate 5% Balance $9,000.00 your purchase of the vehicle', 'auto').loans[0].lender, '');   // "purchase" is not Chase
 });
+
+// ---- credit card statements (made-up text in the layouts the big issuers use; no real accounts) ----
+const { parseCardStatement } = require('../loanparse');
+const CHASE = `JPMorgan Chase Bank, N.A.
+FREEDOM UNLIMITED
+October 2026 Statement
+Account Number: XXXX XXXX XXXX 4821
+Payment Due Date: 11/08/26
+New Balance: $1,234.56
+Minimum Payment Due: $35.00
+Late Payment Warning: If we do not receive your minimum payment by the date listed above, you may have to pay a late fee of up to $40.
+ACCOUNT SUMMARY
+Previous Balance $1,100.00
+Payment, Credits -$1,100.00
+Purchases +$1,234.56
+Cash Advances $0.00
+Balance Transfers $0.00
+Fees Charged $0.00
+Interest Charged $12.34
+New Balance $1,234.56
+Opening/Closing Date 09/12/26 - 10/11/26
+Credit Access Line $10,000
+Available Credit $8,765
+Cash Access Line $1,500
+Available for Cash $1,500
+INTEREST CHARGES
+Your Annual Percentage Rate (APR) is the annual interest rate on your account.
+Type of Balance APR Balance Subject to Interest Rate Interest Charge
+Purchases 21.49%(v)(d) $0.00 $0.00
+Cash Advances 29.99%(v)(d) $0.00 $0.00`;
+test('card statement: a Chase-style statement gives the card, balance, limit, APR, minimum and due date', () => {
+  const c = parseCardStatement(CHASE);
+  assert.strictEqual(c.issuer, 'Chase'); assert.strictEqual(c.product, 'Freedom Unlimited'); assert.strictEqual(c.last4, '4821'); assert.strictEqual(c.name, 'Chase Freedom Unlimited ••4821');
+  assert.strictEqual(c.balance, 1234.56); assert.strictEqual(c.minPay, 35); assert.strictEqual(c.dueDate, '2026-11-08'); assert.strictEqual(c.dueDay, 8); assert.strictEqual(c.closingDate, '2026-10-11');
+  assert.strictEqual(c.limit, 10000); assert.strictEqual(c.available, 8765); assert.strictEqual(c.apr, 21.49); assert.strictEqual(c.prevBalance, 1100); assert.strictEqual(c.interestCharged, 12.34); assert.strictEqual(c.feesCharged, 0);
+  assert.deepStrictEqual(c.notes, []);
+});
+test('card statement: Capital One, Amex and Citi layouts, and masked numbers', () => {
+  const cap = parseCardStatement(`Capital One
+Quicksilver Cash Rewards Credit Card
+Statement Period: Sep 20, 2026 - Oct 19, 2026
+Account ending in 7730
+Statement Balance $842.10
+Minimum Payment Due $25.00
+Payment Due Date Nov 13, 2026
+Credit Limit $5,000
+Available Credit $4,157.90
+Interest Charge Calculation
+Purchases 28.49% (v) $0.00 $0.00`);
+  assert.deepStrictEqual([cap.issuer, cap.last4, cap.balance, cap.minPay, cap.dueDate, cap.closingDate, cap.limit, cap.available, cap.apr], ['Capital One', '7730', 842.1, 25, '2026-11-13', '2026-10-19', 5000, 4157.9, 28.49]);
+  const amex = parseCardStatement(`AMERICAN EXPRESS
+Blue Cash Preferred Card
+Closing Date 10/14/26
+Account Ending 3-01007
+New Balance $2,450.00
+Minimum Payment Due $40.00
+Payment Due Date 11/08/2026
+Interest Charge Calculation
+Purchases 24.99% (v) $2,100.00 $43.75
+Credit Limit $15,000.00`);
+  assert.deepStrictEqual([amex.issuer, amex.product, amex.balance, amex.minPay, amex.limit, amex.apr, amex.closingDate], ['American Express', 'Blue Cash Preferred', 2450, 40, 15000, 24.99, '2026-10-14']);
+  const citi = parseCardStatement(`Citibank
+Citi Double Cash Card
+Card ending in ****0099
+Statement Closing Date: 10/03/2026
+New balance: $310.00
+Minimum payment due: $25.00
+Payment due date: 10/28/2026
+Credit limit: $4,000
+Available credit: $3,690
+Purchases ...... 22.74% (V)`);
+  assert.deepStrictEqual([citi.issuer, citi.product, citi.last4, citi.balance, citi.limit, citi.apr, citi.dueDay], ['Citi', 'Double Cash', '0099', 310, 4000, 22.74, 28]);
+  // masked by the app before parsing: "****4821"
+  assert.strictEqual(parseCardStatement('Chase\nAccount Number: ****4821\nNew Balance $10.00').last4, '4821');
+});
+test('card statement: missing fields are reported, limit is worked out from available credit, nothing invented', () => {
+  const c = parseCardStatement('Discover\nNew Balance $500.00\nAvailable Credit $1,500.00\n');
+  assert.strictEqual(c.balance, 500); assert.strictEqual(c.limit, 2000); assert.match(c.notes.join(' '), /worked out/); assert.strictEqual(c.apr, null); assert.match(c.notes.join(' '), /purchase APR/);
+  const e = parseCardStatement('nothing useful here');
+  assert.strictEqual(e.balance, null); assert.strictEqual(e.name, 'Credit card'); assert.ok(e.notes.length >= 2);
+});

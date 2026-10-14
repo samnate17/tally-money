@@ -12,7 +12,7 @@ const glassLib = require('./glass');
 const { createUpdater } = require('./updater');
 const { createBiometric } = require('./biometric');
 const { createLocalAI } = require('./local-ai');
-const { parseLoanText, parseMortgageText } = require('./loanparse');
+const { parseLoanText, parseMortgageText, parseCardStatement } = require('./loanparse');
 const aiMod = require('./ai');
 const { spawn } = require('child_process');
 
@@ -268,6 +268,7 @@ function wireIpc() {
     const text = statementText.get(String(textId));
     if (!text) throw new Error('That file is no longer in memory. Choose it again.');
     if (kind === 'mortgage') return parseMortgageText(text);
+    if (kind === 'cardstmt') return parseCardStatement(text);
     return parseLoanText(text, loanKind(kind));
   });
   ipcMain.handle('localai:loans', async (e, r) => {

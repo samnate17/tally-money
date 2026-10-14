@@ -298,4 +298,63 @@ function parseContract(text) {
 }
 
 const parseLoanText = (text, kind) => parseLoanStatement(text, kind, require('./ai').cleanLoans);
-module.exports = { parseContract, parseMortgageText, parseLoanText, parseLoanStatement, dateIn, moneyIn, pctIn };
+
+// ---------- Credit card statements: the card itself (balance, limit, rate, due date, last four digits), not just a loan row ----------
+const CARD_ISSUERS = ['Chase', 'Capital One', 'American Express', 'Amex', 'Citi', 'Citibank', 'Bank of America', 'Wells Fargo', 'Discover', 'Barclays', 'Synchrony', 'U.S. Bank', 'US Bank', 'Apple Card', 'Goldman Sachs', 'PNC', 'TD Bank', 'Navy Federal', 'USAA', 'Bilt', 'Fidelity', 'Credit One', 'Mission Lane', 'Capital One Walmart', 'Costco', 'Amazon', 'Target', 'Care Credit', 'CareCredit', 'First National Bank', 'Truist', 'Regions', 'Citizens', 'Ally'];
+const CARD_PRODUCTS = ['Freedom Unlimited', 'Freedom Flex', 'Freedom Rise', 'Sapphire Preferred', 'Sapphire Reserve', 'Amazon Prime Rewards', 'Prime Visa', 'Slate Edge', 'Slate', 'Ink Business', 'Quicksilver', 'QuicksilverOne', 'Venture X', 'Venture', 'Savor', 'SavorOne', 'Platinum', 'Gold Card', 'Blue Cash Preferred', 'Blue Cash Everyday', 'Double Cash', 'Custom Cash', 'Premier', 'Rewards+', 'Active Cash', 'Autograph', 'Discover it', 'Customized Cash Rewards', 'Unlimited Cash Rewards', 'Travel Rewards', 'Cash Rewards', 'Bilt Rewards', 'Delta SkyMiles', 'Hilton Honors', 'Marriott Bonvoy'];
+function cardIssuerIn(text) {
+  const head = text.split('\n').slice(0, 80).join('\n');
+  let best = null;
+  for (const name of CARD_ISSUERS) {
+    const re = new RegExp('(?:^|[^a-z0-9])' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![a-z0-9])', 'i');
+    const m = re.exec(head) || re.exec(text);
+    if (m && (best === null || m.index < best.i || (m.index === best.i && name.length > best.name.length))) best = { i: m.index, name };
+  }
+  if (!best) return '';
+  return { 'Amex': 'American Express', 'Citibank': 'Citi', 'US Bank': 'U.S. Bank', 'CareCredit': 'Care Credit' }[best.name] || best.name;
+}
+function cardProductIn(text) {
+  const head = text.split('\n').slice(0, 120).join('\n');
+  let best = null;
+  for (const name of CARD_PRODUCTS) {
+    const m = new RegExp('(?:^|[^a-z0-9])' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+') + '(?![a-z0-9])', 'i').exec(head);
+    if (m && (best === null || name.length > best.name.length)) best = { name };
+  }
+  return best ? best.name : '';
+}
+function cardLast4(lines) {
+  const pats = [/(?:account|card)[^\n]{0,40}?(?:ending(?:\s+in)?|#|number|no\.?)[^\d\n]{0,25}(\d{4})\b/i, /ending\s+(?:in\s+)?(\d{4})\b/i, /(?:x{3,4}|\*{3,4})[ \-]*(?:x{4}|\*{4})?[ \-]*(?:x{4}|\*{4})?[ \-]*(\d{4})\b/i];
+  for (const re of pats) for (const l of lines) { const m = re.exec(l); if (m) return m[1]; }
+  return '';
+}
+function parseCardStatement(text) {
+  const lines = String(text || '').split(/\r?\n/).map((l) => l.replace(/\s+/g, ' ').trim()).filter(Boolean);
+  const out = { issuer: cardIssuerIn(lines.join('\n')), product: '', last4: cardLast4(lines), balance: null, minPay: null, dueDate: '', dueDay: 0, closingDate: '', limit: null, available: null, apr: null, prevBalance: null, interestCharged: null, feesCharged: null, cashBack: null, notes: [] };
+  out.product = cardProductIn(lines.join('\n'));
+  out.balance = findField(lines, [/\bnew\s+balance\b(?!\s*(?:subject|as\s+of))/i, /\bstatement\s+balance\b/i, /\bclosing\s+balance\b/i, /\btotal\s+(?:new\s+)?balance\b/i, /\bbalance\s+due\b/i], mval);
+  out.minPay = findField(lines, [/\bminimum\s+payment(?:\s+due)?(?!\s*(?:warning|information|calc))/i, /\bmin(?:imum)?\.?\s+pay(?:ment)?(?:\s+due)?/i, /\bminimum\s+amount\s+due\b/i], mval);
+  out.dueDate = findField(lines, [/payment\s+due\s+date/i, /\bdue\s+date\b/i, /payment\s+due(?:\s+on|\s+by)?/i, /\bpay\s+by\b/i], (s) => dateIn(s, 'first')) || '';
+  out.closingDate = findField(lines, [/(?:opening\s*\/\s*)?closing\s+date/i, /statement\s+(?:closing\s+)?date/i, /billing\s+(?:period|cycle)/i, /statement\s+period/i, /closing\s+date/i], (s) => dateIn(s, 'last')) || '';
+  out.limit = findField(lines, [/\bcredit\s+(?:access\s+)?line\b/i, /\bcredit\s+limit\b/i, /\btotal\s+credit\s+(?:line|limit)\b/i, /\bcredit\s+line\b/i], mval);
+  out.available = findField(lines, [/\bavailable\s+credit\b/i, /\bavailable\s+to\s+spend\b/i], mval);
+  out.prevBalance = findField(lines, [/\bprevious\s+balance\b/i], mval);
+  out.interestCharged = findField(lines, [/\binterest\s+charged\b(?!\s+on\s+(?:cash|balance))/i, /\btotal\s+interest\s+(?:charged|for\s+this\s+period)/i, /\binterest\s+charge\s+on\s+purchases\b/i], mval);
+  out.feesCharged = findField(lines, [/\bfees\s+charged\b/i, /\btotal\s+fees\s+(?:charged|for\s+this\s+period)/i], mval);
+  out.cashBack = findField(lines, [/(?:total\s+)?(?:cash\s*back|rewards?)\s+(?:earned|this\s+(?:period|statement))/i, /\bcash\s+back\s+rewards?\b/i], mval);
+  // purchase APR: the Purchases line in the interest charge table, else a "purchase APR" label
+  let apr = null, at = lines.findIndex((l) => /interest\s+charge\s+calculation|interest\s+charges?\b|annual\s+percentage\s+rate/i.test(l));
+  for (let i = Math.max(0, at); at >= 0 && i < Math.min(lines.length, at + 30) && apr === null; i++) if (/^(?:standard\s+)?purchases?\b/i.test(lines[i]) && /\d\s*%|\d\.\d/.test(lines[i])) apr = pctIn(lines[i].replace(/^(?:standard\s+)?purchases?\b/i, ''), true);
+  if (apr === null) for (const l of lines) { const m = /^(?:standard\s+)?purchases?\b[^\d%\n]*?(\d{1,2}\.\d{1,4})\s*%/i.exec(l); if (m) { apr = parseFloat(m[1]); break; } }
+  if (apr === null) apr = findField(lines, [/purchase\s+(?:annual\s+percentage\s+rate|apr|rate)/i, /(?:standard\s+)?purchases?\s+apr/i], (s) => pctIn(s, true));
+  if (apr === null) apr = findField(lines, [/\bapr\b/i, /annual\s+percentage\s+rate/i], (s) => pctIn(s, true));
+  out.apr = apr;
+  if (out.dueDate) out.dueDay = +out.dueDate.slice(8);
+  if (out.limit === null && out.available !== null && out.balance !== null) { out.limit = Math.round((out.available + out.balance) * 100) / 100; out.notes.push('The credit limit was worked out from your balance and available credit.'); }
+  out.name = (out.issuer ? out.issuer + (out.product ? ' ' + out.product : '') : out.product || 'Credit card') + (out.last4 ? ' ••' + out.last4 : '');
+  if (out.balance === null) out.notes.push('I could not find the new balance. Type it in.');
+  if (out.limit === null) out.notes.push('I could not find the credit limit. Type it in so your utilization shows.');
+  if (out.apr === null) out.notes.push('I could not find the purchase APR. Type it in if you carry a balance.');
+  return out;
+}
+
+module.exports = { parseCardStatement, parseContract, parseMortgageText, parseLoanText, parseLoanStatement, dateIn, moneyIn, pctIn };
