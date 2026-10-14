@@ -67,6 +67,7 @@ contextBridge.exposeInMainWorld('tally', {
     carArt: inv('ai:carArt'),
     creditShot: inv('ai:creditShot'),
     receipt: inv('ai:receipt'),
+    assetValue: inv('ai:assetValue'),
     test: inv('ai:test'),
     categorize: inv('ai:categorize'),
     loans: inv('ai:loans'),

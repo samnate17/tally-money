@@ -293,6 +293,38 @@ function cleanScoreShot(raw) {
   return out;
 }
 
+const ASSET_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    low: { type: 'number' },
+    mid: { type: 'number' },
+    high: { type: 'number' },
+    yearlyDepreciationPct: { type: 'number' },
+    basis: { type: 'string' },
+    confidence: { type: 'string', enum: ['low', 'medium', 'high'] },
+  },
+  required: ['low', 'mid', 'high', 'yearlyDepreciationPct', 'basis', 'confidence'],
+};
+const ASSET_SYSTEM = [
+  'You estimate the current used-market resale value in US dollars of one vehicle, boat or similar asset for a personal-finance app.',
+  'You have no live market data and no access to Kelley Blue Book, so work from what you know of typical private-party and trade-in prices for that year, make, model, mileage or hours and condition, and say so.',
+  'low, mid and high: a realistic range for a private-party sale (mid is the most likely). yearlyDepreciationPct: the typical percent of value this kind of asset loses per year from now on, as a positive number (negative if it tends to gain). confidence: low if the model or trim is unusual or you are unsure it exists, high only for a very common model.',
+  'basis: one or two plain sentences on what the range rests on. If the description is too vague to price, return 0 for low, mid and high and explain in basis. Never invent options or history that were not given.',
+].join(' ');
+function cleanAssetValue(raw) {
+  const out = { low: 0, mid: 0, high: 0, yearlyDepreciationPct: 0, basis: '', confidence: 'low' };
+  if (!raw || typeof raw !== 'object') return out;
+  const usd = (v) => { const n = Math.round(Number(v)); return Number.isFinite(n) && n >= 0 && n <= 50000000 ? n : 0; };
+  out.low = usd(raw.low); out.mid = usd(raw.mid); out.high = usd(raw.high);
+  if (out.mid > 0) { if (!(out.low > 0 && out.low <= out.mid)) out.low = out.mid; if (!(out.high >= out.mid)) out.high = out.mid; }
+  const d = Number(raw.yearlyDepreciationPct);
+  out.yearlyDepreciationPct = Number.isFinite(d) ? Math.max(-30, Math.min(60, Math.round(d * 10) / 10)) : 0;
+  out.confidence = ['low', 'medium', 'high'].includes(raw.confidence) ? raw.confidence : 'low';
+  out.basis = String(raw.basis || '').replace(/\s+/g, ' ').trim().slice(0, 300);
+  return out;
+}
+
 const RECEIPT_SCHEMA = {
   type: 'object',
   additionalProperties: false,
@@ -574,7 +606,32 @@ function createAI({ store, clientFactory }) {
     return cleanReceipt(parsed, cats);
   }
 
-  return { status, saveKey, clearKey, analyze, categorize, loansFromText, statement, statementPdf, testKey, carArt, creditShot, receipt };
+  // An AI estimate of what an asset is worth. It is not Kelley Blue Book and the page says so.
+  async function assetValue(req) {
+    const apiKey = store.get('anthropicKey');
+    if (!apiKey) throw new Error('Add your Anthropic API key first.');
+    const f = (v, n) => String(v == null ? '' : v).replace(/[\r\n]+/g, ' ').trim().slice(0, n);
+    const desc = ['kind: ' + f(req.kind, 20), 'year: ' + f(req.year, 6), 'make: ' + f(req.make, 40), 'model: ' + f(req.model, 60), 'trim or details: ' + f(req.trim, 60),
+      'mileage or hours: ' + f(req.mileage, 12), 'condition: ' + f(req.condition, 20), 'today: ' + f(req.today, 10)].join('; ');
+    let msg;
+    try {
+      const stream = make(apiKey).messages.stream({
+        model: MODEL, max_tokens: 1500, system: ASSET_SYSTEM,
+        output_config: { effort: 'low', format: { type: 'json_schema', schema: ASSET_SCHEMA } },
+        messages: [{ role: 'user', content: 'Estimate the value of this asset. ' + desc }],
+      });
+      msg = await stream.finalMessage();
+    } catch (err) {
+      throw new Error(friendlyError(err));
+    }
+    if (msg.stop_reason === 'refusal') throw new Error('Claude declined to estimate this one.');
+    const body = (msg.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('');
+    let parsed;
+    try { parsed = JSON.parse(body); } catch (e) { throw new Error('Claude returned an answer the app could not read. Try again.'); }
+    return cleanAssetValue(parsed);
+  }
+
+  return { status, saveKey, clearKey, analyze, categorize, loansFromText, statement, statementPdf, testKey, carArt, creditShot, receipt, assetValue };
 }
 
 // For a model running on this computer: the same job as the Claude version, but it must answer with plain JSON text.
@@ -588,4 +645,4 @@ function parseLocalLoans(reply) {
   return cleanLoans(parsed);
 }
 module.exports = {
-  LOANS_LOCAL_SYSTEM, parseLocalLoans, cleanLoans, cleanScoreShot, cleanReceipt, createAI, cleanResult, cleanStatement, friendlyError, detailOf, MODEL, SCHEMA, schemaFor, SYSTEM, MAX_STATEMENT_CHARS };
+  LOANS_LOCAL_SYSTEM, parseLocalLoans, cleanLoans, cleanScoreShot, cleanReceipt, cleanAssetValue, createAI, cleanResult, cleanStatement, friendlyError, detailOf, MODEL, SCHEMA, schemaFor, SYSTEM, MAX_STATEMENT_CHARS };
