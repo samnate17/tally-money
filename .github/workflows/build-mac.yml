@@ -38,6 +38,7 @@ jobs:
             file "$app/Contents/PlugIns/TallyWidget.appex/Contents/MacOS/TallyWidget"
           done
       - uses: actions/upload-artifact@v4
+        continue-on-error: true   # the release below carries the files; a full artifact quota must not stop a release
         with:
           name: tally-money-mac
           path: |
@@ -71,6 +72,7 @@ jobs:
           ls -la dist
           test -n "$(ls dist/Tally.Money-Setup-*.exe)" || { echo "installer missing"; exit 1; }
       - uses: actions/upload-artifact@v4
+        continue-on-error: true
         with:
           name: tally-money-windows
           path: dist/*.exe
