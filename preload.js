@@ -10,6 +10,9 @@ contextBridge.exposeInMainWorld('tally', {
   theme: {
     mode: inv('theme:mode'),
   },
+  file: {
+    save: (name, text) => ipcRenderer.invoke('file:save', { name, text }),
+  },
   loan: {
     readFile: inv('loan:text'),
     parse: inv('loan:parse'),

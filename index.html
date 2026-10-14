@@ -454,13 +454,48 @@ function sample(){
    goals:[{id:uid(),name:'Emergency fund',target:6000,saved:2150},{id:uid(),name:'Japan trip',target:3500,saved:900}]};
 }
 var S,month=NOWKEY,view='overview',filter={q:'',cat:''},editBudgets=false;
-function load(){try{var j=localStorage.getItem('tally-money-v1');if(j){S=JSON.parse(j);migrate();syncCats();return}}catch(e){}S=sample();migrate();syncCats()}
+/*VAULT-START*/
+// Password protection. The password is stretched with PBKDF2 (SHA-256, 600,000 rounds) into an AES-GCM key; the data is stored only as ciphertext.
+// There is no recovery: nobody, including this app, can open the data without the password.
+var VAULT_IT=600000;
+function b64e(u8){var s='',i;for(i=0;i<u8.length;i+=8192)s+=String.fromCharCode.apply(null,u8.subarray(i,i+8192));return btoa(s)}
+function b64d(t){var b=atob(t),u=new Uint8Array(b.length),i;for(i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u}
+function vaultKey(pw,salt,it){return crypto.subtle.importKey('raw',new TextEncoder().encode(String(pw)),'PBKDF2',false,['deriveKey']).then(function(k){return crypto.subtle.deriveKey({name:'PBKDF2',salt:b64d(salt),iterations:it,hash:'SHA-256'},k,{name:'AES-GCM',length:256},false,['encrypt','decrypt'])})}
+function vaultNew(pw,it){var salt=b64e(crypto.getRandomValues(new Uint8Array(16))),n=it||VAULT_IT;return vaultKey(pw,salt,n).then(function(key){return {key:key,salt:salt,it:n}})}
+function vaultEnc(key,text){var iv=crypto.getRandomValues(new Uint8Array(12));return crypto.subtle.encrypt({name:'AES-GCM',iv:iv},key,new TextEncoder().encode(text)).then(function(ct){return {iv:b64e(iv),ct:b64e(new Uint8Array(ct))}})}
+function vaultDec(key,env){return crypto.subtle.decrypt({name:'AES-GCM',iv:b64d(env.iv)},key,b64d(env.ct)).then(function(p){return new TextDecoder().decode(p)},function(){throw new Error('Wrong password, or the file is damaged.')})}
+function vaultEnvOk(e){return !!e&&typeof e==='object'&&typeof e.salt==='string'&&typeof e.iv==='string'&&typeof e.ct==='string'&&e.salt.length<=64&&e.iv.length<=32&&e.ct.length<=200000000&&e.it>=100000&&e.it<=5000000&&Math.floor(e.it)===e.it}
+function vaultSeal(text,pw,it){return vaultNew(pw,it).then(function(k){return vaultEnc(k.key,text).then(function(e){return {it:k.it,salt:k.salt,iv:e.iv,ct:e.ct}})})}
+function vaultOpen(env,pw){if(!vaultEnvOk(env))return Promise.reject(new Error('This file is not readable.'));return vaultKey(pw,env.salt,env.it).then(function(key){return vaultDec(key,env)})}
+// A transfer file is the normal backup JSON, sealed with a password.
+function xferPack(payload,pw){var text=JSON.stringify(payload);if(!pw)return Promise.resolve(JSON.stringify(payload,null,2));return vaultSeal(text,pw).then(function(e){return JSON.stringify({app:'tally-money',version:1,encrypted:true,it:e.it,salt:e.salt,iv:e.iv,ct:e.ct})})}
+function xferKind(j){return j&&j.app==='tally-money'&&j.encrypted===true&&vaultEnvOk(j)?'locked':'plain'}
+/*VAULT-END*/
+var VLT={on:false,locked:false,key:null,salt:'',it:0,busy:false,dirty:false,min:5};
+try{var _lk=JSON.parse(localStorage.getItem('tally-lock-v1')||'{}');if(_lk&&_lk.min>=0&&_lk.min<=240)VLT.min=+_lk.min}catch(e){}
+function load(){try{if(localStorage.getItem('tally-vault-v1')){VLT.on=true;VLT.locked=true;S=sample();migrate();syncCats();return}}catch(e){}try{var j=localStorage.getItem('tally-money-v1');if(j){S=JSON.parse(j);migrate();syncCats();return}}catch(e){}S=sample();migrate();syncCats()}
 function defCredit(){return {scores:[],profile:{late:'unknown',inq:'unknown',oldest:'',derog:'unknown'}}}
 function migrate(){if(!S.apple||typeof S.apple!=='object'||Array.isArray(S.apple))S.apple={};if(!S.billIgnore||typeof S.billIgnore!=='object'||Array.isArray(S.billIgnore))S.billIgnore={};if(S.cardPay!=='skip'&&S.cardPay!=='count')S.cardPay='auto';if(!S.home||typeof S.home!=='object'||Array.isArray(S.home))S.home={};if(!(S.debtMonthly>=0))S.debtMonthly=0;if(!Array.isArray(S.customCats))S.customCats=[];if(!Array.isArray(S.setAside))S.setAside=[];if(!S.merchantCats||typeof S.merchantCats!=='object'||Array.isArray(S.merchantCats))S.merchantCats={};if(!Array.isArray(S.energy))S.energy=[];if(!Array.isArray(S.bills))S.bills=[];if(!S.billMarks||typeof S.billMarks!=='object'||Array.isArray(S.billMarks))S.billMarks={};if(!S.subCats||typeof S.subCats!=='object'||Array.isArray(S.subCats))S.subCats={};if(!S.merchantSubs||typeof S.merchantSubs!=='object'||Array.isArray(S.merchantSubs))S.merchantSubs={};if(!Array.isArray(S.holdings))S.holdings=S.sample?sampleHoldings():[];if(!S.credit||!Array.isArray(S.credit.scores))S.credit=S.sample?sampleCredit():defCredit();if(!Array.isArray(S.plaidIgnored))S.plaidIgnored=[];if(!Array.isArray(S.accounts))S.accounts=S.sample?sampleAccounts():[];if(typeof S.extraPay!=='number')S.extraPay=S.sample?100:0}
 function ledger(){return ledgerOf(S.txns,S.cardPay)}
 function billCatOf(n){var c=guessCat(n);return {cat:c,sub:c==='Other'?'':(guessSub(c,n)||'')}}
 function allBillItems(mk){var base=billItems(S.bills,S.accounts,S.txns);return base.concat(autoBillItems(S.txns,base,mk,S.billIgnore,billCatOf))}
-function save(){try{localStorage.setItem('tally-money-v1',JSON.stringify(S))}catch(e){}if(HOSTED)schedulePush();widgetPush()}
+function save(){
+  if(VLT.on){if(VLT.key)vaultFlush();widgetPush();return}
+  try{localStorage.setItem('tally-money-v1',JSON.stringify(S))}catch(e){}if(HOSTED)schedulePush();widgetPush()}
+// Encrypted saves are coalesced: one write in flight at a time, and a newer state replaces any queued one.
+function vaultCommit(key,salt,it){
+  return vaultEnc(key,JSON.stringify(S)).then(function(e){localStorage.setItem('tally-vault-v1',JSON.stringify({v:1,it:it,salt:salt,iv:e.iv,ct:e.ct}));return true})}
+function vaultFlush(){
+  if(!VLT.key||VLT.locked)return;
+  if(VLT.busy){VLT.dirty=true;return}
+  VLT.busy=true;VLT.dirty=false;
+  vaultCommit(VLT.key,VLT.salt,VLT.it).catch(function(){toast('Could not save your data. Free some disk space and try again.')}).then(function(){VLT.busy=false;if(VLT.dirty)vaultFlush()});
+}
+function vaultIdle(cb){if(VLT.busy||VLT.dirty){setTimeout(function(){vaultIdle(cb)},40);return}cb()}
+function lockNow(){vaultIdle(function(){location.reload()})}
+var idleT=0;
+function idleReset(){clearTimeout(idleT);if(VLT.on&&VLT.key&&VLT.min>0)idleT=setTimeout(lockNow,VLT.min*60000)}
+['pointerdown','keydown','wheel','touchstart'].forEach(function(n){document.addEventListener(n,idleReset,{passive:true})});
 
 /* ---------- derived ---------- */
 function spendBy(mk){var o={},t=0;ledger().forEach(function(x){if(monthKey(x.date)===mk&&x.cat!=='Income'&&x.amount<0){o[x.cat]=(o[x.cat]||0)-x.amount;t-=x.amount}});return {by:o,total:t}}
@@ -491,6 +526,7 @@ function detect(){
 
 /* ---------- icons + shell ---------- */
 var ICON={
+ security:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>',
  loans:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 3 8l9 5 9-5-9-5z"/><path d="M3 13l9 5 9-5"/><path d="M3 17.5l9 5 9-5" opacity=".5"/></svg>',
  mortgage:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>',
  assist:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>',
@@ -509,7 +545,7 @@ var ICON={
  budgets:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v9h9"/><path d="M20.5 15A9 9 0 1 1 9 3.5"/></svg>',
  transactions:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h13M13 3l4 4-4 4M20 17H7M11 13l-4 4 4 4"/></svg>',
  goals:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg>'};
-var TABS=[['overview','Overview'],['dash','Dashboard','Live'],['accounts','Accounts'],['subscriptions','Subscriptions','Subs'],['bills','Bills','Bills'],['budgets','Budgets'],['report','Monthly report','Report'],['afford','Can I afford it?','Afford'],['credit','Credit'],['invest','Investments','Invest'],['transactions','Transactions','Activity'],['goals','Goals'],['loans','Loans'],['mortgage','Mortgage','Home'],['assist','Assistant','Chat'],['look','Appearance','Look']];
+var TABS=[['overview','Overview'],['dash','Dashboard','Live'],['accounts','Accounts'],['subscriptions','Subscriptions','Subs'],['bills','Bills','Bills'],['budgets','Budgets'],['report','Monthly report','Report'],['afford','Can I afford it?','Afford'],['credit','Credit'],['invest','Investments','Invest'],['transactions','Transactions','Activity'],['goals','Goals'],['loans','Loans'],['mortgage','Mortgage','Home'],['assist','Assistant','Chat'],['security','Security','Lock'],['look','Appearance','Look']];
 function nav(){
   function items(short){return TABS.map(function(t){return '<button class="nav" data-view="'+t[0]+'"'+(view===t[0]?' aria-current="page"':'')+'>'+ICON[t[0]]+'<span>'+(short&&t[2]||t[1])+'</span></button>'}).join('')}
   var h=items(false);
@@ -531,7 +567,7 @@ function refreshAll(){
 }
 function render(){
   nav();
-  var f={bills:vBills,loans:vLoansHub,mortgage:vMortgage,carloan:function(){loanFilter='auto';return vLoansHub()},student:function(){loanFilter='student';return vLoansHub()},look:vLook,overview:vOverview,dash:vDash,assist:vAssist,accounts:vAccounts,afford:vAfford,credit:vCredit,invest:vInvest,report:vReport,subscriptions:vSubs,budgets:vBudgets,transactions:vTx,goals:vGoals}[view];
+  var f={bills:vBills,loans:vLoansHub,mortgage:vMortgage,carloan:function(){loanFilter='auto';return vLoansHub()},student:function(){loanFilter='student';return vLoansHub()},look:vLook,security:vSecurity,overview:vOverview,dash:vDash,assist:vAssist,accounts:vAccounts,afford:vAfford,credit:vCredit,invest:vInvest,report:vReport,subscriptions:vSubs,budgets:vBudgets,transactions:vTx,goals:vGoals}[view];
   var cb=HOSTED&&AUTH.conflict?'<div class="banner" id="conflict"><span><b>This account changed on another device.</b> Choose which version to keep.</span><span style="flex:0 0 auto;display:flex;gap:8px"><button class="btn small" data-act="cf-remote">Use the other version</button><button class="btn small primary" data-act="cf-local">Keep this device\'s version</button></span></div>':'';
   var banner=cb+updBanner()+(S.sample?'<div class="banner"><span><b>Example data.</b> These accounts and transactions are made up so you can try everything. Clear them to start with your own, or import a CSV from your bank.</span><button class="btn primary small" data-act="clear">Start fresh</button></div>':'');
   var body=f();
@@ -727,7 +763,7 @@ setInterval(function(){
   var c=$('#dashclock');if(c)c.textContent='Updated '+dashTime();
 },1000);
 setInterval(function(){
-  if(view!=='dash'||document.hidden)return;
+  if(VLT.locked||view!=='dash'||document.hidden)return;
   TODAY=new Date();TODAY.setHours(0,0,0,0);NOWKEY=monthKey(iso(TODAY));if(month>NOWKEY)month=NOWKEY;
   var ids=T&&PL&&PL.items?Object.keys(PL.items):[];
   if(DASH.auto&&ids.length&&!DASH.syncing&&Date.now()-DASH.last>30*60*1000){
@@ -3875,15 +3911,118 @@ function vReport(){
 }
 /* ---------- Backup ---------- */
 var pendingImport=null;
-function backupPanel(){
-  var p=pendingImport,pend=p?'<div class="banner" style="margin-top:12px"><span><b>Replace your data?</b> This file has '+p.txns.length+' transactions, '+p.subs.length+' subscriptions, '+Object.keys(p.budgets).length+' budgets, '+p.goals.length+' goals and '+p.accounts.length+' accounts. Your current data will be overwritten.</span><span class="actions"><button class="btn small danger" data-act="imp-ok">Replace my data</button><button class="btn small" data-act="imp-no">Cancel</button></span></div>':'';
-  return '<section class="panel"><h2>Backup<small>save or restore everything</small></h2><div class="actions" style="justify-content:flex-start"><button class="btn primary" data-act="exp">Download backup</button><label class="btn" style="cursor:pointer">Restore from file<input id="bk" type="file" accept=".json,application/json" hidden></label></div><p class="sub muted" style="margin:10px 0 0;font-size:13px">Your data lives only in this browser. Download a backup now and then, and use it to move to another device or recover after clearing site data.</p>'+pend+'</section>';
+var pendingEnc=null,secMsg='',secBusy=false,secPanel='';
+function pendBanner(){
+  var p=pendingImport;
+  if(pendingEnc)return '<div class="banner" style="margin-top:12px;align-items:center"><span><b>This file is password protected.</b> Enter the password you chose when you saved it.</span><span class="actions"><input id="enc-pw" type="password" autocomplete="off" placeholder="Password" aria-label="Transfer file password" style="width:170px"><button class="btn small primary" data-act="enc-open">Unlock file</button><button class="btn small" data-act="imp-no">Cancel</button></span></div>'+(secMsg?'<div class="sub bad" role="alert" style="margin-top:8px">'+esc(secMsg)+'</div>':'');
+  return p?'<div class="banner" style="margin-top:12px"><span><b>Replace your data?</b> This file has '+p.txns.length+' transactions, '+p.subs.length+' subscriptions, '+Object.keys(p.budgets).length+' budgets, '+p.goals.length+' goals and '+p.accounts.length+' accounts. Your current data will be overwritten.</span><span class="actions"><button class="btn small danger" data-act="imp-ok">Replace my data</button><button class="btn small" data-act="imp-no">Cancel</button></span></div>':'';
 }
-function exportData(){
-  var payload={app:'tally-money',version:1,exported:new Date().toISOString(),data:{txns:S.txns,subs:S.subs,budgets:S.budgets,goals:S.goals,accounts:S.accounts,extraPay:S.extraPay,plaidIgnored:S.plaidIgnored,credit:S.credit,holdings:S.holdings,customCats:S.customCats,setAside:S.setAside,merchantCats:S.merchantCats,subCats:S.subCats,merchantSubs:S.merchantSubs,bills:S.bills,billMarks:S.billMarks,energy:S.energy,home:S.home,debtMonthly:S.debtMonthly,billIgnore:S.billIgnore,cardPay:S.cardPay,apple:S.apple}};
-  var url=URL.createObjectURL(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}));
-  var a=document.createElement('a');a.href=url;a.download='tally-backup-'+iso(TODAY)+'.json';document.body.appendChild(a);a.click();a.remove();
-  setTimeout(function(){URL.revokeObjectURL(url)},1000);toast('Backup downloaded.');
+function backupPanel(){
+  return '<section class="panel"><h2>Backup<small>save or restore everything</small></h2><div class="actions" style="justify-content:flex-start"><button class="btn primary" data-act="exp">Download backup</button><label class="btn" style="cursor:pointer">Restore from file<input id="bk" type="file" accept=".json,application/json" hidden></label></div><p class="sub muted" style="margin:10px 0 0;font-size:13px">Your data lives only on this computer. Download a backup now and then, and use it to recover after clearing site data. To move to another computer, use <a href="#" data-view="security">Security</a>, which can protect the file with a password.</p>'+pendBanner()+'</section>';
+}
+function backupPayload(){
+  return {app:'tally-money',version:1,exported:new Date().toISOString(),data:{txns:S.txns,subs:S.subs,budgets:S.budgets,goals:S.goals,accounts:S.accounts,extraPay:S.extraPay,plaidIgnored:S.plaidIgnored,credit:S.credit,holdings:S.holdings,customCats:S.customCats,setAside:S.setAside,merchantCats:S.merchantCats,subCats:S.subCats,merchantSubs:S.merchantSubs,bills:S.bills,billMarks:S.billMarks,energy:S.energy,home:S.home,debtMonthly:S.debtMonthly,billIgnore:S.billIgnore,cardPay:S.cardPay,apple:S.apple}};
+}
+// Saves a file: through the desktop app's Save dialog when there is one (reliable on both Mac and Windows), else as a normal download.
+function saveFile(name,text,done){
+  if(window.tally&&window.tally.file&&window.tally.file.save){
+    window.tally.file.save(name,text).then(function(r){
+      if(r&&r.ok&&r.data&&r.data.path)done('Saved to '+r.data.path);
+      else if(r&&r.ok&&r.data&&r.data.cancelled)done('');
+      else done('Could not save the file'+(r&&r.error?': '+r.error:'.'))
+    },function(){done('Could not save the file.')});
+    return;
+  }
+  var url=URL.createObjectURL(new Blob([text],{type:'application/json'}));
+  var a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();
+  setTimeout(function(){URL.revokeObjectURL(url)},1000);done('File downloaded.');
+}
+function exportData(){saveFile('tally-backup-'+iso(TODAY)+'.json',JSON.stringify(backupPayload(),null,2),function(m){if(m)toast(m)})}
+function readBackupFile(file){
+  var rd=new FileReader();
+  rd.onload=function(){
+    var j=null;try{j=JSON.parse(String(rd.result))}catch(e){}
+    secMsg='';
+    if(xferKind(j)==='locked'){pendingEnc=j;pendingImport=null;render();return}
+    var c=null;try{c=cleanBackup(j)}catch(e){}
+    if(!c){toast('That file is not a Tally backup.');return}
+    pendingEnc=null;pendingImport=c;render();
+  };
+  rd.readAsText(file);
+}
+// ---- Security tab: move to another computer, and the app password ----
+function vSecurity(){
+  var canVault=!HOSTED&&!!(window.crypto&&window.crypto.subtle);
+  var xfer='<section class="panel"><h2>Move to another computer<small>Mac to Windows, or back</small></h2>'+
+   '<ol class="sub" style="margin:0 0 12px 18px;padding:0;line-height:1.6;white-space:normal"><li>On this computer, pick a password for the file and press <b>Save transfer file</b>. Save it to your flash drive.</li><li>On the other computer, install and open Tally Money, go to <b>Security</b>, press <b>Open a transfer file</b> and choose the file on the drive.</li><li>Enter the password, then press <b>Replace my data</b>.</li></ol>'+
+   '<form id="xferform" class="actions" style="justify-content:flex-start;align-items:flex-end;gap:10px"><div><label class="sub" for="xf-pw" style="display:block">File password</label><input id="xf-pw" type="password" autocomplete="new-password" placeholder="10+ characters" style="width:190px"></div><div><label class="sub" for="xf-pw2" style="display:block">Type it again</label><input id="xf-pw2" type="password" autocomplete="new-password" style="width:190px"></div><button class="btn primary" type="submit">Save transfer file</button><button class="btn" type="button" data-act="xfer-plain">Save without a password</button></form>'+
+   '<div class="actions" style="justify-content:flex-start;margin-top:12px"><label class="btn" style="cursor:pointer">Open a transfer file<input id="bk" type="file" accept=".json,application/json" hidden></label></div>'+
+   (secMsg&&!pendingEnc&&secPanel==='x'?'<div class="sub" role="status" style="margin-top:10px">'+esc(secMsg)+'</div>':'')+pendBanner()+
+   '<p class="sub muted" style="margin:12px 0 0;font-size:13px;white-space:normal">This copies your transactions, accounts, loans, mortgage, bills, budgets, goals, investments and settings. It does <b>not</b> copy bank connections or API keys, which stay on the computer where you set them up; reconnect banks on the new computer. A file saved without a password can be read by anyone who finds the drive.</p></section>';
+  var pw;
+  if(!canVault)pw='<section class="panel"><h2>Password<small>lock the app</small></h2><div class="empty">'+(HOSTED?'Your web account password already protects your data.':'Password protection needs a newer browser or the desktop app.')+'</div></section>';
+  else if(!VLT.on)pw='<section class="panel"><h2>Password<small>lock the app</small></h2><p class="sub muted" style="margin:0 0 12px;white-space:normal">Set a password to encrypt your data on this computer. The app will ask for it every time it opens. This is a password for this computer, not an online account: nothing is sent anywhere.</p>'+
+    '<form id="vonform"><div class="actions" style="justify-content:flex-start;align-items:flex-end;gap:10px"><div><label class="sub" for="vp-1" style="display:block">New password</label><input id="vp-1" type="password" autocomplete="new-password" placeholder="10+ characters" style="width:200px"></div><div><label class="sub" for="vp-2" style="display:block">Type it again</label><input id="vp-2" type="password" autocomplete="new-password" style="width:200px"></div></div>'+
+    '<label class="sub" style="display:flex;gap:8px;align-items:flex-start;margin:12px 0;cursor:pointer;white-space:normal"><input type="checkbox" id="vp-ack" style="margin-top:3px"> <span>I understand there is <b>no way to recover</b> my data if I forget this password. I will keep a backup.</span></label><button class="btn primary" type="submit"'+(secBusy?' disabled':'')+'>'+(secBusy?'Working…':'Turn on password')+'</button></form>'+(secMsg&&secPanel==='p'?'<div class="sub bad" role="alert" style="margin-top:10px">'+esc(secMsg)+'</div>':'')+'</section>';
+  else pw='<section class="panel"><h2>Password<small>on</small></h2><p class="sub" style="margin:0 0 12px;white-space:normal"><span class="pill good">Locked with a password</span> Your data on this computer is encrypted.</p>'+
+    '<div class="actions" style="justify-content:flex-start;align-items:center;gap:12px;margin-bottom:14px"><button class="btn primary" data-act="vault-lock">Lock now</button><label class="sub" for="vp-min">Lock after</label><select id="vp-min">'+[[0,'never'],[1,'1 minute'],[5,'5 minutes'],[15,'15 minutes'],[30,'30 minutes'],[60,'1 hour']].map(function(o){return '<option value="'+o[0]+'"'+(VLT.min===o[0]?' selected':'')+'>'+o[1]+(o[0]?' idle':'')+'</option>'}).join('')+'</select></div>'+
+    '<form id="vchgform"><h3 style="font-size:14px;margin:0 0 8px">Change password</h3><div class="actions" style="justify-content:flex-start;align-items:flex-end;gap:10px"><div><label class="sub" for="vc-0" style="display:block">Current</label><input id="vc-0" type="password" autocomplete="current-password" style="width:170px"></div><div><label class="sub" for="vc-1" style="display:block">New</label><input id="vc-1" type="password" autocomplete="new-password" style="width:170px"></div><div><label class="sub" for="vc-2" style="display:block">Again</label><input id="vc-2" type="password" autocomplete="new-password" style="width:170px"></div><button class="btn" type="submit">Change</button></div></form>'+
+    '<form id="voffform" style="margin-top:14px"><h3 style="font-size:14px;margin:0 0 8px">Turn password off</h3><div class="actions" style="justify-content:flex-start;align-items:flex-end;gap:10px"><div><label class="sub" for="vo-0" style="display:block">Current password</label><input id="vo-0" type="password" autocomplete="current-password" style="width:200px"></div><button class="btn danger" type="submit">Turn off</button></div></form>'+(secMsg&&secPanel==='p'?'<div class="sub" role="status" style="margin-top:10px">'+esc(secMsg)+'</div>':'')+'</section>';
+  var note='<section class="panel"><h2>What the password protects</h2><p class="sub muted" style="margin:0;white-space:normal;font-size:13px">Your financial data (transactions, accounts, loans, goals, and so on) is encrypted with AES-256 and a key made from your password. The password is never stored. Bank and AI keys are kept by your computer\'s own secure storage, and the list of linked bank names and stock prices is not encrypted. Anyone with the unlocked app, or your password, can see everything, so lock it when you step away.</p></section>';
+  return '<div class="top"><h1>Security</h1></div>'+xfer+pw+(canVault?note:'');
+}
+function secBind(m){
+  var f,say=function(t){secMsg=t;secBusy=false;render()};
+  if((f=$('#xferform',m)))f.onsubmit=function(e){
+    e.preventDefault();secPanel='x';var a=$('#xf-pw').value,b=$('#xf-pw2').value;
+    var bad=passwordProblem(a,'');if(bad)return say(bad);if(a!==b)return say('The two passwords do not match.');
+    xferPack(backupPayload(),a).then(function(text){saveFile('tally-transfer-'+iso(TODAY)+'.json',text,function(msg){secMsg=msg?msg+' Keep the password safe: it cannot be recovered.':'';render()})},function(){say('Could not encrypt the file.')});
+  };
+  if((f=$('#vonform',m)))f.onsubmit=function(e){
+    e.preventDefault();secPanel='p';var a=$('#vp-1').value,b=$('#vp-2').value;
+    var bad=passwordProblem(a,'');if(bad)return say(bad);if(a!==b)return say('The two passwords do not match.');
+    if(!$('#vp-ack').checked)return say('Please tick the box to confirm you understand.');
+    secBusy=true;secMsg='';render();
+    vaultNew(a).then(function(k){return vaultCommit(k.key,k.salt,k.it).then(function(){
+      // Read it back before the plain copy is removed.
+      return vaultDec(k.key,JSON.parse(localStorage.getItem('tally-vault-v1')))}).then(function(t){
+        if(t.length!==JSON.stringify(S).length)throw new Error('verify');
+        localStorage.removeItem('tally-money-v1');VLT.key=k.key;VLT.salt=k.salt;VLT.it=k.it;VLT.on=true;VLT.locked=false;idleReset();secBusy=false;secMsg='Password is on. The app will ask for it next time it opens.';render()})
+    }).catch(function(){say('Could not turn on the password. Your data was not changed.')});
+  };
+  if((f=$('#vchgform',m)))f.onsubmit=function(e){
+    e.preventDefault();secPanel='p';var o=$('#vc-0').value,a=$('#vc-1').value,b=$('#vc-2').value;
+    var bad=passwordProblem(a,'');if(bad)return say(bad);if(a!==b)return say('The two new passwords do not match.');
+    var cur=null;try{cur=JSON.parse(localStorage.getItem('tally-vault-v1'))}catch(x){}
+    vaultOpen(cur,o).then(function(){return vaultNew(a)}).then(function(k){return vaultCommit(k.key,k.salt,k.it).then(function(){VLT.key=k.key;VLT.salt=k.salt;VLT.it=k.it;say('Password changed.')})}).catch(function(){say('The current password is not right.')});
+  };
+  if((f=$('#voffform',m)))f.onsubmit=function(e){
+    e.preventDefault();secPanel='p';var cur=null;try{cur=JSON.parse(localStorage.getItem('tally-vault-v1'))}catch(x){}
+    vaultOpen(cur,$('#vo-0').value).then(function(){
+      localStorage.setItem('tally-money-v1',JSON.stringify(S));
+      localStorage.removeItem('tally-vault-v1');VLT.on=false;VLT.key=null;clearTimeout(idleT);say('Password is off. Your data is stored without encryption again.');
+    }).catch(function(){say('The password is not right.')});
+  };
+  if((f=$('#vp-min',m)))f.onchange=function(){VLT.min=+f.value;try{localStorage.setItem('tally-lock-v1',JSON.stringify({min:VLT.min}))}catch(e){}idleReset()};
+}
+// ---- Lock screen ----
+function showLock(msg,busy){
+  var el=$('#gate');if(!el){el=document.createElement('div');el.id='gate';el.className='gate';document.body.appendChild(el)}
+  el.innerHTML='<div class="card"><h1>Tally Money</h1><p class="sub muted">Locked. Enter your password to open your data.</p>'+(msg?'<div class="err" role="alert">'+esc(msg)+'</div>':'')+
+   '<form id="lockform"><label for="lk-pw">Password</label><input id="lk-pw" type="password" autocomplete="current-password" autofocus required><button class="btn primary" type="submit" style="margin-top:14px;width:100%"'+(busy?' disabled':'')+'>'+(busy?'Unlocking…':'Unlock')+'</button></form>'+
+   '<p class="sub muted" style="margin:16px 0 0;font-size:13px;white-space:normal">Forgot it? Nobody can recover it. You can <a href="#" id="lk-erase">erase this computer\'s data</a> and restore from a backup file.</p></div>';
+  var f=$('#lockform',el);f.onsubmit=function(e){e.preventDefault();var pw=$('#lk-pw').value;showLock('',true);tryUnlock(pw)};
+  $('#lk-erase',el).onclick=function(e){e.preventDefault();if(confirm('Erase all Tally Money data on this computer? This cannot be undone. You can then restore from a backup file.')){try{localStorage.removeItem('tally-vault-v1');localStorage.removeItem('tally-money-v1')}catch(x){}location.reload()}};
+  var i=$('#lk-pw',el);if(i&&!busy)i.focus();
+}
+function tryUnlock(pw){
+  var env=null;try{env=JSON.parse(localStorage.getItem('tally-vault-v1'))}catch(e){}
+  if(!vaultEnvOk(env))return showLock('The saved data could not be read.');
+  vaultKey(pw,env.salt,env.it).then(function(key){return vaultDec(key,env).then(function(t){
+    var o=JSON.parse(t);S=o;migrate();syncCats();VLT.key=key;VLT.salt=env.salt;VLT.it=env.it;VLT.locked=false;
+    try{localStorage.removeItem('tally-money-v1')}catch(e){}
+    var g=$('#gate');if(g)g.remove();idleReset();render();widgetInit();
+  })}).catch(function(){showLock('That password is not right.')});
 }
 function cleanContract(c){
   if(!c||typeof c!=='object')return undefined;
@@ -4017,10 +4156,11 @@ function bindView(){
   m.querySelectorAll('.balform').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();var a=S.accounts.filter(function(x){return x.id===fm.dataset.id})[0],v=parseFloat(fm.querySelector('input').value);if(!a||!(v>=0))return;a.balance=v;var t=iso(TODAY),h=a.history.filter(function(x){return x.date===t})[0];if(h)h.balance=v;else a.history.push({date:t,balance:v});a.history.sort(function(p,q){return p.date<q.date?-1:1});save();render();toast(a.name+' updated.')}});
   var ex=$('#extra',m);if(ex)ex.onchange=function(){S.extraPay=Math.max(0,parseFloat(ex.value)||0);save();render()};
   var st=$('#strategy',m);if(st)st.onchange=function(){strategy=st.value;render()};
-  var bk=$('#bk',m);if(bk)bk.onchange=function(){var file=bk.files[0];if(!file)return;var rd=new FileReader();rd.onload=function(){var c=null;try{c=cleanBackup(JSON.parse(String(rd.result)))}catch(e){}if(!c){toast('That file is not a Tally backup.');return}pendingImport=c;render()};rd.readAsText(file)};
+  var bk=$('#bk',m);if(bk)bk.onchange=function(){var file=bk.files[0];if(file)readBackupFile(file)};
+  if(view==='security')secBind(m);
 }
 document.addEventListener('click',function(e){
-  var v=e.target.closest('[data-view]');if(v){view=v.dataset.view;if(view==='carloan'||view==='student'){loanFilter=view==='student'?'student':'auto';view='loans'}pendingImport=null;editTx='';render();window.scrollTo(0,0);return}
+  var v=e.target.closest('[data-view]');if(v){view=v.dataset.view;if(view==='carloan'||view==='student'){loanFilter=view==='student'?'student':'auto';view='loans'}pendingImport=null;pendingEnc=null;secMsg='';editTx='';render();window.scrollTo(0,0);return}
   var b=e.target.closest('[data-act]');if(!b)return;
   var a=b.dataset.act,id=b.dataset.id,s=S.subs.filter(function(x){return x.id===id})[0];
   if(a==='mprev')month=shiftMonth(month,-1);
@@ -4042,7 +4182,14 @@ document.addEventListener('click',function(e){
   else if(a==='tx-del'){S.txns=S.txns.filter(function(x){return x.id!==id})}
   else if(a==='exp'){exportData();return}
   else if(a==='imp-ok'){S={sample:false,customCats:pendingImport.customCats,txns:pendingImport.txns,subs:pendingImport.subs,budgets:pendingImport.budgets,goals:pendingImport.goals,accounts:pendingImport.accounts,extraPay:pendingImport.extraPay,plaidIgnored:pendingImport.plaidIgnored,credit:pendingImport.credit,holdings:pendingImport.holdings,setAside:pendingImport.setAside||[],merchantCats:pendingImport.merchantCats||{},subCats:pendingImport.subCats||{},merchantSubs:pendingImport.merchantSubs||{},bills:pendingImport.bills||[],billMarks:pendingImport.billMarks||{},energy:pendingImport.energy||[],home:pendingImport.home||{},debtMonthly:pendingImport.debtMonthly||0,billIgnore:pendingImport.billIgnore||{},cardPay:pendingImport.cardPay||'auto',apple:pendingImport.apple||{}};pendingImport=null;migrate();syncCats();Object.keys(PL.items).forEach(function(k){PL.items[k].cursor=''});savePL();toast('Backup restored.')}
-  else if(a==='imp-no'){pendingImport=null}
+  else if(a==='imp-no'){pendingImport=null;pendingEnc=null;secMsg=''}
+  else if(a==='enc-open'){
+    var pw=($('#enc-pw')||{}).value||'',env=pendingEnc;
+    vaultOpen(env,pw).then(function(t){var c=cleanBackup(JSON.parse(t));if(!c)throw new Error('bad');pendingEnc=null;pendingImport=c;secMsg='';render()}).catch(function(){secMsg='Wrong password, or the file is damaged.';render()});
+    return;
+  }
+  else if(a==='xfer-plain'){secPanel='x';saveFile('tally-transfer-'+iso(TODAY)+'.json',JSON.stringify(backupPayload(),null,2),function(m){secMsg=m?m+' This file is not protected by a password.':'';render()});return}
+  else if(a==='vault-lock'){lockNow();return}
   else if(a==='inv-refresh'){invRefresh();return}
   else if(a==='inv-range'){invRange=+b.dataset.d}
   else if(a==='inv-sel'){if(e.target.closest('button'))return;invSel=b.dataset.s;invOpen=b.dataset.s;invTrade=null;invMore=false;fetchDetails(invOpen);window.scrollTo(0,0)}
@@ -4578,7 +4725,7 @@ document.addEventListener('submit',function(e){
 document.addEventListener('visibilitychange',function(){if(!document.hidden)pullIfNewer()});
 function bootHosted(){
   var done=false;
-  function local(){if(done)return;done=true;load();render();widgetInit()}
+  function local(){if(done)return;done=true;load();if(VLT.locked){showLock();return}render();widgetInit()}
   if(window.tally||!/^https?:$/.test(location.protocol))return local();
   fetch('/api/health',{credentials:'same-origin'}).then(function(r){return r.ok?r.json():null}).then(function(j){
     if(!j||!j.hosted)return local();

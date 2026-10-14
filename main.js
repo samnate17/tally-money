@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, shell, ipcMain, safeStorage, screen, nativeTheme } = require('electron');
+const { app, BrowserWindow, Menu, shell, ipcMain, safeStorage, screen, nativeTheme, dialog } = require('electron');
 const path = require('path');
 const http = require('http');
 const { createSecretStore } = require('./secrets');
@@ -149,6 +149,17 @@ function wireIpc() {
     return localAi.pull({ id, model: r && r.model, onProgress: (p) => { if (mainWin && !mainWin.isDestroyed()) mainWin.webContents.send('localai:progress', { id, ...p }); } });
   });
   mainOnly('localai:cancel', (id) => localAi.cancel(String(id)));
+  // Save dialog for backup and transfer files (works the same on Mac and Windows).
+  mainOnly('file:save', async (r) => {
+    const name = String((r && r.name) || 'tally-backup.json').replace(/[^\w.\- ]/g, '_').slice(0, 80) || 'tally-backup.json';
+    const text = String((r && r.text) || '');
+    if (!text || text.length > 200 * 1024 * 1024) throw new Error('Nothing to save.');
+    let dir; try { dir = app.getPath('documents'); } catch (e) { dir = app.getPath('home'); }
+    const res = await dialog.showSaveDialog(mainWin, { title: 'Save file', defaultPath: path.join(dir, name), filters: [{ name: 'Tally Money file', extensions: ['json'] }] });
+    if (res.canceled || !res.filePath) return { cancelled: true };
+    require('fs').writeFileSync(res.filePath, text, { mode: 0o600 });
+    return { path: res.filePath };
+  });
   mainOnly('update:status', () => updater.status());
   mainOnly('update:setToken', (t) => updater.setToken(t));
   mainOnly('update:clearToken', () => updater.clearToken());

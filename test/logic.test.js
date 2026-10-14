@@ -1353,3 +1353,34 @@ test('net worth series: uses the balance on or before each date, debts subtract,
   assert.strictEqual(s[0], 1000 + 500 - 12000);                      // about 90 days ago (Jul 16): checking 1000, loan 12000, savings unknown so its balance
   assert.deepStrictEqual(N.netWorthTrail([], isDebt, new Date(2026, 9, 14), 90, 2), [0, 0, 0]);
 });
+
+test('vault: password-sealed data round-trips, and a wrong password or tampering fails', async () => {
+  const V = new Function('crypto,btoa,atob,TextEncoder,TextDecoder', block('VAULT') + '\nreturn {vaultSeal,vaultOpen,vaultEnvOk,xferPack,xferKind,vaultNew,vaultEnc,vaultDec};')(require('crypto').webcrypto, btoa, atob, TextEncoder, TextDecoder);
+  const IT = 100000; // fewer rounds keeps the test quick; the app uses 600,000
+  const data = JSON.stringify({ txns: [{ name: 'Café ☕', amount: -4.5 }], big: 'x'.repeat(300000) });
+  const env = await V.vaultSeal(data, 'correct horse battery', IT);
+  assert.ok(V.vaultEnvOk(env));
+  assert.ok(!Buffer.from(env.ct, 'base64').includes('Café'));
+  assert.strictEqual(await V.vaultOpen(env, 'correct horse battery'), data);
+  await assert.rejects(V.vaultOpen(env, 'correct horse batterY'), /Wrong password/);
+  const bad = { ...env, ct: env.ct.slice(0, 20) + (env.ct[20] === 'A' ? 'B' : 'A') + env.ct.slice(21) };
+  await assert.rejects(V.vaultOpen(bad, 'correct horse battery'));
+  // two seals of the same data never look alike (fresh salt and nonce)
+  const env2 = await V.vaultSeal(data, 'correct horse battery', IT);
+  assert.notStrictEqual(env.ct, env2.ct); assert.notStrictEqual(env.salt, env2.salt);
+  // envelope validation refuses junk and absurd iteration counts
+  assert.ok(!V.vaultEnvOk(null)); assert.ok(!V.vaultEnvOk({})); assert.ok(!V.vaultEnvOk({ ...env, it: 1 })); assert.ok(!V.vaultEnvOk({ ...env, it: 1e9 }));
+  await assert.rejects(V.vaultOpen({ ...env, it: 1e9 }, 'x'));
+});
+
+test('transfer file: password-protected when a password is given, plain JSON otherwise', async () => {
+  const V = new Function('crypto,btoa,atob,TextEncoder,TextDecoder', block('VAULT') + '\nreturn {vaultOpen,xferPack,xferKind};')(require('crypto').webcrypto, btoa, atob, TextEncoder, TextDecoder);
+  const payload = { app: 'tally-money', version: 1, data: { txns: [], note: 'secret-merchant' } };
+  const plain = JSON.parse(await V.xferPack(payload, ''));
+  assert.deepStrictEqual(plain, payload); assert.strictEqual(V.xferKind(plain), 'plain');
+  const locked = JSON.parse(await V.xferPack(payload, 'a long enough password'));
+  assert.strictEqual(V.xferKind(locked), 'locked'); assert.strictEqual(locked.app, 'tally-money');
+  assert.ok(!JSON.stringify(locked).includes('secret-merchant'));
+  assert.deepStrictEqual(JSON.parse(await V.vaultOpen(locked, 'a long enough password')), payload);
+  await assert.rejects(V.vaultOpen(locked, 'another password here'));
+});
