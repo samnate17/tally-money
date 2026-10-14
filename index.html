@@ -829,6 +829,9 @@ function homeScreen(sp,inc,nw){
   var debts=S.accounts.filter(function(a){return isDebt(a)&&a.balance>0&&a.type!=='mortgage'});
   if(debts.length){var tot=debts.reduce(function(a,d){return a+d.balance},0),orig=debts.reduce(function(a,d){return a+(d.origBalance>0?d.origBalance:d.balance)},0),pl=portfolio(debts,0,0);
     cards.push(hcard('loans','Debt',ringSVG(orig>0?Math.max(0,1-tot/orig):0,{size:92,stroke:10,center:money0(tot),sub:'owed',label:'Debt paid off'})+'<div class="sub" style="margin-top:6px">'+(pl.ok?(pl.months?'Debt-free '+monthYear(addMonths(TODAY,pl.months)):'Debt-free'):'Payments too small')+'</div>'))}
+  // cash back
+  var cbs=cashbackStats(S.txns,S.accounts,TODAY,S.cardPay);
+  if(cbs.total.cbAll>0){var cbn=cbs.total.net12;cards.push(hcard('cashback','Cash back','<div class="hnum num good">'+money0(cbs.total.cb12)+'</div><div class="sub">last 12 months</div><div class="sub" style="margin-top:6px"><span class="'+(cbn>=0?'good':'bad')+'">'+(cbn>=0?'You are ahead ':'You are behind ')+money0(Math.abs(cbn))+'</span> after interest and fees</div>'))}
   // spending mini donut
   if(sp.total>0){var segs=Object.keys(sp.by).sort(function(a,b){return sp.by[b]-sp.by[a]}).slice(0,6).map(function(k){return {v:sp.by[k],label:k,color:col(k)}});
     cards.push(hcard('budgets','Spending',donutSVG(segs,{size:100,stroke:14,center:money0(sp.total),sub:'this month',label:'Spending'})+'<div class="sub" style="margin-top:6px">Biggest: '+esc(segs[0].label)+' '+money0(segs[0].v)+'</div>'))}
@@ -984,7 +987,7 @@ function vTx(){
   var shown=list.slice(0,150),xinf=transferInfo(S.txns,S.cardPay),nx=S.txns.filter(function(x){return isTransfer(x,xinf)}).length;
   var rows=shown.map(function(x){
     if(editTx===x.id)return txEditForm(x);
-    return '<div class="row">'+logo(x.name)+'<div class="grow"><div class="nm">'+esc(x.name)+'</div><div class="sub">'+shortDate(x.date)+(x.sub?' \u00b7 '+esc(x.sub):'')+(isTransfer(x,xinf)?' \u00b7 <span class="pill mute" style="font-size:11px" title="Money moving between your own accounts. It is not counted as spending or income.">Transfer, not counted</span>':'')+'</div></div><select data-cat="'+x.id+'" aria-label="Category for '+esc(x.name)+'" class="hide-s">'+CATS.map(function(c){return '<option'+(c===x.cat?' selected':'')+'>'+c+'</option>'}).join('')+'</select><div class="amt num '+(x.amount>0?'good':'')+'">'+(x.amount>0?'+':'')+money(x.amount)+'</div><div class="actions" style="flex:none;flex-wrap:nowrap"><button class="btn small" data-act="tx-edit" data-id="'+x.id+'" aria-label="Edit '+esc(x.name)+'">Edit</button><button class="btn small" data-act="tx-xfer" data-id="'+x.id+'" title="'+(isTransfer(x,xinf)?'Count this as real spending or income':'This only moved money between my own accounts. Do not count it.')+'">'+(isTransfer(x,xinf)?'Count it':'Transfer')+'</button><button class="btn small" data-act="tx-aside" data-id="'+x.id+'" title="This money was not mine. Remove it from all my numbers; you can restore it later." aria-label="Not mine">Not mine</button><button class="btn small" data-act="tx-del" data-id="'+x.id+'" aria-label="Delete">&times;</button></div></div>';
+    return '<div class="row">'+logo(x.name)+'<div class="grow"><div class="nm">'+esc(x.name)+'</div><div class="sub">'+shortDate(x.date)+(x.sub?' \u00b7 '+esc(x.sub):'')+(isTransfer(x,xinf)?' \u00b7 <span class="pill mute" style="font-size:11px" title="Money moving between your own accounts. It is not counted as spending or income.">Transfer, not counted</span>':'')+(isCashback(x)?' \u00b7 <span class="pill good" style="font-size:11px" title="A reward from a credit card. It is not counted as income; see Loans, Credit cards, Cash back.">Cash back</span>':'')+'</div></div><select data-cat="'+x.id+'" aria-label="Category for '+esc(x.name)+'" class="hide-s">'+CATS.map(function(c){return '<option'+(c===x.cat?' selected':'')+'>'+c+'</option>'}).join('')+'</select><div class="amt num '+(x.amount>0?'good':'')+'">'+(x.amount>0?'+':'')+money(x.amount)+'</div><div class="actions" style="flex:none;flex-wrap:nowrap"><button class="btn small" data-act="tx-edit" data-id="'+x.id+'" aria-label="Edit '+esc(x.name)+'">Edit</button><button class="btn small" data-act="tx-xfer" data-id="'+x.id+'" title="'+(isTransfer(x,xinf)?'Count this as real spending or income':'This only moved money between my own accounts. Do not count it.')+'">'+(isTransfer(x,xinf)?'Count it':'Transfer')+'</button>'+(x.amount>0&&!isTransfer(x,xinf)?'<button class="btn small" data-act="tx-cb" data-id="'+x.id+'" title="'+(isCashback(x)?'This is not cash back. Count it normally.':'This is cash back or a card reward. Keep it out of income.')+'">'+(isCashback(x)?'Not cash back':'Cash back')+'</button>':'')+'<button class="btn small" data-act="tx-aside" data-id="'+x.id+'" title="This money was not mine. Remove it from all my numbers; you can restore it later." aria-label="Not mine">Not mine</button><button class="btn small" data-act="tx-del" data-id="'+x.id+'" aria-label="Delete">&times;</button></div></div>';
   }).join('');
   var xpanel='<section class="panel"><h2>Not double counted<small>'+nx+' transfer'+(nx===1?'':'s')+' left out of your numbers</small></h2><p class="sub muted" style="margin:0 0 8px;font-size:13px">Paying a credit card from checking moves money you already counted when you made the purchases, and "payment thank you" on a card statement is not income. Transfers between your own accounts are skipped too. Press <b>Transfer</b> on any row the app got wrong.</p><label style="font-size:13px">Payments to my credit cards <select id="cardpay"><option value="auto"'+(S.cardPay==='auto'?' selected':'')+'>Skip when my card purchases are here too (recommended)</option><option value="skip"'+(S.cardPay==='skip'?' selected':'')+'>Always skip</option><option value="count"'+(S.cardPay==='count'?' selected':'')+'>Count them as spending</option></select></label></section>';
   return '<div class="top"><h1>Transactions</h1></div>'+catTools()+xpanel+
@@ -1275,8 +1278,63 @@ function isTransfer(x,info){
   if(XFER_CARD.test(n)&&!/mortgage|\bloan\b|\bauto\b|student|\brent\b|\bhome\b|insurance/i.test(n)){var m=info?info.mode:'auto';return m==='skip'||(m==='auto'&&!!(info&&info.cardSide))}
   return false;
 }
-function ledgerOf(txns,mode){var inf=transferInfo(txns,mode);return txns.filter(function(x){return !isTransfer(x,inf)})}
+// Cash back on a card (Apple Card's Daily Cash, "cash back reward", statement credits for rewards) is a reward, not pay: it is kept out of income and shown in the Cash back panel.
+var CASHBACK_RE=/daily cash|cash ?back|cash rewards?|rewards? (credit|redemption|payout|deposit|statement)|redemption credit|statement credit.*(reward|cash)|reward.*statement credit/i;
+function isCashback(x){
+  if(x.cashback===true)return true;
+  if(x.cashback===false)return false;
+  return CASHBACK_RE.test(x.name||'')&&!/\b(refund|reversal|chargeback)\b/i.test(x.name||'');
+}
+function ledgerOf(txns,mode){var inf=transferInfo(txns,mode);return txns.filter(function(x){return !isTransfer(x,inf)&&!isCashback(x)})}
 /*TRANSFER-END*/
+/*CASHBACK-START*/
+// What each credit card gives back (cash back) against what it costs (interest and fees), so you can tell whether a card is a gain or a loss.
+// Cards are matched to transactions through txn.acct (the account id): set by bank sync and by card statement imports.
+var CB_INTEREST=/interest charge|interest on (purchases|cash|balance)|purchase interest|periodic interest|finance charge|interest charged|^interest$/i;
+var CB_FEE=/annual (membership )?fee|membership fee|late (payment )?fee|returned payment|foreign (transaction|exchange) fee|cash advance fee|balance transfer fee|over.?limit fee/i;
+function cbPad(n){return n<10?'0'+n:''+n}
+function cbDay(d){return d.getFullYear()+'-'+cbPad(d.getMonth()+1)+'-'+cbPad(d.getDate())}
+function cashbackStats(txns,accounts,today,mode){
+  var inf=transferInfo(txns,mode),since=cbDay(new Date(today.getFullYear(),today.getMonth()-12,today.getDate())),byId={},cards=[],un={cb12:0,cbAll:0,n:0},monthly={},months=[],i,d;
+  accounts.forEach(function(a){if(a.type==='credit'){var c={id:a.id,name:a.name,apr:+a.apr||0,balance:+a.balance||0,closed:!!a.closed,cb12:0,cbAll:0,n:0,spend12:0,int12:0,fee12:0,intAll:0,feeAll:0,first:'',last:'',active:{}};byId[a.id]=c;cards.push(c)}});
+  for(i=11;i>=0;i--){d=new Date(today.getFullYear(),today.getMonth()-i,1);months.push(d.getFullYear()+'-'+cbPad(d.getMonth()+1));monthly[months[months.length-1]]=0}
+  txns.forEach(function(x){
+    var c=x.acct&&byId[x.acct],recent=x.date>=since,mk=x.date.slice(0,7);
+    if(isCashback(x)){
+      if(c){c.cbAll+=x.amount;c.n++;if(recent)c.cb12+=x.amount;if(!c.first||x.date<c.first)c.first=x.date;if(!c.last||x.date>c.last)c.last=x.date}
+      else{un.cbAll+=x.amount;un.n++;if(recent)un.cb12+=x.amount}
+      if(monthly[mk]!==undefined)monthly[mk]+=x.amount;
+      return;
+    }
+    if(!c||isTransfer(x,inf)||!(x.amount<0))return;
+    if(recent)c.active[mk]=1;
+    var nm=x.name||'';
+    if(CB_INTEREST.test(nm)){c.intAll-=x.amount;if(recent)c.int12-=x.amount}
+    else if(CB_FEE.test(nm)){c.feeAll-=x.amount;if(recent)c.fee12-=x.amount}
+    else if(recent)c.spend12-=x.amount;
+  });
+  cards.forEach(function(c){
+    var cov=Math.max(1,Object.keys(c.active).length);
+    c.cb12=Math.round(c.cb12*100)/100;c.cbAll=Math.round(c.cbAll*100)/100;
+    c.cost12=Math.round((c.int12+c.fee12)*100)/100;c.net12=Math.round((c.cb12-c.cost12)*100)/100;
+    c.rate=c.spend12>0?c.cb12/c.spend12:null;c.avgMonth=c.cb12/cov;c.estInterest=c.balance>0&&c.apr>0?c.balance*c.apr/1200:0;
+    c.verdict=cashbackVerdict(c);
+  });
+  var tot={cb12:0,cbAll:0,cost12:0,spend12:0};cards.forEach(function(c){tot.cb12+=c.cb12;tot.cbAll+=c.cbAll;tot.cost12+=c.cost12;tot.spend12+=c.spend12});
+  tot.cb12+=un.cb12;tot.cbAll+=un.cbAll;
+  tot.net12=Math.round((tot.cb12-tot.cost12)*100)/100;tot.rate=tot.spend12>0?(tot.cb12-un.cb12)/tot.spend12:null;
+  return {cards:cards,unassigned:un,total:tot,monthly:months.map(function(k){return {mk:k,amt:Math.round(monthly[k]*100)/100}}),since:since};
+}
+// gain: ahead after interest and fees. warn: earning cash back but the interest on today's balance costs more. loss: behind. none: no cash back seen.
+function cashbackVerdict(c){
+  var m=function(v){return '$'+(Math.round(Math.abs(v)*100)/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})};
+  if(!(c.cbAll>0)&&!(c.cb12>0))return {kind:'none',text:'No cash back found yet. Import a statement that includes it (Apple Card shows it as Daily Cash).'};
+  if(c.estInterest>0&&c.int12===0&&c.estInterest>c.avgMonth)return {kind:'warn',text:'You earn about '+m(c.avgMonth)+' a month in cash back, but carrying '+m(c.balance)+' at '+c.apr+'% APR costs about '+m(c.estInterest)+' a month in interest. Unless you pay this card in full every month, the interest wipes out the cash back. Paying the balance down is worth more than any reward.'};
+  if(c.net12>0)return {kind:'gain',text:'You are ahead by '+m(c.net12)+' over the last 12 months: '+m(c.cb12)+' cash back'+(c.cost12>0?' minus '+m(c.cost12)+' in interest and fees':', and no interest or fees recorded')+'.'};
+  if(c.net12<0)return {kind:'loss',text:'You are behind by '+m(c.net12)+' over the last 12 months: '+m(c.cb12)+' cash back against '+m(c.cost12)+' in interest and fees.'};
+  return {kind:'even',text:'Cash back and costs cancelled out over the last 12 months ('+m(c.cb12)+' each).'};
+}
+/*CASHBACK-END*/
 /*ENERGY-START*/
 // Electricity usage and cost by month, from a Green Button download (CSV or XML) or typed in from your bills, plus plain-language advice.
 function splitCsv(text){
@@ -1526,14 +1584,15 @@ function applySync(res,itemId){
     var g=guessCat(t.name);
     return g==='Subscriptions'?g:(t.catHint&&t.catHint!=='Income'?t.catHint:(g==='Income'?'Other':g));
   }
-  function add(t){var x={id:uid(),plaidId:t.plaidId,date:t.date,name:t.name,amount:t.amount,cat:category(t)};var sb=guessSub(x.cat,x.name);if(sb)x.sub=sb;S.txns.push(x);byPid[t.plaidId]=x}
+  function acctFor(t){var a=S.accounts.filter(function(y){return y.plaid&&y.plaid.accountId===t.accountId})[0];return a?a.id:''}
+  function add(t){var x={id:uid(),plaidId:t.plaidId,date:t.date,name:t.name,amount:t.amount,cat:category(t)};var ai=acctFor(t);if(ai)x.acct=ai;var sb=guessSub(x.cat,x.name);if(sb)x.sub=sb;S.txns.push(x);byPid[t.plaidId]=x}
   (res.added||[]).forEach(function(t){
     var ex=byPid[t.plaidId];
-    if(ex){ex.date=t.date;ex.name=t.name;ex.amount=t.amount;out.updTx++}else{add(t);out.newTx++}
+    if(ex){ex.date=t.date;ex.name=t.name;ex.amount=t.amount;if(!ex.acct&&acctFor(t))ex.acct=acctFor(t);out.updTx++}else{add(t);out.newTx++}
   });
   (res.modified||[]).forEach(function(t){
     var ex=byPid[t.plaidId];
-    if(ex){ex.date=t.date;ex.name=t.name;ex.amount=t.amount;out.updTx++}else{add(t);out.newTx++}
+    if(ex){ex.date=t.date;ex.name=t.name;ex.amount=t.amount;if(!ex.acct&&acctFor(t))ex.acct=acctFor(t);out.updTx++}else{add(t);out.newTx++}
   });
   var rm={};(res.removed||[]).forEach(function(id){rm[id]=1});
   var before=S.txns.length;
@@ -1760,12 +1819,12 @@ function pdfCategory(name,amount){
 // opts.card: these files are credit card statements, so money coming in is a payment you made to the card.
 function pdfReviewRows(files,opts){
   var have={},seen={},out=[],cardStmt=!!(opts&&opts.card);
-  if(!S.sample)S.txns.concat(S.setAside||[]).forEach(function(x){var k=x.date+'|'+x.amount.toFixed(2)+'|'+aiKey(x.name);have[k]=(have[k]||0)+1}); // example data is replaced on import, so it is never a duplicate; money you set aside is not brought back
+  if(!S.sample)S.txns.concat(S.setAside||[]).forEach(function(x){var k=x.date+'|'+x.amount.toFixed(2)+'|'+aiKey(x.name);(have[k]=have[k]||[]).push(x)}); // example data is replaced on import, so it is never a duplicate; money you set aside is not brought back
   files.forEach(function(f,fi){(f.rows||[]).forEach(function(r){
     var k=r.date+'|'+r.amount.toFixed(2)+'|'+aiKey(r.name),dup=false,kp=/^payment/.test(r.kind||''),tr=!!r.transfer||kp,card=tr&&r.amount>0&&(kp||cardStmt);   // a payment to a card is a record of money you already counted when it left checking: kept, but flagged so it is not income
-    if(have[k]>0){have[k]--;dup=true}else if(seen[k]!==undefined&&seen[k]!==fi)dup=true;
+    var dupId='';if(have[k]&&have[k].length){dupId=have[k].shift().id;dup=true}else if(seen[k]!==undefined&&seen[k]!==fi)dup=true;
     if(seen[k]===undefined)seen[k]=fi;
-    out.push({fi:fi,date:r.date,name:r.name,amount:r.amount,cat:(r.cat&&CATS.indexOf(r.cat)>-1&&!(r.amount>0&&r.cat!=='Income'))?r.cat:(r.amount>0&&/^(credit|adjustment|reversal|refund|return)/.test(r.kind||'')?'Other':pdfCategory(r.name,r.amount)),uncertain:!!r.uncertain,dup:dup,transfer:tr,card:card,on:!dup&&(!tr||card)});
+    out.push({fi:fi,date:r.date,name:r.name,amount:r.amount,cat:(r.cat&&CATS.indexOf(r.cat)>-1&&!(r.amount>0&&r.cat!=='Income'))?r.cat:(r.amount>0&&/^(credit|adjustment|reversal|refund|return)/.test(r.kind||'')?'Other':pdfCategory(r.name,r.amount)),uncertain:!!r.uncertain,dup:dup,dupId:dupId,transfer:tr,card:card,on:!dup&&(!tr||card)});
   })});
   return out;
 }
@@ -3027,6 +3086,32 @@ function loanStmtBlock(l){
   var old=l.asOf&&dayDiff(parseD(l.asOf),TODAY)>45;
   return '<div style="display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:8px">'+P.join('')+'</div>'+(l.asOf?'<div class="sub '+(old?'warn':'muted')+'" style="font-size:12px;margin-top:4px">Figures as of '+shortDate(l.asOf)+(old?'. This is more than 45 days old, so update it from a newer statement.':'')+'</div>':'');
 }
+/* ---------- Cash back panel (credit cards) ---------- */
+function cbBars(monthly){
+  var mx=Math.max.apply(null,monthly.map(function(m){return Math.abs(m.amt)}).concat([1])),W=360,H=84,bw=W/monthly.length;
+  return '<svg viewBox="0 0 '+W+' '+(H+18)+'" width="100%" style="max-width:520px" role="img" aria-label="Cash back by month, last 12 months">'+monthly.map(function(m,i){
+    var h=Math.max(m.amt!==0?2:0,Math.abs(m.amt)/mx*H),x=i*bw+3;
+    return '<rect class="growbar" x="'+x+'" y="'+(H-h)+'" width="'+(bw-6)+'" height="'+h+'" rx="3" fill="'+(m.amt<0?'var(--bad)':'var(--good)')+'" opacity="'+(m.amt?0.9:0.15)+'"><title>'+monthLabel(m.mk)+': '+money(m.amt)+'</title></rect><text x="'+(x+(bw-6)/2)+'" y="'+(H+13)+'" text-anchor="middle" font-size="9" style="fill:var(--muted)">'+monthLabel(m.mk).slice(0,3)+'</text>'}).join('')+'</svg>';
+}
+function cashbackPanel(){
+  var st=cashbackStats(S.txns,S.accounts,TODAY,S.cardPay),cards=st.cards.filter(function(c){return !c.closed||c.cbAll>0||c.cost12>0}),any=st.total.cbAll!==0||cards.some(function(c){return c.cbAll>0||c.spend12>0});
+  var h='<section class="panel cashback"><h2>Cash back<small>what your cards give back, and what they cost</small></h2>';
+  if(!cards.length)return h+'<div class="empty">Add a credit card first. Then import its statements or link it to your bank to see its cash back.</div></section>';
+  if(st.total.cbAll<=0&&!cards.some(function(c){return c.cbAll>0}))
+    return h+'<div class="empty" style="white-space:normal">No cash back found yet. Apple Card statements show it as <b>Daily Cash</b>; other cards call it cash back or rewards. Import a statement (Transactions tab) or link the card to your bank, and it is picked up automatically. A credit that is cash back but is not recognised can be marked with <b>Cash back</b> in the Transactions list.</div></section>';
+  var net=st.total.net12,tiles='<div class="grid tiles">'+tile('Cash back, 12 months','<span class="good">'+money0(st.total.cb12)+'</span>',st.total.rate!==null?(st.total.rate*100).toFixed(1)+'% of what you spent on cards':'')+tile('Cash back, all time',money0(st.total.cbAll),'since you started importing')+tile('Interest and fees, 12 months','<span class="'+(st.total.cost12>0?'bad':'')+'">'+money0(st.total.cost12)+'</span>',st.total.cost12>0?'what the cards cost you':'none recorded')+tile('Net, 12 months','<span class="'+(net>=0?'good':'bad')+'">'+(net>=0?'+':'-')+money0(Math.abs(net))+'</span>',net>=0?'you are gaining':'you are losing')+'</div>';
+  var rows=cards.map(function(c){
+    var vk=c.verdict.kind,cls=vk==='gain'?'good':(vk==='loss'?'bad':(vk==='warn'?'warn':'mute')),lab=vk==='gain'?'Gaining':vk==='loss'?'Losing':vk==='warn'?'Careful':vk==='even'?'Even':'No cash back yet',mx=Math.max(c.cb12,c.cost12,1);
+    return '<div class="row wrap" style="align-items:flex-start;gap:12px"><div class="grow" style="flex-basis:260px"><div class="nm">'+esc(c.name)+' <span class="pill '+cls+'">'+lab+'</span></div>'+
+      '<div class="sub" style="white-space:normal">'+(c.spend12>0?money0(c.spend12)+' spent in 12 months':'No spending recorded in 12 months')+(c.rate!==null&&c.cb12>0?' · earns '+(c.rate*100).toFixed(1)+'%':'')+(c.cbAll>c.cb12?' · '+money0(c.cbAll)+' all time':'')+'</div>'+
+      '<div style="margin:8px 0 4px;max-width:340px"><div class="sub" style="display:flex;justify-content:space-between;font-size:12px"><span>Cash back</span><span class="num good">'+money(c.cb12)+'</span></div><div class="bar"><i class="good" style="width:'+Math.min(100,c.cb12/mx*100)+'%"></i></div>'+
+      '<div class="sub" style="display:flex;justify-content:space-between;font-size:12px;margin-top:6px"><span>Interest and fees</span><span class="num '+(c.cost12>0?'bad':'')+'">'+money(c.cost12)+'</span></div><div class="bar"><i class="bad" style="width:'+Math.min(100,c.cost12/mx*100)+'%"></i></div></div>'+
+      '<div class="sub" style="white-space:normal;margin-top:6px">'+esc(c.verdict.text)+'</div></div></div>';
+  }).join('');
+  var un=st.unassigned,link=un.n>0?'<div class="banner" style="margin-top:12px;align-items:center"><span><b>'+un.n+' cash back credit'+(un.n===1?'':'s')+' ('+money(un.cbAll)+')</b> '+(un.n===1?'is':'are')+' not linked to a card, so they are not in the per-card numbers.</span><span class="actions"><select id="cb-card" aria-label="Card">'+cards.map(function(c){return '<option value="'+esc(c.id)+'">'+esc(c.name)+'</option>'}).join('')+'</select><button class="btn small primary" data-act="cb-assign">Link them to this card</button></span></div>':'';
+  return h+tiles+'<div style="margin:14px 0 6px"><div class="sub" style="margin-bottom:4px">Cash back by month</div>'+cbBars(st.monthly)+'</div>'+rows+link+
+    '<p class="sub muted" style="margin:12px 0 0;font-size:12px;white-space:normal">Cash back is not counted as income or spending. Gaining or losing = cash back minus the interest and fees found in your transactions over the last 12 months. If a card has a balance and no interest rows were imported, the warning estimates the interest from the balance and rate in Accounts. Only what is in the app is counted.</p></section>';
+}
 function loanCard(kind,l){
   var base=amortize(l.balance,l.apr,l.minPay),due=nextDue(l.dueDay,TODAY),pct=l.origBalance>0?Math.max(0,Math.min(100,(1-l.balance/l.origBalance)*100)):null;
   var meta=esc(l.lender||'')+(l.lender?' · ':'')+l.apr+'% APR · '+money0(l.minPay)+'/mo'+(due?' · next due '+shortDate(iso(due)):'');
@@ -3074,7 +3159,7 @@ function vLoans(kind,hub){
   loans.forEach(function(l){var re=loanMatchRe(l),k=re?re.source:'';if(!k)return;if(!groups[k]){groups[k]=[];gOrder.push(k)}groups[k].push(l)});
   var seen=gOrder.map(function(k){var ls=groups[k],l=ls[0];var p=paymentsSeen(S.txns,l);if(!p.length)return '';var typ=p[0].amount,diff=ls.length===1&&Math.abs(typ-l.minPay)>5&&l.minPay>0;return '<div style="margin-bottom:10px"><div class="nm">'+esc(ls.map(function(x){return x.name}).join(', '))+'</div>'+p.map(function(x){return '<div class="row"><div class="grow"><div class="sub">'+shortDate(x.date)+' · '+esc(x.name)+'</div></div><div class="amt num">'+money(x.amount)+'</div></div>'}).join('')+(diff?'<p class="sub warn" style="margin:4px 0 0">Your latest payment was '+money(typ)+' but you entered '+money(l.minPay)+'. Edit the loan if the amount changed.</p>':'')+'</div>'}).join('');
   var seenP=seen?'<section class="panel histpanel"><h2>'+(kind==='auto'?'Payment history':'Payments I found')+'<small>found in your transactions</small></h2>'+seen+'</section>':'';
-  return head+msg+adding+(kind==='auto'?loans.map(autoHero).join(''):tiles)+loanVisuals(kind,loans)+cards+contractPanels(loans)+faster+pay+seenP+loanImportPanel(kind)+loanTips(kind);
+  return head+msg+adding+(kind==='auto'?loans.map(autoHero).join(''):tiles)+loanVisuals(kind,loans)+(kind==='credit'?cashbackPanel():'')+cards+contractPanels(loans)+faster+pay+seenP+loanImportPanel(kind)+loanTips(kind);
 }
 function attackFirst(loans){return loans.filter(function(l){return l.balance>0}).slice().sort(function(a,b){return b.apr-a.apr||a.balance-b.balance})[0]||loans[0]}
 var plLoading=false;
@@ -3574,6 +3659,8 @@ function appleCardPanel(){
    '<label class="btn primary small" style="cursor:pointer">Choose Apple Card file(s)<input type="file" id="apple-file" multiple accept=".csv,.ofx,.qfx,.pdf,.txt,text/csv,application/pdf" hidden></label> '+(ac?'<span class="sub muted">Linked to '+esc(ac.name)+' in Accounts</span>':'<span class="sub muted">An Apple Card account is created for you the first time.</span>')+
    '<p class="sub muted" style="margin:8px 0 0;font-size:12px;white-space:normal">Payments to the card are left out of spending and income so nothing is counted twice. The CSV and OFX files have no balance, so type it under Accounts, or import the PDF statement and press Set balance. Apple Card Family members are not in Apple\u2019s export.</p></section>';
 }
+// Which credit card a card statement belongs to (so the Cash back panel can show it per card). One card: that one. Several: the user picks.
+function pdfCardId(){var cc=S.accounts.filter(function(a){return a.type==='credit'});if(pdf.card!==undefined&&(pdf.card===''||cc.some(function(a){return a.id===pdf.card})))return pdf.card;return cc.length===1?cc[0].id:''}
 function pdfShell(){return '<section class="panel" id="pdfpanel">'+pdfInner()+'</section>'}
 function pdfEst(chars){var st=aiSt||{priceIn:4,priceOut:20};return (Math.ceil(chars/3.2)+700)*st.priceIn/1e6+4000*st.priceOut/1e6}
 function pdfInner(){
@@ -3604,17 +3691,18 @@ function pdfInner(){
     return '<div class="row wrap" style="align-items:flex-start"><div class="grow" style="flex-basis:220px"><div class="nm">'+esc(f.name)+'</div><div class="sub" style="white-space:normal">'+why+'</div>'+(acts?'<div class="actions" style="justify-content:flex-start;margin-top:6px">'+acts+'</div>':'')+extra+'</div>'+st+'</div>';
   }).join('');
   var on=pdf.rows.filter(function(r){return r.on}).length,dups=pdf.rows.filter(function(r){return r.dup}).length,cps=pdf.rows.filter(function(r){return r.card&&!r.dup}).length,trs=pdf.rows.filter(function(r){return r.transfer&&!r.card&&!r.dup}).length,unc=pdf.rows.filter(function(r){return r.uncertain&&r.on}).length;
-  var list=pdf.showAll?pdf.rows:pdf.rows.slice(0,300);
+  var list=pdf.showAll?pdf.rows:pdf.rows.slice(0,300),cc=S.accounts.filter(function(a){return a.type==='credit'}),cardPick=pdf.type==='credit'&&!pdf.apple&&cc.length?'<div class="actions" style="justify-content:flex-start;margin:0 0 10px;align-items:center;gap:8px"><label class="sub" for="pdf-card">Which card is this?</label><select id="pdf-card"><option value="">Not sure</option>'+cc.map(function(a){return '<option value="'+esc(a.id)+'"'+(pdfCardId()===a.id?' selected':'')+'>'+esc(a.name)+'</option>'}).join('')+'</select><span class="sub muted" style="font-size:12px">Lets the Cash back panel show what each card earns.</span></div>':'';
   var cats=CATS;
   var rows=list.map(function(r){var i=pdf.rows.indexOf(r);return '<div class="row wrap pdfrow"><input type="checkbox" data-pc="on" data-i="'+i+'"'+(r.on?' checked':'')+' aria-label="Include"><input type="date" data-pc="date" data-i="'+i+'" value="'+r.date+'" aria-label="Date"><input type="text" class="grow" style="flex-basis:140px" data-pc="name" data-i="'+i+'" value="'+esc(r.name)+'" aria-label="Description"><select data-pc="cat" data-i="'+i+'" aria-label="Category">'+cats.map(function(c){return '<option'+(c===r.cat?' selected':'')+'>'+c+'</option>'}).join('')+'</select>'+(r.ai?'<span class="pill '+(r.ai==='high'?'good':r.ai==='medium'?'warn':'mute')+'" title="Predicted by Claude ('+r.ai+' confidence). Change it if it is wrong.">AI</span>':'')+'<button class="btn small" data-pdf="flip" data-i="'+i+'" title="Switch between money in and money out" aria-label="Flip sign">'+(r.uncertain?'\u26a0 ':'')+'<span class="num '+(r.amount>0&&!r.transfer?'good':'')+'">'+(r.amount>0&&!r.transfer?'+':r.transfer?'':'-')+money(Math.abs(r.amount))+'</span></button>'+(r.card&&!r.dup?'<span class="pill good" title="Money you paid to the card. It is kept, but not counted as income or spending.">Card payment</span>':r.transfer&&!r.dup?'<span class="pill mute" title="Moves money between your own accounts. Not counted as income or spending.">Transfer</span>':'')+(r.dup?'<span class="pill mute">Already have</span>':'')+'</div>'}).join('');
   var bal=pdf.files.map(function(f,i){if(!(f.meta&&f.meta.endBalance>0))return '';
     return '<div class="row wrap" style="align-items:center"><div class="grow" style="flex-basis:240px"><div class="nm">'+esc(f.name)+' shows a closing balance of '+money(f.meta.endBalance)+'</div><div class="sub" style="white-space:normal">Bring an account up to date with it (optional).</div></div><select data-pdfbal="'+i+'" aria-label="Account to update">'+S.accounts.map(function(a){return '<option value="'+esc(a.id)+'">'+esc(a.name)+'</option>'}).join('')+'</select><button class="btn small" data-pdf="setbal" data-i="'+i+'"'+(S.accounts.length?'':' disabled')+'>Set balance</button></div>'}).join('');
-  return h+note+pick+files+bal+(pdf.rows.length?'<p style="margin:14px 0 8px"><b>'+pdf.rows.length+'</b> transaction'+(pdf.rows.length===1?'':'s')+' found'+(dups?', '+dups+' already in the app (unchecked)':'')+(cps?', '+cps+' '+(cps===1?'is a payment':'are payments')+' you made to the card (imported as transfers, so they are not counted as income or spending)':'')+(trs?', '+trs+' look like transfers between your own accounts (unchecked, so they are not counted as spending or income)':'')+'. '+(unc?'<b class="warn">'+unc+' have a guessed sign</b> (marked \u26a0). Check them, and use the amount button to flip money in and out.':'Check the amounts and signs before importing.')+'</p><div class="pdfscroll">'+rows+'</div>'+(pdf.rows.length>300&&!pdf.showAll?'<div class="empty"><button class="btn small" data-pdf="all">Show all '+pdf.rows.length+'</button></div>':'')+'<div class="actions" style="justify-content:flex-start;margin-top:12px"><button class="btn primary" data-pdf="import"'+(on?'':' disabled')+'>Import '+on+' transaction'+(on===1?'':'s')+'</button>'+(window.tally&&window.tally.ai&&aiSt&&aiSt.hasKey&&pdf.rows.some(function(r){return r.on&&r.cat==='Other'})?'<button class="btn" data-pdf="aicat"'+(pdf.aiBusy?' disabled':'')+'>'+(pdf.aiBusy?'Asking Claude…':'Predict categories with AI')+'</button>':'')+'<button class="btn" data-pdf="cancel">Cancel</button></div>':'<div class="actions" style="justify-content:flex-start;margin-top:12px"><button class="btn" data-pdf="cancel">Done</button></div>');
+  return h+note+pick+files+bal+(pdf.rows.length?'<p style="margin:14px 0 8px"><b>'+pdf.rows.length+'</b> transaction'+(pdf.rows.length===1?'':'s')+' found'+(dups?', '+dups+' already in the app (unchecked)':'')+(cps?', '+cps+' '+(cps===1?'is a payment':'are payments')+' you made to the card (imported as transfers, so they are not counted as income or spending)':'')+(trs?', '+trs+' look like transfers between your own accounts (unchecked, so they are not counted as spending or income)':'')+'. '+(unc?'<b class="warn">'+unc+' have a guessed sign</b> (marked \u26a0). Check them, and use the amount button to flip money in and out.':'Check the amounts and signs before importing.')+'</p>'+cardPick+'<div class="pdfscroll">'+rows+'</div>'+(pdf.rows.length>300&&!pdf.showAll?'<div class="empty"><button class="btn small" data-pdf="all">Show all '+pdf.rows.length+'</button></div>':'')+'<div class="actions" style="justify-content:flex-start;margin-top:12px"><button class="btn primary" data-pdf="import"'+(on?'':' disabled')+'>Import '+on+' transaction'+(on===1?'':'s')+'</button>'+(window.tally&&window.tally.ai&&aiSt&&aiSt.hasKey&&pdf.rows.some(function(r){return r.on&&r.cat==='Other'})?'<button class="btn" data-pdf="aicat"'+(pdf.aiBusy?' disabled':'')+'>'+(pdf.aiBusy?'Asking Claude…':'Predict categories with AI')+'</button>':'')+'<button class="btn" data-pdf="cancel">Cancel</button></div>':'<div class="actions" style="justify-content:flex-start;margin-top:12px"><button class="btn" data-pdf="cancel">Done</button></div>');
 }
 function renderPdf(){
   var el=$('#pdfpanel');if(!el)return;el.innerHTML=pdfInner();
   var inp=$('#pdf-in',el);if(inp)inp.onchange=function(){var fl=Array.prototype.slice.call(inp.files);if(fl.length)stmtRead(fl)};
   var cin=$('#csv-in',el);if(cin)cin.onchange=function(){var fl=Array.prototype.slice.call(cin.files);if(fl.length)stmtRead(fl)};
+  var pcd=$('#pdf-card',el);if(pcd)pcd.onchange=function(){pdf.card=pcd.value};
   var ty=$('#pdf-type',el);if(ty)ty.onchange=function(){pdf.type=ty.value;if(pdf.files.length&&pdf.files[0].file)stmtRead(pdf.files.map(function(f){return f.file}).filter(Boolean))};
   el.onchange=function(e){var t=e.target,cm=t.dataset&&t.dataset.cm;
     if(cm){var cf=pdf.files[pdf.mapIdx];if(!cf||!cf.csv)return;var c=cf.csv;
@@ -3708,9 +3796,11 @@ function pdfClick(b){
   if(a==='import'){
     var take=pdf.rows.filter(function(r){return r.on});if(!take.length)return;
     if(S.sample){S.txns=[];S.subs=[];S.goals=[];S.accounts=[];S.budgets={};S.extraPay=0;S.credit=defCredit();S.holdings=[];S.sample=false}
-    var wasApple=!!pdf.apple;
-    take.forEach(function(r){var t={id:uid(),date:r.date,name:r.name,amount:Math.round(r.amount*100)/100,cat:r.cat},sb=subFor(r.cat,r.name,r.sub);if(sb)t.sub=sb;if(r.transfer){t.transfer=true;if(r.card)t.cardPay=true}S.txns.push(t)});
-    if(wasApple){var ac=S.accounts.filter(function(a){return a.type==='credit'&&/apple/i.test(a.name)})[0];if(!ac){ac={id:uid(),name:'Apple Card',type:'credit',balance:0,apr:0,minPay:0,lender:'Apple Card',history:[]};S.accounts.push(ac)}S.apple={acct:ac.id,last:iso(TODAY),count:((S.apple&&S.apple.count)||0)+take.length}}
+    var wasApple=!!pdf.apple,cardId=wasApple?'':pdfCardId();
+    if(wasApple){var ac0=S.accounts.filter(function(a){return a.type==='credit'&&/apple/i.test(a.name)})[0];if(!ac0){ac0={id:uid(),name:'Apple Card',type:'credit',balance:0,apr:0,minPay:0,lender:'Apple Card',history:[]};S.accounts.push(ac0)}cardId=ac0.id}
+    if(cardId)pdf.rows.forEach(function(r){if(r.dup&&r.dupId){var ex0=S.txns.filter(function(x){return x.id===r.dupId})[0];if(ex0&&!ex0.acct)ex0.acct=cardId}});   // statements imported before: tell them which card they belong to
+    take.forEach(function(r){var t={id:uid(),date:r.date,name:r.name,amount:Math.round(r.amount*100)/100,cat:r.cat},sb=subFor(r.cat,r.name,r.sub);if(sb)t.sub=sb;if(r.transfer){t.transfer=true;if(r.card)t.cardPay=true}if(cardId)t.acct=cardId;S.txns.push(t)});
+    if(wasApple){var ac=S.accounts.filter(function(x){return x.id===cardId})[0];S.apple={acct:ac.id,last:iso(TODAY),count:((S.apple&&S.apple.count)||0)+take.length}}
     S.txns.sort(function(x,y){return x.date<y.date?1:-1});save();
     var n=take.length;pdf={stage:'idle',type:pdf.type,files:[],rows:[],msg:n+' transaction'+(n===1?'':'s')+' imported.',busy:'',aiConfirm:-1,aiPdfConfirm:-1,showText:-1,mapIdx:-1,showAll:false};
     toast(pdf.msg+(wasApple?' Apple Card is in Accounts: set its balance there.':''));render();
@@ -4258,7 +4348,7 @@ function cleanCustomCats(c){
 function cleanBackup(j){
   var d=j&&j.data?j.data:j,dre=/^\d{4}-\d{2}-\d{2}$/,custom=cleanCustomCats(d&&d.customCats),allowed=BASECATS.concat(custom.map(function(c){return c.name}),['Other','Income']);
   if(!d||!Array.isArray(d.txns)||!Array.isArray(d.subs)||!Array.isArray(d.goals)||!d.budgets||typeof d.budgets!=='object')return null;
-  var cleanTx=function(x){var t={id:String(x.id||uid()),date:x.date,name:String(x.name).slice(0,120),amount:+x.amount,cat:allowed.indexOf(x.cat)>-1?x.cat:'Other'};if(typeof x.plaidId==='string'&&x.plaidId)t.plaidId=x.plaidId.slice(0,100);if(dre.test(x.asideAt||''))t.asideAt=x.asideAt;if(x.transfer===true||x.transfer===false)t.transfer=x.transfer;if(x.cardPay===true)t.cardPay=true;var sb=cleanSubName(x.sub);if(sb)t.sub=sb;return t};
+  var cleanTx=function(x){var t={id:String(x.id||uid()),date:x.date,name:String(x.name).slice(0,120),amount:+x.amount,cat:allowed.indexOf(x.cat)>-1?x.cat:'Other'};if(typeof x.plaidId==='string'&&x.plaidId)t.plaidId=x.plaidId.slice(0,100);if(dre.test(x.asideAt||''))t.asideAt=x.asideAt;if(x.transfer===true||x.transfer===false)t.transfer=x.transfer;if(x.cardPay===true)t.cardPay=true;if(typeof x.acct==='string'&&x.acct&&x.acct.length<=100)t.acct=x.acct;if(x.cashback===true||x.cashback===false)t.cashback=x.cashback;var sb=cleanSubName(x.sub);if(sb)t.sub=sb;return t};
   var okTx=function(x){return x&&dre.test(x.date)&&isFinite(x.amount)&&x.name};
   var txns=d.txns.filter(okTx).map(cleanTx);
   var setAside=(Array.isArray(d.setAside)?d.setAside:[]).filter(okTx).slice(0,5000).map(cleanTx);
@@ -4357,7 +4447,7 @@ function bindView(){
   if(view==='look'){secBind(m);if(T&&!aiSt)loadAi();if(T&&T.bio&&!BIO.loaded)bioLoad(function(){if(view==='look')render()})}
 }
 document.addEventListener('click',function(e){
-  var v=e.target.closest('[data-view]');if(v){view=v.dataset.view;if(view==='carloan'||view==='student'){loanFilter=view==='student'?'student':'auto';view='loans'}pendingImport=null;pendingEnc=null;secMsg='';payUI.edit='';editTx='';render();window.scrollTo(0,0);return}
+  var v=e.target.closest('[data-view]');if(v){view=v.dataset.view;if(view==='carloan'||view==='student'||view==='cashback'){loanFilter=view==='student'?'student':view==='cashback'?'credit':'auto';view='loans'}pendingImport=null;pendingEnc=null;secMsg='';payUI.edit='';editTx='';render();window.scrollTo(0,0);return}
   var pl=e.target.closest('a[data-pay]');if(pl){toast('Opening '+pl.dataset.host+' in your browser. Come back and mark it paid when you are done.');return}
   var b=e.target.closest('[data-act]');if(!b)return;
   var a=b.dataset.act,id=b.dataset.id,s=S.subs.filter(function(x){return x.id===id})[0];
@@ -4417,6 +4507,8 @@ document.addEventListener('click',function(e){
   else if(a==='cat-del-yes'){var dc=b.dataset.c;S.txns.forEach(function(x){if(x.cat===dc)x.cat='Other'});delete S.budgets[dc];S.customCats=S.customCats.filter(function(c){return c.name!==dc});syncCats();budDel='';budSel=''}
   else if(a==='tx-edit'){editTx=id;render();return}
   else if(a==='tx-cancel'){editTx=''}
+  else if(a==='tx-cb'){var cx=S.txns.filter(function(x){return x.id===id})[0];if(cx)cx.cashback=!isCashback(cx)}
+  else if(a==='cb-assign'){var sel=$('#cb-card'),cid=sel?sel.value:'',n0=0;if(cid){S.txns.forEach(function(x){if(!x.acct&&isCashback(x)){x.acct=cid;n0++}});toast(n0+' cash back credit'+(n0===1?'':'s')+' linked.')}}
   else if(a==='tx-xfer'){var xt=S.txns.filter(function(x){return x.id===id})[0];if(xt){var xi=transferInfo(S.txns,S.cardPay);xt.transfer=!isTransfer(xt,xi)}}
   else if(a==='tx-aside'){var tn=S.txns.filter(function(x){return x.id===id})[0];if(setAsideTxn(id))toast('Set aside'+(tn?': '+tn.name:'')+'. It is out of your numbers. You can restore it under Set aside.')}
   else if(a==='aside-restore'){if(restoreTxn(id))toast('Restored.')}

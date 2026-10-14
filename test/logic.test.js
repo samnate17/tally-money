@@ -1140,7 +1140,7 @@ test('debt advice: recommends by the numbers and flags the real problems', () =>
 test('Loans hub and Mortgage tab are wired in, old tab names still open the hub, and backups carry the new data', () => {
   const src = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
   assert.ok(src.includes("['loans','Loans']") && src.includes("['mortgage','Mortgage'") && src.includes('loans:vLoansHub,mortgage:vMortgage'));
-  assert.ok(!src.includes("['carloan','Car loan'") && src.includes("loanFilter=view==='student'?'student':'auto';view='loans'"));
+  assert.ok(!src.includes("['carloan','Car loan'") && src.includes("loanFilter=view==='student'?'student':view==='cashback'?'credit':'auto';view='loans'"));
   assert.ok(src.includes('home:S.home,debtMonthly:S.debtMonthly') && src.includes('home:home,debtMonthly:') && src.includes('home:pendingImport.home||{}'));
 });
 
@@ -1441,4 +1441,38 @@ test('card payments imported from a card statement are transfers, and make the c
   assert.strictEqual(transferInfo([card[0], checking], 'auto').cardSide, false);              // no card payments imported: the checking payment is the real spending
   assert.strictEqual(isTransfer({ amount: 25, name: 'FROM SAVINGS', transfer: true }, transferInfo([], 'auto')), true);
   assert.strictEqual(transferInfo([{ amount: 25, name: 'FROM SAVINGS', transfer: true }], 'auto').cardSide, false);            // an ordinary transfer is not card evidence
+});
+
+test('cash back: daily cash is not income, and each card shows what it earned against interest and fees', () => {
+  const C = new Function(srcBlock('/*TRANSFER-START*/', '/*TRANSFER-END*/') + srcBlock('/*CASHBACK-START*/', '/*CASHBACK-END*/') + '\nreturn {isCashback, ledgerOf, cashbackStats, cashbackVerdict};')();
+  for (const n of ['DAILY CASH ADJUSTMENT', 'Cash Back Reward', 'CASHBACK BONUS REDEMPTION', 'Rewards Credit', 'STATEMENT CREDIT - CASH REWARDS']) assert.ok(C.isCashback({ name: n, amount: 3 }), n);
+  for (const n of ['AMAZON REFUND', 'SHAWS', 'STATEMENT CREDIT PAYMENT', 'CASH ADVANCE', 'PAYROLL']) assert.ok(!C.isCashback({ name: n, amount: 3 }), n);
+  assert.ok(!C.isCashback({ name: 'DAILY CASH ADJUSTMENT', amount: 3, cashback: false })); assert.ok(C.isCashback({ name: 'WEIRD CREDIT', amount: 3, cashback: true }));
+  const T = new Date(2026, 9, 14);
+  const accounts = [{ id: 'apple', name: 'Apple Card', type: 'credit', apr: 0, balance: 0 }, { id: 'chase', name: 'Chase Sapphire', type: 'credit', apr: 24.99, balance: 2000 }, { id: 'sav', name: 'Savings', type: 'savings', balance: 5 }];
+  const tx = [
+    { id: '1', date: '2026-10-02', name: 'SHAWS', amount: -200, acct: 'apple' }, { id: '2', date: '2026-10-03', name: 'DAILY CASH ADJUSTMENT', amount: 6, acct: 'apple' },
+    { id: '3', date: '2026-08-02', name: 'AMAZON', amount: -300, acct: 'apple' }, { id: '4', date: '2026-08-03', name: 'DAILY CASH ADJUSTMENT', amount: 9, acct: 'apple' },
+    { id: '5', date: '2025-01-03', name: 'DAILY CASH ADJUSTMENT', amount: 40, acct: 'apple' },                      // older than 12 months: all-time only
+    { id: '6', date: '2026-09-05', name: 'WHOLE FOODS', amount: -500, acct: 'chase' }, { id: '7', date: '2026-09-06', name: 'CASH BACK REWARD', amount: 10, acct: 'chase' },
+    { id: '8', date: '2026-09-28', name: 'INTEREST CHARGE ON PURCHASES', amount: -41.5, acct: 'chase' }, { id: '9', date: '2026-07-01', name: 'ANNUAL MEMBERSHIP FEE', amount: -95, acct: 'chase' },
+    { id: '10', date: '2026-10-05', name: 'ACH DEPOSIT INTERNET TRANSFER', amount: 300, acct: 'apple', transfer: true, cardPay: true },
+    { id: '11', date: '2026-09-09', name: 'DAILY CASH ADJUSTMENT', amount: 2 },                                      // not linked to a card yet
+  ];
+  const st = C.cashbackStats(tx, accounts, T, 'auto');
+  const ap = st.cards.find((c) => c.id === 'apple'), ch = st.cards.find((c) => c.id === 'chase');
+  assert.strictEqual(st.cards.length, 2);
+  assert.strictEqual(ap.cb12, 15); assert.strictEqual(ap.cbAll, 55); assert.strictEqual(ap.spend12, 500); assert.ok(Math.abs(ap.rate - 0.03) < 1e-9);
+  assert.strictEqual(ap.cost12, 0); assert.strictEqual(ap.net12, 15); assert.strictEqual(ap.verdict.kind, 'gain');
+  assert.strictEqual(ch.cb12, 10); assert.strictEqual(ch.int12, 41.5); assert.strictEqual(ch.fee12, 95); assert.strictEqual(ch.spend12, 500);   // interest and fees are not spending
+  assert.strictEqual(ch.net12, -126.5); assert.strictEqual(ch.verdict.kind, 'loss'); assert.match(ch.verdict.text, /behind by \$126\.50/);
+  assert.strictEqual(st.unassigned.cb12, 2); assert.strictEqual(st.unassigned.n, 1);
+  assert.strictEqual(st.total.cb12, 27); assert.strictEqual(st.total.cost12, 136.5); assert.strictEqual(st.total.net12, -109.5);
+  assert.strictEqual(st.monthly.length, 12); assert.strictEqual(st.monthly[11].mk, '2026-10'); assert.strictEqual(st.monthly[11].amt, 6);
+  // none of it is income or spending: cash back and the card payment are out of the ledger
+  assert.deepStrictEqual(C.ledgerOf(tx, 'auto').map((x) => x.id).sort(), ['1', '3', '6', '8', '9'].sort());
+  // carrying a balance: the estimated interest beats the cash back, so it warns even before any interest row is imported
+  const w = C.cashbackStats([{ id: 'a', date: '2026-10-01', name: 'SHOP', amount: -100, acct: 'chase' }, { id: 'b', date: '2026-10-02', name: 'CASH BACK REWARD', amount: 1, acct: 'chase' }], accounts, T, 'auto').cards[1];
+  assert.strictEqual(w.verdict.kind, 'warn'); assert.match(w.verdict.text, /carrying \$2,000\.00 at 24\.99% APR/);
+  assert.strictEqual(C.cashbackStats([], accounts, T, 'auto').cards[0].verdict.kind, 'none');
 });
