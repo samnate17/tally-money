@@ -341,6 +341,10 @@ Apple only shares Apple Card activity with apps on an iPhone (Rocket Money does 
 - **Waffle chart.** Overview has "If you earned $100": 100 squares, one per dollar, colored by where the money went. It is easier to read than percentages.
 - **Charts move.** Rings, donuts, gauges and bars fill in, lines draw themselves, and goals have progress rings. Everything respects the reduced-motion setting in Appearance.
 
+## Studio look
+
+Appearance has a new **Look** choice: *Studio* is near-black and cinematic, with large light numbers, flat dark panels, a spotlight glow and, on the car loan page, your car on a lit stage with a floor reflection and headlight glow. Quick-action buttons (Payoff, Charts, Extra payment, Refinance, Payments, Contract) jump to each section, and the Mortgage tab has the same for the house. *Glass* is the original light look. A one-time banner on Overview offers Studio; you can switch any time.
+
 ## Windows
 
 A Windows installer (`Tally.Money-Setup-<version>.exe`, 64-bit; it also runs on Windows on ARM) is built by the same GitHub Actions workflow and attached to each release, after the Mac files. Run it, and if Windows SmartScreen says it protected your PC, choose **More info**, then **Run anyway** (the installer is not signed, which would need a paid certificate). Your data lives on that computer only; to move it from the Mac use Download backup on the Mac and Restore from file on Windows, or use the hosted version.

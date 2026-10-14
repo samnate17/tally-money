@@ -286,6 +286,42 @@ canvas.confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:non
     color-mix(in srgb,var(--surface) calc(var(--glass-pct) * .62),transparent);
   box-shadow:inset 0 1px 0 var(--edge),0 10px 28px -18px var(--shade)}
 :root[data-native="glass"] .nav,:root[data-native="glass"] .row,:root[data-native="glass"] input,:root[data-native="glass"] select{-webkit-app-region:no-drag}
+
+/* Studio look: near-black, flat, cinematic, large light numbers and a lit stage for your car and home. */
+:root[data-bg="studio"]{--bg:#07080a;--surface:#101318;--surface2:#171b22;--line:#232830;--ink:#f4f5f7;--muted:#8a909c;--edge:rgba(255,255,255,.06);--edge-soft:rgba(255,255,255,.05);--shade:rgba(0,0,0,.6);color-scheme:dark}
+:root[data-bg="studio"] body{background:radial-gradient(1100px 560px at 50% -12%,color-mix(in srgb,var(--accent) 26%,transparent),transparent 68%),radial-gradient(700px 420px at 100% 0%,rgba(255,255,255,.04),transparent 70%),#07080a}
+:root[data-bg="studio"] #aurora{display:none}
+:root[data-bg="studio"] .panel,:root[data-bg="studio"] .tile,:root[data-bg="studio"] .rail,:root[data-bg="studio"] .tabbar,:root[data-bg="studio"] .banner,:root[data-bg="studio"] .gate .card{background:linear-gradient(180deg,#13161c,#0d0f13);-webkit-backdrop-filter:none;backdrop-filter:none;border:1px solid #1e222a;box-shadow:none}
+:root[data-bg="studio"] .panel:hover,:root[data-bg="studio"] .tile:hover{transform:none;box-shadow:0 0 0 1px #2a2f39}
+:root[data-bg="studio"] .btn{background:#171b22;-webkit-backdrop-filter:none;backdrop-filter:none;border-color:#252a33}
+:root[data-bg="studio"] .btn.primary{background:var(--accent);border-color:transparent;color:#fff}
+:root[data-bg="studio"] input,:root[data-bg="studio"] select{background:#12151b;border-color:#252a33}
+:root[data-bg="studio"] .tile .l,:root[data-bg="studio"] .herochip .sub{letter-spacing:.09em;text-transform:uppercase;font-size:11px}
+:root[data-bg="studio"] .tile .v,:root[data-bg="studio"] .herobig{font-weight:300;letter-spacing:-.025em}
+:root[data-bg="studio"] .tile .v{font-size:30px}
+:root[data-bg="studio"] .herobig{font-size:44px}
+:root[data-bg="studio"] .top h1{font-weight:300;letter-spacing:-.02em;font-size:34px}
+:root[data-bg="studio"] .panel h2{font-weight:500;letter-spacing:-.01em}
+:root[data-bg="studio"] .nav[aria-current="page"]{background:#171b22;box-shadow:inset 3px 0 0 var(--accent)}
+:root[data-bg="studio"] .hero{background:radial-gradient(520px 260px at 50% 38%,color-mix(in srgb,var(--accent) 20%,transparent),transparent 72%),linear-gradient(180deg,#14171d,#0a0c0f);border-color:#1f242c;overflow:hidden}
+:root[data-bg="studio"] .herochip{background:#0e1015;border:1px solid #1d2128}
+:root[data-bg="studio"] .bar{background:#1a1e25}
+.stage{position:relative;margin:6px -6px 0;padding:6px 0 0;text-align:center}
+.stage svg{display:block;margin:auto}
+.stagefloor{position:absolute;left:12%;right:12%;bottom:18px;height:34px;border-radius:50%;background:radial-gradient(closest-side,color-mix(in srgb,var(--accent) 38%,transparent),transparent);filter:blur(10px);opacity:.75;pointer-events:none}
+@keyframes stagein{from{opacity:0;transform:translateY(22px) scale(.97)}}
+@keyframes beam{0%,100%{opacity:.5}50%{opacity:.85}}
+@keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+:root[data-motion="full"] .stage .stagecar{animation:stagein 1.1s cubic-bezier(.2,.8,.2,1) .1s backwards,floaty 6s ease-in-out 1.3s infinite}
+:root[data-motion="full"] .stage .beam{animation:beam 3.4s ease-in-out infinite}
+.qa{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0 0}
+.qa button{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:84px;padding:12px 10px;border-radius:16px;border:1px solid var(--line);background:var(--surface2);color:var(--ink);font-size:12px;cursor:pointer}
+.qa button svg{width:22px;height:22px}
+.qa button:hover{border-color:var(--accent)}
+.lookcards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.lookcard{border:1px solid var(--line);border-radius:16px;padding:14px;text-align:left;background:var(--surface2);cursor:pointer}
+.lookcard.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.lookcard .pv{height:84px;border-radius:10px;margin-bottom:10px}
 </style>
 
 </head>
@@ -676,6 +712,11 @@ setInterval(function(){
   }
   if(!DASH.syncing)render();
 },60000);
+function lookOffer(){
+  var seen=false;try{seen=localStorage.getItem('tally-look-offer')==='1'}catch(e){}
+  if(seen||TH.bg==='studio')return '';
+  return '<div class="banner" style="margin-bottom:12px;align-items:center"><span><b>New look: Studio.</b> Dark and cinematic, with a lit stage for your car and home. You can switch back any time in Appearance.</span><span class="actions" style="flex:none"><button class="btn small primary" data-act="th-look" data-v="studio">Try it</button><button class="btn small" data-act="look-dismiss">Not now</button></span></div>';
+}
 function vOverview(){
   var nw=netWorth(),sp=spendBy(month),inc=incomeOf(month),left=inc-sp.total,subTotal=activeSubs().reduce(function(a,s){return a+perMonth(s)},0);
   var up=activeSubs().map(function(s){return {s:s,d:nextDate(s)}}).filter(function(o){return dayDiff(TODAY,o.d)<=14}).sort(function(a,b){return a.d-b.d});
@@ -687,7 +728,7 @@ function vOverview(){
    (S.accounts.length?tile('Net worth','<span class="'+(nw.net<0?'bad':'good')+'">'+(nw.net<0?'-':'')+money0(Math.abs(nw.net))+'</span>',money0(nw.assets)+' assets · '+money0(nw.debts)+' debts'):'')+
    tile('Subscriptions',money0(subTotal)+'<span class="muted" style="font-size:14px">/mo</span>',activeSubs().length+' active · '+money0(subTotal*12)+'/yr')+billsTile()+'</div>';
   var upH=up.length?up.map(function(o){var n=dayDiff(TODAY,o.d);return '<div class="row">'+logo(o.s.name)+'<div class="grow"><div class="nm">'+esc(o.s.name)+'</div><div class="sub">'+(n===0?'Today':n===1?'Tomorrow':'In '+n+' days')+' · '+shortDate(iso(o.d))+'</div></div><div class="amt num">'+money(o.s.amount)+'</div></div>'}).join(''):'<div class="empty">Nothing due in the next 14 days.</div>';
-  return '<div class="top"><h1>Overview</h1>'+monthNav()+'</div>'+tiles+
+  return '<div class="top"><h1>Overview</h1>'+monthNav()+'</div>'+lookOffer()+tiles+
    '<div class="grid two"><section class="panel"><h2>Where it went</h2>'+donut(sp.by,sp.total)+'</section><section class="panel"><h2>Last six months</h2>'+trend()+'</section></div>'+
    '<div class="grid two"><section class="panel"><h2>Budgets<small>most used first</small></h2>'+budgetRows(5,month)+'</section><section class="panel"><h2>Bills coming up<small>next 14 days</small></h2>'+upH+'</section></div>'+waffleOverview(sp,inc)+historyPanel();
 }
@@ -1603,7 +1644,7 @@ function pdfReviewRows(files){
 
 /*THEME-START*/
 var THEME_DEFAULT={preset:'indigo',accent:'#3b4cf0',mode:'auto',bg:'aurora',frost:60,radius:16,size:'m',font:'modern',motion:'full'};
-var PRESETS=[{id:'indigo',name:'Indigo',accent:'#3b4cf0'},{id:'ocean',name:'Ocean',accent:'#0a8fd8'},{id:'violet',name:'Violet',accent:'#8b5cf6'},{id:'emerald',name:'Emerald',accent:'#10a37f'},{id:'sunset',name:'Sunset',accent:'#f2682a'},{id:'rose',name:'Rose',accent:'#e8467c'},{id:'gold',name:'Gold',accent:'#d99a0b'},{id:'graphite',name:'Graphite',accent:'#5b6578'}];
+var PRESETS=[{id:'tesla',name:'Studio blue',accent:'#3e6ae1'},{id:'indigo',name:'Indigo',accent:'#3b4cf0'},{id:'ocean',name:'Ocean',accent:'#0a8fd8'},{id:'violet',name:'Violet',accent:'#8b5cf6'},{id:'emerald',name:'Emerald',accent:'#10a37f'},{id:'sunset',name:'Sunset',accent:'#f2682a'},{id:'rose',name:'Rose',accent:'#e8467c'},{id:'gold',name:'Gold',accent:'#d99a0b'},{id:'graphite',name:'Graphite',accent:'#5b6578'}];
 var FONTS={
   modern:{d:"'Bricolage Grotesque','DM Sans',system-ui,sans-serif",b:"'DM Sans',system-ui,-apple-system,'Segoe UI',sans-serif"},
   system:{d:"-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',system-ui,sans-serif",b:"-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',system-ui,sans-serif"},
@@ -1615,7 +1656,7 @@ function cleanTheme(raw){
   var r=raw&&typeof raw==='object'?raw:{},d=THEME_DEFAULT;
   return {preset:typeof r.preset==='string'&&(r.preset==='custom'||PRESETS.some(function(p){return p.id===r.preset}))?r.preset:d.preset,
     accent:/^#[0-9a-f]{6}$/i.test(r.accent||'')?r.accent.toLowerCase():d.accent,
-    mode:pickOf(r.mode,['auto','light','dark'],d.mode),bg:pickOf(r.bg,['aurora','soft','plain'],d.bg),
+    mode:pickOf(r.mode,['auto','light','dark'],d.mode),bg:pickOf(r.bg,['aurora','soft','plain','studio'],d.bg),
     frost:clampN(r.frost,0,100,d.frost),radius:clampN(r.radius,6,28,d.radius),
     size:pickOf(r.size,['s','m','l'],d.size),font:pickOf(r.font,['modern','system','rounded','serif'],d.font),motion:pickOf(r.motion,['full','reduced'],d.motion)};
 }
@@ -2697,7 +2738,7 @@ function homeHero(h,mo,eq,sim){
   var right='<div class="herosec" style="flex:1 1 200px"><div class="sub">Monthly payment to the bank</div><div class="num herobig">'+(h.pi>0?money0(h.pi):'\u2014')+'</div><div class="sub">'+(nd?'Next due '+monthLabelDay(iso(nd)):'Principal and interest')+'. All-in cost of owning: '+money0(mo.cash)+' a month.</div></div>';
   var chips='<div class="herochips">'+chip('Interest rate',h.balance>0?h.apr+'%':'')+chip('Loan paid off',paid!==null?Math.round(paid*100)+'%':'')+chip('Mortgage-free',h.balance>0?(sim.ok?monthYear(addMonths(TODAY,sim.months)):'payment too small'):'Done')+chip('Interest still to pay',h.balance>0&&sim.ok?money0(sim.interest):'')+chip('Gone for good each month',money0(mo.cost))+chip('If you sold today',money0(eq.proceeds))+'</div>';
   var bar=paid!==null?'<div style="margin:12px 0 0"><div class="bar"><i style="width:'+Math.max(1,Math.round(paid*100))+'%"></i></div><div class="sub" style="margin-top:4px">'+Math.round(paid*100)+'% of the original loan is paid off.</div></div>':'';
-  return '<section class="panel hero"><div class="herohead"><div><div class="sub">Your home</div><h2 style="margin:0;font-size:22px">Mortgage and equity</h2></div></div><div class="herorow"><div class="herosec">'+art+'</div>'+mid+right+'</div>'+bar+chips+photoControls('home','home',!!(H.photo&&photoOk(H.photo)))+'</section>';
+  return '<section class="panel hero"><div class="herohead"><div><div class="sub">Your home</div><h2 style="margin:0;font-size:22px">Mortgage and equity</h2></div></div><div class="herorow"><div class="herosec">'+art+'</div>'+mid+right+'</div>'+bar+chips+'<div class="qa">'+qaBtn(QI.plus,'Extra payment','#hm-try')+qaBtn(QI.swap,'Keep, rent or sell','#hm-horizon')+qaBtn(QI.chart,'Charts','.visuals')+qaBtn(QI.home,'Refinance','#rf-rate')+'</div>'+photoControls('home','home',!!(H.photo&&photoOk(H.photo)))+'</section>';
 }
 function homeHintsPanel(h,mo){
   var hh=homeHints(S.txns,NOWKEY),rows=[];
@@ -2847,7 +2888,7 @@ function vLoans(kind,hub){
   var presets=[25,50,100,250,500].map(function(x){var r=portfolio(loans,x,0);return '<tr><td><button class="btn small" data-act="loan-preset" data-kind="'+kind+'" data-v="'+x+'">+'+money0(x)+'/mo</button></td><td class="num">'+(r.ok&&cur.ok?monthYear(addMonths(TODAY,r.months)):'—')+'</td><td class="num">'+(r.ok&&cur.ok?(cur.months-r.months)+' mo sooner':'—')+'</td><td class="num good">'+(r.ok&&cur.ok?money0(cur.interest-r.interest):'—')+'</td></tr>'}).join('');
   var yrs=+U.years>0?Math.round(+U.years*12):0,tgt='';
   if(yrs){var ex=extraForTarget(loans,yrs,lumpV);tgt=ex===null?'<p class="sub" style="margin:10px 0 0">That is faster than is possible even by paying everything at once. Try a longer time.</p>':ex===0?'<p style="margin:10px 0 0">You are already on track to be done by '+monthYear(addMonths(TODAY,yrs))+' with what you pay now.</p>':'<p style="margin:10px 0 0"><b>To be done by '+monthYear(addMonths(TODAY,yrs))+'</b> pay about <b>'+money0(mins+ex)+' a month</b> in total, which is <b>'+money0(ex)+' more</b> than now.</p>'}
-  var faster='<section class="panel"><h2>Pay it off faster</h2>'+
+  var faster='<section class="panel fasterpanel"><h2>Pay it off faster</h2>'+
     '<div class="form" style="margin-bottom:6px"><label>Extra each month<input id="lx-extra" data-kind="'+kind+'" type="number" min="0" step="5" value="'+(U.extra||'')+'" placeholder="0"></label><label>One-time extra now<input id="lx-lump" data-kind="'+kind+'" type="number" min="0" step="50" value="'+(U.lump||'')+'" placeholder="0"></label><label>Be done in (years)<input id="lx-years" data-kind="'+kind+'" type="number" min="0" step="0.5" value="'+(U.years||'')+'" placeholder="e.g. 3"></label><label style="flex-direction:row;align-items:center;gap:6px"><input id="lx-bi" data-kind="'+kind+'" type="checkbox"'+(U.bi?' checked':'')+'> Half payment every 2 weeks</label></div>'+
     '<p class="sub muted" style="margin:0 0 6px;font-size:12px">Every-two-weeks payments add up to one extra monthly payment a year. That only helps if your lender applies them as they arrive, so ask first.</p>'+tgt+cmp+
     '<div style="margin-top:12px">'+loanChart(cur,changed&&fast.ok?fast:cur)+'</div>'+
@@ -2865,7 +2906,7 @@ function vLoans(kind,hub){
   var groups={},gOrder=[];
   loans.forEach(function(l){var re=loanMatchRe(l),k=re?re.source:'';if(!k)return;if(!groups[k]){groups[k]=[];gOrder.push(k)}groups[k].push(l)});
   var seen=gOrder.map(function(k){var ls=groups[k],l=ls[0];var p=paymentsSeen(S.txns,l);if(!p.length)return '';var typ=p[0].amount,diff=ls.length===1&&Math.abs(typ-l.minPay)>5&&l.minPay>0;return '<div style="margin-bottom:10px"><div class="nm">'+esc(ls.map(function(x){return x.name}).join(', '))+'</div>'+p.map(function(x){return '<div class="row"><div class="grow"><div class="sub">'+shortDate(x.date)+' · '+esc(x.name)+'</div></div><div class="amt num">'+money(x.amount)+'</div></div>'}).join('')+(diff?'<p class="sub warn" style="margin:4px 0 0">Your latest payment was '+money(typ)+' but you entered '+money(l.minPay)+'. Edit the loan if the amount changed.</p>':'')+'</div>'}).join('');
-  var seenP=seen?'<section class="panel"><h2>'+(kind==='auto'?'Payment history':'Payments I found')+'<small>found in your transactions</small></h2>'+seen+'</section>':'';
+  var seenP=seen?'<section class="panel histpanel"><h2>'+(kind==='auto'?'Payment history':'Payments I found')+'<small>found in your transactions</small></h2>'+seen+'</section>':'';
   return head+msg+adding+(kind==='auto'?loans.map(autoHero).join(''):tiles)+loanVisuals(kind,loans)+cards+contractPanels(loans)+faster+pay+seenP+loanImportPanel(kind)+loanTips(kind);
 }
 function attackFirst(loans){return loans.filter(function(l){return l.balance>0}).slice().sort(function(a,b){return b.apr-a.apr||a.balance-b.balance})[0]||loans[0]}
@@ -2895,7 +2936,7 @@ var CAR_PATHS={
   minivan:{body:'M8,72 L8,46 Q8,36 22,34 L60,30 Q72,16 100,16 L170,16 Q194,20 204,42 L226,50 Q234,54 234,62 L234,72 Z',win:['M70,32 Q76,22 92,21 L112,21 L112,34 Z','M118,21 L160,21 Q176,23 188,34 L118,34 Z']}
 };
 function carArt(type,color){
-  var P=CAR_PATHS[type]||CAR_PATHS.sedan,r=P.r||(type==='suv'||type==='pickup'?16:14),wy=74,wheel=function(cx){return '<g transform="translate('+cx+','+wy+')"><circle r="'+(r+3)+'" fill="#12141c"/><circle r="'+r+'" fill="#1c1f2b"/>'+(P.caliper?'<path d="M-11,-10 A14,14 0 0 1 11,-10 L8,-5 A10,10 0 0 0 -8,-5 Z" fill="#e11d2e"/>':'')+'<g class="wheelspin"><circle r="'+(r-6)+'" fill="'+(P.caliper?'#2a2d36':'#cfd4de')+'"/><path d="M0,-'+(r-6)+' L0,'+(r-6)+' M-'+(r-6)+',0 L'+(r-6)+',0 M-5,-5 L5,5 M-5,5 L5,-5" stroke="#6b7280" stroke-width="1.3"/></g><circle r="2.6" fill="#6b7280"/></g>'};
+  var P=CAR_PATHS[type]||CAR_PATHS.sedan,r=P.r||(type==='suv'||type==='pickup'?16:14),wy=74,wheel=function(cx){return '<g transform="translate('+cx+','+wy+')"><circle r="'+(r+3)+'" fill="#12141c" stroke="#3a3f4b" stroke-width="1"/><circle r="'+r+'" fill="#1c1f2b"/>'+(P.caliper?'<path d="M-11,-10 A14,14 0 0 1 11,-10 L8,-5 A10,10 0 0 0 -8,-5 Z" fill="#e11d2e"/>':'')+'<g class="wheelspin"><circle r="'+(r-6)+'" fill="'+(P.caliper?'#2a2d36':'#cfd4de')+'"/><path d="M0,-'+(r-6)+' L0,'+(r-6)+' M-'+(r-6)+',0 L'+(r-6)+',0 M-5,-5 L5,5 M-5,5 L5,-5" stroke="#6b7280" stroke-width="1.3"/></g><circle r="2.6" fill="#6b7280"/></g>'};
   return '<g class="carbody"><ellipse cx="121" cy="90" rx="108" ry="4.5" fill="#000" opacity=".18"/>'+wheel(62)+wheel(182)+'<path d="'+P.body+'" fill="'+color+'"/><path d="'+P.body+'" fill="url(#carshine)" opacity=".55"/>'+P.win.map(function(w){return '<path d="'+w+'" fill="#dbe7f3" opacity=".92"/>'}).join('')+(P.extra||'')+'<path d="M121,'+(type==='pickup'?30:34)+' L121,66" stroke="#000" stroke-opacity=".18" stroke-width="1.2"/><rect x="226" y="56" width="8" height="5" rx="2.5" fill="#fff6c2"/><rect x="6" y="56" width="6" height="5" rx="2.5" fill="#ff4d4d"/><path d="M8,68 L234,68" stroke="#000" stroke-opacity=".16" stroke-width="1.4"/></g>';
 }
 function carDefs(){return '<defs><linearGradient id="carshine" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".55"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".25"/></linearGradient></defs>'}
@@ -2908,7 +2949,7 @@ function carScene(a,pct,o){
     '<rect x="0" y="146" width="'+W+'" height="4" fill="none"/><path d="M0,128 L'+W+',128" stroke="var(--line)" stroke-width="30" stroke-linecap="butt"/><path class="roadline" d="M0,128 L'+W+',128" stroke="var(--bg)" stroke-width="2" stroke-dasharray="18 16" opacity=".8"/>'+
     '<path d="M'+(x0+10)+',116 L'+trailX+',116" stroke="var(--accent)" stroke-width="4" stroke-linecap="round" opacity=".9"/>'+
     '<g transform="translate('+(x0-4)+',70)"><path d="M0,0 L0,54" stroke="var(--ink)" stroke-width="2"/><path d="M0,2 L26,10 L0,20 Z" fill="var(--good)"/></g><text x="'+(x0-4)+'" y="66" font-size="11" font-weight="700" style="fill:var(--ink)">'+esc(o.from||'Start')+'</text>'+
-    '<g transform="translate('+(W-50)+',70)"><path d="M0,0 L0,54" stroke="var(--ink)" stroke-width="2"/><rect x="0" y="2" width="26" height="18" fill="repeating-conic-gradient(#111 0 25%,#fff 0 50%) 0 0/9px 9px"/></g><text x="'+(W-8)+'" y="66" text-anchor="end" font-size="11" font-weight="700" style="fill:var(--ink)">'+esc(o.to||'Paid off')+'</text>'+ticks+
+    '<g transform="translate('+(W-50)+',70)"><path d="M0,0 L0,54" stroke="var(--ink)" stroke-width="2"/><rect x="0" y="2" width="27" height="18" fill="#fff"/><path d="M0,2h9v6H0zM18,2h9v6h-9zM9,8h9v6H9zM0,14h9v6H0zM18,14h9v6h-9z" fill="#111"/></g><text x="'+(W-8)+'" y="66" text-anchor="end" font-size="11" font-weight="700" style="fill:var(--ink)">'+esc(o.to||'Paid off')+'</text>'+ticks+
     '<g transform="translate('+x0+',85) scale('+scale+')"><g class="drive" style="--carx:'+dx+'px">'+carArt(type,color)+'</g></g></svg>';
 }
 // The house fills from the bottom as the share you own grows.
@@ -2933,6 +2974,16 @@ function waffleSVG(parts,o){
   var sz=10*(S0+g)-g;
   return '<svg viewBox="0 0 '+sz+' '+sz+'" width="'+(o.size||190)+'" height="'+(o.size||190)+'" role="img" aria-label="'+esc(o.label||'Where each hundred dollars goes')+'">'+svg+'</svg>';
 }
+// The car on a lit stage with a floor reflection and headlight glow.
+function carStage(a,type,color){
+  var sc=2.1,x=26,gy=232;
+  return '<div class="stage"><div class="stagefloor"></div><svg viewBox="0 0 640 262" width="100%" style="max-width:680px" role="img" aria-label="'+esc(a.name)+'">'+carDefs()+'<defs><linearGradient id="reffade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".5"/><stop offset=".6" stop-color="#fff" stop-opacity="0"/></linearGradient><mask id="refmask" maskUnits="userSpaceOnUse" x="0" y="'+gy+'" width="640" height="40"><rect x="0" y="'+gy+'" width="640" height="40" fill="url(#reffade)"/></mask><linearGradient id="beamg" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff6c2" stop-opacity=".55"/><stop offset="1" stop-color="#fff6c2" stop-opacity="0"/></linearGradient></defs>'+
+    '<g class="beam"><polygon points="'+(x+232*sc)+','+(gy-72)+' 640,'+(gy-110)+' 640,'+(gy-40)+' '+(x+232*sc)+','+(gy-62)+'" fill="url(#beamg)"/></g>'+
+    '<g mask="url(#refmask)" opacity=".5"><g transform="translate('+x+','+(gy+4)+') scale('+sc+',-'+sc+') translate(0,-88)">'+carArt(type,color)+'</g></g>'+
+    '<g class="stagecar"><g transform="translate('+x+','+(gy-88*sc)+') scale('+sc+')">'+carArt(type,color)+'</g></g></svg></div>';
+}
+function qaBtn(icon,label,target){return '<button type="button" data-scrollto="'+target+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+icon+'</svg>'+label+'</button>'}
+var QI={pay:'<circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5c0-1 1-1.7 2.5-1.7s2.5.7 2.5 1.7-1 1.5-2.5 1.8-2.5.8-2.5 1.8 1 1.7 2.5 1.7 2.5-.7 2.5-1.7"/>',chart:'<path d="M4 19V5M4 19h16M8 15l3-4 3 2 4-6"/>',list:'<path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/>',plus:'<circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/>',swap:'<path d="M7 7h11l-3-3M17 17H6l3 3"/>',doc:'<path d="M7 3h8l4 4v14H7z"/><path d="M14 3v5h5"/>',home:'<path d="M3 11.5 12 4l9 7.5M5 10v10h14V10"/>'};
 // Resize a chosen photo to something small enough to keep with your data.
 function photoToData(file,cb){
   var fr=new FileReader();fr.onload=function(){var im=new Image();im.onload=function(){
@@ -3012,9 +3063,11 @@ function autoHero(a){
   var chips='<div class="herochips">'+chip('Interest rate',a.apr>0?a.apr+'%':'')+chip('Term',term?term+' months':'')+chip('Payments left',left!==null?left:'')+chip('Last payment',maturity?monthLabelDay(maturity):'')+chip('Monthly payment',a.minPay>0?money(a.minPay):'')+chip('Interest still to pay',st?money0(st.remainingInterest):(am&&am.ok?money0(am.interest):''))+'</div>';
   var bar=pct!==null?'<div style="margin:10px 0 0"><div class="bar"><i style="width:'+Math.max(1,Math.round(pct*100))+'%"></i></div><div class="sub" style="margin-top:4px">'+(st?st.paidCount+' of '+(term||'?')+' payments made, '+money0(st.paidTotal)+' paid in all.':Math.round(pct*100)+'% of the original loan is paid off.')+'</div></div>':'';
   var type=a.carType&&CAR_TYPES[a.carType]?a.carType:carType((c&&c.vehicle)||a.name),curCol=/^#[0-9a-f]{6}$/i.test(a.carColor||'')?a.carColor:carDefaultColor(type);
+  var stage=TH.bg==='studio'&&!(a.photo&&photoOk(a.photo))?carStage(a,type,curCol):'';
+  var qa='<div class="qa">'+qaBtn(QI.pay,'Payoff','.contractpanel')+qaBtn(QI.chart,'Charts','.visuals')+qaBtn(QI.plus,'Extra payment','.fasterpanel')+qaBtn(QI.swap,'Refinance','#cf-rate')+qaBtn(QI.list,'Payments','.histpanel')+qaBtn(QI.doc,'Contract','.contractpanel details')+'</div>';
   var art=(a.photo&&photoOk(a.photo)?'<div class="photoframe"><img class="kenburns" alt="'+esc(c&&c.vehicle||a.name)+'" src="'+a.photo+'"></div>':'')+'<div style="margin-top:12px">'+carScene(a,pct||0,{from:c&&sch?'Signed '+monthLabelDay(sch.contractDate).replace(/ \d+,/,''):'Start',to:maturity?'Paid off '+monthLabelDay(maturity).replace(/ \d+,/,''):'Paid off',years:term?Math.round(term/12):0,label:'Loan progress'})+'</div>'+
     '<div class="actions" style="justify-content:flex-start;gap:10px;margin-top:6px;flex-wrap:wrap;align-items:center"><span class="sub">Car</span><select data-cartype="'+esc(a.id)+'" aria-label="Body style">'+Object.keys(CAR_TYPES).map(function(k){return '<option value="'+k+'"'+(k===type?' selected':'')+'>'+CAR_TYPES[k]+'</option>'}).join('')+'</select><span class="sub">Color</span>'+CAR_COLORS.map(function(cl){return '<button class="btn small" data-act="car-color" data-id="'+esc(a.id)+'" data-c="'+cl+'" aria-label="Color '+cl+'" style="width:22px;height:22px;padding:0;border-radius:50%;background:'+cl+';border:'+(cl===curCol?'3px solid var(--ink)':'1px solid var(--line)')+'"></button>'}).join('')+'</div>'+photoControls('car',a.id,!!(a.photo&&photoOk(a.photo)));
-  return '<section class="panel hero"><div class="herohead"><div><div class="sub">Your car loan</div><h2 style="margin:0;font-size:22px">'+title+'</h2>'+(sub?'<div class="sub">'+esc(sub)+'</div>':'')+'</div></div><div class="herorow">'+left1+mid+right+'</div>'+bar+chips+art+'</section>';
+  return '<section class="panel hero"><div class="herohead"><div><div class="sub">Your car loan</div><h2 style="margin:0;font-size:22px">'+title+'</h2>'+(sub?'<div class="sub">'+esc(sub)+'</div>':'')+'</div></div>'+stage+'<div class="herorow">'+left1+mid+right+'</div>'+bar+chips+qa+art+'</section>';
 }
 
 /* ---------- Car loan contract: payoff today, progress, maturity, cost ---------- */
@@ -3949,6 +4002,7 @@ document.addEventListener('click',function(e){
     loanUI[kk].imp={stage:'idle',msg:'Saved '+cnt+' loan'+(cnt===1?'':'s')+'.'};
   }
   else if(a==='contract-bal'){var ca=S.accounts.filter(function(x){return x.id===id})[0],ci=ca&&contractInput(ca),cs=ci&&contractSchedule(ci);if(cs){var cst=contractStatus(ci,cs,TODAY);acctSetBalance(ca,Math.round(cst.principal*100)/100);toast('Balance set to '+money(cst.principal)+'.')}}
+  else if(a==='look-dismiss'){try{localStorage.setItem('tally-look-offer','1')}catch(e){}}
   else if(a==='car-color'){var cca=S.accounts.filter(function(x){return x.id===id})[0];if(cca&&/^#[0-9a-f]{6}$/i.test(b.dataset.c))cca.carColor=b.dataset.c}
   else if(a==='photo-del'){var pk=String(b.dataset.k).split(':');if(pk[0]==='home')delete S.home.photo;else{var pa=S.accounts.filter(function(x){return x.id===pk[1]})[0];if(pa)delete pa.photo}}
   else if(a==='contract-del'){var cd=S.accounts.filter(function(x){return x.id===id})[0];if(cd){delete cd.contract;toast('Contract details removed.')}}
@@ -4010,6 +4064,7 @@ function applyTheme(){
 }
 function saveTheme(){try{localStorage.setItem('tally-theme-v1',JSON.stringify(TH))}catch(e){}}
 if(mqDark&&mqDark.addEventListener)mqDark.addEventListener('change',applyTheme);
+document.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('[data-scrollto]');if(!b)return;var t=document.querySelector(b.dataset.scrollto);if(t){if(t.tagName==='DETAILS')t.open=true;if(t.scrollIntoView)t.scrollIntoView({behavior:'smooth',block:'start'})}});
 applyTheme();
 function seg(act,cur,opts){return '<div class="seg" role="group">'+opts.map(function(o){return '<button type="button" class="'+(o[0]===cur?'on':'')+'" data-act="'+act+'" data-v="'+o[0]+'" aria-pressed="'+(o[0]===cur)+'">'+o[1]+'</button>'}).join('')+'</div>'}
 function glassPanel(){
@@ -4023,11 +4078,12 @@ function glassPanel(){
 function vLook(){
   var sw=PRESETS.map(function(p){return '<button type="button" class="sw'+(TH.preset===p.id?' on':'')+'" data-act="th-preset" data-v="'+p.id+'" style="--sw:'+p.accent+'" aria-pressed="'+(TH.preset===p.id)+'">'+p.name+'</button>'}).join('');
   return '<div class="top"><h1>Appearance</h1><button class="btn small" data-act="th-reset">Reset to default</button></div>'+
+  '<section class="panel"><h2>Look<small>one tap changes the whole app</small></h2><div class="lookcards"><button type="button" class="lookcard'+(TH.bg==='studio'?' on':'')+'" data-act="th-look" data-v="studio"><div class="pv" style="background:radial-gradient(120px 60px at 50% 0%,#3e6ae155,transparent),#0a0c10;border:1px solid #1e222a"></div><b>Studio</b><div class="sub">Dark and cinematic, like a car app. Big light numbers, a lit stage for your car and home.</div></button><button type="button" class="lookcard'+(TH.bg!=='studio'?' on':'')+'" data-act="th-look" data-v="glass"><div class="pv" style="background:linear-gradient(135deg,#c7d2ff,#f3c6ff);border:1px solid #fff8"></div><b>Glass</b><div class="sub">Light, frosted and colourful.</div></button></div></section>'+
   glassPanel()+'<section class="panel"><h2>Colour<small>pick a preset or make your own</small></h2><div class="swatches">'+sw+'</div>'+
     '<div class="lookrow" style="margin-top:12px"><span class="lbl">Custom accent<small>Buttons, bars, highlights and the background glow follow it.</small></span><span class="ctl"><input id="th-accent" type="color" value="'+TH.accent+'" aria-label="Custom accent colour"><span class="muted num">'+TH.accent.toUpperCase()+'</span></span></div></section>'+
   '<section class="panel"><h2>Glass and light</h2>'+
     '<div class="lookrow"><span class="lbl">Mode</span><span class="ctl">'+seg('th-mode',TH.mode,[['auto','Auto'],['light','Light'],['dark','Dark']])+'</span></div>'+
-    '<div class="lookrow"><span class="lbl">Background<small>Aurora drifts slowly behind the glass.</small></span><span class="ctl">'+seg('th-bg',TH.bg,[['aurora','Aurora'],['soft','Still'],['plain','Plain']])+'</span></div>'+
+    '<div class="lookrow"><span class="lbl">Background<small>Aurora drifts slowly behind the glass.</small></span><span class="ctl">'+seg('th-bg',TH.bg,[['studio','Studio'],['aurora','Aurora'],['soft','Still'],['plain','Plain']])+'</span></div>'+
     '<div class="lookrow"><span class="lbl">Frost<small>How blurred and opaque the glass is. Raise it for easier reading.</small></span><span class="ctl"><input id="th-frost" type="range" min="0" max="100" value="'+TH.frost+'" aria-label="Glass frost"></span></div>'+
     '<div class="lookrow"><span class="lbl">Roundness</span><span class="ctl"><input id="th-radius" type="range" min="6" max="28" value="'+TH.radius+'" aria-label="Corner roundness"></span></div></section>'+
   '<section class="panel"><h2>Type and motion</h2>'+
@@ -4037,6 +4093,7 @@ function vLook(){
 }
 function thClick(a,b){
   if(a==='th-preset'){var p=PRESETS.filter(function(x){return x.id===b.dataset.v})[0];if(p){TH.preset=p.id;TH.accent=p.accent}}
+  else if(a==='th-look'){if(b.dataset.v==='studio'){TH.bg='studio';TH.mode='dark';TH.preset='tesla';TH.accent='#3e6ae1';TH.frost=15;TH.radius=14;TH.font='system'}else{TH.bg='aurora';TH.mode='auto';TH.preset='indigo';TH.accent='#3b4cf0';TH.frost=60;TH.radius=16;TH.font='modern'}try{localStorage.setItem('tally-look-offer','1')}catch(e){}}
   else if(a==='th-reset'){TH=cleanTheme(null)}
   else{var key={'th-mode':'mode','th-bg':'bg','th-size':'size','th-font':'font','th-motion':'motion'}[a];if(!key)return false;TH[key]=b.dataset.v}
   saveTheme();applyTheme();render();return true;
