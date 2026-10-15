@@ -2238,11 +2238,34 @@ test('tab layout: order is kept, new tabs go last, moves and steps work, bad sav
   assert.deepEqual(N.navStep(['a', 'b', 'c'], 'a', -1), ['a', 'b', 'c']);
   assert.deepEqual(N.navStep(['a', 'b', 'c'], 'c', 1), ['a', 'b', 'c']);
   const c = N.cleanNavPref({ layout: 'bogus', order: ['b', 'x', 'b', 5, 'a'] }, ['a', 'b']);
-  assert.deepEqual(c, { layout: 'side', order: ['b', 'a'], hidden: [] });
+  assert.deepEqual(c, { layout: 'side', order: ['b', 'a'], hidden: [], protect: '' });
   assert.equal(N.cleanNavPref({ layout: 'top' }, ['a']).layout, 'top');
-  assert.deepEqual(N.cleanNavPref(null, ['a']), { layout: 'side', order: [], hidden: [] });
+  assert.deepEqual(N.cleanNavPref(null, ['a']), { layout: 'side', order: [], hidden: [], protect: '' });
   const h = N.cleanNavPref({ hidden: ['b', 'look', 'b', 'nope', 7, 'c'] }, ['a', 'b', 'c', 'look']);
   assert.deepEqual(h.hidden, ['b', 'c']);                                            // Settings can never be hidden
   const tabs2 = [['a', 'A'], ['b', 'B'], ['look', 'Settings']];
   assert.deepEqual(N.navVisible(tabs2, ['look', 'b', 'a'], ['b', 'look']).map((t) => t[0]), ['look', 'a']);
+});
+
+test('tab lock: a salted hash accepts the right password only, and bad saved records are refused', async () => {
+  const L = new Function(srcBlock('/*NAVLOCK-START*/', '/*NAVLOCK-END*/') + '\nreturn {navLockMake, navLockCheck, navLockClean};')();
+  const rec = await L.navLockMake('correct horse', 2000);
+  assert.equal(rec.it, 2000);
+  assert.ok(!JSON.stringify(rec).includes('correct horse'));
+  assert.equal(await L.navLockCheck(rec, 'correct horse'), true);
+  assert.equal(await L.navLockCheck(rec, 'correct horsf'), false);
+  assert.equal(await L.navLockCheck(rec, ''), false);
+  const other = await L.navLockMake('correct horse', 2000);
+  assert.notEqual(other.salt, rec.salt);                                  // every record has its own salt
+  assert.notEqual(other.hash, rec.hash);
+  assert.equal(await L.navLockCheck(null, 'x'), false);
+  assert.equal(await L.navLockCheck({ salt: 'a', hash: 'b', it: 5 }, 'x'), false);   // too few rounds is not accepted
+  assert.equal(L.navLockClean({ salt: 'x'.repeat(100), hash: 'y', it: 2000 }), null);
+  assert.deepEqual(L.navLockClean({ salt: 's', hash: 'h', it: 2000.4, extra: 1 }), { salt: 's', hash: 'h', it: 2000 });
+});
+test('tab lock: protection setting is kept only as app or own', () => {
+  const N = new Function(srcBlock('/*NAV-START*/', '/*NAV-END*/') + '\nreturn {cleanNavPref};')();
+  assert.equal(N.cleanNavPref({ protect: 'app' }, []).protect, 'app');
+  assert.equal(N.cleanNavPref({ protect: 'own' }, []).protect, 'own');
+  assert.equal(N.cleanNavPref({ protect: 'yes' }, []).protect, '');
 });

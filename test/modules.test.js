@@ -509,6 +509,18 @@ test('biometric: Touch ID unlock hands over the saved password only after a succ
   assert.strictEqual(createBiometric({ store, systemPreferences: undefined, platform: 'darwin' }).status().available, false);
 });
 
+test('biometric: the tab-protection password has its own slot, separate from the app password', async () => {
+  const { createBiometric } = require('../biometric');
+  const mem = {}; const store = { isAvailable: () => true, get: (k) => mem[k], set: (k, v) => { mem[k] = v; }, del: (k) => { delete mem[k]; } };
+  const sp = { canPromptTouchID: () => true, promptTouchID: async () => {} };
+  const b = createBiometric({ store, systemPreferences: sp, platform: 'darwin' });
+  await b.enable('app pw'); await b.enable('tab pw', 'tabs');
+  assert.strictEqual(await b.unlock(), 'app pw');
+  assert.strictEqual(await b.unlock('tabs'), 'tab pw');
+  b.disable('tabs'); assert.strictEqual(b.status('tabs').enabled, false); assert.strictEqual(b.status().enabled, true);
+  await assert.rejects(b.unlock('tabs'), /not turned on/);
+});
+
 test('ai: reading credit scores from a screenshot keeps only valid scores and sends the picture, not text', async () => {
   const { cleanScoreShot } = require('../ai');
   const c = cleanScoreShot({ scores: [{ bureau: 'TransUnion', model: 'VantageScore 3.0', score: 731.4, date: '2026-10-01' }, { bureau: 'Equifax', model: 'Made Up', score: 718, date: 'last week' }, { bureau: 'Unknown', model: 'FICO 8', score: 900, date: '' }, { bureau: 'Experian', model: 'FICO 8', score: 'abc' }, null], notes: '  Updated   today ' });

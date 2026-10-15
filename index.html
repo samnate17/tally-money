@@ -619,6 +619,16 @@ var ICON={
  transactions:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h13M13 3l4 4-4 4M20 17H7M11 13l-4 4 4 4"/></svg>',
  goals:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg>'};
 var TABS=[['overview','Overview'],['dash','Dashboard','Live'],['accounts','Accounts'],['pay','My pay','Pay'],['tax','Taxes','Tax'],['docs','Documents','Docs'],['assets','Assets'],['subscriptions','Subscriptions','Subs'],['bills','Bills','Bills'],['energy','Energy'],['budgets','Budgets'],['report','Monthly report','Report'],['afford','Can I afford it?','Afford'],['credit','Credit score','Score'],['cards','Credit cards','Cards'],['invest','Investments','Invest'],['transactions','Transactions','Activity'],['goals','Goals'],['loans','Loans'],['mortgage','Mortgage','Home'],['assist','Assistant','Chat'],['look','Settings','Settings']];
+/*NAVLOCK-START*/
+// A password that protects hiding and showing tabs: stored as a salted PBKDF2 hash, never the password itself.
+function nlB64(u8){var s='',i;for(i=0;i<u8.length;i++)s+=String.fromCharCode(u8[i]);return btoa(s)}
+function nlUnb64(t){var b=atob(t),u=new Uint8Array(b.length),i;for(i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u}
+function nlHash(pw,salt,it){return crypto.subtle.importKey('raw',new TextEncoder().encode(String(pw)),'PBKDF2',false,['deriveBits']).then(function(k){return crypto.subtle.deriveBits({name:'PBKDF2',salt:salt,iterations:it,hash:'SHA-256'},k,256)}).then(function(b){return nlB64(new Uint8Array(b))})}
+function nlEq(a,b){if(a.length!==b.length)return false;var d=0,i;for(i=0;i<a.length;i++)d|=a.charCodeAt(i)^b.charCodeAt(i);return d===0}
+function navLockClean(raw){return raw&&typeof raw.salt==='string'&&typeof raw.hash==='string'&&raw.salt.length<=64&&raw.hash.length<=64&&raw.it>=1000&&raw.it<=2000000?{salt:raw.salt,hash:raw.hash,it:Math.round(raw.it)}:null}
+function navLockMake(pw,it){it=it||210000;var salt=crypto.getRandomValues(new Uint8Array(16));return nlHash(pw,salt,it).then(function(h){return {salt:nlB64(salt),it:it,hash:h}})}
+function navLockCheck(rec,pw){var r=navLockClean(rec);if(!r)return Promise.resolve(false);return nlHash(pw,nlUnb64(r.salt),r.it).then(function(h){return nlEq(h,r.hash)},function(){return false})}
+/*NAVLOCK-END*/
 /*NAV-START*/
 // Where each tab sits, and whether the tabs run down the side or across the top. Kept on this device, like the theme.
 function navOrdered(tabs,order){
@@ -630,7 +640,7 @@ function navOrdered(tabs,order){
 function navMove(ids,id,before){var a=ids.filter(function(x){return x!==id}),i=before?a.indexOf(before):-1;if(i<0)a.push(id);else a.splice(i,0,id);return a}
 function navStep(ids,id,d){var i=ids.indexOf(id),j=i+d;if(i<0||j<0||j>=ids.length)return ids;var a=ids.slice();a.splice(i,1);a.splice(j,0,id);return a}
 function cleanNavPref(raw,validIds){
-  var o={layout:raw&&raw.layout==='top'?'top':'side',order:[],hidden:[]},seen={},hs={};
+  var o={layout:raw&&raw.layout==='top'?'top':'side',order:[],hidden:[],protect:raw&&(raw.protect==='app'||raw.protect==='own')?raw.protect:''},seen={},hs={};
   (raw&&Array.isArray(raw.order)?raw.order:[]).forEach(function(id){if(typeof id==='string'&&validIds.indexOf(id)>-1&&!seen[id]){seen[id]=1;o.order.push(id)}});
   (raw&&Array.isArray(raw.hidden)?raw.hidden:[]).forEach(function(id){if(typeof id==='string'&&id!=='look'&&validIds.indexOf(id)>-1&&!hs[id]){hs[id]=1;o.hidden.push(id)}});   // Settings can never be hidden, or there would be no way back
   return o;
@@ -6756,7 +6766,7 @@ function bindView(){
   var ex=$('#extra',m);if(ex)ex.onchange=function(){S.extraPay=Math.max(0,parseFloat(ex.value)||0);save();render()};
   var st=$('#strategy',m);if(st)st.onchange=function(){strategy=st.value;render()};
   var bk=$('#bk',m);if(bk)bk.onchange=function(){var file=bk.files[0];if(file)readBackupFile(file)};
-  if(view==='look'){secBind(m);if(T&&!aiSt)loadAi();if(T&&T.bio&&!BIO.loaded)bioLoad(function(){if(view==='look')render()})}
+  if(view==='look'){navBioLoad();secBind(m);if(T&&!aiSt)loadAi();if(T&&T.bio&&!BIO.loaded)bioLoad(function(){if(view==='look')render()})}
 }
 document.addEventListener('click',function(e){
   var v=e.target.closest('[data-view]');if(v){view=v.dataset.view;if(view!=='bills'&&month>NOWKEY)month=NOWKEY;if(view==='cashback')view='cards';else if(view==='carloan'||view==='student'){loanFilter=view==='student'?'student':'auto';view='loans'}pendingImport=null;pendingEnc=null;secMsg='';payUI.edit='';editTx='';render();window.scrollTo(0,0);return}
@@ -7025,11 +7035,54 @@ function glassPanel(){
     :g.available?'<p class="sub" style="margin:0 0 10px">Native Liquid Glass is off. The CSS glass look is used.</p><div class="actions" style="justify-content:flex-start"><button class="btn primary" data-act="gl-on">Turn on and restart</button></div>'
     :'<p class="sub muted" style="margin:0">'+esc(g.reason||'Not available.')+' The CSS glass look is used instead.</p>';
   return '<section class="panel"><h2>Window material<small>real Liquid Glass on macOS 26</small></h2>'+body+'<p class="sub muted" style="margin:10px 0 0;font-size:12px">With native glass the Aurora background is replaced by your desktop. If text is hard to read, raise Frost below. Switching restarts the app.</p></section>'}
+
+// ---- Asking for the password before hiding or showing tabs ----
+var NAVAUTH={until:0};
+function navLockRec(){try{return navLockClean(JSON.parse(localStorage.getItem('tally-nav-lock-v1')||'null'))}catch(e){return null}}
+function navMode(){if(!NAVP.protect)return '';if(NAVP.protect==='own'&&navLockRec())return 'own';if(NAVP.protect==='app'&&VLT.on)return 'app';return 'broken'}
+function navSlot(){return navMode()==='own'?'tabs':'vault'}
+function navVerify(pw){
+  if(navMode()==='own')return navLockCheck(navLockRec(),pw);
+  var env=null;try{env=JSON.parse(localStorage.getItem('tally-vault-v1'))}catch(e){}
+  return env?vaultOpen(env,pw).then(function(){return true},function(){return false}):Promise.resolve(false);
+}
+// Runs cb(password) once the person has proved it is them (password, or Touch ID on a Mac). Two minutes of grace after a success so a few changes in a row do not ask each time.
+function navAuth(why,cb){
+  if(!NAVP.protect){cb('');return}
+  if(navMode()==='broken'){toast('The password that protected this is no longer set. Set a new one under Settings > Tabs.');return}
+  if(Date.now()<NAVAUTH.until){cb('');return}
+  var el=document.createElement('div');el.id='navauth';el.className='gate';document.body.appendChild(el);
+  var close=function(){if(el.parentNode)el.parentNode.removeChild(el)};
+  var draw=function(msg,bio){
+    el.innerHTML='<div class="card" role="dialog" aria-modal="true" aria-label="Confirm it is you"><h1>Confirm it is you</h1><p class="sub muted" style="white-space:normal">'+esc(why)+'</p>'+(msg?'<div class="err" role="alert">'+esc(msg)+'</div>':'')+'<form id="na-form"><label for="na-pw">'+(navMode()==='own'?'Tab password':'Your app password')+'</label><input id="na-pw" type="password" autocomplete="current-password" required><button class="btn primary" type="submit" style="margin-top:14px;width:100%">Continue</button></form>'+(bio?'<button class="btn" id="na-bio" type="button" style="margin-top:10px;width:100%">Use Touch ID</button>':'')+'<button class="btn" id="na-no" type="button" style="margin-top:10px;width:100%">Cancel</button></div>';
+    var ok=function(pw){NAVAUTH.until=Date.now()+120000;close();cb(pw)};
+    $('#na-form',el).onsubmit=function(e){e.preventDefault();var pw=$('#na-pw',el).value;navVerify(pw).then(function(good){if(good)ok(pw);else draw('That password is not right.',bio)})};
+    $('#na-no',el).onclick=close;
+    var bb=$('#na-bio',el);if(bb)bb.onclick=function(){tcall(T.bio.unlock(navSlot())).then(function(pw){return navVerify(pw).then(function(good){if(good)ok(pw);else draw('Touch ID worked, but the saved password no longer matches. Type the password.',false)})}).catch(function(e){draw((e&&e.message)||'Touch ID did not work. Type the password.',bio)})};
+    var i=$('#na-pw',el);if(i)i.focus();
+  };
+  draw('',false);
+  if(T&&T.bio)tcall(T.bio.status(navSlot())).then(function(st){if(st.available&&st.enabled&&document.getElementById('navauth')===el){draw('',true)}}).catch(function(){});
+}
+function navProtPanel(){
+  var mode=navMode(),bioOk=!!(T&&T.bio&&BIO.available),h='<h3 style="font-size:15px;margin:16px 0 6px">Protect hiding and showing</h3>';
+  if(NAVP.protect&&mode!=='broken'){
+    h+='<div><span class="pill good">Protected</span> <span class="sub">Hiding or showing a tab asks for '+(mode==='own'?'the tab password':'your app password')+(bioOk&&(mode==='app'?BIO.enabled:navBioState.enabled)?' or Touch ID':'')+'.</span></div><div class="actions" style="justify-content:flex-start;margin-top:8px">'+
+      (mode==='own'&&bioOk?(navBioState.enabled?'<button class="btn small" data-act="th-nav-bio-off">Turn off Touch ID for this</button>':'<button class="btn small" data-act="th-nav-bio-on">Use Touch ID for this</button>'):'')+'<button class="btn small" data-act="th-nav-prot-off">Turn off protection</button></div>';
+  }else{
+    if(NAVP.protect&&mode==='broken')h+='<p class="sub warn" style="margin:0 0 8px;white-space:normal">The password that protected this is no longer set (the app password was removed). Set a new one to protect it again.</p>';
+    h+=VLT.on?'<p class="sub" style="margin:0 0 8px;white-space:normal">Ask for your app password'+(BIO.enabled?' (or Touch ID)':'')+' before a tab can be hidden or shown.</p><div class="actions" style="justify-content:flex-start"><button class="btn small primary" data-act="th-nav-prot-app">Use my app password</button></div><p class="sub muted" style="margin:10px 0 6px;font-size:12px">Or set a separate password just for this:</p>':'<p class="sub" style="margin:0 0 8px;white-space:normal">Ask for a password before a tab can be hidden or shown. (No app password is set, so this uses its own password.)</p>';
+    h+='<form class="navprotform form" style="align-items:flex-end"><label>New password<input name="p1" type="password" autocomplete="new-password" minlength="6" required style="width:170px"></label><label>Again<input name="p2" type="password" autocomplete="new-password" minlength="6" required style="width:170px"></label>'+(bioOk?'<label style="flex-direction:row;align-items:center;gap:6px"><input name="bio" type="checkbox" checked> Also allow Touch ID</label>':'')+'<button class="btn small primary">Turn on protection</button></form>';
+  }
+  return h+'<p class="sub muted" style="margin:10px 0 0;font-size:12px;white-space:normal">This is a lock on the Hide and Show buttons, to stop someone casually changing your layout. It does not encrypt anything: the lock lives on this device, and a person who can use the open app can still reach every tab. To keep people out of your data, set an app password under Settings > Security (that one encrypts it). Touch ID works on a Mac only; the app has no Face ID, and on Windows the password is used.</p>';
+}
+var navBioState={enabled:false,loaded:false};
+function navBioLoad(){if(!(T&&T.bio)||navBioState.loaded)return;navBioState.loaded=true;tcall(T.bio.status('tabs')).then(function(st){navBioState.enabled=!!st.enabled;if(view==='look')render()}).catch(function(){})}
 function navPanel(){
   var ids=navIds(),byId={};TABS.forEach(function(t){byId[t[0]]=t});
   return '<section class="panel"><h2>Tabs<small>where they sit and in what order</small></h2><div class="lookrow"><span class="lbl">Placement<small>Down the side, or in a bar across the top. Phones always use the bar at the bottom.</small></span><span class="ctl">'+seg('th-nav-layout',NAVP.layout,[['side','Side'],['top','Top']])+'</span></div>'+
     '<p class="sub" style="margin:10px 0 6px;white-space:normal">Drag any tab in the '+(NAVP.layout==='top'?'top bar':'side list')+' to move it, or use the arrows here (also works on a phone or with the keyboard).</p><div class="navlist">'+ids.map(function(id,i){var hid=NAVP.hidden.indexOf(id)>-1;return '<div class="row"><div class="grow"><span class="nm"'+(hid?' style="opacity:.55"':'')+'>'+esc(byId[id][1])+'</span>'+(hid?' <span class="pill mute">Hidden</span>':'')+'</div><div class="actions" style="flex:none;flex-wrap:nowrap">'+(id==='look'?'<span class="sub" style="align-self:center">Always shown</span>':'<button class="btn small" data-act="th-nav-hide" data-id="'+id+'" aria-pressed="'+hid+'">'+(hid?'Show':'Hide')+'</button>')+'<button class="btn small" data-act="th-nav-up" data-id="'+id+'"'+(i===0?' disabled':'')+' aria-label="Move '+esc(byId[id][1])+' up">&uarr;</button><button class="btn small" data-act="th-nav-down" data-id="'+id+'"'+(i===ids.length-1?' disabled':'')+' aria-label="Move '+esc(byId[id][1])+' down">&darr;</button></div></div>'}).join('')+'</div>'+
-    '<div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn small" data-act="th-nav-showall"'+(NAVP.hidden.length?'':' disabled')+'>Show all tabs</button><button class="btn small" data-act="th-nav-reset">Put the tabs back in the original order</button></div><p class="sub muted" style="margin:8px 0 0;font-size:12px;white-space:normal">A hidden tab is only taken out of the navigation. Its data is untouched, and links to it elsewhere in the app (a card on the Overview, say) still open it.</p></section>';
+    '<div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn small" data-act="th-nav-showall"'+(NAVP.hidden.length?'':' disabled')+'>Show all tabs</button><button class="btn small" data-act="th-nav-reset">Put the tabs back in the original order</button></div><p class="sub muted" style="margin:8px 0 0;font-size:12px;white-space:normal">A hidden tab is only taken out of the navigation. Its data is untouched, and links to it elsewhere in the app (a card on the Overview, say) still open it.</p>'+navProtPanel()+'</section>';
 }
 function vLook(){
   var sw=PRESETS.map(function(p){return '<button type="button" class="sw'+(TH.preset===p.id?' on':'')+'" data-act="th-preset" data-v="'+p.id+'" style="--sw:'+p.accent+'" aria-pressed="'+(TH.preset===p.id)+'">'+p.name+'</button>'}).join('');
@@ -7082,8 +7135,14 @@ function thClick(a,b){
   if(a==='th-nav-layout'){NAVP.layout=b.dataset.v==='top'?'top':'side';saveNav();render();return true}
   if(a==='th-nav-up'||a==='th-nav-down'){NAVP.order=navStep(navIds(),b.dataset.id,a==='th-nav-up'?-1:1);saveNav();render();return true}
   if(a==='th-nav-reset'){NAVP.order=[];saveNav();render();return true}
-  if(a==='th-nav-hide'){var hid=b.dataset.id,hi=NAVP.hidden.indexOf(hid);if(hid!=='look'){if(hi<0)NAVP.hidden.push(hid);else NAVP.hidden.splice(hi,1)}saveNav();render();return true}
-  if(a==='th-nav-showall'){NAVP.hidden=[];saveNav();render();return true}
+  if(a==='th-nav-hide'||a==='th-nav-showall'){
+    var tid=b.dataset.id,tdo=function(){if(a==='th-nav-showall')NAVP.hidden=[];else{var hi=NAVP.hidden.indexOf(tid);if(tid!=='look'){if(hi<0)NAVP.hidden.push(tid);else NAVP.hidden.splice(hi,1)}}saveNav();render()};
+    if(NAVP.protect){navAuth(a==='th-nav-showall'?'Show all hidden tabs.':'Hide or show this tab.',tdo);return true}
+    tdo();return true}
+  if(a==='th-nav-prot-app'){if(VLT.on){NAVP.protect='app';saveNav();render();toast('Protection is on. It uses your app password.')}return true}
+  if(a==='th-nav-prot-off'){navAuth('Turn off protection for hiding and showing tabs.',function(){NAVP.protect='';try{localStorage.removeItem('tally-nav-lock-v1')}catch(e){}if(T&&T.bio){T.bio.disable('tabs');navBioState.enabled=false}saveNav();render();toast('Protection is off.')});return true}
+  if(a==='th-nav-bio-on'){navAuth('Turn on Touch ID for hiding and showing tabs. Type the tab password once.',function(pw){if(!pw){toast('Type the tab password to turn on Touch ID.');return}tcall(T.bio.enable(pw,'tabs')).then(function(){navBioState.enabled=true;render();toast('Touch ID is on for this.')}).catch(function(e){toast((e&&e.message)||'Touch ID did not turn on.')})});return true}
+  if(a==='th-nav-bio-off'){if(T&&T.bio)T.bio.disable('tabs');navBioState.enabled=false;render();return true}
   if(a==='th-preset'){var p=PRESETS.filter(function(x){return x.id===b.dataset.v})[0];if(p){TH.preset=p.id;TH.accent=p.accent}}
   else if(a==='th-look'){if(b.dataset.v==='studio'){TH.bg='studio';TH.mode='dark';TH.preset='tesla';TH.accent='#3e6ae1';TH.frost=15;TH.radius=14;TH.font='system'}else{TH.bg='aurora';TH.mode='auto';TH.preset='indigo';TH.accent='#3b4cf0';TH.frost=60;TH.radius=16;TH.font='modern'}try{localStorage.setItem('tally-look-offer','1')}catch(e){}}
   else if(a==='th-reset'){TH=cleanTheme(null)}
@@ -7109,6 +7168,11 @@ function thClick(a,b){
   rail.addEventListener('wheel',function(e){if(NAVP.layout!=='top'||Math.abs(e.deltaY)<=Math.abs(e.deltaX))return;rail.scrollLeft+=e.deltaY;e.preventDefault()},{passive:false});   // the mouse wheel scrolls the top bar sideways
 })();
 function thBind(m){
+  m.querySelectorAll('.navprotform').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();var p1=fm.elements['p1'].value,p2=fm.elements['p2'].value,wantBio=!!(fm.elements['bio']&&fm.elements['bio'].checked);
+    if(p1.length<6){toast('Use at least 6 characters.');return}if(p1!==p2){toast('The two passwords are not the same.');return}
+    navLockMake(p1).then(function(rec){try{localStorage.setItem('tally-nav-lock-v1',JSON.stringify(rec))}catch(x){toast('This browser would not save it.');return}NAVP.protect='own';NAVAUTH.until=Date.now()+120000;saveNav();
+      var done=function(extra){render();toast('Protection is on.'+(extra||''))};
+      if(wantBio&&T&&T.bio)tcall(T.bio.enable(p1,'tabs')).then(function(){navBioState.enabled=true;done(' Touch ID is on too.')}).catch(function(err){done(' Touch ID was not turned on: '+((err&&err.message)||'cancelled')+'.')});else done()})}});
   m.querySelectorAll('.txedit').forEach(function(fm){var cs=fm.elements['c'],us=fm.elements['u'];if(cs&&us)cs.onchange=function(){us.innerHTML=subOptions(cs.value,'')};fm.onsubmit=function(e){e.preventDefault();var g=function(n){return fm.elements[n]};var wt=S.txns.filter(function(x){return x.id===fm.dataset.id})[0],wOld=wt&&wt.fromWallet?wt.amount:null;var r=editTxn(fm.dataset.id,{date:g('d').value,name:g('n').value,amount:parseFloat(g('a').value),cat:g('c').value,sub:g('u').value},g('s').checked);if(wOld!==null&&walletAcct()&&wt.amount!==wOld)walletAdd(wt.amount-wOld);if(r)r.changed+=editTxnExtras(fm.dataset.id,g('k').value,g('ac').value,g('nt').value,g('s').checked,g('vh')?g('vh').value:undefined);editTx='';catMsg='';save();render();toast(r?(r.changed?'Saved. Also updated '+r.changed+' similar transaction'+(r.changed===1?'':'s')+'.':'Saved.'):'Could not save.')}});
   m.querySelectorAll('[data-subs]').forEach(function(i){i.onchange=function(){var l=parseSubList(i.value);if(!S.subCats)S.subCats={};if(l.length)S.subCats[i.dataset.subs]=l;else delete S.subCats[i.dataset.subs];save();render();toast('Sub-categories for '+i.dataset.subs+' saved.')}});
   m.querySelectorAll('[data-loanfile]').forEach(function(inp){inp.onchange=function(){

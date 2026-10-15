@@ -175,10 +175,10 @@ function wireIpc() {
   mainOnly('phone:stop', () => { if (phone) phone.stop(); return true; });
   mainOnly('phone:status', () => (phone ? phone.status() : { on: false, url: '', expires: 0, received: 0 }));
   // Touch ID unlock for the app password (see biometric.js).
-  mainOnly('bio:status', () => createBiometric({ store, systemPreferences }).status());
-  mainOnly('bio:enable', (pw) => createBiometric({ store, systemPreferences }).enable(pw));
-  mainOnly('bio:unlock', () => createBiometric({ store, systemPreferences }).unlock());
-  mainOnly('bio:disable', () => createBiometric({ store, systemPreferences }).disable());
+  mainOnly('bio:status', (slot) => createBiometric({ store, systemPreferences }).status(slot === 'tabs' ? 'tabs' : 'vault'));
+  mainOnly('bio:enable', (pw, slot) => createBiometric({ store, systemPreferences }).enable(pw, slot === 'tabs' ? 'tabs' : 'vault'));
+  mainOnly('bio:unlock', (slot) => createBiometric({ store, systemPreferences }).unlock(slot === 'tabs' ? 'tabs' : 'vault'));
+  mainOnly('bio:disable', (slot) => createBiometric({ store, systemPreferences }).disable(slot === 'tabs' ? 'tabs' : 'vault'));
   mainOnly('update:status', () => updater.status());
   mainOnly('update:setToken', (t) => updater.setToken(t));
   mainOnly('update:clearToken', () => updater.clearToken());
