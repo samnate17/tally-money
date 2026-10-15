@@ -78,9 +78,18 @@
           "arch": [
             "x64"
           ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "artifactName": "Tally.Money-Setup-${version}.${ext}"
+    },
+    "portable": {
+      "artifactName": "Tally.Money-Portable-${version}.${ext}"
     },
     "nsis": {
       "oneClick": false,

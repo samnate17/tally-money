@@ -994,7 +994,9 @@ test('Windows build is configured and attached to the release after the Mac job'
   const root = path.join(__dirname, '..');
   const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
   assert.strictEqual(pkg.scripts['dist:win'], 'electron-builder --win --publish never');
-  assert.deepStrictEqual(pkg.build.win.target, [{ target: 'nsis', arch: ['x64'] }]);
+  assert.deepStrictEqual(pkg.build.win.target, [{ target: 'nsis', arch: ['x64'] }, { target: 'portable', arch: ['x64'] }]);
+  assert.strictEqual(pkg.build.portable.artifactName, 'Tally.Money-Portable-${version}.${ext}');
+  assert.ok(!/Setup.*\.exe/.test(pkg.build.portable.artifactName));   // the updater only picks the Setup installer
   const wf = fs.readFileSync(path.join(root, '.github', 'workflows', 'build-mac.yml'), 'utf8');
   assert.ok(/build-windows:\n\s+needs: build\n\s+runs-on: windows-latest/.test(wf) && wf.includes('dist/*.exe'));
 });

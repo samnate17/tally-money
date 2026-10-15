@@ -71,6 +71,7 @@ jobs:
         run: |
           ls -la dist
           test -n "$(ls dist/Tally.Money-Setup-*.exe)" || { echo "installer missing"; exit 1; }
+          test -n "$(ls dist/Tally.Money-Portable-*.exe)" || { echo "portable exe missing"; exit 1; }
       - uses: actions/upload-artifact@v4
         continue-on-error: true
         with:
