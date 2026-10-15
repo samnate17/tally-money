@@ -528,6 +528,13 @@ var showHidden=false;
 function billName(n){return !showHidden&&isHiddenName(n,S.hideWords)?'Hidden bill':n}
 var FB={key:'',items:[]};
 // The next propane or oil fill as an upcoming bill (an estimate from your deliveries and the weather), until a delivery or payment is recorded.
+var fuelTxMapCache=null;   // payment id -> the Energy record it paid; rebuilt on every render
+function fuelTxNote(x){
+  if(!fuelTxMapCache){fuelTxMapCache={};(S.fuel||[]).forEach(function(r){if(r.tx)fuelTxMapCache[r.tx]=r})}
+  var r=fuelTxMapCache[x.id];if(!r||!(r.qty>0))return '';
+  var u=r.fuel==='gas'?r.unit:FUELS[r.fuel].unit,pr=r.ppg>0?r.ppg:r.cost>0?(r.cost-(r.fee||0))/fuelQty(r):0;
+  return r.qty+' '+u+(pr>0?' @ $'+pr.toFixed(3):'')+(r.fee>0?' + $'+r.fee.toFixed(2)+' fee':'');
+}
 function fuelBillItems(mk){
   var key=(S.fuel||[]).length+':'+((S.fuel||[]).length?S.fuel[S.fuel.length-1].date:'')+':'+((S.weather&&S.weather.fetched)||'')+':'+iso(TODAY);
   if(FB.key!==key){
@@ -536,6 +543,10 @@ function fuelBillItems(mk){
       var W=(S.weather&&S.weather.months)||{},normals=weatherNormals(W);
       ['propane','oil'].forEach(function(f){
         var recs=S.fuel.filter(function(r){return r.fuel===f});if(recs.length<3)return;
+        var last3=recs.slice(-3);
+        if(last3.every(function(r){return r.days>0&&r.cost>0})){                // metered customer: a bill comes every period, there is no tank to fill
+          var dd=last3.map(function(r){return r.days}).sort(function(x,y){return x-y})[1],nd=fqIso(fqDate(recs[recs.length-1].date)+dd*864e5);
+          FB.items.push({f:f,date:nd,cost:Math.round(last3.reduce(function(n,r){return n+r.cost},0)/3*100)/100,metered:true});return}
         var months=fuelMonths(S.fuel,f),per=fuelPeriods(S.fuel,f).map(function(p){return {date:fqIso(p.to),qty:p.qty,perDay:p.qty/p.days,cost:p.cost}});
         var nf=nextFillFor({fuel:f,deliveries:per,model:months.length?weatherModel(months.map(function(m){return {month:m.month,perDay:m.perDay}}),W,false):null},normals);
         if(nf&&nf.cost>0)FB.items.push({f:f,date:nf.date,cost:nf.cost});
@@ -545,7 +556,7 @@ function fuelBillItems(mk){
   var nowK=iso(TODAY).slice(0,7),out=[];
   FB.items.forEach(function(x){
     var k=x.date.slice(0,7),show=k===mk||(mk===nowK&&x.date<iso(TODAY));if(!show)return;
-    out.push({id:'fuel:'+x.f,name:FUELS[x.f].label+' fill (estimate)',amount:x.cost,dueDay:x.date.slice(0,7)===mk?+x.date.slice(8):1,source:'fuel',cat:'Housing',sub:'Propane and heating oil',re:FUEL_TX[x.f],raw:{fuel:x.f}});
+    out.push({id:'fuel:'+x.f,name:FUELS[x.f].label+(x.metered?' invoice (estimate)':' fill (estimate)'),amount:x.cost,dueDay:x.date.slice(0,7)===mk?+x.date.slice(8):1,source:'fuel',cat:'Housing',sub:'Propane and heating oil',re:FUEL_TX[x.f],raw:{fuel:x.f}});
   });
   return out;
 }
@@ -700,7 +711,7 @@ function goalAccts(){return S.accounts.filter(function(a){return !isDebt(a)&&a.t
 // A goal can follow an account's balance, so saving into that account updates the goal without a second entry.
 function syncGoals(){(S.goals||[]).forEach(function(g){if(!g.acct)return;var a=S.accounts.filter(function(x){return x.id===g.acct})[0];if(!a){delete g.acct;return}g.saved=Math.max(0,Math.round(a.balance*100)/100)})}
 function render(){
-  syncXfer();syncGoals();nav();
+  fuelTxMapCache=null;syncXfer();syncGoals();nav();
   var f={energy:vEnergy,bills:vBills,loans:vLoansHub,mortgage:vMortgage,carloan:function(){loanFilter='auto';return vLoansHub()},student:function(){loanFilter='student';return vLoansHub()},look:vLook,overview:vOverview,dash:vDash,assist:vAssist,accounts:vAccounts,assets:vAssets,afford:vAfford,credit:vCredit,cards:vCards,pay:vPay,tax:vTax,docs:vDocs,invest:vInvest,report:vReport,subscriptions:vSubs,budgets:vBudgets,transactions:vTx,goals:vGoals}[view];
   var cb=HOSTED&&AUTH.conflict?'<div class="banner" id="conflict"><span><b>This account changed on another device.</b> Choose which version to keep.</span><span style="flex:0 0 auto;display:flex;gap:8px"><button class="btn small" data-act="cf-remote">Use the other version</button><button class="btn small primary" data-act="cf-local">Keep this device\'s version</button></span></div>':'';
   var banner=cb+updBanner()+(S.sample?'<div class="banner"><span><b>Example data.</b> These accounts and transactions are made up so you can try everything. Clear them to start with your own, or import a CSV from your bank.</span><button class="btn primary small" data-act="clear">Start fresh</button></div>':'');
@@ -1165,7 +1176,7 @@ function vTx(){
   var shown=list.slice(0,filter.limit||150),nx=S.txns.filter(function(x){return isTransfer(x,xinf)}).length;
   var rows=shown.map(function(x){
     if(editTx===x.id)return txEditForm(x);
-    return '<div class="row">'+logo(x.name)+'<div class="grow"><div class="nm">'+esc(x.name)+'</div><div class="sub">'+shortDate(x.date)+(x.sub?' \u00b7 '+esc(x.sub):'')+(isTransfer(x,xinf)?' \u00b7 <span class="pill mute" style="font-size:11px" title="Money moving between your own accounts. It is not counted as spending or income.">'+(txKind(x,xinf)==='cardpay'?'Card payment':'Transfer')+', not counted</span>':'')+(isCashback(x)?' \u00b7 <span class="pill good" style="font-size:11px" title="A reward from a credit card. It is not counted as income; see Loans, Credit cards, Cash back.">Cash back</span>':'')+(x.cash?' \u00b7 <span class="pill mute" style="font-size:11px">Paid in cash</span>':'')+(x.veh&&asById(x.veh)?' \u00b7 <span class="pill mute" style="font-size:11px">'+esc(asById(x.veh).name.slice(0,24))+'</span>':'')+(x.note?'<div class="sub" style="white-space:normal;font-size:12px">'+esc(x.note)+'</div>':'')+'</div></div><select data-cat="'+x.id+'" aria-label="Category for '+esc(x.name)+'" class="hide-s">'+CATS.map(function(c){return '<option'+(c===x.cat?' selected':'')+'>'+c+'</option>'}).join('')+'</select><div class="amt num '+(x.amount>0?'good':'')+'">'+(x.amount>0?'+':'')+money(x.amount)+'</div><div class="actions" style="flex:none;flex-wrap:nowrap"><button class="btn small" data-act="tx-edit" data-id="'+x.id+'" aria-label="Edit '+esc(x.name)+'">Edit</button><button class="btn small" data-act="tx-xfer" data-id="'+x.id+'" title="'+(isTransfer(x,xinf)?'Count this as real spending or income':'This only moved money between my own accounts. Do not count it.')+'">'+(isTransfer(x,xinf)?'Count it':'Transfer')+'</button>'+(x.amount>0&&!isTransfer(x,xinf)?'<button class="btn small" data-act="tx-cb" data-id="'+x.id+'" title="'+(isCashback(x)?'This is not cash back. Count it normally.':'This is cash back or a card reward. Keep it out of income.')+'">'+(isCashback(x)?'Not cash back':'Cash back')+'</button>':'')+'<button class="btn small" data-act="tx-aside" data-id="'+x.id+'" title="This money was not mine. Remove it from all my numbers; you can restore it later." aria-label="Not mine">Not mine</button><button class="btn small" data-act="tx-del" data-id="'+x.id+'" aria-label="Delete">&times;</button></div></div>';
+    return '<div class="row">'+logo(x.name)+'<div class="grow"><div class="nm">'+esc(x.name)+'</div><div class="sub">'+shortDate(x.date)+(x.sub?' \u00b7 '+esc(x.sub):'')+(isTransfer(x,xinf)?' \u00b7 <span class="pill mute" style="font-size:11px" title="Money moving between your own accounts. It is not counted as spending or income.">'+(txKind(x,xinf)==='cardpay'?'Card payment':'Transfer')+', not counted</span>':'')+(isCashback(x)?' \u00b7 <span class="pill good" style="font-size:11px" title="A reward from a credit card. It is not counted as income; see Loans, Credit cards, Cash back.">Cash back</span>':'')+(x.cash?' \u00b7 <span class="pill mute" style="font-size:11px">Paid in cash</span>':'')+(fuelTxNote(x)?' \u00b7 <span class="pill good" style="font-size:11px" title="From your Energy tab">'+esc(fuelTxNote(x))+'</span>':'')+(x.veh&&asById(x.veh)?' \u00b7 <span class="pill mute" style="font-size:11px">'+esc(asById(x.veh).name.slice(0,24))+'</span>':'')+(x.note?'<div class="sub" style="white-space:normal;font-size:12px">'+esc(x.note)+'</div>':'')+'</div></div><select data-cat="'+x.id+'" aria-label="Category for '+esc(x.name)+'" class="hide-s">'+CATS.map(function(c){return '<option'+(c===x.cat?' selected':'')+'>'+c+'</option>'}).join('')+'</select><div class="amt num '+(x.amount>0?'good':'')+'">'+(x.amount>0?'+':'')+money(x.amount)+'</div><div class="actions" style="flex:none;flex-wrap:nowrap"><button class="btn small" data-act="tx-edit" data-id="'+x.id+'" aria-label="Edit '+esc(x.name)+'">Edit</button><button class="btn small" data-act="tx-xfer" data-id="'+x.id+'" title="'+(isTransfer(x,xinf)?'Count this as real spending or income':'This only moved money between my own accounts. Do not count it.')+'">'+(isTransfer(x,xinf)?'Count it':'Transfer')+'</button>'+(x.amount>0&&!isTransfer(x,xinf)?'<button class="btn small" data-act="tx-cb" data-id="'+x.id+'" title="'+(isCashback(x)?'This is not cash back. Count it normally.':'This is cash back or a card reward. Keep it out of income.')+'">'+(isCashback(x)?'Not cash back':'Cash back')+'</button>':'')+'<button class="btn small" data-act="tx-aside" data-id="'+x.id+'" title="This money was not mine. Remove it from all my numbers; you can restore it later." aria-label="Not mine">Not mine</button><button class="btn small" data-act="tx-del" data-id="'+x.id+'" aria-label="Delete">&times;</button></div></div>';
   }).join('');
   var xpanel='<section class="panel"><h2>Not double counted<small>'+nx+' transfer'+(nx===1?'':'s')+' left out of your numbers</small></h2><p class="sub muted" style="margin:0 0 8px;font-size:13px">Paying a credit card from checking moves money you already counted when you made the purchases, and "payment thank you" on a card statement is not income. Transfers between your own accounts are skipped too. Press <b>Transfer</b> on any row the app got wrong.</p><label style="font-size:13px">Payments to my credit cards <select id="cardpay"><option value="auto"'+(S.cardPay==='auto'?' selected':'')+'>Skip when my card purchases are here too (recommended)</option><option value="skip"'+(S.cardPay==='skip'?' selected':'')+'>Always skip</option><option value="count"'+(S.cardPay==='count'?' selected':'')+'>Count them as spending</option></select></label></section>';
   return '<div class="top"><h1>Transactions</h1></div>'+catTools()+xpanel+importsPanel()+cashPanel()+
@@ -1739,12 +1750,15 @@ function fuelUnitLabel(r){return r.fuel==='gas'?'therms':FUELS[r.fuel].unit==='g
 function cleanFuel(raw,newId){
   return (Array.isArray(raw)?raw:[]).slice(0,600).map(function(r){
     if(!r||!FUELS[r.fuel]||fqDate(r.date)===null)return null;
-    var q=Math.round((+r.qty||0)*100)/100,c=Math.round((+r.cost||0)*100)/100,d=Math.round(+r.days||0);
+    var q=Math.round((+r.qty||0)*1000)/1000,c=Math.round((+r.cost||0)*100)/100,d=Math.round(+r.days||0);
     if(!(q>=0&&q<=1e6)||!(c>=0&&c<=1e6))return null;
     var u=FUELS[r.fuel].units.indexOf(r.unit)>-1?r.unit:FUELS[r.fuel].unit;
     var o={id:/^[\w-]{1,40}$/.test(r.id||'')?r.id:newId(),fuel:r.fuel,date:r.date,days:d>0&&d<=400?d:0,qty:q,unit:u,cost:c};
     var n=String(r.note||'').replace(/[<>"]/g,'').replace(/\s+/g,' ').trim().slice(0,80);if(n)o.note=n;
     if(/^[\w-]{1,40}$/.test(r.tx||''))o.tx=r.tx;
+    var fe=Math.round((+r.fee||0)*100)/100;if(fe>0&&fe<=c)o.fee=fe;                                   // fixed charges inside the total, such as a meter or delivery fee
+    var pp=Math.round((+r.ppg||0)*10000)/10000;if(pp>0&&pp<=1000)o.ppg=pp;                          // the price per unit the supplier printed
+    if(r.meter&&typeof r.meter==='object'){var mp=+r.meter.prev,mc=+r.meter.cur,mf=+r.meter.factor;if(isFinite(mp)&&isFinite(mc)&&mc>=mp&&mp>=0&&mc<=1e9&&mf>0&&mf<=1000)o.meter={prev:mp,cur:mc,factor:mf}}
     return o;
   }).filter(Boolean);
 }
@@ -1762,10 +1776,14 @@ function cleanWeather(raw){
 function fuelPeriods(records,fuel){
   var rs=(records||[]).filter(function(r){return r.fuel===fuel&&fqDate(r.date)!==null}).sort(function(a,b){return a.date<b.date?-1:a.date>b.date?1:0}),out=[],i;
   if(FUELS[fuel].delivered){
+    var metered=rs.filter(function(r){return r.days>0&&r.qty>0});   // a bill that states its own period (a metered invoice) needs no fill-to-fill guessing
+    rs=rs.filter(function(r){return !(r.days>0&&r.qty>0)});
     var merged=[];   // two fills within 10 days are one top-up spread over the period before them, not a day of enormous use
     rs.forEach(function(r){var p=merged[merged.length-1];if(p&&r.qty>0&&p.qty>0&&(fqDate(r.date)-fqDate(p.date))/864e5<10)merged[merged.length-1]={id:r.id,fuel:r.fuel,date:r.date,qty:p.qty+r.qty,unit:r.unit,cost:p.cost+r.cost};else merged.push(r)});
     rs=merged;
     for(i=1;i<rs.length;i++){var span=Math.round((fqDate(rs[i].date)-fqDate(rs[i-1].date))/864e5);if(span>=1&&span<=800&&rs[i].qty>0)out.push({from:fqDate(rs[i-1].date)+864e5,to:fqDate(rs[i].date),days:span,qty:fuelQty(rs[i]),cost:rs[i].cost,rec:rs[i]})}
+    metered.forEach(function(r){out.push({from:fqDate(r.date)-(r.days-1)*864e5,to:fqDate(r.date),days:r.days,qty:fuelQty(r),cost:r.cost,rec:r})});
+    out.sort(function(a,b){return a.from-b.from})
   }else{
     rs.forEach(function(r){if(!(r.qty>0))return;var d=r.days>0?r.days:30;out.push({from:fqDate(r.date)-(d-1)*864e5,to:fqDate(r.date),days:d,qty:fuelQty(r),cost:r.cost,rec:r})});
   }
@@ -1785,7 +1803,13 @@ function fuelSpend(records,fuel){
   return Object.keys(by).sort().map(function(k){return {month:k,cost:by[k]}});
 }
 function fuelPrices(records,fuel){
-  return (records||[]).filter(function(r){return r.fuel===fuel&&r.qty>0&&r.cost>0&&fqDate(r.date)!==null}).sort(function(a,b){return a.date<b.date?-1:1}).map(function(r){return {date:r.date,price:r.cost/fuelQty(r),qty:fuelQty(r),cost:r.cost}});
+  return (records||[]).filter(function(r){return r.fuel===fuel&&r.qty>0&&r.cost>0&&fqDate(r.date)!==null}).sort(function(a,b){return a.date<b.date?-1:1}).map(function(r){var fee=r.fee||0,q=fuelQty(r);return {date:r.date,price:r.ppg>0?r.ppg:(r.cost-fee)/q,allIn:r.cost/q,fee:fee,qty:q,cost:r.cost}});   // price is per unit of fuel; fixed fees are kept out of it
+}
+// Fixed fees (meter, delivery) over the last twelve months and what share of the spend they are.
+function fuelFees(records,fuel,todayIso){
+  var from=fqDate(todayIso)!==null?fqDate(todayIso)-365*864e5:0,fee=0,spend=0,n=0;
+  (records||[]).forEach(function(r){if(r.fuel!==fuel||fqDate(r.date)===null||fqDate(r.date)<from)return;spend+=r.cost||0;if(r.fee>0){fee+=r.fee;n++}});
+  return {fee:fee,n:n,spend:spend,share:spend>0?fee/spend:0};
 }
 // Ordinary least squares with a small number of columns (an intercept is added): [[x1,x2],...], [y,...] -> {coef:[a,b,c], r2, n} or null.
 function leastSquares(X,y){
@@ -1877,6 +1901,8 @@ function energyTips(c){
   var annualHdd=0,nh=0;Object.keys(normals).forEach(function(m){annualHdd+=normals[m].hddPerDay*30.4;nh++});if(nh<12)annualHdd=0;
   var prices={};
   (c.fuels||[]).forEach(function(f){
+    var fees=fuelFees(f.recs||[],f.fuel,c.today||'');
+    if(fees.fee>0&&fees.spend>0)out.push({k:fees.share>=0.08?'warn':'info',title:'Fixed fees on your '+f.label.toLowerCase()+' bills: about '+fmtMoney0(fees.fee)+' in 12 months ('+Math.round(fees.share*100)+'% of what you spend)',detail:'Charges such as a meter or delivery fee do not change with how much you burn, so they raise your all-in price per '+FUELS[f.fuel].unit+' when use is low. Ask the supplier whether the fee can be waived or compare suppliers.'+(fees.share>=0.08?' At this share it is worth a phone call.':''),saving:fees.share>=0.08?Math.round(fees.fee*0.5):0});
     var rows=f.months||[];if(rows.length<2)return;
     var last12=rows.slice(-12),yr=annualOf(last12),u=FUELS[f.fuel].unit==='gal'?'gallons':FUELS[f.fuel].unit==='therm'?'therms':'cords';
     if(!yr)return;
@@ -1943,9 +1969,36 @@ function energyTips(c){
 /*FUELIMPORT-START*/
 // A propane, oil or gas history from your supplier: a CSV with a date and a quantity column, or lines of text such as "01/12/2025 152.3 gal $512.40".
 function ymdIso(o){return o.y+'-'+('0'+o.m).slice(-2)+'-'+('0'+o.d).slice(-2)}
+// A supplier invoice laid out as a table (Date, Gallons, Product, Ticket, PPG, Total) with fees on their own lines and, for metered customers, meter readings.
+// Returns {ok, records} with the quantity, price per unit, fixed fees (kept out of the price), the billing period from the prior meter reading, and the readings.
+function parseFuelInvoice(text,fuel){
+  var t=String(text||'');
+  if(!/\bppg\b|price\s*per\s*gal/i.test(t)||!/gallons?/i.test(t))return {ok:false};
+  var lines=t.split(/\r?\n/),rows=[],i,d0=function(x){var d=dateOf(x);return d?ymdIso(d):null};
+  var rx=/^\s*(\d{1,2}\/\d{1,2}\/\d{2,4})\s+(\d[\d,]*\.?\d*)\s+(.+?)\s+(?:\*+\d+|\d{5,})?\s*(\d+\.\d{2,4})\s+(\d[\d,]*\.\d{2})\s*$/;
+  lines.forEach(function(l){var m=rx.exec(l);if(!m)return;var qty=numOf(m[2]),ppg=numOf(m[4]),tot=numOf(m[5]),prod=m[3].replace(/\s+/g,' ').trim(),date=d0(m[1]);if(!date||!(qty>0)||tot===null)return;rows.push({date:date,qty:qty,prod:prod,ppg:ppg,total:tot})});
+  var fuelRows=rows.filter(function(r){return /propane|lp gas|heating oil|fuel oil|kerosene|diesel|\boil\b/i.test(r.prod)&&!/fee|charge/i.test(r.prod)}),feeRows=rows.filter(function(r){return /fee|charge|surcharge|hazmat|rental|maintenance|delivery/i.test(r.prod)});
+  if(!fuelRows.length)return {ok:false};
+  var due=/amount\s+due\s+\$?\s*([\d,]+\.\d{2})/i.exec(t),all=0;rows.forEach(function(r){all+=r.total});
+  var invDate=/invoice\s+date\s+(\d{1,2}\/\d{1,2}\/\d{2,4})/i.exec(t),prior=/prior\s+meter\s+reading\s+date\s+(\d{1,2}\/\d{1,2}\/\d{2,4})/i.exec(t),pv=/prior\s+meter\s+reading\s+(?!date)([\d,]+\.?\d*)/i.exec(t),cv=/current\s+meter\s+reading\s+([\d,]+\.?\d*)/i.exec(t),cf=/conversion\s+factor\s+([\d.]+)/i.exec(t);
+  var out=[];
+  fuelRows.forEach(function(r){
+    var fe=0;feeRows.forEach(function(x){if(x.date===r.date)fe+=x.total});
+    var cost=due&&fuelRows.length===1?numOf(due[1]):Math.round((r.total+fe)*100)/100;
+    var rec={fuel:/oil|kerosene|diesel/i.test(r.prod)&&!/propane/i.test(r.prod)?'oil':'propane',date:r.date,days:0,qty:r.qty,unit:'gal',cost:cost,ppg:r.ppg>0?r.ppg:Math.round(r.total/r.qty*10000)/10000};
+    if(fe>0)rec.fee=Math.round(fe*100)/100;
+    if(FUELS[fuel]&&fuel!==rec.fuel&&fuel!=='')rec.fuel=rec.fuel;           // the file decides the fuel; the page filters by the one chosen
+    if(prior){var pd=d0(prior[1]),end=invDate?d0(invDate[1]):r.date;if(pd&&end){var span=Math.round((fqDate(end)-fqDate(pd))/864e5);if(span>=1&&span<=400)rec.days=span}}
+    if(pv&&cv&&cf){var a=numOf(pv[1]),b=numOf(cv[1]),f=numOf(cf[1]);if(a!==null&&b!==null&&f>0&&b>=a){rec.meter={prev:a,cur:b,factor:f};if(!(rec.days>0))rec.days=0}}
+    rec.note=rec.meter?'Metered: '+(rec.meter.cur-rec.meter.prev).toFixed(2)+' units x '+rec.meter.factor:'';
+    out.push(rec);
+  });
+  return {ok:true,records:out,skipped:0,format:'invoice'};
+}
 function parseFuelText(text,fuel){
   var f=FUELS[fuel]?fuel:'propane',t=String(text||'').trim();
   if(!t)return {ok:false,error:'The file is empty.'};
+  var invc=parseFuelInvoice(t,f);if(invc.ok)return invc;
   var recs=[],skipped=0,csv=parseFuelCsv(t,f);
   if(csv.ok)return csv;
   t.split(/\r?\n/).forEach(function(line){
@@ -1998,10 +2051,21 @@ function fuelMerge(existing,incoming,newId){
   incoming.forEach(function(r){
     var same=out.some(function(x){return x.fuel===r.fuel&&x.date===r.date&&Math.abs(x.qty-r.qty)<0.01});
     if(same){dups++;return}
-    var o={id:newId(),fuel:r.fuel,date:r.date,days:r.days||0,qty:r.qty,unit:r.unit,cost:r.cost||0};if(r.note)o.note=r.note;out.push(o);added++;
+    var o={id:newId(),fuel:r.fuel,date:r.date,days:r.days||0,qty:r.qty,unit:r.unit,cost:r.cost||0};if(r.note)o.note=r.note;if(r.fee>0)o.fee=r.fee;if(r.ppg>0)o.ppg=r.ppg;if(r.meter)o.meter=r.meter;if(r.tx)o.tx=r.tx;out.push(o);added++;
   });
   out.sort(function(a,b){return a.date<b.date?-1:a.date>b.date?1:0});
   return {records:out,added:added,dups:dups};
+}
+// Finds the payment for each bill (an expense of the same total, shortly after the bill date) so the transaction can show its gallons and price.
+function fuelLinkTx(records,txns){
+  var used={};(records||[]).forEach(function(r){if(r.tx)used[r.tx]=1});var n=0;
+  (records||[]).forEach(function(r){
+    if(r.tx||!(r.cost>0)||fqDate(r.date)===null)return;
+    var lo=fqDate(r.date)-5*864e5,hi=fqDate(r.date)+60*864e5,hit=null;
+    (txns||[]).forEach(function(x){if(hit||used[x.id]||!(x.amount<0)||Math.abs(-x.amount-r.cost)>0.01||fqDate(x.date)===null)return;var t=fqDate(x.date);if(t>=lo&&t<=hi)hit=x});
+    if(hit){r.tx=hit.id;used[hit.id]=1;n++}
+  });
+  return n;
 }
 /*FUELIMPORT-END*/
 /*PAY-START*/
@@ -5845,7 +5909,7 @@ function enYoY(rows,o){
 function enPlace(){var w=S.weather||{};return w.lat!==undefined&&w.lon!==undefined?w:null}
 // Everything the Energy tab and its advice use, worked out once per render.
 function energyCtx(){
-  var W=(S.weather&&S.weather.months)||{},c={weather:W,normals:weatherNormals(W),fuels:[],elec:null},cop=S.energyCfg&&S.energyCfg.cop>0?S.energyCfg.cop:2.5;
+  var W=(S.weather&&S.weather.months)||{},c={weather:W,normals:weatherNormals(W),fuels:[],elec:null,today:iso(TODAY)},cop=S.energyCfg&&S.energyCfg.cop>0?S.energyCfg.cop:2.5;
   c.cop=cop;
   var er=energySeries(S.energy);
   if(er.length){c.elec={rows:er,model:weatherModel(er.map(function(r){return {month:r.month,perDay:r.perDay}}),W,true)};
@@ -5925,13 +5989,13 @@ function enFuelPanel(c){
   // records
   if(recs.length){
     var gaps={};fuelPeriods(S.fuel,f).forEach(function(p){gaps[p.rec.id]=p});
-    h+='<h3 style="font-size:15px;margin:14px 0 6px">Your '+(F.delivered?'deliveries':'bills')+' ('+recs.length+')</h3><div style="max-height:340px;overflow:auto">'+recs.slice(0,60).map(function(r){var p=gaps[r.id],q=r.qty>0?r.qty+' '+(r.fuel==='gas'?r.unit:F.unit):'quantity not set';return '<div class="row wrap"><div class="grow" style="flex-basis:200px"><div class="nm">'+shortDate(r.date)+' '+r.date.slice(0,4)+' · '+esc(q)+(r.cost>0?' · '+money(r.cost):'')+'</div><div class="sub">'+(r.qty>0&&r.cost>0?'$'+(r.cost/fuelQty(r)).toFixed(2)+' per '+(f==='gas'?'therm':F.unit):'')+(p?(r.qty>0&&r.cost>0?' · ':'')+'covers '+p.days+' days, '+(p.qty/p.days).toFixed(1)+' a day':'')+(r.note?' · '+esc(r.note):'')+'</div></div><button class="btn small" data-act="en-fdel" data-id="'+esc(r.id)+'" aria-label="Remove">&times;</button></div>'}).join('')+'</div>';
+    h+='<h3 style="font-size:15px;margin:14px 0 6px">Your '+(F.delivered?'deliveries':'bills')+' ('+recs.length+')</h3><div style="max-height:340px;overflow:auto">'+recs.slice(0,60).map(function(r){var p=gaps[r.id],q=r.qty>0?r.qty+' '+(r.fuel==='gas'?r.unit:F.unit):'quantity not set';return '<div class="row wrap"><div class="grow" style="flex-basis:200px"><div class="nm">'+shortDate(r.date)+' '+r.date.slice(0,4)+' · '+esc(q)+(r.cost>0?' · '+money(r.cost):'')+'</div><div class="sub">'+(r.qty>0&&r.cost>0?'$'+(r.ppg>0?r.ppg.toFixed(3):((r.cost-(r.fee||0))/fuelQty(r)).toFixed(2))+' per '+(f==='gas'?'therm':F.unit)+(r.fee>0?' + '+money(r.fee)+' fees (all in $'+(r.cost/fuelQty(r)).toFixed(2)+')':''):'')+(p?(r.qty>0&&r.cost>0?' · ':'')+'covers '+p.days+' days, '+(p.qty/p.days).toFixed(1)+' a day':'')+(r.meter?' · metered':'')+(r.tx?' · payment linked':'')+(r.note&&!r.meter?' · '+esc(r.note):'')+'</div></div><button class="btn small" data-act="en-fdel" data-id="'+esc(r.id)+'" aria-label="Remove">&times;</button></div>'}).join('')+'</div>';
   }
   // add / import
   h+='<div class="actions" style="justify-content:flex-start;margin-top:12px;flex-wrap:wrap"><button class="btn small primary" data-act="en-fadd">Add '+(F.delivered?'a delivery':'a bill')+'</button><label class="btn small" style="cursor:pointer">Upload my history<input type="file" data-fuelfile="1" accept=".csv,.txt,.tsv,.pdf,text/csv,text/plain,application/pdf" hidden></label><button class="btn small" data-act="en-fpaste">Paste text</button><button class="btn small" data-act="en-ftx">From my transactions</button></div>';
   if(enUI.busy)h+='<div class="sub" role="status" style="margin-top:8px">'+esc(enUI.busy)+'</div>';
   if(enUI.msg)h+='<div class="sub bad" role="alert" style="margin-top:8px;white-space:normal">'+esc(enUI.msg)+'</div>';
-  if(enUI.adding)h+='<form class="form enfuelform panel" style="margin:10px 0;align-items:flex-end"><label>'+(F.delivered?'Delivered on':'Bill ends on')+'<input name="d" type="date" required value="'+iso(TODAY)+'"></label><label>'+unitName[0].toUpperCase()+unitName.slice(1)+'<input name="q" type="number" min="0" step="0.01" required style="width:100px"></label>'+(f==='gas'?'<label>Unit<select name="u"><option value="therm">therms</option><option value="ccf">CCF</option><option value="mcf">MCF</option></select></label><label>Days in bill<input name="n" type="number" min="1" max="400" placeholder="30" style="width:80px"></label>':'')+'<label>Total cost $<input name="c" type="number" min="0" step="0.01" style="width:110px"></label><label>Note<input name="t" maxlength="60" style="width:130px"></label><button class="btn small primary">Save</button><button type="button" class="btn small" data-act="en-fcancel">Cancel</button></form>';
+  if(enUI.adding)h+='<form class="form enfuelform panel" style="margin:10px 0;align-items:flex-end"><label>'+(F.delivered?'Delivered on':'Bill ends on')+'<input name="d" type="date" required value="'+iso(TODAY)+'"></label><label>'+unitName[0].toUpperCase()+unitName.slice(1)+'<input name="q" type="number" min="0" step="0.01" required style="width:100px"></label>'+(f==='gas'?'<label>Unit<select name="u"><option value="therm">therms</option><option value="ccf">CCF</option><option value="mcf">MCF</option></select></label><label>Days in bill<input name="n" type="number" min="1" max="400" placeholder="30" style="width:80px"></label>':'')+'<label>Price per '+(f==='gas'?'therm':unitName)+' $<input name="pp" type="number" min="0" step="0.0001" placeholder="4.299" style="width:100px"></label><label>Fees $<input name="fe" type="number" min="0" step="0.01" placeholder="meter, delivery" style="width:110px"></label><label>Total $<input name="c" type="number" min="0" step="0.01" placeholder="worked out" style="width:110px"></label><label>Note<input name="t" maxlength="60" style="width:130px"></label><button class="btn small primary">Save</button><button type="button" class="btn small" data-act="en-fcancel">Cancel</button></form>';
   if(enUI.pasteOpen)h+='<form class="enpasteform panel" style="margin:10px 0"><label class="sub" style="display:block;margin-bottom:6px">Paste lines from your supplier\'s statement or website, one delivery per line, for example <code>01/12/2025 152.3 gal $512.40</code></label><textarea name="t" rows="6" style="width:100%" required></textarea><div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn small primary">Read it</button><button type="button" class="btn small" data-act="en-fcancel">Cancel</button></div></form>';
   if(enUI.txOpen){
     var linked={};(S.fuel||[]).forEach(function(r){if(r.tx)linked[r.tx]=1});
@@ -5940,7 +6004,7 @@ function enFuelPanel(c){
   }
   if(enUI.imp){
     var im=enUI.imp;
-    h+='<div class="panel" style="margin:10px 0"><h3 style="margin:0 0 6px;font-size:15px">Found '+im.records.length+' record'+(im.records.length===1?'':'s')+(im.file?' in '+esc(im.file):'')+'</h3><div style="max-height:260px;overflow:auto"><table class="maptable" style="width:100%"><thead><tr><th>Date</th><th>Fuel</th><th class="num">Quantity</th><th class="num">Cost</th></tr></thead><tbody>'+im.records.slice(0,200).map(function(r){return '<tr><td>'+esc(r.date)+'</td><td>'+esc(FUELS[r.fuel].label)+'</td><td class="num">'+r.qty+' '+esc(r.unit)+'</td><td class="num">'+(r.cost>0?money(r.cost):'n/a')+'</td></tr>'}).join('')+'</tbody></table></div>'+(im.notes?'<p class="sub muted" style="margin:6px 0 0;font-size:12px;white-space:normal">'+esc(im.notes)+'</p>':'')+'<div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn small primary" data-act="en-fapply">Add them</button><button class="btn small" data-act="en-fdiscard">Discard</button></div></div>';
+    h+='<div class="panel" style="margin:10px 0"><h3 style="margin:0 0 6px;font-size:15px">Found '+im.records.length+' record'+(im.records.length===1?'':'s')+(im.file?' in '+esc(im.file):'')+'</h3><div style="max-height:260px;overflow:auto"><table class="maptable" style="width:100%"><thead><tr><th>Date</th><th>Fuel</th><th class="num">Quantity</th><th class="num">Price</th><th class="num">Fees</th><th class="num">Total</th><th class="num">Days</th></tr></thead><tbody>'+im.records.slice(0,200).map(function(r){return '<tr><td>'+esc(r.date)+'</td><td>'+esc(FUELS[r.fuel].label)+'</td><td class="num">'+r.qty+' '+esc(r.unit)+'</td><td class="num">'+(r.ppg>0?'$'+r.ppg.toFixed(3):(r.qty>0&&r.cost>0?'$'+((r.cost-(r.fee||0))/r.qty).toFixed(2):'n/a'))+'</td><td class="num">'+(r.fee>0?money(r.fee):'')+'</td><td class="num">'+(r.cost>0?money(r.cost):'n/a')+'</td><td class="num">'+(r.days||'')+'</td></tr>'}).join('')+'</tbody></table></div>'+(im.notes?'<p class="sub muted" style="margin:6px 0 0;font-size:12px;white-space:normal">'+esc(im.notes)+'</p>':'')+'<div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn small primary" data-act="en-fapply">Add them</button><button class="btn small" data-act="en-fdiscard">Discard</button></div></div>';
   }
   return h+'</section>';
 }
@@ -6949,8 +7013,10 @@ function bindView(){
   m.querySelectorAll('.enplace').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();var q=fm.elements['q'].value;enUI.place=q;enUI.wbusy=true;enUI.wmsg='';enUI.places=null;render();
     tcall(T.weather.search(q)).then(function(r){enUI.places=r;enUI.wbusy=false;render()}).catch(function(er){enUI.wbusy=false;enUI.wmsg=(er&&er.message)||'Could not search.';render()})}});
   m.querySelectorAll('.enfuelform').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();if(asGuard())return;var g=function(n){return fm.elements[n]?fm.elements[n].value:''},f=enUI.fuel;
-    var rc=cleanFuel([{fuel:f,date:g('d'),qty:parseFloat(g('q')),unit:g('u')||FUELS[f].unit,cost:parseFloat(g('c'))||0,days:parseInt(g('n'),10)||0,note:g('t')}],uid)[0];if(!rc){toast('Check the date and quantity.');return}
-    var mg=fuelMerge(S.fuel,[rc],uid);if(!mg.added){toast('That one is already in the list.');return}S.fuel=mg.records;enUI.adding=false;save();render();toast('Saved.')}});
+    var q0=parseFloat(g('q')),pp0=parseFloat(g('pp'))||0,fe0=parseFloat(g('fe'))||0,c0=parseFloat(g('c'))||0;
+    if(!c0&&pp0>0&&q0>0)c0=Math.round((q0*pp0+fe0)*100)/100;                              // total worked out from gallons x price + fees
+    var rc=cleanFuel([{fuel:f,date:g('d'),qty:q0,unit:g('u')||FUELS[f].unit,cost:c0,fee:fe0,ppg:pp0,days:parseInt(g('n'),10)||0,note:g('t')}],uid)[0];if(!rc){toast('Check the date and quantity.');return}
+    var mg=fuelMerge(S.fuel,[rc],uid);if(!mg.added){toast('That one is already in the list.');return}S.fuel=mg.records;fuelLinkTx(S.fuel,S.txns);enUI.adding=false;save();render();toast('Saved.')}});
   m.querySelectorAll('.enpasteform').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();enAfterRead(parseFuelText(fm.elements['t'].value,enUI.fuel),'pasted text',enUI.fuel);enUI.pasteOpen=false;render()}});
   m.querySelectorAll('.entxform').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();if(asGuard())return;var x=S.txns.filter(function(t){return t.id===fm.dataset.id})[0];if(!x)return;var q=parseFloat(fm.elements['q'].value)||0,f=enUI.fuel;
     var rc=cleanFuel([{fuel:f,date:x.date,qty:q,unit:FUELS[f].unit,cost:-x.amount,tx:x.id}],uid)[0];if(rc){S.fuel.push(rc);S.fuel.sort(function(a,b){return a.date<b.date?-1:1});save();render();toast(q>0?'Added.':'Added the cost. Add the quantity later to measure use.')}}});
@@ -6961,10 +7027,18 @@ function bindView(){
     rd.onload=function(){
       var buf=rd.result,isPdf=/\.pdf$/i.test(f.name),text='';
       if(!isPdf){try{text=new TextDecoder('utf-8').decode(new Uint8Array(buf))}catch(e){text=''}var fr=parseFuelText(text,fuel);if(fr.ok){enAfterRead(fr,f.name,fuel);return}}
-      var canAi=!!(T&&T.loan&&T.loan.readFile&&T.ai&&T.ai.energy&&aiSt&&aiSt.hasKey);
-      if(!canAi){enUI.msg=isPdf?'Reading a PDF needs the desktop app and your Anthropic API key (Transactions tab). A CSV or pasted text works without one.':(parseFuelText(text,fuel).error||'Nothing found in that file.');enUI.busy='';render();return}
-      enUI.busy='Asking Claude to read '+f.name+'… (a few cents, about a minute)';enUI.msg='';render();
-      tcall(T.loan.readFile(buf,f.name)).then(function(r){if(T.docs)tcall(T.docs.save('Energy bills',f.name,buf,TODAY.getFullYear())).catch(function(){});return tcall(T.ai.energy(r.textId,fuel))}).then(function(r){enAfterRead({ok:r.records.length>0,error:r.notes||'Claude did not find any deliveries or bills in that file.',records:r.records,notes:r.notes},f.name,fuel)}).catch(function(e){enUI.busy='';enUI.msg=(e&&e.message)||'Could not read that file.';render()});
+      var canRead=!!(T&&T.loan&&T.loan.readFile),canAi=!!(canRead&&T.ai&&T.ai.energy&&aiSt&&aiSt.hasKey);
+      if(!canRead){enUI.msg=isPdf?'Reading a PDF needs the desktop app. A CSV or pasted text works anywhere.':(parseFuelText(text,fuel).error||'Nothing found in that file.');enUI.busy='';render();return}
+      if(!isPdf&&!canAi){enUI.msg=parseFuelText(text,fuel).error||'Nothing found in that file.';enUI.busy='';render();return}
+      enUI.busy='Reading '+f.name+'…';enUI.msg='';render();
+      tcall(T.loan.readFile(buf,f.name)).then(function(r){
+        if(T.docs)tcall(T.docs.save('Energy bills',f.name,buf,TODAY.getFullYear())).catch(function(){});
+        var local=r.text?parseFuelText(r.text,fuel):{ok:false};                 // a supplier invoice is read on this computer first, for free
+        if(local.ok){enAfterRead(local,f.name,fuel);return null}
+        if(!canAi)throw new Error('I could not read the quantities in that PDF here. Add your Anthropic API key (Transactions tab) and Claude can read it, or add the delivery by hand.');
+        enUI.busy='Asking Claude to read '+f.name+'… (a few cents, about a minute)';render();
+        return tcall(T.ai.energy(r.textId,fuel)).then(function(a){enAfterRead({ok:a.records.length>0,error:a.notes||'Claude did not find any deliveries or bills in that file.',records:a.records,notes:a.notes},f.name,fuel)});
+      }).catch(function(e){enUI.busy='';enUI.msg=(e&&e.message)||'Could not read that file.';render()});
     };
     rd.readAsArrayBuffer(f);
   }});
@@ -7150,7 +7224,7 @@ document.addEventListener('click',function(e){
   else if(a==='en-fcancel'){enUI.adding=false;enUI.pasteOpen=false;enUI.txOpen=false}
   else if(a==='en-fdel'){S.fuel=S.fuel.filter(function(x){return x.id!==id})}
   else if(a==='en-fdiscard'){enUI.imp=null}
-  else if(a==='en-fapply'&&enUI.imp){var fm2=fuelMerge(S.fuel,enUI.imp.records,uid);S.fuel=fm2.records;enUI.imp=null;toast('Added '+fm2.added+' record'+(fm2.added===1?'':'s')+(fm2.dups?' ('+fm2.dups+' already there)':'')+'.');if(enPlace()){enUI.wtried=false}}
+  else if(a==='en-fapply'&&enUI.imp){var fm2=fuelMerge(S.fuel,enUI.imp.records,uid);S.fuel=fm2.records;fuelLinkTx(S.fuel,S.txns);enUI.imp=null;toast('Added '+fm2.added+' record'+(fm2.added===1?'':'s')+(fm2.dups?' ('+fm2.dups+' already there)':'')+'.');if(enPlace()){enUI.wtried=false}}
   else if(a==='en-wpick'){var pk=enUI.places&&enUI.places[+b.dataset.i];if(pk){S.weather={place:pk.name,lat:pk.lat,lon:pk.lon,fetched:'',months:{}};enUI.places=null;enUI.wmsg='';enUI.wtried=true;save();enLoadWeather();return}}
   else if(a==='en-wload'){enLoadWeather();return}
   else if(a==='en-advice'){

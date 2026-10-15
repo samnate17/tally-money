@@ -273,7 +273,7 @@ function wireIpc() {
     const textId = 'l' + (++textSeq);
     statementText.set(textId, masked);
     while (statementText.size > 12) statementText.delete(statementText.keys().next().value);
-    return { textId, chars: masked.length, name: String(name || '').slice(0, 80) };
+    return { textId, chars: masked.length, name: String(name || '').slice(0, 80), text: masked.slice(0, 80000) };
   });
   // Reading a loan statement without a paid key: by matching labels (always), or with a model running on this computer.
   const loanKind = (k) => (['student', 'auto', 'credit', 'loan'].includes(k) ? k : 'auto');

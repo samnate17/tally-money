@@ -300,8 +300,8 @@ const ENERGY_SCHEMA = {
   additionalProperties: false,
   properties: {
     records: { type: 'array', items: { type: 'object', additionalProperties: false, properties: {
-      fuel: { type: 'string', enum: ENERGY_FUELS }, date: { type: 'string' }, days: { type: 'number' }, quantity: { type: 'number' }, unit: { type: 'string', enum: ENERGY_UNITS }, cost: { type: 'number' }, note: { type: 'string' },
-    }, required: ['fuel', 'date', 'days', 'quantity', 'unit', 'cost', 'note'] } },
+      fuel: { type: 'string', enum: ENERGY_FUELS }, date: { type: 'string' }, days: { type: 'number' }, quantity: { type: 'number' }, unit: { type: 'string', enum: ENERGY_UNITS }, cost: { type: 'number' }, fee: { type: 'number' }, ppg: { type: 'number' }, note: { type: 'string' },
+    }, required: ['fuel', 'date', 'days', 'quantity', 'unit', 'cost', 'fee', 'ppg', 'note'] } },
     notes: { type: 'string' },
   },
   required: ['records', 'notes'],
@@ -309,7 +309,7 @@ const ENERGY_SCHEMA = {
 const ENERGY_SYSTEM = [
   'You read a delivery history, usage history or bill statement for home heating or energy (propane, heating oil, natural gas, electricity, wood) for a personal-finance app.',
   'Return one record per delivery or per billing period. fuel: propane, oil (heating oil or kerosene), gas (natural gas), electric, or wood. date: the delivery date, or the last day of the billing period, as YYYY-MM-DD.',
-  'days: the number of days a billing period covers (0 for a delivery). quantity: gallons for propane and oil, therms or ccf or mcf for natural gas, kWh for electricity, cords for wood; unit must match. cost: the total charged for that delivery or period in dollars including taxes and fees, 0 if not shown.',
+  'days: the number of days a billing period covers (0 for a delivery). quantity: gallons for propane and oil, therms or ccf or mcf for natural gas, kWh for electricity, cords for wood; unit must match. cost: the total charged for that delivery or period in dollars including taxes and fees, 0 if not shown. fee: fixed charges inside that total that do not depend on quantity (meter maintenance, delivery, hazmat or service fees) in dollars, 0 if none. ppg: the price per gallon, therm or kWh printed for the fuel line itself, 0 if not shown. For a metered invoice give days as the days from the prior meter reading date to the invoice date.',
   'Never guess a number you cannot read. Skip payments, balances and totals. Never repeat account numbers, names or addresses. If the document is not an energy history, return no records and say why in notes.',
 ].join(' ');
 function cleanEnergyDocs(raw, wanted) {
@@ -318,9 +318,9 @@ function cleanEnergyDocs(raw, wanted) {
   const per = { propane: ['gal'], oil: ['gal'], gas: ['therm', 'ccf', 'mcf'], electric: ['kwh'], wood: ['cord'] };
   for (const r of Array.isArray(raw.records) ? raw.records : []) {
     if (!r || !ENERGY_FUELS.includes(r.fuel) || !/^\d{4}-\d{2}-\d{2}$/.test(String(r.date || ''))) continue;
-    const q = Math.round(Number(r.quantity) * 100) / 100, c = Math.round(Number(r.cost) * 100) / 100, d = Math.round(Number(r.days) || 0);
+    const q = Math.round(Number(r.quantity) * 1000) / 1000, c = Math.round(Number(r.cost) * 100) / 100, d = Math.round(Number(r.days) || 0), fe = Math.round(Number(r.fee) * 100) / 100, pp = Math.round(Number(r.ppg) * 10000) / 10000;
     if (!(q > 0 && q <= 1e6) || !per[r.fuel].includes(r.unit)) continue;
-    out.records.push({ fuel: r.fuel, date: r.date, days: d >= 0 && d <= 400 ? d : 0, quantity: q, unit: r.unit, cost: Number.isFinite(c) && c > 0 && c <= 1e6 ? c : 0, note: String(r.note || '').replace(/\s+/g, ' ').trim().slice(0, 80) });
+    out.records.push({ fuel: r.fuel, date: r.date, days: d >= 0 && d <= 400 ? d : 0, quantity: q, unit: r.unit, cost: Number.isFinite(c) && c > 0 && c <= 1e6 ? c : 0, fee: Number.isFinite(fe) && fe > 0 && fe <= c ? fe : 0, ppg: Number.isFinite(pp) && pp > 0 && pp <= 1000 ? pp : 0, note: String(r.note || '').replace(/\s+/g, ' ').trim().slice(0, 80) });
     if (out.records.length >= 300) break;
   }
   if (wanted && ENERGY_FUELS.includes(wanted)) out.records = out.records.filter((r) => r.fuel === wanted);

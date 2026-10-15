@@ -1681,7 +1681,7 @@ test('fuel: deliveries are spread over the days they cover, gas bills over their
 test('fuel: records are cleaned, the weather model finds base use and use per degree day, and projections follow normal weather', () => {
   const F = fuelWorld(); let n = 0;
   const c = F.cleanFuel([{ id: 'ok', fuel: 'propane', date: '2026-01-01', qty: 100.456, unit: 'therm', cost: 300, note: '<b>x</b>' }, { fuel: 'coal', date: '2026-01-01', qty: 1 }, { fuel: 'gas', date: 'bad', qty: 1 }, { fuel: 'gas', date: '2026-01-01', qty: -3, unit: 'therm' }, { fuel: 'gas', date: '2026-02-01', qty: 5, unit: 'ccf', cost: 8, days: 31, tx: 'bad id' }], () => 'n' + (++n));
-  assert.deepStrictEqual(c.map((x) => [x.id, x.fuel, x.qty, x.unit, x.note || '', x.days, x.tx || '']), [['ok', 'propane', 100.46, 'gal', 'bx/b', 0, ''], ['n1', 'gas', 5, 'ccf', '', 31, '']]);
+  assert.deepStrictEqual(c.map((x) => [x.id, x.fuel, x.qty, x.unit, x.note || '', x.days, x.tx || '']), [['ok', 'propane', 100.456, 'gal', 'bx/b', 0, ''], ['n1', 'gas', 5, 'ccf', '', 31, '']]);
   const ls = F.leastSquares([[1], [2], [3], [4], [5]], [3, 5, 7, 9, 11]); assert.ok(Math.abs(ls.coef[0] - 1) < 1e-9 && Math.abs(ls.coef[1] - 2) < 1e-9 && ls.r2 > 0.999999); assert.strictEqual(F.leastSquares([[1], [2]], [1, 2]), null);
   // usage = 1 + 0.5 * degree days per day, over a year of weather
   const hdd = [30, 28, 22, 12, 4, 0, 0, 0, 3, 11, 20, 27], weather = {}, rows = [];
@@ -2350,4 +2350,70 @@ test('search periods: this month, last month, a month name, this year and last N
   assert.equal(S.searchPeriod('in may', t).label, 'May 2026');
   assert.equal(S.searchPeriod('shell', t).rest, 'shell');
   assert.equal(S.searchPeriod('', t).rest, '');
+});
+
+// ---------- Metered propane invoice: gallons, price per gallon, fixed fees, meter readings ----------
+const INVOICE = `Example Customer                                  Amount Due      $161.75
+Account # ****9650                                   Date Due        05/15/2026
+Invoice Number ****0785                              Invoice Date    04/15/2026
+Meter Invoice
+   Date                     Gallons Product                                  Ticket #          PPG        Total
+04/15/2026                       1.000 Meter Maintenance Fee Taxable      ****0785        19.9900        19.99
+04/15/2026                      32.976 Propane                            ****0785         4.2990       141.76
+04/15/2026                             NH Sales Exempt                                                       0.00
+                                                                            Amount Due     $161.75
+Meter Reading
+Prior Meter Reading Date     03/04/2026
+Prior Meter Reading          540.00
+April Meter Reading                                   Current Meter Reading        552.00
+Meter Usage                                           12.00
+Meter Conversion Factor      2.7483`;
+function invWorld() { return new Function(srcBlock('/*ENERGY-START*/', '/*ENERGY-END*/') + srcBlock('/*FUEL-START*/', '/*FUEL-END*/') + srcBlock('/*FUELIMPORT-START*/', '/*FUELIMPORT-END*/') + '\nreturn {parseFuelText, parseFuelInvoice, fuelMerge, cleanFuel, fuelPeriods, fuelPrices, fuelFees, fuelLinkTx};')(); }
+test('fuel invoice: gallons, price per gallon, the meter fee kept out of the price, and the billing period from the meter readings', () => {
+  const W = invWorld(), r = W.parseFuelText(INVOICE, 'propane');
+  assert.equal(r.ok, true);
+  assert.equal(r.format, 'invoice');
+  assert.equal(r.records.length, 1);
+  const x = r.records[0];
+  assert.equal(x.fuel, 'propane');
+  assert.equal(x.date, '2026-04-15');
+  assert.equal(x.qty, 32.976);
+  assert.equal(x.ppg, 4.299);
+  assert.equal(x.fee, 19.99);
+  assert.equal(x.cost, 161.75);                         // what was charged in all
+  assert.equal(x.days, 42);                             // 4 March to 15 April
+  assert.deepEqual(x.meter, { prev: 540, cur: 552, factor: 2.7483 });
+  const c = W.cleanFuel([x], () => 'id1')[0];
+  assert.equal(c.qty, 32.976);
+  assert.equal(c.fee, 19.99);
+  assert.equal(c.ppg, 4.299);
+  assert.equal(c.meter.factor, 2.7483);
+  assert.equal(W.cleanFuel([Object.assign({}, x, { fee: 999 })], () => 'i')[0].fee, undefined);   // a fee cannot exceed the total
+  const p = W.fuelPrices([Object.assign({ id: 'a' }, c)], 'propane')[0];
+  assert.equal(p.price, 4.299);
+  assert.equal(Math.round(p.allIn * 1000) / 1000, 4.905);   // 161.75 / 32.976
+  const noPpg = W.fuelPrices([{ id: 'b', fuel: 'propane', date: '2026-04-15', qty: 30, unit: 'gal', cost: 150, fee: 20 }], 'propane')[0];
+  assert.equal(Math.round(noPpg.price * 100) / 100, 4.33);  // (150 - 20) / 30
+});
+test('fuel invoice: a metered bill states its own period and use, so it needs no delivery-to-delivery guessing', () => {
+  const W = invWorld(), mk = (date, qty, days, cost) => ({ id: date, fuel: 'propane', date, days, qty, unit: 'gal', cost, fee: 19.99, meter: { prev: 1, cur: 2, factor: 2.7483 } });
+  const recs = [mk('2026-03-04', 40, 30, 190), mk('2026-04-15', 32.976, 42, 161.75)];
+  const per = W.fuelPeriods(recs, 'propane');
+  assert.equal(per.length, 2);
+  assert.deepEqual(per.map((p) => p.days), [30, 42]);
+  assert.ok(Math.abs(per[1].qty - 32.976) < 1e-9);
+  const f = W.fuelFees(recs, 'propane', '2026-05-01');
+  assert.equal(Math.round(f.fee * 100) / 100, 39.98);
+  assert.equal(f.n, 2);
+  assert.ok(Math.abs(f.share - 39.98 / 351.75) < 1e-6);
+  assert.equal(W.fuelFees(recs, 'propane', '2027-12-01').fee, 0);                          // older than a year is left out
+  const mixed = W.fuelPeriods(recs.concat([{ id: 'd1', fuel: 'propane', date: '2026-01-01', qty: 100, unit: 'gal', cost: 300 }, { id: 'd2', fuel: 'propane', date: '2026-02-10', qty: 90, unit: 'gal', cost: 280 }]), 'propane');
+  assert.equal(mixed.length, 3);                                                           // one delivery-to-delivery period plus the two metered ones
+});
+test('fuel invoice: a payment of the same total shortly after the bill is linked, once', () => {
+  const W = invWorld(), recs = [{ id: 'r1', fuel: 'propane', date: '2026-04-15', qty: 32.976, unit: 'gal', cost: 161.75 }, { id: 'r2', fuel: 'propane', date: '2026-03-04', qty: 40, unit: 'gal', cost: 161.75 }];
+  const txns = [{ id: 't1', date: '2026-04-20', name: 'SUPERIOR PLUS', amount: -161.75 }, { id: 't2', date: '2026-04-21', name: 'Other', amount: -20 }];
+  assert.equal(W.fuelLinkTx(recs, txns), 1);
+  assert.equal(recs[0].tx, 't1');
+  assert.equal(recs[1].tx, undefined);                    // the same payment is not used twice
 });
