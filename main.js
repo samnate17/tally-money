@@ -18,6 +18,7 @@ const qrcode = require('qrcode-generator');
 const { createLocalAI } = require('./local-ai');
 const { parseLoanText, parseMortgageText, parseCardStatement } = require('./loanparse');
 const { parsePayStub } = require('./paystub');
+const { parseW2 } = require('./taxparse');
 const aiMod = require('./ai');
 const { spawn } = require('child_process');
 
@@ -329,6 +330,12 @@ function wireIpc() {
     const text = statementText.get(String(textId));
     if (!text) throw new Error('That file is no longer in memory. Choose it again.');
     return ai.payStubFromText(text);
+  });
+  // W-2 read on this computer by matching box labels and checking the Social Security and Medicare rules. No key and no network.
+  handle('tax:parse', (textId) => {
+    const text = statementRaw.get(String(textId));
+    if (!text) throw new Error('That file is no longer in memory. Choose it again.');
+    return parseW2(text);
   });
   handle('ai:taxDoc', (textId) => {
     const text = statementText.get(String(textId));

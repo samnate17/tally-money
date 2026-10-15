@@ -394,7 +394,7 @@ function cleanPayStubRecord(raw) {
   return out;
 }
 const TAXDOC_FORMS = ['W-2', '1099-INT', '1099-DIV', '1099-NEC', '1099-MISC', '1099-R', '1099-G', '1099-B', '1099-K', '1098', '1095', 'other'];
-const TAXDOC_FIELDS = ['wages', 'fedWithheld', 'ssWages', 'ssWithheld', 'medicareWages', 'medicareWithheld', 'stateWages', 'stateWithheld', 'interest', 'ordinaryDividends', 'qualifiedDividends', 'nonemployeeComp', 'otherIncome', 'retirementDistribution', 'unemployment', 'mortgageInterest', 'stateRefund'];
+const TAXDOC_FIELDS = ['wages', 'fedWithheld', 'ssWages', 'ssWithheld', 'medicareWages', 'medicareWithheld', 'stateWages', 'stateWithheld', 'interest', 'ordinaryDividends', 'qualifiedDividends', 'nonemployeeComp', 'otherIncome', 'retirementDistribution', 'unemployment', 'mortgageInterest', 'stateRefund', 'retire401k', 'rothContrib', 'hsa', 'healthCoverage', 'dependentCare'];
 const TAXDOC_SCHEMA = {
   type: 'object', additionalProperties: false,
   properties: {

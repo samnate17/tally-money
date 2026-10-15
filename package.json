@@ -26,6 +26,7 @@
       "package.json",
       "ai.js",
       "paystub.js",
+      "taxparse.js",
       "weather.js",
       "docs.js",
       "statement.js",

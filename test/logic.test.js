@@ -1936,7 +1936,7 @@ test('income sub-categories: salary, bonus, tax refund, interest and more are re
 });
 
 // ---------- My Pay: statements, next paycheck, change detection ----------
-function payWorld() { return new Function(srcBlock('/*PAY-START*/', '/*PAY-END*/') + '\nreturn {cleanPayStub, payTotals, payFreqOf, payNext, payArrived, payChanges, payYear};')(); }
+function payWorld() { return new Function(srcBlock('/*PAY-START*/', '/*PAY-END*/') + '\nreturn {cleanPayStub, payTotals, payFreqOf, payNext, payArrived, payChanges, payYear, payBreakdown};')(); }
 const mkStub = (date, gross, lines, extra) => Object.assign({ id: 's' + date, payDate: date, gross, net: 0, lines }, extra || {});
 function stubOf(P, date, gross, fed, ss, med, state, k401, health, extra) {
   const lines = [{ section: 'earnings', name: 'Regular', amount: gross }, { section: 'tax', name: 'Federal Income Tax', amount: fed }, { section: 'tax', name: 'Social Security', amount: ss }, { section: 'tax', name: 'Medicare', amount: med }, { section: 'tax', name: 'State Income Tax', amount: state }, { section: 'retirement', name: '401(k)', amount: k401 }, { section: 'benefit', name: 'Health Insurance', amount: health }];
@@ -2416,4 +2416,37 @@ test('fuel invoice: a payment of the same total shortly after the bill is linked
   assert.equal(W.fuelLinkTx(recs, txns), 1);
   assert.equal(recs[0].tx, 't1');
   assert.equal(recs[1].tx, undefined);                    // the same payment is not used twice
+});
+
+test('payBreakdown: groups, percentages, yearly cost, retirement pace and the credit line', () => {
+  const P = payWorld();
+  const mk = (d, n) => ({ id: 's' + d, payDate: d, gross: 2000, net: 1562, hours: 80, lines: [
+    { section: 'earnings', name: 'Regular', amount: 2000, ytd: 10000 },
+    { section: 'tax', name: 'Federal Income Tax', amount: 200, ytd: 1000 }, { section: 'tax', name: 'Social Security Tax', amount: 124, ytd: 620 }, { section: 'tax', name: 'Medicare Tax', amount: 29, ytd: 145 },
+    { section: 'benefit', name: 'Medical Plan', amount: 90, ytd: 450 }, { section: 'benefit', name: 'Dental Plan', amount: 10, ytd: 50 },
+    { section: 'retirement', name: '401K', amount: 100, ytd: 500 }, { section: 'other', name: 'Wellness credit', amount: 15 } ] });
+  const stubs = [mk('2026-02-13'), mk('2026-02-27'), mk('2026-03-13')];
+  const b = P.payBreakdown(stubs, stubs[2], new Date(2026, 2, 20));
+  const g = (k) => b.groups.find((x) => x.key === k);
+  assert.equal(g('tax').total, 353); assert.equal(g('benefit').total, 100); assert.equal(g('retirement').total, 100);
+  assert.equal(Math.round(g('tax').pct * 10) / 10, 17.7);
+  assert.equal(g('benefit').lines[0].name, 'Medical Plan');                 // biggest first
+  assert.equal(g('benefit').year, 100 * 26);                                 // biweekly
+  assert.equal(b.perYear, 26);
+  assert.equal(b.terms.annualGross, 52000);
+  assert.equal(b.retire.ytd, 500); assert.equal(b.retire.limit, 24500);
+  assert.ok(b.retire.pace > 500 && b.retire.pace < 24500);
+  const t = b.insights.map((i) => i.title).join('|');
+  assert.match(t, /Federal income tax takes 10\.0%/);
+  assert.match(t, /Medical Plan is your biggest/);
+  assert.match(t, /Wellness credit added \$15\.00/);
+  assert.equal(b.trend.length, 3);
+});
+
+test('payBreakdown warns when the 401(k) pace passes the limit and with a lone statement', () => {
+  const P = payWorld();
+  const one = { id: 'a', payDate: '2026-06-12', gross: 5000, net: 3000, lines: [{ section: 'tax', name: 'Federal Income Tax', amount: 800, ytd: 0 }, { section: 'retirement', name: '401K', amount: 2500, ytd: 0 }] };
+  const b = P.payBreakdown([one], one, new Date(2026, 5, 20));
+  assert.ok(b.insights.some((i) => /on pace to hit/.test(i.title)));
+  assert.ok(b.groups.every((x) => x.lines.length));
 });

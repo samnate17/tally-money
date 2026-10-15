@@ -39,6 +39,9 @@ contextBridge.exposeInMainWorld('tally', {
   pay: {
     parse: inv('pay:parse'),
   },
+  tax: {
+    parse: inv('tax:parse'),
+  },
   loan: {
     readFile: inv('loan:text'),
     parse: inv('loan:parse'),
