@@ -29,6 +29,13 @@ contextBridge.exposeInMainWorld('tally', {
   file: {
     save: (name, text) => ipcRenderer.invoke('file:save', { name, text }),
   },
+  docs: {
+    categories: inv('docs:categories'),
+    save: inv('docs:save'),
+    list: inv('docs:list'),
+    open: inv('docs:open'),
+    remove: inv('docs:remove'),
+  },
   loan: {
     readFile: inv('loan:text'),
     parse: inv('loan:parse'),
@@ -75,6 +82,8 @@ contextBridge.exposeInMainWorld('tally', {
     energy: inv('ai:energy'),
     energyAdvice: inv('ai:energyAdvice'),
     service: inv('ai:service'),
+    payStub: inv('ai:payStub'),
+    taxDoc: inv('ai:taxDoc'),
     test: inv('ai:test'),
     categorize: inv('ai:categorize'),
     loans: inv('ai:loans'),

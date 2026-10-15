@@ -354,6 +354,76 @@ function cleanServiceRecords(raw) {
   out.notes = String(raw.notes || '').replace(/\s+/g, ' ').trim().slice(0, 300);
   return out;
 }
+const PAY_SECTION_LIST = ['earnings', 'tax', 'benefit', 'retirement', 'deduction', 'other'];
+const PAYSTUB_SCHEMA = {
+  type: 'object', additionalProperties: false,
+  properties: {
+    payDate: { type: 'string' }, periodStart: { type: 'string' }, periodEnd: { type: 'string' }, gross: { type: 'number' }, net: { type: 'number' }, hours: { type: 'number' }, ytdGross: { type: 'number' }, ytdNet: { type: 'number' },
+    lines: { type: 'array', items: { type: 'object', additionalProperties: false, properties: { section: { type: 'string', enum: PAY_SECTION_LIST }, name: { type: 'string' }, amount: { type: 'number' }, ytd: { type: 'number' } }, required: ['section', 'name', 'amount', 'ytd'] } },
+    notes: { type: 'string' },
+  },
+  required: ['payDate', 'periodStart', 'periodEnd', 'gross', 'net', 'hours', 'ytdGross', 'ytdNet', 'lines', 'notes'],
+};
+const PAYSTUB_SYSTEM = [
+  'You read one earnings statement (pay stub) for a personal-finance app and return its numbers. Dates are YYYY-MM-DD; payDate is the check or deposit date.',
+  'gross is total gross pay for this period; net is take-home pay (net pay). hours is regular plus overtime hours worked this period, 0 if not shown. ytdGross and ytdNet are the year-to-date totals, 0 if not shown.',
+  'Return one line per item and put each into a section: earnings (regular, overtime, bonus, commission, holiday, PTO, other pay), tax (federal income, social security, medicare, additional medicare, state, local, disability or family-leave taxes), benefit (pre-tax health, dental, vision, HSA, FSA, commuter), retirement (401k, 403b, Roth, pension, loan repayment), deduction (after-tax items: life or supplemental insurance, garnishments, union dues, charity), other (anything else, imputed income, reimbursements).',
+  'amount is the current-period dollar amount as a positive number. ytd is that line\'s year-to-date amount, 0 if not shown. Do not include totals as lines. Never guess a number you cannot read. Never include the employer name, employee name, address, SSN, account or routing numbers. If the document is not a pay statement, return gross 0 and net 0 and say why in notes.',
+].join(' ');
+function cleanPayStubRecord(raw) {
+  const out = { stub: null, notes: '' };
+  if (!raw || typeof raw !== 'object') return out;
+  out.notes = String(raw.notes || '').replace(/\s+/g, ' ').trim().slice(0, 300);
+  const dre = /^\d{4}-\d{2}-\d{2}$/, num = (v) => { const n = Math.round(Number(v) * 100) / 100; return Number.isFinite(n) && Math.abs(n) <= 1e7 ? n : null; };
+  const gross = num(raw.gross), net = num(raw.net);
+  if (!dre.test(String(raw.payDate || '')) || gross === null || net === null || !(gross > 0) || net < 0) return out;
+  const stub = { payDate: raw.payDate, gross, net, lines: [] };
+  if (dre.test(String(raw.periodStart || ''))) stub.periodStart = raw.periodStart;
+  if (dre.test(String(raw.periodEnd || ''))) stub.periodEnd = raw.periodEnd;
+  const h = num(raw.hours); if (h > 0 && h <= 10000) stub.hours = h;
+  const yg = num(raw.ytdGross), yn = num(raw.ytdNet); if (yg > 0) stub.ytdGross = yg; if (yn > 0) stub.ytdNet = yn;
+  for (const l of Array.isArray(raw.lines) ? raw.lines : []) {
+    if (!l || !PAY_SECTION_LIST.includes(l.section)) continue;
+    const name = String(l.name || '').replace(/[<>"]/g, '').replace(/\s+/g, ' ').trim().slice(0, 60), a = num(l.amount);
+    if (!name || a === null || a === 0) continue;
+    const line = { section: l.section, name, amount: Math.abs(a) }; const y = num(l.ytd); if (y > 0) line.ytd = y;
+    stub.lines.push(line);
+    if (stub.lines.length >= 60) break;
+  }
+  out.stub = stub;
+  return out;
+}
+const TAXDOC_FORMS = ['W-2', '1099-INT', '1099-DIV', '1099-NEC', '1099-MISC', '1099-R', '1099-G', '1099-B', '1099-K', '1098', '1095', 'other'];
+const TAXDOC_FIELDS = ['wages', 'fedWithheld', 'ssWages', 'ssWithheld', 'medicareWages', 'medicareWithheld', 'stateWages', 'stateWithheld', 'interest', 'ordinaryDividends', 'qualifiedDividends', 'nonemployeeComp', 'otherIncome', 'retirementDistribution', 'unemployment', 'mortgageInterest', 'stateRefund'];
+const TAXDOC_SCHEMA = {
+  type: 'object', additionalProperties: false,
+  properties: {
+    forms: { type: 'array', items: { type: 'object', additionalProperties: false, properties: Object.assign({ form: { type: 'string', enum: TAXDOC_FORMS }, year: { type: 'number' }, state: { type: 'string' } }, Object.fromEntries(TAXDOC_FIELDS.map((f) => [f, { type: 'number' }]))), required: ['form', 'year', 'state'].concat(TAXDOC_FIELDS) } },
+    notes: { type: 'string' },
+  },
+  required: ['forms', 'notes'],
+};
+const TAXDOC_SYSTEM = [
+  'You read a US tax form (W-2, 1099-INT, 1099-DIV, 1099-NEC, 1099-MISC, 1099-R, 1099-G, 1099-B, 1099-K, 1098, 1095) for a personal-finance app and return only the dollar boxes asked for.',
+  'year is the tax year printed on the form. state is the two-letter state code shown in the state boxes, or an empty string. For each field use the amount from the matching box, or 0 if it is not shown: wages (W-2 box 1), fedWithheld (federal income tax withheld, W-2 box 2 or 1099 box 4), ssWages, ssWithheld, medicareWages, medicareWithheld, stateWages, stateWithheld, interest (1099-INT box 1), ordinaryDividends, qualifiedDividends, nonemployeeComp (1099-NEC box 1), otherIncome, retirementDistribution (1099-R gross), unemployment (1099-G box 1), mortgageInterest (1098 box 1), stateRefund (1099-G box 2).',
+  'If a document holds several forms return one entry per form. Never guess a number you cannot read. Never include names, addresses, SSNs, EINs or account numbers. If the document is not a tax form, return no forms and say why in notes.',
+].join(' ');
+function cleanTaxDocs(raw) {
+  const out = { forms: [], notes: '' };
+  if (!raw || typeof raw !== 'object') return out;
+  out.notes = String(raw.notes || '').replace(/\s+/g, ' ').trim().slice(0, 300);
+  for (const f of Array.isArray(raw.forms) ? raw.forms : []) {
+    if (!f || !TAXDOC_FORMS.includes(f.form)) continue;
+    const year = Math.round(Number(f.year));
+    if (!(year >= 1990 && year <= 2100)) continue;
+    const rec = { form: f.form, year, state: /^[A-Za-z]{2}$/.test(String(f.state || '')) ? String(f.state).toUpperCase() : '' };
+    let any = false;
+    for (const k of TAXDOC_FIELDS) { const v = Math.round(Number(f[k]) * 100) / 100; rec[k] = Number.isFinite(v) && v > 0 && v <= 1e8 ? v : 0; if (rec[k]) any = true; }
+    if (any) out.forms.push(rec);
+    if (out.forms.length >= 40) break;
+  }
+  return out;
+}
 const ADVICE_SCHEMA = {
   type: 'object', additionalProperties: false,
   properties: { bullets: { type: 'array', items: { type: 'object', additionalProperties: false, properties: { title: { type: 'string' }, detail: { type: 'string' } }, required: ['title', 'detail'] } } },
@@ -762,6 +832,56 @@ function createAI({ store, clientFactory }) {
     try { parsed = JSON.parse(body); } catch (e) { throw new Error('Claude returned an answer the app could not read. Try again.'); }
     return cleanServiceRecords(parsed);
   }
+  // One pay statement (a PDF or text the user chose) to its numbers. The page shows them for checking before anything is saved.
+  async function payStubFromText(text) {
+    const apiKey = store.get('anthropicKey');
+    if (!apiKey) throw new Error('Add your Anthropic API key first.');
+    const t = String(text || '').trim();
+    if (!t) throw new Error('There is no text to read in this file.');
+    if (t.length > 120000) throw new Error('This document is too long to send in one request.');
+    let msg;
+    try {
+      const stream = make(apiKey).messages.stream({
+        model: MODEL, max_tokens: 6000, system: PAYSTUB_SYSTEM,
+        output_config: { effort: 'low', format: { type: 'json_schema', schema: PAYSTUB_SCHEMA } },
+        messages: [{ role: 'user', content: JSON.stringify({ text: t }) }],
+      });
+      msg = await stream.finalMessage();
+    } catch (err) {
+      throw new Error(friendlyError(err));
+    }
+    if (msg.stop_reason === 'refusal') throw new Error('Claude declined to read this document. Nothing was changed.');
+    if (msg.stop_reason === 'max_tokens') throw new Error('The answer was cut off. Try a shorter document.');
+    const body = (msg.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('');
+    let parsed;
+    try { parsed = JSON.parse(body); } catch (e) { throw new Error('Claude returned an answer the app could not read. Try again.'); }
+    return cleanPayStubRecord(parsed);
+  }
+  // Tax forms (W-2, 1099s) to their dollar boxes, for checking before anything is saved.
+  async function taxDocFromText(text) {
+    const apiKey = store.get('anthropicKey');
+    if (!apiKey) throw new Error('Add your Anthropic API key first.');
+    const t = String(text || '').trim();
+    if (!t) throw new Error('There is no text to read in this file.');
+    if (t.length > 120000) throw new Error('This document is too long to send in one request.');
+    let msg;
+    try {
+      const stream = make(apiKey).messages.stream({
+        model: MODEL, max_tokens: 6000, system: TAXDOC_SYSTEM,
+        output_config: { effort: 'low', format: { type: 'json_schema', schema: TAXDOC_SCHEMA } },
+        messages: [{ role: 'user', content: JSON.stringify({ text: t }) }],
+      });
+      msg = await stream.finalMessage();
+    } catch (err) {
+      throw new Error(friendlyError(err));
+    }
+    if (msg.stop_reason === 'refusal') throw new Error('Claude declined to read this document. Nothing was changed.');
+    if (msg.stop_reason === 'max_tokens') throw new Error('The answer was cut off. Try a shorter document.');
+    const body = (msg.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('');
+    let parsed;
+    try { parsed = JSON.parse(body); } catch (e) { throw new Error('Claude returned an answer the app could not read. Try again.'); }
+    return cleanTaxDocs(parsed);
+  }
   // Written advice from the monthly numbers only (no names, addresses or account details).
   async function energyAdvice(summary) {
     const apiKey = store.get('anthropicKey');
@@ -786,7 +906,7 @@ function createAI({ store, clientFactory }) {
     return cleanAdvice(parsed);
   }
 
-  return { status, saveKey, clearKey, analyze, categorize, loansFromText, statement, statementPdf, testKey, carArt, creditShot, receipt, assetValue, energyFromText, energyAdvice, serviceFromText };
+  return { status, saveKey, clearKey, analyze, categorize, loansFromText, statement, statementPdf, testKey, carArt, creditShot, receipt, assetValue, energyFromText, energyAdvice, serviceFromText, payStubFromText, taxDocFromText };
 }
 
 // For a model running on this computer: the same job as the Claude version, but it must answer with plain JSON text.
@@ -800,4 +920,4 @@ function parseLocalLoans(reply) {
   return cleanLoans(parsed);
 }
 module.exports = {
-  LOANS_LOCAL_SYSTEM, parseLocalLoans, cleanLoans, cleanScoreShot, cleanReceipt, cleanAssetValue, cleanEnergyDocs, cleanAdvice, cleanServiceRecords, createAI, cleanResult, cleanStatement, friendlyError, detailOf, MODEL, SCHEMA, schemaFor, SYSTEM, MAX_STATEMENT_CHARS };
+  LOANS_LOCAL_SYSTEM, parseLocalLoans, cleanLoans, cleanScoreShot, cleanReceipt, cleanAssetValue, cleanEnergyDocs, cleanAdvice, cleanServiceRecords, cleanPayStubRecord, cleanTaxDocs, createAI, cleanResult, cleanStatement, friendlyError, detailOf, MODEL, SCHEMA, schemaFor, SYSTEM, MAX_STATEMENT_CHARS };

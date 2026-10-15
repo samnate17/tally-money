@@ -486,7 +486,7 @@ try{var _lk=JSON.parse(localStorage.getItem('tally-lock-v1')||'{}');if(_lk&&_lk.
 function load(){try{if(localStorage.getItem('tally-vault-v1')){VLT.on=true;VLT.locked=true;S=sample();migrate();syncCats();return}}catch(e){}try{var j=localStorage.getItem('tally-money-v1');if(j){S=JSON.parse(j);migrate();syncCats();undoInit();return}}catch(e){}S=sample();migrate();syncCats();undoInit()}
 function defCredit(){return {scores:[],profile:{late:'unknown',inq:'unknown',oldest:'',derog:'unknown'}}}
 function syncXfer(){setXferContext(S.accounts.filter(function(a){return a.type==='credit'}).map(function(a){return a.id}),S.xferLearn)}
-function migrate(){if(!Array.isArray(S.fuel))S.fuel=[];S.fuel=cleanFuel(S.fuel,uid);if(!S.energyCfg||typeof S.energyCfg!=='object'||Array.isArray(S.energyCfg))S.energyCfg={};if(S.weather&&!cleanWeather(S.weather))delete S.weather;if(!S.weather)S.weather={};if(!S.xferLearn||typeof S.xferLearn!=='object'||Array.isArray(S.xferLearn))S.xferLearn={};S.hideWords=cleanHideWords(S.hideWords);if(!Array.isArray(S.imports))S.imports=[];if(!S.payLinks||typeof S.payLinks!=='object'||Array.isArray(S.payLinks))S.payLinks={};if(!S.apple||typeof S.apple!=='object'||Array.isArray(S.apple))S.apple={};if(!S.billIgnore||typeof S.billIgnore!=='object'||Array.isArray(S.billIgnore))S.billIgnore={};if(S.cardPay!=='skip'&&S.cardPay!=='count')S.cardPay='auto';if(!S.home||typeof S.home!=='object'||Array.isArray(S.home))S.home={};if(!(S.debtMonthly>=0))S.debtMonthly=0;if(!Array.isArray(S.customCats))S.customCats=[];if(!Array.isArray(S.setAside))S.setAside=[];if(!S.merchantCats||typeof S.merchantCats!=='object'||Array.isArray(S.merchantCats))S.merchantCats={};if(!Array.isArray(S.energy))S.energy=[];if(!Array.isArray(S.bills))S.bills=[];if(!S.billMarks||typeof S.billMarks!=='object'||Array.isArray(S.billMarks))S.billMarks={};if(!S.subCats||typeof S.subCats!=='object'||Array.isArray(S.subCats))S.subCats={};if(!S.merchantSubs||typeof S.merchantSubs!=='object'||Array.isArray(S.merchantSubs))S.merchantSubs={};if(!Array.isArray(S.holdings))S.holdings=S.sample?sampleHoldings():[];if(!S.credit||!Array.isArray(S.credit.scores))S.credit=S.sample?sampleCredit():defCredit();if(!Array.isArray(S.plaidIgnored))S.plaidIgnored=[];if(!Array.isArray(S.accounts))S.accounts=S.sample?sampleAccounts():[];if(typeof S.extraPay!=='number')S.extraPay=S.sample?100:0}
+function migrate(){S.pay=cleanPayState(S.pay,uid);if(!Array.isArray(S.fuel))S.fuel=[];S.fuel=cleanFuel(S.fuel,uid);if(!S.energyCfg||typeof S.energyCfg!=='object'||Array.isArray(S.energyCfg))S.energyCfg={};if(S.weather&&!cleanWeather(S.weather))delete S.weather;if(!S.weather)S.weather={};if(!S.xferLearn||typeof S.xferLearn!=='object'||Array.isArray(S.xferLearn))S.xferLearn={};S.hideWords=cleanHideWords(S.hideWords);if(!Array.isArray(S.imports))S.imports=[];if(!S.payLinks||typeof S.payLinks!=='object'||Array.isArray(S.payLinks))S.payLinks={};if(!S.apple||typeof S.apple!=='object'||Array.isArray(S.apple))S.apple={};if(!S.billIgnore||typeof S.billIgnore!=='object'||Array.isArray(S.billIgnore))S.billIgnore={};if(S.cardPay!=='skip'&&S.cardPay!=='count')S.cardPay='auto';if(!S.home||typeof S.home!=='object'||Array.isArray(S.home))S.home={};if(!(S.debtMonthly>=0))S.debtMonthly=0;if(!Array.isArray(S.customCats))S.customCats=[];if(!Array.isArray(S.setAside))S.setAside=[];if(!S.merchantCats||typeof S.merchantCats!=='object'||Array.isArray(S.merchantCats))S.merchantCats={};if(!Array.isArray(S.energy))S.energy=[];if(!Array.isArray(S.bills))S.bills=[];if(!S.billMarks||typeof S.billMarks!=='object'||Array.isArray(S.billMarks))S.billMarks={};if(!S.subCats||typeof S.subCats!=='object'||Array.isArray(S.subCats))S.subCats={};if(!S.merchantSubs||typeof S.merchantSubs!=='object'||Array.isArray(S.merchantSubs))S.merchantSubs={};if(!Array.isArray(S.holdings))S.holdings=S.sample?sampleHoldings():[];if(!S.credit||!Array.isArray(S.credit.scores))S.credit=S.sample?sampleCredit():defCredit();if(!Array.isArray(S.plaidIgnored))S.plaidIgnored=[];if(!Array.isArray(S.accounts))S.accounts=S.sample?sampleAccounts():[];if(typeof S.extraPay!=='number')S.extraPay=S.sample?100:0}
 function ledger(){return ledgerOf(S.txns,S.cardPay)}
 function billCatOf(n){var c=guessCat(n);return {cat:c,sub:c==='Other'?'':(guessSub(c,n)||'')}}
 var showHidden=false;
@@ -594,6 +594,8 @@ var ICON={
  look:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="8.5" cy="10" r="1.2"/><circle cx="12" cy="7.5" r="1.2"/><circle cx="15.5" cy="10" r="1.2"/><path d="M12 21c-1.5 0-2-1-2-2s.8-1.8 1.6-2.4c.9-.7.6-2.1-.6-2.1H8"/></svg>',
  report:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 16v-3M12 16V8M16 16v-5"/></svg>',
  invest:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 17 6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>',
+ pay:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg>',
+ docs:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>',
  cards:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h4"/></svg>',
  credit:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 6v6c0 4.5 3.2 7.8 8 9 4.8-1.2 8-4.5 8-9V6z"/><path d="m9 12 2 2 4-4"/></svg>',
  afford:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5c0-1 1-1.7 2.5-1.7s2.5.7 2.5 1.7-1 1.5-2.5 1.8-2.5.8-2.5 1.8 1 1.7 2.5 1.7 2.5-.7 2.5-1.7"/></svg>',
@@ -603,7 +605,7 @@ var ICON={
  budgets:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v9h9"/><path d="M20.5 15A9 9 0 1 1 9 3.5"/></svg>',
  transactions:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h13M13 3l4 4-4 4M20 17H7M11 13l-4 4 4 4"/></svg>',
  goals:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg>'};
-var TABS=[['overview','Overview'],['dash','Dashboard','Live'],['accounts','Accounts'],['assets','Assets'],['subscriptions','Subscriptions','Subs'],['bills','Bills','Bills'],['energy','Energy'],['budgets','Budgets'],['report','Monthly report','Report'],['afford','Can I afford it?','Afford'],['credit','Credit score','Score'],['cards','Credit cards','Cards'],['invest','Investments','Invest'],['transactions','Transactions','Activity'],['goals','Goals'],['loans','Loans'],['mortgage','Mortgage','Home'],['assist','Assistant','Chat'],['look','Settings','Settings']];
+var TABS=[['overview','Overview'],['dash','Dashboard','Live'],['accounts','Accounts'],['pay','My pay','Pay'],['docs','Documents','Docs'],['assets','Assets'],['subscriptions','Subscriptions','Subs'],['bills','Bills','Bills'],['energy','Energy'],['budgets','Budgets'],['report','Monthly report','Report'],['afford','Can I afford it?','Afford'],['credit','Credit score','Score'],['cards','Credit cards','Cards'],['invest','Investments','Invest'],['transactions','Transactions','Activity'],['goals','Goals'],['loans','Loans'],['mortgage','Mortgage','Home'],['assist','Assistant','Chat'],['look','Settings','Settings']];
 function nav(){
   function items(short){return TABS.map(function(t){return '<button class="nav" data-view="'+t[0]+'"'+(view===t[0]?' aria-current="page"':'')+'>'+ICON[t[0]]+'<span>'+(short&&t[2]||t[1])+'</span></button>'}).join('')}
   var h=items(false);
@@ -625,7 +627,7 @@ function refreshAll(){
 }
 function render(){
   syncXfer();nav();
-  var f={energy:vEnergy,bills:vBills,loans:vLoansHub,mortgage:vMortgage,carloan:function(){loanFilter='auto';return vLoansHub()},student:function(){loanFilter='student';return vLoansHub()},look:vLook,overview:vOverview,dash:vDash,assist:vAssist,accounts:vAccounts,assets:vAssets,afford:vAfford,credit:vCredit,cards:vCards,invest:vInvest,report:vReport,subscriptions:vSubs,budgets:vBudgets,transactions:vTx,goals:vGoals}[view];
+  var f={energy:vEnergy,bills:vBills,loans:vLoansHub,mortgage:vMortgage,carloan:function(){loanFilter='auto';return vLoansHub()},student:function(){loanFilter='student';return vLoansHub()},look:vLook,overview:vOverview,dash:vDash,assist:vAssist,accounts:vAccounts,assets:vAssets,afford:vAfford,credit:vCredit,cards:vCards,pay:vPay,docs:vDocs,invest:vInvest,report:vReport,subscriptions:vSubs,budgets:vBudgets,transactions:vTx,goals:vGoals}[view];
   var cb=HOSTED&&AUTH.conflict?'<div class="banner" id="conflict"><span><b>This account changed on another device.</b> Choose which version to keep.</span><span style="flex:0 0 auto;display:flex;gap:8px"><button class="btn small" data-act="cf-remote">Use the other version</button><button class="btn small primary" data-act="cf-local">Keep this device\'s version</button></span></div>':'';
   var banner=cb+updBanner()+(S.sample?'<div class="banner"><span><b>Example data.</b> These accounts and transactions are made up so you can try everything. Clear them to start with your own, or import a CSV from your bank.</span><button class="btn primary small" data-act="clear">Start fresh</button></div>':'');
   var body=f();
@@ -891,6 +893,9 @@ function homeScreen(sp,inc,nw){
   // credit score
   var cser=scoreSeries(S.credit.scores);
   if(cser.length){cards.push(hcard('credit','Credit score',cser.map(function(x){return '<div class="hrow"><span>'+esc(x.name)+'</span><b class="num '+x.band.k+'">'+x.last.score+'</b></div>'}).join('')+'<div class="sub" style="margin-top:6px">'+(cser[0].diff!==null?(cser[0].diff>=0?'Up ':'Down ')+Math.abs(cser[0].diff)+' since last time':'Latest scores')+'</div>'))}
+  // next paycheck
+  var pnx=payNext(payStubs(),TODAY);
+  if(pnx)cards.push(hcard('pay','Next paycheck','<div class="hnum num good">~'+money0(pnx.net)+'</div><div class="sub">'+(pnx.days===0?'today':pnx.days===1?'tomorrow':'in '+pnx.days+' days')+' \u00b7 '+shortDate(pnx.date)+'</div>'+(pnx.overdue?'<div class="sub warn" style="margin-top:6px">Expected earlier. Check it arrived.</div>':'')))
   // vehicle upkeep
   var upk=maintSavings(assetAccts(),TODAY,12);
   if(upk.items.length&&upk.monthly>0){var u0=upk.items[0];cards.push(hcard('assets','Upkeep coming','<div class="hnum num">'+money0(upk.monthly)+'<span class="muted" style="font-size:14px">/mo</span></div><div class="sub">to put aside</div><div class="sub" style="margin-top:6px">'+esc(u0.name)+' '+(u0.overdue?'<span class="bad">overdue</span>':'in '+u0.days+' d')+' \u00b7 '+money0(u0.cost)+'</div>'))}
@@ -1875,6 +1880,132 @@ function fuelMerge(existing,incoming,newId){
   return {records:out,added:added,dups:dups};
 }
 /*FUELIMPORT-END*/
+/*PAY-START*/
+// Pay statements: what you earn, what comes out, what to expect next, and what changed since the last paycheck.
+var PAY_SECTIONS={earnings:'Earnings',tax:'Taxes',benefit:'Benefits',retirement:'Retirement',deduction:'After-tax deductions',other:'Other'};
+function payNum(v,max){var n=Math.round((+v)*100)/100;return isFinite(n)&&Math.abs(n)<=(max||1e7)?n:null}
+function payStr(v,n){return String(v==null?'':v).replace(/[<>"]/g,'').replace(/\s+/g,' ').trim().slice(0,n)}
+// Keeps only fields the app understands, so a damaged backup or a misread statement cannot put junk in the page.
+function cleanPayStub(raw,newId){
+  if(!raw||typeof raw!=='object'||Array.isArray(raw))return null;
+  var dre=/^\d{4}-\d{2}-\d{2}$/;if(!dre.test(raw.payDate||''))return null;
+  var g=payNum(raw.gross),n=payNum(raw.net);if(g===null||n===null||g<0)return null;
+  var o={id:/^[\w-]{1,40}$/.test(raw.id||'')?raw.id:newId(),payDate:raw.payDate,gross:g,net:n,lines:[]};
+  if(dre.test(raw.periodStart||''))o.periodStart=raw.periodStart;if(dre.test(raw.periodEnd||''))o.periodEnd=raw.periodEnd;
+  var h=payNum(raw.hours,10000);if(h!==null&&h>0)o.hours=h;
+  var yg=payNum(raw.ytdGross),yn=payNum(raw.ytdNet);if(yg!==null&&yg>0)o.ytdGross=yg;if(yn!==null&&yn>0)o.ytdNet=yn;
+  if(/^[\w-]{1,20}$/.test(raw.doc||''))o.doc=raw.doc;
+  (Array.isArray(raw.lines)?raw.lines:[]).slice(0,60).forEach(function(l){
+    if(!l||!PAY_SECTIONS[l.section])return;var nm=payStr(l.name,60),a=payNum(l.amount);if(!nm||a===null)return;
+    var r={section:l.section,name:nm,amount:Math.abs(a)};var y=payNum(l.ytd);if(y!==null&&y>0)r.ytd=y;o.lines.push(r)});
+  return o;
+}
+function payTotals(s){
+  var t={earnings:0,tax:0,benefit:0,retirement:0,deduction:0,other:0};
+  (s.lines||[]).forEach(function(l){t[l.section]+=l.amount});
+  var out=t.tax+t.benefit+t.retirement+t.deduction;
+  // Earnings lines should add up to gross; if the statement did not list them, gross stands alone.
+  var chk=s.gross-out-s.net;
+  return {gross:s.gross,net:s.net,tax:t.tax,benefit:t.benefit,retirement:t.retirement,deduction:t.deduction,other:t.other,taken:out,unexplained:Math.round(chk*100)/100,fedRate:0,earnLines:t.earnings};
+}
+function payCanon(name){
+  var n=String(name||'').toLowerCase();
+  if(/fed/.test(n)&&/(income|tax|withh|fit)/.test(n))return 'federal tax';
+  if(/social|oasdi|\bss\b|fica.*ss/.test(n))return 'social security';
+  if(/medicare|\bmed\b/.test(n)&&!/addl|additional/.test(n))return 'medicare';
+  if(/401|403|retire|roth|pension/.test(n))return n.replace(/[^a-z0-9]/g,'');
+  return n.replace(/[^a-z0-9]/g,'');
+}
+function payFreqOf(stubs){
+  var d=stubs.map(function(s){return s.payDate}).sort(),gaps=[];
+  for(var i=1;i<d.length;i++){var g=Math.round((Date.parse(d[i])-Date.parse(d[i-1]))/864e5);if(g>0)gaps.push(g)}
+  if(!gaps.length)return null;
+  var s=gaps.slice().sort(function(a,b){return a-b}),m=s[Math.floor(s.length/2)];
+  if(m<=8)return {key:'weekly',days:7,perYear:52,label:'weekly'};
+  if(m<=17&&gaps.filter(function(g){return g===14}).length>=gaps.length*0.7)return {key:'biweekly',days:14,perYear:26,label:'every two weeks'};
+  if(m<=17)return {key:'semimonthly',days:15,perYear:24,label:'twice a month'};
+  return {key:'monthly',days:30,perYear:12,label:'monthly'};
+}
+function payIso(d){return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2)}
+function payParse(s){var p=s.split('-');return new Date(+p[0],+p[1]-1,+p[2])}
+// The next paycheck: its date and what it should roughly be (the middle of the last three).
+function payNext(stubs,today,freqOverride){
+  if(!stubs.length)return null;
+  var sorted=stubs.slice().sort(function(a,b){return a.payDate<b.payDate?-1:1}),last=sorted[sorted.length-1],f=freqOverride||payFreqOf(sorted);
+  if(!f)return null;
+  var t0=new Date(today.getFullYear(),today.getMonth(),today.getDate()),d=payParse(last.payDate),guard=0;
+  var step=function(x){
+    if(f.key==='semimonthly'){var y=x.getFullYear(),m=x.getMonth(),d1=sorted.length>1?payParse(sorted[sorted.length-2].payDate).getDate():15,d2=payParse(last.payDate).getDate(),lo=Math.min(d1,d2),hi=Math.max(d1,d2);
+      if(hi-lo<10){lo=15;hi=99}else if(hi>=28)hi=99;
+      var eom=new Date(y,m+1,0).getDate(),bb=Math.min(hi,eom);
+      if(x.getDate()<bb)return new Date(y,m,bb);
+      return new Date(y,m+1,Math.min(lo,new Date(y,m+2,0).getDate()))}
+    if(f.key==='monthly'){var ld=payParse(last.payDate),dd=ld.getDate(),atEom=dd===new Date(ld.getFullYear(),ld.getMonth()+1,0).getDate(),nm=new Date(x.getFullYear(),x.getMonth()+1,1),eomN=new Date(nm.getFullYear(),nm.getMonth()+1,0).getDate();return new Date(nm.getFullYear(),nm.getMonth(),atEom?eomN:Math.min(dd,eomN))}
+    return new Date(x.getFullYear(),x.getMonth(),x.getDate()+f.days)};
+  d=step(d);while(d<t0&&guard++<200)d=step(d);
+  var recent=sorted.slice(-3).map(function(s){return s.net}).sort(function(a,b){return a-b}),grossR=sorted.slice(-3).map(function(s){return s.gross}).sort(function(a,b){return a-b});
+  var late=step(payParse(last.payDate)),overdue=late<t0;
+  return {date:payIso(d),days:Math.round((d-t0)/864e5),net:recent[Math.floor(recent.length/2)],gross:grossR[Math.floor(grossR.length/2)],freq:f,overdue:overdue,expected:payIso(late)};
+}
+// Did the deposit of the paycheck that should already have arrived show up? Looks for income close to the take-home amount.
+function payArrived(stubs,txns,today){
+  var nx=payNext(stubs,today);if(!nx||!nx.overdue)return null;
+  var from=Date.parse(nx.expected)-3*864e5,hit=txns.filter(function(x){return x.amount>0&&Date.parse(x.date)>=from&&Math.abs(x.amount-nx.net)<=nx.net*0.15}).sort(function(a,b){return b.date<a.date?-1:1})[0];
+  return {expected:nx.expected,net:nx.net,found:hit||null};
+}
+// What changed on the latest paycheck compared with the one before it.
+function payChanges(stubs){
+  var s=stubs.slice().sort(function(a,b){return a.payDate<b.payDate?-1:1}),out=[],m=function(v){return '$'+Math.abs(Math.round(v)).toLocaleString('en-US')};
+  if(!s.length)return out;
+  var cur=s[s.length-1],pre=s.length>1?s[s.length-2]:null,ct=payTotals(cur);
+  if(Math.abs(ct.unexplained)>Math.max(2,cur.gross*0.01)&&cur.lines.length)out.push({k:'info',title:'This statement does not add up by '+m(ct.unexplained),detail:'Gross minus the taxes and deductions listed does not equal take-home. A line may be missing or misread; check it against your statement.'});
+  if(!pre)return out;
+  var pt=payTotals(pre),netD=cur.net-pre.net,grossD=cur.gross-pre.gross;
+  var map=function(st){var o={};st.lines.forEach(function(l){var k=payCanon(l.name);o[k]=o[k]||{name:l.name,section:l.section,amt:0};o[k].amt+=l.amount});return o},cm=map(cur),pm=map(pre),keys={};
+  Object.keys(cm).concat(Object.keys(pm)).forEach(function(k){keys[k]=1});
+  var effects=Object.keys(keys).map(function(k){var a=cm[k]?cm[k].amt:0,b=pm[k]?pm[k].amt:0,sec=(cm[k]||pm[k]).section,d=a-b;return {name:(cm[k]||pm[k]).name,section:sec,delta:d,effect:sec==='earnings'?d:-d,now:a,was:b}}).filter(function(e){return Math.abs(e.delta)>=1}).sort(function(a,b){return Math.abs(b.effect)-Math.abs(a.effect)});
+  if(Math.abs(netD)>=Math.max(5,pre.net*0.02)){
+    var why=effects.slice(0,3).map(function(e){return e.name+' '+(e.effect>=0?'+':'-')+m(e.effect)}).join(', ');
+    out.push({k:netD>0?'good':'warn',title:'Take-home pay '+(netD>0?'went up ':'went down ')+m(netD)+' ('+(Math.abs(netD)/pre.net*100).toFixed(1)+'%)',detail:(why?'The biggest reasons: '+why+'. ':'')+'Compared with the paycheck dated '+pre.payDate+'.'});
+  }
+  Object.keys(cm).forEach(function(k){if(!pm[k]&&cm[k].amt>=1)out.push({k:cm[k].section==='earnings'?'good':'warn',title:'New on this paycheck: '+cm[k].name+' '+m(cm[k].amt),detail:cm[k].section==='earnings'?'Extra pay, such as a bonus or overtime, will not repeat every period.':'A new '+PAY_SECTIONS[cm[k].section].toLowerCase()+' line. Check it is expected.'})});
+  Object.keys(pm).forEach(function(k){if(!cm[k]&&pm[k].amt>=1)out.push({k:'info',title:'No longer on this paycheck: '+pm[k].name,detail:'It was '+m(pm[k].amt)+' last time.'})});
+  if(cur.gross>0&&pre.gross>0){
+    var fed=function(map){return map['federal tax']?map['federal tax'].amt:0},fc=fed(cm)/cur.gross*100,fp=fed(pm)/pre.gross*100;
+    if(fed(cm)>0&&fed(pm)>0&&Math.abs(fc-fp)>=1.5&&Math.abs(grossD)<pre.gross*0.15)out.push({k:'warn',title:'Federal tax withholding changed from '+fp.toFixed(1)+'% to '+fc.toFixed(1)+'% of gross',detail:'Without a big change in gross pay this usually means a new W-4, a different withholding table, or an adjustment. It changes your refund or bill at tax time.'});
+    var rc=ct.retirement/cur.gross*100,rp=pt.retirement/pre.gross*100;
+    if(Math.abs(rc-rp)>=1&&(rc>0||rp>0))out.push({k:'info',title:'Retirement contribution changed from '+rp.toFixed(1)+'% to '+rc.toFixed(1)+'% of gross',detail:'Check that it is what you chose, and whether you still get the full employer match.'});
+  }
+  if(Math.abs(ct.benefit-pt.benefit)>=5&&Math.abs(grossD)<pre.gross*0.15)out.push({k:'info',title:'Benefit deductions '+(ct.benefit>pt.benefit?'went up ':'went down ')+m(ct.benefit-pt.benefit),detail:'Health, dental, vision and similar premiums changed. Open enrollment or a life change usually causes this.'});
+  if(cur.hours>0&&pre.hours>0&&Math.abs(cur.hours-pre.hours)>=1&&Math.abs(grossD)>=1)out.push({k:'info',title:'Hours changed from '+pre.hours+' to '+cur.hours,detail:'That explains '+(grossD>0?'a higher':'a lower')+' gross of '+m(grossD)+(cur.hours>0&&pre.hours>0&&Math.abs(cur.gross/cur.hours-pre.gross/pre.hours)>0.25?'. The hourly rate also differs, which looks like a raise or a different pay type.':'.')});
+  if(cur.ytdGross>0&&pre.ytdGross>0){var step=cur.ytdGross-pre.ytdGross;if(step<cur.gross*0.97||step>cur.gross*1.03)out.push({k:'warn',title:'Year-to-date gross rose by '+m(step)+', but this paycheck is '+m(cur.gross),detail:'A missing statement, a correction or a back-pay adjustment in between can cause this.'})}
+  if(grossD>=1&&cur.gross>=pre.gross*1.02&&!out.some(function(o){return /New on/.test(o.title)})&&!(cur.hours>0&&pre.hours>0&&cur.hours!==pre.hours))out.push({k:'good',title:'Gross pay went up '+m(grossD)+' ('+(grossD/pre.gross*100).toFixed(1)+'%)',detail:'No new pay line explains it, so this looks like a raise.'});
+  var rank={warn:0,good:1,info:2};return out.sort(function(a,b){return rank[a.k]-rank[b.k]});
+}
+// Totals for a calendar year from statements, with the rest of the year estimated from the usual paycheck.
+function payYear(stubs,year,today){
+  var inYear=stubs.filter(function(s){return s.payDate.slice(0,4)===String(year)}).sort(function(a,b){return a.payDate<b.payDate?-1:1});
+  if(!inYear.length)return null;
+  var f=payFreqOf(stubs.slice().sort(function(a,b){return a.payDate<b.payDate?-1:1}))||{perYear:12,label:'monthly'},last=inYear[inYear.length-1],sum={gross:0,net:0,tax:0,benefit:0,retirement:0,deduction:0,n:inYear.length,fed:0,ss:0,medicare:0,state:0};
+  inYear.forEach(function(s){var t=payTotals(s);sum.gross+=s.gross;sum.net+=s.net;sum.tax+=t.tax;sum.benefit+=t.benefit;sum.retirement+=t.retirement;sum.deduction+=t.deduction;
+    s.lines.forEach(function(l){if(l.section!=='tax')return;var c=payCanon(l.name);if(c==='federal tax')sum.fed+=l.amount;else if(c==='social security')sum.ss+=l.amount;else if(c==='medicare')sum.medicare+=l.amount;else if(/state|\bst\b|\bsit\b/i.test(l.name))sum.state+=l.amount})});
+  // A statement's year-to-date total is more reliable than the sum of the statements you added (you may be missing some).
+  var ytdG=last.ytdGross>0?last.ytdGross:sum.gross,ytdFactor=sum.gross>0?ytdG/sum.gross:1;
+  var periodsLeft=Math.max(0,Math.round(f.perYear*(1-((today.getTime()-new Date(year,0,1).getTime())/864e5)/365)));
+  var typical=inYear.slice(-3),avg=function(k){return typical.reduce(function(n,s){return n+(k==='gross'?s.gross:k==='net'?s.net:payTotals(s)[k])},0)/typical.length};
+  return {year:year,count:sum.n,sumGross:sum.gross,ytdGross:ytdG,ytdFactor:ytdFactor,perPeriod:{gross:avg('gross'),net:avg('net'),tax:avg('tax'),retirement:avg('retirement'),benefit:avg('benefit')},periodsLeft:periodsLeft,freq:f,
+    projGross:ytdG+avg('gross')*periodsLeft,projNet:sum.net*ytdFactor+avg('net')*periodsLeft,withheldFed:sum.fed*ytdFactor,withheldState:sum.state*ytdFactor,withheldSS:sum.ss*ytdFactor,withheldMed:sum.medicare*ytdFactor,
+    fedPerPeriod:typical.reduce(function(n,s){return n+s.lines.filter(function(l){return l.section==='tax'&&payCanon(l.name)==='federal tax'}).reduce(function(m,l){return m+l.amount},0)},0)/typical.length,
+    statePerPeriod:typical.reduce(function(n,s){return n+s.lines.filter(function(l){return l.section==='tax'&&/state|\bst\b|\bsit\b/i.test(l.name)}).reduce(function(m,l){return m+l.amount},0)},0)/typical.length,
+    retirementPerPeriod:avg('retirement'),benefitPerPeriod:avg('benefit')};
+}
+function cleanPayState(raw,newId){
+  var out={stubs:[]},seen={};
+  (raw&&Array.isArray(raw.stubs)?raw.stubs:[]).slice(0,400).forEach(function(r){var st=cleanPayStub(r,newId);if(!st)return;var k=st.payDate+'|'+st.net;if(seen[k])return;seen[k]=1;out.stubs.push(st)});
+  out.stubs.sort(function(a,b){return a.payDate<b.payDate?-1:1});out.stubs=out.stubs.slice(-200);
+  return out;
+}
+/*PAY-END*/
 /*CARDS-START*/
 // One credit card's own story: what it was used for, what was paid, what it cost and how its balance moved. Needs transactions linked to the card (acct).
 var CARD_PAYWORD=/payment|pmt|autopay|thank you/i;
@@ -5247,7 +5378,18 @@ function unlinkedVehPanel(list){
   return '<section class="panel"><h2>Repairs not linked to a vehicle<small>'+un.length+' transaction'+(un.length===1?'':'s')+'</small></h2>'+un.slice(0,4).map(function(x){return '<div class="row"><div class="grow"><div class="nm">'+esc(x.name)+'</div><div class="sub">'+shortDate(x.date)+(x.sub?' · '+esc(x.sub):'')+'</div></div><div class="amt num">'+money(Math.abs(x.amount))+'</div></div>'}).join('')+(un.length>4?'<div class="sub muted">and '+(un.length-4)+' more.</div>':'')+
     '<div class="form" style="align-items:flex-end;margin-top:8px"><label>Link them to<select id="veh-pick">'+list.map(function(a){return '<option value="'+esc(a.id)+'">'+esc(a.name)+'</option>'}).join('')+'</select></label><button class="btn small primary" data-act="as-linkall">Link them all</button></div><p class="sub muted" style="margin:6px 0 0;font-size:12px">Or link one at a time: Edit the transaction and pick the vehicle.</p></section>';
 }
+function payBind(m){
+  m.querySelectorAll('[data-payfile]').forEach(function(inp){inp.onchange=function(){payRead(inp)}});
+  m.querySelectorAll('[data-docfile]').forEach(function(inp){inp.onchange=function(){docsRead(inp)}});
+  m.querySelectorAll('.paystubform').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();var g=function(n){var v=parseFloat(fm.elements[n].value);return v>=0?v:0},d=fm.elements['d'].value,gross=g('g');
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(d)||!(gross>0)){toast('Enter the pay date and the gross pay.');return}
+    var L=function(sec,name,v){return v>0?{section:sec,name:name,amount:v}:null},lines=[L('earnings','Gross pay',gross),L('tax','Federal income tax',g('fed')),L('tax','Social security',g('ss')),L('tax','Medicare',g('med')),L('tax','State income tax',g('st')),L('tax','Other taxes',g('lt')),L('benefit','Health, dental, vision',g('hl')),L('benefit','Other pre-tax',g('ob')),L('retirement','Retirement (401k)',g('k')),L('deduction','After-tax deductions',g('ad'))].filter(Boolean);
+    var out=g('fed')+g('ss')+g('med')+g('st')+g('lt')+g('hl')+g('ob')+g('k')+g('ad'),net=fm.elements['n'].value!==''?g('n'):Math.round((gross-out)*100)/100;
+    var st=cleanPayStub({payDate:d,periodStart:fm.elements['ps'].value,periodEnd:fm.elements['pe'].value,hours:g('h'),gross:gross,net:net,lines:lines},uid);if(!st){toast('Those numbers could not be saved.');return}
+    paySave(st,null,'');mypayUI.manual=false;save();render();toast('Statement saved.')}});
+}
 function asBind(m){
+  payBind(m);
   m.querySelectorAll('[data-svcfile]').forEach(function(inp){inp.onchange=function(){svcRead(inp)}});
   var f=function(sel,fn){m.querySelectorAll(sel).forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();if(asGuard())return;fn(fm,fm.elements)}})};
   f('#assetform',function(fm,el){
@@ -5274,7 +5416,7 @@ function svcRead(inp){
   if(f.size>25e6){asUI.svcMsg='Choose a file under 25 MB.';asUI.svcMsgId=id;render();return}
   var rd=new FileReader();rd.onload=function(){
     asUI.svcBusy=id;asUI.svcMsg='';asUI.svc=null;render();
-    tcall(T.loan.readFile(rd.result,f.name)).then(function(r){return tcall(T.ai.service(r.textId))}).then(function(r){
+    tcall(T.loan.readFile(rd.result,f.name)).then(function(r){if(T.docs)tcall(T.docs.save('Vehicle records',f.name,rd.result,TODAY.getFullYear())).catch(function(){});return tcall(T.ai.service(r.textId))}).then(function(r){
       asUI.svcBusy='';var a=asById(id);
       if(!r.records.length){asUI.svcMsg=r.notes||'Claude did not find any service records in that file.';asUI.svcMsgId=id;render();return}
       asUI.svc={id:id,name:f.name,n:r.records.length,recs:r.records,merge:mergeServiceRecords(a.asset,r.records)};render();
@@ -5485,6 +5627,141 @@ function enLoadWeather(quiet){
 function enAfterRead(r,fileName,fuel){
   if(!r.ok){enUI.msg=r.error||'Nothing found.';enUI.imp=null;enUI.busy='';render();return}
   enUI.imp={records:r.records.filter(function(x){return FUELS[x.fuel]}),file:fileName,notes:r.notes||'',skipped:r.skipped||0};enUI.busy='';enUI.msg='';render();
+}
+/* ---------- My pay: pay statements, the next paycheck and what changed ---------- */
+var mypayUI={sel:'',adding:false,manual:false,imp:null,impBuf:null,impName:'',busy:'',msg:''};
+function payStubs(){return (S.pay&&S.pay.stubs||[]).slice().sort(function(a,b){return a.payDate<b.payDate?-1:1})}
+function payLongDate(d){return payParse(d).toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})}
+// The deposit in your accounts that matches a statement's take-home, if any.
+function payDeposit(stub){
+  var t=Date.parse(stub.payDate),best=null;
+  S.txns.forEach(function(x){if(x.amount<=0||x.cat!=='Income')return;var dd=Math.abs(Date.parse(x.date)-t)/864e5;if(dd>5)return;var df=Math.abs(x.amount-stub.net);if(df>Math.max(1,stub.net*0.01))return;if(!best||df<best.df)best={tx:x,df:df}});
+  return best?best.tx:null;
+}
+function payStack(stub){
+  var t=payTotals(stub),g=Math.max(1,stub.gross),parts=[['Taxes',t.tax,'var(--bad)'],['Benefits',t.benefit,'#f59e0b'],['Retirement',t.retirement,'var(--accent)'],['After-tax',t.deduction,'#7c3aed'],['Take-home',Math.max(0,stub.net),'var(--good)']].filter(function(p){return p[1]>0});
+  return '<div style="display:flex;height:16px;border-radius:8px;overflow:hidden;margin:10px 0 6px" role="img" aria-label="How the gross pay is split">'+parts.map(function(p){return '<i style="width:'+(p[1]/g*100)+'%;background:'+p[2]+'" title="'+esc(p[0]+' '+money0(p[1]))+'"></i>'}).join('')+'</div>'+
+    '<div class="sub" style="display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px">'+parts.map(function(p){return '<span><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:'+p[2]+';margin-right:5px"></i>'+p[0]+' '+money0(p[1])+' ('+Math.round(p[1]/g*100)+'%)</span>'}).join('')+'</div>';
+}
+function payStatement(stub){
+  var t=payTotals(stub),dep=payDeposit(stub),h='<section class="panel paystub"><h2>Pay statement<small>paid '+shortDate(stub.payDate)+(stub.periodStart&&stub.periodEnd?' · period '+shortDate(stub.periodStart)+' to '+shortDate(stub.periodEnd):'')+'</small></h2>';
+  h+='<div class="grid tiles">'+tile('Gross pay',money0(stub.gross),stub.hours>0?stub.hours+' hours · '+money(stub.gross/stub.hours)+'/hr':'')+tile('Taxes','<span class="bad">'+money0(t.tax)+'</span>',(stub.gross>0?(t.tax/stub.gross*100).toFixed(1):0)+'% of gross')+tile('Deductions',money0(t.benefit+t.retirement+t.deduction),'benefits, retirement, after-tax')+tile('Net pay','<span class="good">'+money0(stub.net)+'</span>',dep?'Deposited '+shortDate(dep.date):'<span class="muted">no matching deposit found</span>')+'</div>'+payStack(stub);
+  ['earnings','tax','benefit','retirement','deduction','other'].forEach(function(sec){
+    var ls=stub.lines.filter(function(l){return l.section===sec});if(!ls.length)return;
+    var sum=ls.reduce(function(n,l){return n+l.amount},0),hasY=ls.some(function(l){return l.ytd>0});
+    h+='<details open style="margin-top:12px"><summary style="cursor:pointer;display:flex;justify-content:space-between;gap:8px;font-weight:700"><span>'+PAY_SECTIONS[sec]+'</span><span class="num">'+money(sum)+'</span></summary><table class="maptable" style="width:100%;margin-top:6px"><thead><tr><th>Item</th><th>This period</th>'+(hasY?'<th>Year to date</th>':'')+'</tr></thead><tbody>'+ls.map(function(l){return '<tr><td>'+esc(l.name)+'</td><td class="num">'+money(l.amount)+'</td>'+(hasY?'<td class="num">'+(l.ytd>0?money(l.ytd):'')+'</td>':'')+'</tr>'}).join('')+'</tbody></table></details>';
+  });
+  h+='<div class="row" style="margin-top:12px;font-weight:700"><div class="grow">Net pay</div><div class="amt num good">'+money(stub.net)+'</div></div>';
+  if(Math.abs(t.unexplained)>Math.max(2,stub.gross*0.01)&&stub.lines.length)h+='<p class="sub warn" style="margin:6px 0 0;white-space:normal">The items above do not add up to the take-home by '+money(Math.abs(t.unexplained))+'. A line may be missing; compare with your statement.</p>';
+  if(stub.ytdGross>0)h+='<p class="sub" style="margin:8px 0 0">Year to date: '+money0(stub.ytdGross)+' gross'+(stub.ytdNet>0?', '+money0(stub.ytdNet)+' take-home':'')+'.</p>';
+  return h+'<div class="actions" style="justify-content:flex-end;margin-top:8px"><button class="btn small danger" data-act="pay-del" data-id="'+esc(stub.id)+'">Remove this statement</button></div></section>';
+}
+function payBars(stubs){
+  var s=stubs.slice(-12),W=520,H=120,n=s.length,mx=Math.max.apply(null,s.map(function(x){return x.gross}).concat([1])),bw=W/n,out='';
+  s.forEach(function(x,i){var gx=i*bw,w=(bw-6)/2,hg=x.gross/mx*H,hn=x.net/mx*H;
+    out+='<rect x="'+(gx+3)+'" y="'+(H-hg)+'" width="'+w+'" height="'+hg+'" rx="2" fill="var(--accent)" opacity=".5"><title>'+esc(shortDate(x.payDate)+': gross '+money0(x.gross))+'</title></rect><rect x="'+(gx+3+w)+'" y="'+(H-hn)+'" width="'+w+'" height="'+hn+'" rx="2" fill="var(--good)" opacity=".9"><title>'+esc(shortDate(x.payDate)+': take-home '+money0(x.net))+'</title></rect><text x="'+(gx+bw/2)+'" y="'+(H+13)+'" text-anchor="middle" font-size="9" style="fill:var(--muted)">'+esc(shortDate(x.payDate).replace(/,.*/,''))+'</text>'});
+  return '<svg viewBox="0 0 '+W+' '+(H+18)+'" width="100%" style="max-width:600px" role="img" aria-label="Gross and take-home pay by paycheck">'+out+'</svg><div class="sub" style="display:flex;gap:12px;font-size:12px"><span><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--accent);opacity:.5;margin-right:5px"></i>Gross</span><span><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--good);margin-right:5px"></i>Take-home</span></div>';
+}
+function payForm(){
+  var f=function(n,l,ph){return '<label>'+l+'<input name="'+n+'" type="number" min="0" step="0.01" placeholder="'+(ph||'0.00')+'" style="width:110px"></label>'};
+  return '<section class="panel"><h2>Add a pay statement by hand</h2><form class="paystubform"><div class="form" style="align-items:flex-end"><label>Pay date<input name="d" type="date" required></label><label>Period start<input name="ps" type="date"></label><label>Period end<input name="pe" type="date"></label>'+f('h','Hours','80')+f('g','Gross pay')+'</div>'+
+    '<div class="form" style="align-items:flex-end;margin-top:8px">'+f('fed','Federal tax')+f('ss','Social security')+f('med','Medicare')+f('st','State tax')+f('lt','Other taxes')+'</div>'+
+    '<div class="form" style="align-items:flex-end;margin-top:8px">'+f('hl','Health, dental, vision')+f('ob','Other pre-tax')+f('k','Retirement (401k)')+f('ad','After-tax deductions')+f('n','Net pay','(worked out if blank)')+'</div>'+
+    '<div class="actions" style="justify-content:flex-start;margin-top:10px"><button class="btn primary small">Save statement</button><button type="button" class="btn small" data-act="pay-manual">Cancel</button></div></form></section>';
+}
+function payImpPreview(){
+  var im=mypayUI.imp;if(!im)return '';
+  var t=payTotals(im),dup=S.pay.stubs.some(function(s){return s.payDate===im.payDate&&Math.abs(s.net-im.net)<0.5});
+  return '<section class="panel"><h2>Check this before saving<small>read from '+esc(mypayUI.impName)+'</small></h2><p class="sub" style="margin:0 0 8px;white-space:normal">Claude read these numbers; compare them with your statement. Nothing is saved until you press Save.</p>'+
+    '<div class="grid tiles">'+tile('Pay date',shortDate(im.payDate),im.periodStart&&im.periodEnd?shortDate(im.periodStart)+' to '+shortDate(im.periodEnd):'')+tile('Gross',money(im.gross),im.hours?im.hours+' hours':'')+tile('Taxes',money(t.tax),'')+tile('Net',money(im.net),Math.abs(t.unexplained)>Math.max(2,im.gross*0.01)?'<span class="warn">items differ by '+money(Math.abs(t.unexplained))+'</span>':'adds up')+'</div>'+
+    ['earnings','tax','benefit','retirement','deduction','other'].map(function(sec){var ls=im.lines.filter(function(l){return l.section===sec});return ls.length?'<div class="sub" style="margin-top:8px"><b>'+PAY_SECTIONS[sec]+'</b>: '+ls.map(function(l){return esc(l.name)+' '+money(l.amount)}).join(' · ')+'</div>':''}).join('')+
+    (dup?'<p class="sub warn" style="margin:8px 0 0">You already have a statement with this date and take-home. Saving replaces it.</p>':'')+
+    '<div class="actions" style="justify-content:flex-start;margin-top:10px"><button class="btn primary small" data-act="pay-imp-save">Save this statement</button><button class="btn small" data-act="pay-imp-no">Discard</button></div></section>';
+}
+function vPay(){
+  var stubs=payStubs(),head='<div class="top"><h1>My pay</h1></div>';
+  var canAi=!!(T&&T.loan&&T.loan.readFile&&T.ai&&T.ai.payStub),key=!!(aiSt&&aiSt.hasKey);
+  var actions='<div class="actions" style="justify-content:flex-end;margin:0 0 10px;flex-wrap:wrap"><label class="btn small primary'+(canAi&&key&&!mypayUI.busy?'':' disabled')+'" style="cursor:'+(canAi&&key?'pointer':'not-allowed')+'" title="'+(canAi&&key?'':'Needs the desktop app and your Anthropic API key')+'">'+(mypayUI.busy?'Reading…':'Add a pay statement (PDF)')+'<input type="file" data-payfile accept=".pdf,.txt,application/pdf,text/plain" hidden'+(canAi&&key&&!mypayUI.busy?'':' disabled')+'></label><button class="btn small" data-act="pay-manual">Add by hand</button><a class="btn small" href="https://my.adp.com" target="_blank" rel="noopener noreferrer">Open ADP</a></div>';
+  var msg=mypayUI.msg?'<div class="banner" role="alert"><span>'+esc(mypayUI.msg)+'</span></div>':'';
+  var note='<p class="sub muted" style="margin:0 0 12px;font-size:12px;white-space:normal">ADP does not let apps connect to a personal account (its connections are for employers and approved partners), so there is no way to link it. Download your pay statement as a PDF from ADP (Pay, then Pay statements) and add it here: Claude reads it, you check the numbers, and a copy goes into your Documents folder. Only the numbers are sent to Claude; names, addresses and account numbers are masked first.</p>';
+  if(!stubs.length)return head+actions+msg+payImpPreview()+(mypayUI.manual?payForm():'')+'<section class="panel"><div class="empty" style="white-space:normal">Add your latest pay statement to see what you earn, what comes out, when your next paycheck should arrive and what changed since the last one. Add a few and the app learns your pay schedule.</div></section>'+note;
+  var last=stubs[stubs.length-1],sel=stubs.filter(function(s){return s.id===mypayUI.sel})[0]||last,nx=payNext(stubs,TODAY),arr=payArrived(stubs,S.txns,TODAY),ch=payChanges(stubs.slice(0,stubs.indexOf(sel)+1)),yr=payYear(stubs,TODAY.getFullYear(),TODAY);
+  var hero='';
+  if(nx)hero='<section class="panel"><h2>Next paycheck</h2><div class="row wrap" style="border:0;padding:0;align-items:flex-end"><div class="grow"><div class="num" style="font-size:28px;font-weight:700">'+payLongDate(nx.date)+'</div><div class="sub">'+(nx.days===0?'Today':nx.days===1?'Tomorrow':'In '+nx.days+' days')+' · paid '+nx.freq.label+'</div></div><div style="text-align:right"><div class="num good" style="font-size:26px;font-weight:700">~'+money0(nx.net)+'</div><div class="sub">take-home, from '+money0(nx.gross)+' gross</div></div></div>'+
+    (arr&&!arr.found?'<p class="sub warn" style="margin:8px 0 0;white-space:normal">The paycheck expected around '+shortDate(arr.expected)+' (about '+money0(arr.net)+') has not shown up as income yet. If it was deposited, import your latest transactions; if not, check with payroll.</p>':'')+
+    (arr&&arr.found?'<p class="sub good" style="margin:8px 0 0">The paycheck expected around '+shortDate(arr.expected)+' arrived: '+money(arr.found.amount)+' on '+shortDate(arr.found.date)+'. Add its statement to keep this accurate.</p>':'')+'</section>';
+  var chPanel='<section class="panel"><h2>What changed<small>'+(sel===last?'latest paycheck':'paycheck of '+shortDate(sel.payDate))+' compared with the one before</small></h2>'+(ch.length?insightRows(ch):'<div class="empty">Nothing changed. Your pay, taxes and deductions look the same as last time.</div>')+'</section>';
+  var ytd=yr?'<section class="panel"><h2>'+yr.year+' so far<small>from your statements</small></h2><div class="grid tiles">'+tile('Gross so far',money0(yr.ytdGross),yr.ytdFactor>1.05||yr.count<2?'year-to-date from the latest statement':yr.count+' statements')+tile('Federal tax withheld',money0(yr.withheldFed),yr.ytdGross>0?(yr.withheldFed/yr.ytdGross*100).toFixed(1)+'% of gross':'')+tile('Retirement saved',money0(yr.retirementPerPeriod*yr.count*yr.ytdFactor),'about '+money0(yr.retirementPerPeriod)+' each paycheck')+tile('On track for',money0(yr.projGross),'gross this year, '+yr.periodsLeft+' paychecks to go')+'</div><p class="sub" style="margin:8px 0 0"><a href="#" data-view="tax">See what to expect at tax time</a></p></section>':'';
+  var hist='<section class="panel"><h2>Pay history</h2>'+payBars(stubs)+'<div style="overflow-x:auto;margin-top:8px"><table class="maptable" style="width:100%"><thead><tr><th>Paid</th><th>Gross</th><th>Taxes</th><th>Deductions</th><th>Net</th><th></th></tr></thead><tbody>'+stubs.slice().reverse().slice(0,26).map(function(s){var t=payTotals(s);return '<tr'+(s.id===sel.id?' style="font-weight:700"':'')+'><td>'+shortDate(s.payDate)+'</td><td class="num">'+money0(s.gross)+'</td><td class="num">'+money0(t.tax)+'</td><td class="num">'+money0(t.benefit+t.retirement+t.deduction)+'</td><td class="num good">'+money0(s.net)+'</td><td><button class="btn small" data-act="pay-sel" data-id="'+esc(s.id)+'">View</button></td></tr>'}).join('')+'</tbody></table></div></section>';
+  return head+actions+msg+payImpPreview()+(mypayUI.manual?payForm():'')+hero+chPanel+payStatement(sel)+ytd+hist+note;
+}
+function payRead(inp){
+  var f=inp.files[0];inp.value='';if(!f)return;
+  if(f.size>25e6){mypayUI.msg='Choose a file under 25 MB.';render();return}
+  var rd=new FileReader();rd.onload=function(){
+    mypayUI.busy=true;mypayUI.msg='';mypayUI.imp=null;render();
+    tcall(T.loan.readFile(rd.result,f.name)).then(function(r){return tcall(T.ai.payStub(r.textId))}).then(function(r){
+      mypayUI.busy=false;var st=r.stub&&cleanPayStub(r.stub,uid);
+      if(!st){mypayUI.msg=r.notes||'Claude did not find a pay statement in that file.';render();return}
+      mypayUI.imp=st;mypayUI.impBuf=rd.result;mypayUI.impName=f.name;render();
+    }).catch(function(e){mypayUI.busy=false;mypayUI.msg=(e&&e.message)||'Could not read that file.';render()});
+  };rd.readAsArrayBuffer(f);
+}
+function paySave(st,buf,name){
+  S.pay.stubs=S.pay.stubs.filter(function(s){return !(s.payDate===st.payDate&&Math.abs(s.net-st.net)<0.5)});
+  S.pay.stubs.push(st);S.pay.stubs.sort(function(a,b){return a.payDate<b.payDate?-1:1});S.pay.stubs=S.pay.stubs.slice(-200);
+  var dep=payDeposit(st);if(dep&&!dep.sub&&subList('Income').indexOf('Salary')>-1)dep.sub='Salary';
+  if(buf&&T&&T.docs)tcall(T.docs.save('Pay statements',name||'pay-statement.pdf',buf,+st.payDate.slice(0,4))).then(function(){docsTouch()}).catch(function(){});
+  mypayUI.sel=st.id;
+}
+function docsTouch(){docsUI.loaded=false;if(view==='docs')docsLoad()}
+/* ---------- Documents: a folder of the statements and forms you added, sorted by kind and year ---------- */
+var DOC_KINDS=['Pay statements','Tax documents','Bank and card statements','Vehicle records','Energy bills','Receipts','Other'];
+var DOC_NOTES={'Pay statements':'Earnings statements and pay stubs','Tax documents':'W-2, 1099, 1098 and returns','Bank and card statements':'Statements from banks and credit cards','Vehicle records':'Service history, Carfax and repair invoices','Energy bills':'Propane, oil, gas and electric','Receipts':'Receipts and invoices','Other':'Anything else'};
+var docsUI={loaded:false,busy:false,data:null,msg:'',kind:'auto'};
+function docGuess(name){
+  var n=String(name||'').toLowerCase(),kind='Other';
+  if(/w-?2|1099|1098|1095|1040|tax ?(return|form|doc)|\btax\b/.test(n))kind='Tax documents';
+  else if(/pay ?stub|pay ?slip|payslip|earning|payroll|paycheck|\badp\b/.test(n))kind='Pay statements';
+  else if(/carfax|service|repair|invoice|vehicle|oil change|maintenance/.test(n))kind='Vehicle records';
+  else if(/propane|heating oil|eversource|electric|natural gas|utility|energy/.test(n))kind='Energy bills';
+  else if(/receipt/.test(n))kind='Receipts';
+  else if(/statement|stmt|account|checking|savings|credit card|visa|mastercard/.test(n))kind='Bank and card statements';
+  var ym=/(?:^|[^\d])(20[1-3]\d)(?:[^\d]|$)/.exec(n);
+  return {kind:kind,year:ym?+ym[1]:null};
+}
+function docsLoad(){
+  if(!(T&&T.docs)||docsUI.busy)return;docsUI.busy=true;
+  tcall(T.docs.list()).then(function(r){docsUI.data=r;docsUI.loaded=true;docsUI.busy=false;if(view==='docs')render()}).catch(function(e){docsUI.busy=false;docsUI.loaded=true;docsUI.msg=(e&&e.message)||'Could not read the folder.';if(view==='docs')render()});
+}
+function fileSize(n){return n>=1048576?(n/1048576).toFixed(1)+' MB':Math.max(1,Math.round(n/1024))+' KB'}
+function vDocs(){
+  var head='<div class="top"><h1>Documents</h1></div>';
+  if(!(T&&T.docs))return head+'<section class="panel"><div class="empty" style="white-space:normal">The documents folder lives on your computer, so it is only in the desktop app (Mac or Windows). Pay statements, tax forms, service records and the other files you add are filed there by kind and year.</div></section>';
+  if(!docsUI.loaded)docsLoad();
+  var d=docsUI.data,yr=TODAY.getFullYear();
+  var top='<div class="actions" style="justify-content:flex-end;margin:0 0 10px;flex-wrap:wrap"><button class="btn small primary" data-act="doc-open" data-cat="">Open my Documents folder</button></div>';
+  var add='<section class="panel"><h2>Add documents<small>filed by kind and year</small></h2><div class="form" style="align-items:flex-end"><label>File under<select id="doc-kind"><option value="auto"'+(docsUI.kind==='auto'?' selected':'')+'>Sort automatically</option>'+DOC_KINDS.map(function(k){return '<option'+(docsUI.kind===k?' selected':'')+'>'+esc(k)+'</option>'}).join('')+'</select></label><label>Year<input id="doc-year" type="number" min="1990" max="2100" placeholder="from the file name, or '+yr+'" style="width:150px"></label><label class="btn small primary" style="cursor:pointer">Choose files<input type="file" data-docfile multiple accept=".pdf,.csv,.txt,.ofx,.qfx,.xlsx,.xls,.png,.jpg,.jpeg,.heic" hidden></label></div>'+
+    '<p class="sub muted" style="margin:8px 0 0;font-size:12px;white-space:normal">Files are copied into a folder on this computer (not uploaded anywhere). Automatic sorting uses the file name: W-2 and 1099 go to Tax documents, pay stubs to Pay statements, and so on. A year in the name (like 2025) picks the year folder.'+(docsUI.msg?' <span class="bad">'+esc(docsUI.msg)+'</span>':'')+'</p></section>';
+  if(!d)return head+top+add+'<section class="panel"><div class="empty">Loading…</div></section>';
+  var rows=d.folders.map(function(f){
+    var byYear={};f.files.forEach(function(x){(byYear[x.year]=byYear[x.year]||[]).push(x)});
+    var years=Object.keys(byYear).sort().reverse();
+    return '<section class="panel"><div class="row wrap" style="border:0;padding:0;align-items:center"><div class="grow"><h2 style="margin:0">'+esc(f.category)+'<small>'+f.files.length+' file'+(f.files.length===1?'':'s')+'</small></h2><div class="sub">'+esc(DOC_NOTES[f.category]||'')+'</div></div><button class="btn small" data-act="doc-open" data-cat="'+esc(f.category)+'">Open folder</button></div>'+
+      (years.length?years.map(function(y){return '<div style="margin-top:10px"><div class="sub" style="font-weight:700">'+y+'</div>'+byYear[y].map(function(x){return '<div class="row"><div class="grow"><div class="nm" style="white-space:normal;word-break:break-word">'+esc(x.name)+'</div><div class="sub">'+fileSize(x.size)+' · added '+shortDate(iso(new Date(x.mtime)))+'</div></div><div class="actions" style="flex:none;flex-wrap:nowrap"><button class="btn small" data-act="doc-open" data-cat="'+esc(f.category)+'" data-year="'+y+'" data-name="'+esc(x.name)+'">Open</button><button class="btn small" data-act="doc-del" data-cat="'+esc(f.category)+'" data-year="'+y+'" data-name="'+esc(x.name)+'" aria-label="Remove '+esc(x.name)+'">&times;</button></div></div>'}).join('')+'</div>'}).join(''):'<div class="sub muted" style="margin-top:8px">Nothing here yet.</div>')+'</section>'}).join('');
+  return head+top+add+'<p class="sub muted" style="margin:0 0 10px;font-size:12px;word-break:break-all">Folder: '+esc(d.root)+'</p>'+rows;
+}
+function docsRead(inp){
+  var files=[].slice.call(inp.files||[]);inp.value='';if(!files.length)return;
+  var kindSel=$('#doc-kind'),yearIn=$('#doc-year'),kind=kindSel?kindSel.value:'auto',year=yearIn&&yearIn.value?+yearIn.value:0;docsUI.kind=kind;
+  var done=0,fail='';
+  var next=function(i){
+    if(i>=files.length){docsUI.msg=fail;docsUI.loaded=false;docsLoad();toast(done+' file'+(done===1?'':'s')+' added.');return}
+    var f=files[i];if(f.size>30e6){fail='"'+f.name+'" is over 30 MB.';next(i+1);return}
+    var g=docGuess(f.name),k=kind==='auto'?g.kind:kind,y=year||g.year||(k==='Tax documents'?TODAY.getFullYear()-1:TODAY.getFullYear());
+    f.arrayBuffer().then(function(buf){return tcall(T.docs.save(k,f.name,buf,y))}).then(function(){done++;next(i+1)}).catch(function(e){fail=(e&&e.message)||'Could not add a file.';next(i+1)});
+  };
+  next(0);
 }
 // ---------- Credit score tab ----------
 var creditShot={msg:'',rows:null,busy:false};
@@ -5885,7 +6162,7 @@ function backupPanel(){
   return '<section class="panel"><h2>Backup<small>save or restore everything</small></h2><div class="actions" style="justify-content:flex-start"><button class="btn primary" data-act="exp">Download backup</button><label class="btn" style="cursor:pointer">Restore from file<input id="bk" type="file" accept=".json,application/json" hidden></label></div><p class="sub muted" style="margin:10px 0 0;font-size:13px">Your data lives only on this computer. Download a backup now and then, and use it to recover after clearing site data. To move to another computer, use <b>Move to another computer</b> above, which can protect the file with a password.</p>'+pendBanner()+'</section>';
 }
 function backupPayload(){
-  return {app:'tally-money',version:1,exported:new Date().toISOString(),data:{txns:S.txns,subs:S.subs,budgets:S.budgets,goals:S.goals,accounts:S.accounts,extraPay:S.extraPay,plaidIgnored:S.plaidIgnored,credit:S.credit,holdings:S.holdings,customCats:S.customCats,setAside:S.setAside,merchantCats:S.merchantCats,subCats:S.subCats,merchantSubs:S.merchantSubs,bills:S.bills,billMarks:S.billMarks,fuel:S.fuel,weather:S.weather,energyCfg:S.energyCfg,xferLearn:S.xferLearn,imports:S.imports,hideWords:S.hideWords,energy:S.energy,home:S.home,debtMonthly:S.debtMonthly,billIgnore:S.billIgnore,cardPay:S.cardPay,apple:S.apple,payLinks:S.payLinks}};
+  return {app:'tally-money',version:1,exported:new Date().toISOString(),data:{txns:S.txns,subs:S.subs,budgets:S.budgets,goals:S.goals,accounts:S.accounts,extraPay:S.extraPay,plaidIgnored:S.plaidIgnored,credit:S.credit,holdings:S.holdings,customCats:S.customCats,setAside:S.setAside,merchantCats:S.merchantCats,subCats:S.subCats,merchantSubs:S.merchantSubs,bills:S.bills,billMarks:S.billMarks,fuel:S.fuel,weather:S.weather,energyCfg:S.energyCfg,xferLearn:S.xferLearn,imports:S.imports,hideWords:S.hideWords,energy:S.energy,home:S.home,debtMonthly:S.debtMonthly,billIgnore:S.billIgnore,cardPay:S.cardPay,apple:S.apple,payLinks:S.payLinks,pay:S.pay}};
 }
 // Saves a file: through the desktop app's Save dialog when there is one (reliable on both Mac and Windows), else as a normal download.
 function saveFile(name,text,done){
@@ -6063,7 +6340,7 @@ function cleanBackup(j){
     if(!hist.length)hist=[{date:iso(TODAY),balance:+x.balance}];
     var ac={id:String(x.id||uid()),name:String(x.name).slice(0,120),type:x.type,balance:+x.balance,apr:DEBT_TYPES[x.type]?Math.max(0,+x.apr||0):0,minPay:DEBT_TYPES[x.type]?Math.max(0,+x.minPay||0):0,history:hist};if(x.type==='credit'&&+x.limit>0)ac.limit=+x.limit;if(x.type==='credit'&&x.closed===true)ac.closed=true;if(DEBT_TYPES[x.type]&&x.contract){var cc=cleanContract(x.contract);if(cc)ac.contract=cc}if(DEBT_TYPES[x.type]){if(photoOk(x.photo))ac.photo=x.photo;if(/^#[0-9a-f]{6}$/i.test(x.carColor||''))ac.carColor=x.carColor;if(CAR_TYPES[x.carType])ac.carType=x.carType;if(/^\d{4}-\d{2}(-\d{2})?$/.test(x.opened||''))ac.opened=x.opened;if(/^\d{4}$/.test(x.last4||''))ac.last4=x.last4;if(typeof x.carSvg==='string'){var csv=cleanCarSvg(x.carSvg);if(csv)ac.carSvg=csv}if(x.showPhoto===true)ac.showPhoto=true}if(DEBT_TYPES[x.type]){var dd=Math.round(+x.dueDay);if(dd>=1&&dd<=31)ac.dueDay=dd;if(+x.origBalance>0)ac.origBalance=+x.origBalance;if(typeof x.lender==='string'&&x.lender)ac.lender=cleanSubName(x.lender).slice(0,40);var stm=cleanStmt(x);Object.keys(stm).forEach(function(k){ac[k]=stm[k]})}if(x.plaid&&typeof x.plaid.accountId==='string')ac.plaid={itemId:String(x.plaid.itemId||'').slice(0,100),accountId:x.plaid.accountId.slice(0,100)};if(x.wallet===true&&x.type==='cash')ac.wallet=true;if(x.autopay===true&&DEBT_TYPES[x.type])ac.autopay=true;if(x.type==='property'&&x.asset){var as1=cleanAsset(x.asset,uid);if(as1)ac.asset=as1}return ac});
   var home={};if(d.home&&typeof d.home==='object'&&!Array.isArray(d.home)){['purchasePrice','down','closing','origLoan','termYears','taxYear','insYear','hoaMonth','pmiMonth','maintPct','mgmtPct','vacancyPct','appreciation','ret','sellPct','rentGrowth','costGrowth','rentMonth','extra'].forEach(function(k){var n=parseFloat(d.home[k]);if(isFinite(n)&&n>=0&&n<1e9)home[k]=n});['purchaseDate','startDate'].forEach(function(k){if(/^\d{4}-\d{2}-\d{2}$/.test(d.home[k]||''))home[k]=d.home[k]});['mortId','valueId'].forEach(function(k){if(typeof d.home[k]==='string'&&/^[\w-]{1,40}$/.test(d.home[k])&&accounts.some(function(a){return a.id===d.home[k]}))home[k]=d.home[k]});if(d.home.setup===true&&home.valueId)home.setup=true;if(photoOk(d.home.photo))home.photo=d.home.photo}
-  return {fuel:cleanFuel(d.fuel,uid),weather:cleanWeather(d.weather)||{},energyCfg:(function(){var o={},c=d.energyCfg&&+d.energyCfg.cop;if(c>=1&&c<=6)o.cop=c;return o})(),xferLearn:cleanXferLearn(d.xferLearn),hideWords:cleanHideWords(d.hideWords),imports:cleanImports(d.imports,uid),txns:txns,subs:subs,budgets:budgets,goals:goals,accounts:accounts,extraPay:Math.max(0,+d.extraPay||0),plaidIgnored:(Array.isArray(d.plaidIgnored)?d.plaidIgnored:[]).filter(function(x){return typeof x==='string'}).slice(0,200),credit:cleanCredit(d.credit),holdings:cleanHoldings(d.holdings),customCats:custom,setAside:setAside,merchantCats:merchantCats,subCats:subCats,merchantSubs:merchantSubs,bills:bills,billMarks:billMarks,energy:energy,home:home,debtMonthly:Math.max(0,+d.debtMonthly||0),billIgnore:(function(){var o={};if(d.billIgnore&&typeof d.billIgnore==='object'&&!Array.isArray(d.billIgnore))Object.keys(d.billIgnore).slice(0,500).forEach(function(k){if(k.length<=120&&k!=='__proto__')o[k]=1});return o})(),cardPay:d.cardPay==='skip'||d.cardPay==='count'?d.cardPay:'auto',apple:(function(){var a=d.apple||{},o={};if(typeof a.acct==='string'&&a.acct.length<=40)o.acct=a.acct;if(/^\d{4}-\d{2}-\d{2}$/.test(a.last||''))o.last=a.last;if(+a.count>=0)o.count=Math.min(1e6,Math.round(+a.count));return o})(),payLinks:cleanPayLinks(d.payLinks)};
+  return {pay:cleanPayState(d.pay,uid),fuel:cleanFuel(d.fuel,uid),weather:cleanWeather(d.weather)||{},energyCfg:(function(){var o={},c=d.energyCfg&&+d.energyCfg.cop;if(c>=1&&c<=6)o.cop=c;return o})(),xferLearn:cleanXferLearn(d.xferLearn),hideWords:cleanHideWords(d.hideWords),imports:cleanImports(d.imports,uid),txns:txns,subs:subs,budgets:budgets,goals:goals,accounts:accounts,extraPay:Math.max(0,+d.extraPay||0),plaidIgnored:(Array.isArray(d.plaidIgnored)?d.plaidIgnored:[]).filter(function(x){return typeof x==='string'}).slice(0,200),credit:cleanCredit(d.credit),holdings:cleanHoldings(d.holdings),customCats:custom,setAside:setAside,merchantCats:merchantCats,subCats:subCats,merchantSubs:merchantSubs,bills:bills,billMarks:billMarks,energy:energy,home:home,debtMonthly:Math.max(0,+d.debtMonthly||0),billIgnore:(function(){var o={};if(d.billIgnore&&typeof d.billIgnore==='object'&&!Array.isArray(d.billIgnore))Object.keys(d.billIgnore).slice(0,500).forEach(function(k){if(k.length<=120&&k!=='__proto__')o[k]=1});return o})(),cardPay:d.cardPay==='skip'||d.cardPay==='count'?d.cardPay:'auto',apple:(function(){var a=d.apple||{},o={};if(typeof a.acct==='string'&&a.acct.length<=40)o.acct=a.acct;if(/^\d{4}-\d{2}-\d{2}$/.test(a.last||''))o.last=a.last;if(+a.count>=0)o.count=Math.min(1e6,Math.round(+a.count));return o})(),payLinks:cleanPayLinks(d.payLinks)};
 }
 
 /* ---------- Goals ---------- */
@@ -6117,7 +6394,7 @@ function bindView(){
       var canAi=!!(T&&T.loan&&T.loan.readFile&&T.ai&&T.ai.energy&&aiSt&&aiSt.hasKey);
       if(!canAi){enUI.msg=isPdf?'Reading a PDF needs the desktop app and your Anthropic API key (Transactions tab). A CSV or pasted text works without one.':(parseFuelText(text,fuel).error||'Nothing found in that file.');enUI.busy='';render();return}
       enUI.busy='Asking Claude to read '+f.name+'… (a few cents, about a minute)';enUI.msg='';render();
-      tcall(T.loan.readFile(buf,f.name)).then(function(r){return tcall(T.ai.energy(r.textId,fuel))}).then(function(r){enAfterRead({ok:r.records.length>0,error:r.notes||'Claude did not find any deliveries or bills in that file.',records:r.records,notes:r.notes},f.name,fuel)}).catch(function(e){enUI.busy='';enUI.msg=(e&&e.message)||'Could not read that file.';render()});
+      tcall(T.loan.readFile(buf,f.name)).then(function(r){if(T.docs)tcall(T.docs.save('Energy bills',f.name,buf,TODAY.getFullYear())).catch(function(){});return tcall(T.ai.energy(r.textId,fuel))}).then(function(r){enAfterRead({ok:r.records.length>0,error:r.notes||'Claude did not find any deliveries or bills in that file.',records:r.records,notes:r.notes},f.name,fuel)}).catch(function(e){enUI.busy='';enUI.msg=(e&&e.message)||'Could not read that file.';render()});
     };
     rd.readAsArrayBuffer(f);
   }});
@@ -6225,7 +6502,7 @@ document.addEventListener('click',function(e){
   else if(a==='sub-adddet'){var d=detect()[+b.dataset.i];if(d)S.subs.push({id:uid(),name:d.name,amount:d.amount,cycle:d.cycle,next:d.next,status:'active'})}
   else if(a==='tx-del'){var dtx=S.txns.filter(function(x){return x.id===id})[0];if(dtx&&dtx.fromWallet&&walletAcct()){walletAdd(-dtx.amount);toast('Deleted. The cash went back into your wallet.')}S.txns=S.txns.filter(function(x){return x.id!==id})}
   else if(a==='exp'){exportData();return}
-  else if(a==='imp-ok'){S={sample:false,customCats:pendingImport.customCats,txns:pendingImport.txns,subs:pendingImport.subs,budgets:pendingImport.budgets,goals:pendingImport.goals,accounts:pendingImport.accounts,extraPay:pendingImport.extraPay,plaidIgnored:pendingImport.plaidIgnored,credit:pendingImport.credit,holdings:pendingImport.holdings,setAside:pendingImport.setAside||[],merchantCats:pendingImport.merchantCats||{},subCats:pendingImport.subCats||{},merchantSubs:pendingImport.merchantSubs||{},bills:pendingImport.bills||[],fuel:pendingImport.fuel||[],weather:pendingImport.weather||{},energyCfg:pendingImport.energyCfg||{},xferLearn:pendingImport.xferLearn||{},imports:pendingImport.imports||[],hideWords:pendingImport.hideWords||[],billMarks:pendingImport.billMarks||{},energy:pendingImport.energy||[],home:pendingImport.home||{},debtMonthly:pendingImport.debtMonthly||0,billIgnore:pendingImport.billIgnore||{},cardPay:pendingImport.cardPay||'auto',apple:pendingImport.apple||{},payLinks:pendingImport.payLinks||{}};pendingImport=null;migrate();syncCats();Object.keys(PL.items).forEach(function(k){PL.items[k].cursor=''});savePL();toast('Backup restored.')}
+  else if(a==='imp-ok'){S={sample:false,pay:pendingImport.pay||{stubs:[]},customCats:pendingImport.customCats,txns:pendingImport.txns,subs:pendingImport.subs,budgets:pendingImport.budgets,goals:pendingImport.goals,accounts:pendingImport.accounts,extraPay:pendingImport.extraPay,plaidIgnored:pendingImport.plaidIgnored,credit:pendingImport.credit,holdings:pendingImport.holdings,setAside:pendingImport.setAside||[],merchantCats:pendingImport.merchantCats||{},subCats:pendingImport.subCats||{},merchantSubs:pendingImport.merchantSubs||{},bills:pendingImport.bills||[],fuel:pendingImport.fuel||[],weather:pendingImport.weather||{},energyCfg:pendingImport.energyCfg||{},xferLearn:pendingImport.xferLearn||{},imports:pendingImport.imports||[],hideWords:pendingImport.hideWords||[],billMarks:pendingImport.billMarks||{},energy:pendingImport.energy||[],home:pendingImport.home||{},debtMonthly:pendingImport.debtMonthly||0,billIgnore:pendingImport.billIgnore||{},cardPay:pendingImport.cardPay||'auto',apple:pendingImport.apple||{},payLinks:pendingImport.payLinks||{}};pendingImport=null;migrate();syncCats();Object.keys(PL.items).forEach(function(k){PL.items[k].cursor=''});savePL();toast('Backup restored.')}
   else if(a==='imp-no'){pendingImport=null;pendingEnc=null;secMsg=''}
   else if(a==='undo'){undoStep('undo');return}
   else if(a==='redo'){undoStep('redo');return}
@@ -6236,6 +6513,13 @@ document.addEventListener('click',function(e){
     rcpt.phone.msg='';tcall(T.phone.start()).then(function(r){rcpt.phone={on:true,url:r.url,qr:r.qr,msg:'',expires:r.expires};render()}).catch(function(e){rcpt.phone={on:false,url:'',qr:'',msg:(e&&e.message)||'Could not start.',expires:0};render()});return}
   else if(a==='ph-stop'){tcall(T.phone.stop()).catch(function(){});rcpt.phone={on:false,url:'',qr:'',msg:'',expires:0}}
   else if(a==='as-add'){asUI.adding=true}
+  else if(a==='pay-manual'){mypayUI.manual=!mypayUI.manual}
+  else if(a==='pay-sel'){mypayUI.sel=id}
+  else if(a==='pay-del'){S.pay.stubs=S.pay.stubs.filter(function(x){return x.id!==id});mypayUI.sel='';toast('Removed. Undo is at the top if that was a mistake.')}
+  else if(a==='pay-imp-no'){mypayUI.imp=null;mypayUI.impBuf=null}
+  else if(a==='pay-imp-save'){if(mypayUI.imp){paySave(mypayUI.imp,mypayUI.impBuf,mypayUI.impName);mypayUI.imp=null;mypayUI.impBuf=null;toast('Statement saved.')}}
+  else if(a==='doc-open'){tcall(T.docs.open(b.dataset.cat||'',b.dataset.year||'',b.dataset.name||'')).catch(function(e){toast((e&&e.message)||'Could not open it.')});return}
+  else if(a==='doc-del'){if(!confirm('Remove "'+b.dataset.name+'" from the documents folder? This deletes the file from your computer.'))return;tcall(T.docs.remove(b.dataset.cat,b.dataset.year,b.dataset.name)).then(function(){docsUI.loaded=false;docsLoad();toast('Removed.')}).catch(function(e){toast((e&&e.message)||'Could not remove it.')});return}
   else if(a==='as-svc-no'){asUI.svc=null}
   else if(a==='as-svc-apply'||a==='as-svc-int'){var sa=asById(id);if(sa){if(asGuard())return;var sn=svcApply(sa,a==='as-svc-int');toast(sn?'Saved '+sn+' change'+(sn===1?'':'s')+' to the schedule.':'Nothing to change.')}}
   else if(a==='as-linkall'){var vp=$('#veh-pick'),vid=vp&&vp.value;if(vid&&asById(vid)){var vn=0;S.txns.filter(vehicleLike).forEach(function(t){t.veh=vid;vn++});toast('Linked '+vn+' transaction'+(vn===1?'':'s')+'.')}}

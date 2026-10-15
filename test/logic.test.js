@@ -1932,3 +1932,115 @@ test('income sub-categories: salary, bonus, tax refund, interest and more are re
   for (const [n, sub] of Object.entries(table)) assert.equal(w.guessSub('Income', n), sub, n);
   assert.ok(w.subList('Income').includes('Overtime and commission'));
 });
+
+// ---------- My Pay: statements, next paycheck, change detection ----------
+function payWorld() { return new Function(srcBlock('/*PAY-START*/', '/*PAY-END*/') + '\nreturn {cleanPayStub, payTotals, payFreqOf, payNext, payArrived, payChanges, payYear};')(); }
+const mkStub = (date, gross, lines, extra) => Object.assign({ id: 's' + date, payDate: date, gross, net: 0, lines }, extra || {});
+function stubOf(P, date, gross, fed, ss, med, state, k401, health, extra) {
+  const lines = [{ section: 'earnings', name: 'Regular', amount: gross }, { section: 'tax', name: 'Federal Income Tax', amount: fed }, { section: 'tax', name: 'Social Security', amount: ss }, { section: 'tax', name: 'Medicare', amount: med }, { section: 'tax', name: 'State Income Tax', amount: state }, { section: 'retirement', name: '401(k)', amount: k401 }, { section: 'benefit', name: 'Health Insurance', amount: health }];
+  const net = Math.round((gross - fed - ss - med - state - k401 - health) * 100) / 100;
+  return P.cleanPayStub(Object.assign({ payDate: date, gross, net, lines }, extra || {}), () => 'id' + date);
+}
+test('cleanPayStub keeps clean numbers and sections only', () => {
+  const P = payWorld();
+  assert.equal(P.cleanPayStub({ payDate: 'bad', gross: 1, net: 1 }, () => 'x'), null);
+  assert.equal(P.cleanPayStub({ payDate: '2026-01-02', gross: 'abc', net: 1 }, () => 'x'), null);
+  const s = P.cleanPayStub({ payDate: '2026-01-02', gross: 2000, net: 1500.456, hours: 80, lines: [{ section: 'tax', name: 'Fed <b>', amount: -250 }, { section: 'nonsense', name: 'x', amount: 1 }, { section: 'benefit', name: '', amount: 5 }] }, () => 'new');
+  assert.equal(s.id, 'new');
+  assert.equal(s.net, 1500.46);
+  assert.equal(s.lines.length, 1);
+  assert.equal(s.lines[0].amount, 250);
+  assert.equal(s.lines[0].name, 'Fed b');
+});
+test('payTotals splits a statement and flags one that does not add up', () => {
+  const P = payWorld(), s = stubOf(P, '2026-01-09', 3000, 300, 186, 43.5, 120, 150, 100);
+  const t = P.payTotals(s);
+  assert.equal(t.tax, 649.5);
+  assert.equal(t.retirement, 150);
+  assert.equal(t.benefit, 100);
+  assert.equal(t.unexplained, 0);
+  s.net -= 40;
+  assert.equal(P.payTotals(s).unexplained, 40);
+});
+test('payFreqOf and payNext: biweekly, semimonthly and monthly pay dates', () => {
+  const P = payWorld(), today = new Date(2026, 9, 15);
+  const bi = ['2026-09-04', '2026-09-18', '2026-10-02'].map((d) => stubOf(P, d, 2000, 200, 124, 29, 80, 100, 50));
+  assert.equal(P.payFreqOf(bi).key, 'biweekly');
+  const n = P.payNext(bi, today);
+  assert.equal(n.date, '2026-10-16');
+  assert.equal(n.days, 1);
+  assert.equal(n.overdue, false);
+  const semi = ['2026-08-15', '2026-08-31', '2026-09-15', '2026-09-30'].map((d) => stubOf(P, d, 2000, 200, 124, 29, 80, 100, 50));
+  assert.equal(P.payFreqOf(semi).key, 'semimonthly');
+  assert.equal(P.payNext(semi, today).date, '2026-10-15');
+  assert.equal(P.payNext(semi, new Date(2026, 9, 16)).date, '2026-10-31');
+  const mo = ['2026-07-31', '2026-08-31', '2026-09-30'].map((d) => stubOf(P, d, 5000, 600, 310, 72, 200, 250, 100));
+  assert.equal(P.payFreqOf(mo).key, 'monthly');
+  assert.equal(P.payNext(mo, today).date, '2026-10-31');
+});
+test('payArrived: warns when the paycheck that should have landed is not in the income', () => {
+  const P = payWorld(), bi = ['2026-09-04', '2026-09-18', '2026-10-02'].map((d) => stubOf(P, d, 2000, 200, 124, 29, 80, 100, 50));
+  const net = bi[0].net;
+  assert.equal(P.payArrived(bi, [], new Date(2026, 9, 10)), null);                                        // next one is not due yet
+  const late = P.payArrived(bi, [], new Date(2026, 9, 20));
+  assert.equal(late.found, null);
+  const ok = P.payArrived(bi, [{ date: '2026-10-16', amount: net, name: 'Payroll' }], new Date(2026, 9, 20));
+  assert.ok(ok.found);
+});
+test('payChanges: explains a take-home change, new lines, a withholding jump and a retirement change', () => {
+  const P = payWorld();
+  const a = stubOf(P, '2026-09-18', 3000, 300, 186, 43.5, 120, 150, 100), b = stubOf(P, '2026-10-02', 3000, 420, 186, 43.5, 120, 210, 100);
+  const ch = P.payChanges([a, b]);
+  assert.ok(ch.some((c) => /Take-home pay went down/.test(c.title) && /Federal Income Tax/.test(c.detail)));
+  assert.ok(ch.some((c) => /Federal tax withholding changed from 10.0% to 14.0%/.test(c.title)));
+  assert.ok(ch.some((c) => /Retirement contribution changed from 5.0% to 7.0%/.test(c.title)));
+  const bonus = stubOf(P, '2026-10-16', 4500, 300, 186, 43.5, 120, 150, 100);
+  bonus.lines.push({ section: 'earnings', name: 'Bonus', amount: 1500 });
+  const c2 = P.payChanges([a, bonus]);
+  assert.ok(c2.some((c) => /New on this paycheck: Bonus \$1,500/.test(c.title) && c.k === 'good'));
+  assert.deepEqual(P.payChanges([a]).filter((c) => c.k !== 'info'), []);
+  const wrong = stubOf(P, '2026-10-30', 3000, 300, 186, 43.5, 120, 150, 100, { ytdGross: 9000 }), prev = stubOf(P, '2026-10-16', 3000, 300, 186, 43.5, 120, 150, 100, { ytdGross: 6000 });
+  prev.ytdGross = 5000;
+  assert.ok(P.payChanges([prev, wrong]).some((c) => /Year-to-date gross rose by \$4,000/.test(c.title)));
+});
+test('payYear: year-to-date totals and the estimate for the rest of the year', () => {
+  const P = payWorld(), today = new Date(2026, 6, 1);
+  const dates = ['2026-06-05', '2026-06-19', '2026-07-03'].map((d) => d);
+  const stubs = dates.map((d, i) => stubOf(P, d, 3000, 300, 186, 43.5, 120, 150, 100, { ytdGross: 3000 * (11 + i) }));
+  const y = P.payYear(stubs, 2026, today);
+  assert.equal(y.count, 3);
+  assert.equal(y.ytdGross, 39000);
+  assert.ok(y.ytdFactor > 4);                       // the statements cover only part of what the year-to-date total says
+  assert.equal(y.freq.key, 'biweekly');
+  assert.ok(y.periodsLeft >= 12 && y.periodsLeft <= 14);
+  assert.equal(y.fedPerPeriod, 300);
+  assert.equal(Math.round(y.projGross), Math.round(39000 + 3000 * y.periodsLeft));
+  assert.equal(P.payYear(stubs, 2025, today), null);
+});
+
+test('cleanPayStubRecord and cleanTaxDocs keep only valid, plain numbers', () => {
+  const { cleanPayStubRecord, cleanTaxDocs } = require('../ai.js');
+  const ok = cleanPayStubRecord({ payDate: '2026-10-16', periodStart: 'x', periodEnd: '2026-10-16', gross: 3500, net: 2300.456, hours: 80, ytdGross: 0, ytdNet: 5, notes: 'n', lines: [
+    { section: 'tax', name: 'Fed <b>', amount: -420, ytd: 0 }, { section: 'junk', name: 'x', amount: 1, ytd: 0 }, { section: 'benefit', name: 'Health', amount: 0, ytd: 0 }, { section: 'earnings', name: 'Regular', amount: 3500, ytd: 91000 }] });
+  assert.equal(ok.stub.net, 2300.46);
+  assert.equal(ok.stub.periodStart, undefined);
+  assert.equal(ok.stub.ytdGross, undefined);
+  assert.equal(ok.stub.lines.length, 2);
+  assert.equal(ok.stub.lines[0].amount, 420);
+  assert.equal(ok.stub.lines[1].ytd, 91000);
+  assert.equal(cleanPayStubRecord({ payDate: '2026-10-16', gross: 0, net: 0, lines: [], notes: 'not a pay stub' }).stub, null);
+  assert.equal(cleanPayStubRecord({ payDate: 'bad', gross: 5, net: 4 }).stub, null);
+  const t = cleanTaxDocs({ forms: [{ form: 'W-2', year: 2025, state: 'ma', wages: 90000, fedWithheld: 11000, ssWages: 90000, ssWithheld: 5580, medicareWages: 90000, medicareWithheld: 1305, stateWages: 90000, stateWithheld: 4200, interest: 0, ordinaryDividends: 0, qualifiedDividends: 0, nonemployeeComp: 0, otherIncome: 0, retirementDistribution: 0, unemployment: 0, mortgageInterest: 0, stateRefund: 0 }, { form: 'bogus', year: 2025 }, { form: '1099-INT', year: 1800, interest: 5 }, { form: '1099-INT', year: 2025, interest: 0 }], notes: '' });
+  assert.equal(t.forms.length, 1);
+  assert.equal(t.forms[0].state, 'MA');
+  assert.equal(t.forms[0].wages, 90000);
+});
+test('docGuess files documents by name', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const g = new Function(src.slice(src.indexOf('function docGuess('), src.indexOf('function docsLoad(')) + '\nreturn docGuess;')();
+  assert.deepEqual(g('W-2 2025.pdf'), { kind: 'Tax documents', year: 2025 });
+  assert.equal(g('Payslip_Oct.pdf').kind, 'Pay statements');
+  assert.equal(g('carfax-report.pdf').kind, 'Vehicle records');
+  assert.equal(g('Chase statement 2026-03.pdf').kind, 'Bank and card statements');
+  assert.equal(g('random.pdf').kind, 'Other');
+});

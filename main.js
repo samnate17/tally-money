@@ -8,6 +8,7 @@ const { parsePdf, maskText } = require('./statement');
 const { createMarket, SYMBOL } = require('./market');
 const { createFundamentals } = require('./fundamentals');
 const { createWeather } = require('./weather');
+const { createDocs } = require('./docs');
 const { createWidget } = require('./widget');
 const glassLib = require('./glass');
 const { createUpdater } = require('./updater');
@@ -312,7 +313,23 @@ function wireIpc() {
     if (!text) throw new Error('That file is no longer in memory. Choose it again.');
     return ai.serviceFromText(text);
   });
+  handle('ai:payStub', (textId) => {
+    const text = statementText.get(String(textId));
+    if (!text) throw new Error('That file is no longer in memory. Choose it again.');
+    return ai.payStubFromText(text);
+  });
+  handle('ai:taxDoc', (textId) => {
+    const text = statementText.get(String(textId));
+    if (!text) throw new Error('That file is no longer in memory. Choose it again.');
+    return ai.taxDocFromText(text);
+  });
   handle('ai:energyAdvice', (summary) => ai.energyAdvice(summary));
+  const docsSvc = createDocs({ root: path.join(app.getPath('documents'), 'Tally Money'), shell });
+  handle('docs:categories', () => docsSvc.CATEGORIES);
+  handle('docs:save', (cat, name, buf, year) => docsSvc.save(String(cat), String(name), Buffer.from(buf), year));
+  handle('docs:list', () => ({ root: docsSvc.root(), folders: docsSvc.list() }));
+  handle('docs:open', (cat, year, name) => docsSvc.open(String(cat), year, name ? String(name) : ''));
+  handle('docs:remove', (cat, year, name) => docsSvc.remove(String(cat), year, String(name)));
   const weatherSvc = createWeather();
   handle('weather:search', (q) => weatherSvc.search(q));
   handle('weather:months', (r) => weatherSvc.months(r));
