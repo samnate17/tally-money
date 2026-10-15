@@ -594,6 +594,7 @@ var ICON={
  look:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="8.5" cy="10" r="1.2"/><circle cx="12" cy="7.5" r="1.2"/><circle cx="15.5" cy="10" r="1.2"/><path d="M12 21c-1.5 0-2-1-2-2s.8-1.8 1.6-2.4c.9-.7.6-2.1-.6-2.1H8"/></svg>',
  report:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 16v-3M12 16V8M16 16v-5"/></svg>',
  invest:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 17 6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>',
+ cards:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h4"/></svg>',
  credit:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 6v6c0 4.5 3.2 7.8 8 9 4.8-1.2 8-4.5 8-9V6z"/><path d="m9 12 2 2 4-4"/></svg>',
  afford:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5c0-1 1-1.7 2.5-1.7s2.5.7 2.5 1.7-1 1.5-2.5 1.8-2.5.8-2.5 1.8 1 1.7 2.5 1.7 2.5-.7 2.5-1.7"/></svg>',
  accounts:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h4"/></svg>',
@@ -602,7 +603,7 @@ var ICON={
  budgets:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v9h9"/><path d="M20.5 15A9 9 0 1 1 9 3.5"/></svg>',
  transactions:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h13M13 3l4 4-4 4M20 17H7M11 13l-4 4 4 4"/></svg>',
  goals:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg>'};
-var TABS=[['overview','Overview'],['dash','Dashboard','Live'],['accounts','Accounts'],['assets','Assets'],['subscriptions','Subscriptions','Subs'],['bills','Bills','Bills'],['energy','Energy'],['budgets','Budgets'],['report','Monthly report','Report'],['afford','Can I afford it?','Afford'],['credit','Credit score','Score'],['invest','Investments','Invest'],['transactions','Transactions','Activity'],['goals','Goals'],['loans','Loans'],['mortgage','Mortgage','Home'],['assist','Assistant','Chat'],['look','Settings','Settings']];
+var TABS=[['overview','Overview'],['dash','Dashboard','Live'],['accounts','Accounts'],['assets','Assets'],['subscriptions','Subscriptions','Subs'],['bills','Bills','Bills'],['energy','Energy'],['budgets','Budgets'],['report','Monthly report','Report'],['afford','Can I afford it?','Afford'],['credit','Credit score','Score'],['cards','Credit cards','Cards'],['invest','Investments','Invest'],['transactions','Transactions','Activity'],['goals','Goals'],['loans','Loans'],['mortgage','Mortgage','Home'],['assist','Assistant','Chat'],['look','Settings','Settings']];
 function nav(){
   function items(short){return TABS.map(function(t){return '<button class="nav" data-view="'+t[0]+'"'+(view===t[0]?' aria-current="page"':'')+'>'+ICON[t[0]]+'<span>'+(short&&t[2]||t[1])+'</span></button>'}).join('')}
   var h=items(false);
@@ -624,7 +625,7 @@ function refreshAll(){
 }
 function render(){
   syncXfer();nav();
-  var f={energy:vEnergy,bills:vBills,loans:vLoansHub,mortgage:vMortgage,carloan:function(){loanFilter='auto';return vLoansHub()},student:function(){loanFilter='student';return vLoansHub()},look:vLook,overview:vOverview,dash:vDash,assist:vAssist,accounts:vAccounts,assets:vAssets,afford:vAfford,credit:vCredit,invest:vInvest,report:vReport,subscriptions:vSubs,budgets:vBudgets,transactions:vTx,goals:vGoals}[view];
+  var f={energy:vEnergy,bills:vBills,loans:vLoansHub,mortgage:vMortgage,carloan:function(){loanFilter='auto';return vLoansHub()},student:function(){loanFilter='student';return vLoansHub()},look:vLook,overview:vOverview,dash:vDash,assist:vAssist,accounts:vAccounts,assets:vAssets,afford:vAfford,credit:vCredit,cards:vCards,invest:vInvest,report:vReport,subscriptions:vSubs,budgets:vBudgets,transactions:vTx,goals:vGoals}[view];
   var cb=HOSTED&&AUTH.conflict?'<div class="banner" id="conflict"><span><b>This account changed on another device.</b> Choose which version to keep.</span><span style="flex:0 0 auto;display:flex;gap:8px"><button class="btn small" data-act="cf-remote">Use the other version</button><button class="btn small primary" data-act="cf-local">Keep this device\'s version</button></span></div>':'';
   var banner=cb+updBanner()+(S.sample?'<div class="banner"><span><b>Example data.</b> These accounts and transactions are made up so you can try everything. Clear them to start with your own, or import a CSV from your bank.</span><button class="btn primary small" data-act="clear">Start fresh</button></div>':'');
   var body=f();
@@ -890,9 +891,10 @@ function homeScreen(sp,inc,nw){
   // credit score
   var cser=scoreSeries(S.credit.scores);
   if(cser.length){cards.push(hcard('credit','Credit score',cser.map(function(x){return '<div class="hrow"><span>'+esc(x.name)+'</span><b class="num '+x.band.k+'">'+x.last.score+'</b></div>'}).join('')+'<div class="sub" style="margin-top:6px">'+(cser[0].diff!==null?(cser[0].diff>=0?'Up ':'Down ')+Math.abs(cser[0].diff)+' since last time':'Latest scores')+'</div>'))}
-  // cash back
-  var cbs=cashbackStats(S.txns,S.accounts,TODAY,S.cardPay);
-  if(cbs.total.cbAll>0){var cbn=cbs.total.net12;cards.push(hcard('cashback','Cash back','<div class="hnum num good">'+money0(cbs.total.cb12)+'</div><div class="sub">last 12 months</div><div class="sub" style="margin-top:6px"><span class="'+(cbn>=0?'good':'bad')+'">'+(cbn>=0?'You are ahead ':'You are behind ')+money0(Math.abs(cbn))+'</span> after interest and fees</div>'))}
+  // credit cards
+  var cbs=cashbackStats(S.txns,S.accounts,TODAY,S.cardPay),ccl=S.accounts.filter(function(a){return a.type==='credit'&&(!a.closed||a.balance>0)});
+  if(ccl.length){var ccb=ccl.reduce(function(a,c){return a+c.balance},0),ccLim=ccl.reduce(function(a,c){return a+(c.closed?0:+c.limit||0)},0),ccU=ccLim>0?ccb/ccLim*100:null,cbn=cbs.total.net12;
+    cards.push(hcard('cards','Credit cards','<div class="hnum num">'+money0(ccb)+'</div><div class="sub">owed on '+ccl.length+' card'+(ccl.length===1?'':'s')+'</div>'+(ccU!==null?'<div class="sub" style="margin-top:6px"><span class="'+(ccU>=50?'bad':ccU>=30?'warn':'good')+'">'+Math.round(ccU)+'% of limits used</span></div>':'')+(cbs.total.cbAll>0?'<div class="sub" style="margin-top:6px"><span class="'+(cbn>=0?'good':'bad')+'">Cash back '+money0(cbs.total.cb12)+'</span> in 12 months</div>':'')))}
   // spending mini donut
   if(sp.total>0){var segs=Object.keys(sp.by).sort(function(a,b){return sp.by[b]-sp.by[a]}).slice(0,6).map(function(k){return {v:sp.by[k],label:k,color:col(k)}});
     cards.push(hcard('budgets','Spending',donutSVG(segs,{size:100,stroke:14,center:money0(sp.total),sub:'this month',label:'Spending'})+'<div class="sub" style="margin-top:6px">Biggest: '+esc(segs[0].label)+' '+money0(segs[0].v)+'</div>'))}
@@ -1805,6 +1807,146 @@ function fuelMerge(existing,incoming,newId){
   return {records:out,added:added,dups:dups};
 }
 /*FUELIMPORT-END*/
+/*CARDS-START*/
+// One credit card's own story: what it was used for, what was paid, what it cost and how its balance moved. Needs transactions linked to the card (acct).
+var CARD_PAYWORD=/payment|pmt|autopay|thank you/i;
+function cardMonthKeys(todayISO,n){var y=+todayISO.slice(0,4),m=+todayISO.slice(5,7)-1,out=[],i;for(i=n-1;i>=0;i--){var d=new Date(y,m-i,1);out.push(d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2))}return out}
+function cardSum(a,f){return a.reduce(function(n,x){return n+f(x)},0)}
+// o: {today:'YYYY-MM-DD', months:12, keyOf(name), isCashback(txn), isTransfer(txn), payRe: payments from another account name the card like this}
+function cardAnalysis(card,txns,o){
+  var keys=cardMonthKeys(o.today,o.months||12),idx={},months=keys.map(function(k,i){idx[k]=i;return {mk:k,spend:0,pay:0,fees:0,interest:0,cb:0,n:0}});
+  var cats={},mer={},big=null,linked=0,purchases=0,last='',cardSide=[],other=[];
+  txns.forEach(function(x){
+    if(x.acct===card.id){
+      linked++;if(x.date>last)last=x.date;
+      var m=months[idx[x.date.slice(0,7)]];if(!m)return;
+      var nm=x.name||'';
+      if(o.isCashback(x)){if(x.amount>0)m.cb+=x.amount;return}
+      if(x.amount>0){
+        if(x.cardPay===true||(CARD_PAYWORD.test(nm)&&!/refund|return|reversal/i.test(nm))){m.pay+=x.amount;cardSide.push(x)}
+        else{m.spend-=x.amount}                                                // a refund or return takes away from spending
+        return;
+      }
+      if(o.isTransfer(x))return;
+      var a=-x.amount;
+      if(CB_INTEREST.test(nm)){m.interest+=a;return}
+      if(CB_FEE.test(nm)){m.fees+=a;return}
+      m.spend+=a;m.n++;purchases++;
+      var c=x.cat||'Other';cats[c]=(cats[c]||0)+a;
+      var k=o.keyOf(nm),g=mer[k]||(mer[k]={name:nm,amt:0,n:0,months:{},amts:[]});g.amt+=a;g.n++;g.months[x.date.slice(0,7)]=1;g.amts.push(a);
+      if(!big||a>big.amount)big={date:x.date,name:nm,amount:a};
+    }else if(o.payRe&&x.amount<0&&o.payRe.test(x.name||'')&&!x.acct)other.push(x);   // paid from checking: it names the card but is not linked to it
+  });
+  other.forEach(function(x){
+    var m=months[idx[x.date.slice(0,7)]];if(!m)return;
+    var dup=cardSide.some(function(c){return Math.abs(Date.parse(c.date)-Date.parse(x.date))<=4*864e5&&Math.abs(c.amount+x.amount)<=Math.max(1,c.amount*0.01)});
+    if(!dup)m.pay+=-x.amount;
+  });
+  var an={linked:linked,last:last,months:months,purchases:purchases,big:big};
+  an.spend12=cardSum(months,function(m){return m.spend});an.pay12=cardSum(months,function(m){return m.pay});an.fees12=cardSum(months,function(m){return m.fees});an.int12=cardSum(months,function(m){return m.interest});an.cb12=cardSum(months,function(m){return m.cb});
+  var active=months.filter(function(m){return m.spend>0}).length;
+  an.avgMonth=active?an.spend12/active:0;an.avgPurchase=purchases?cardSum(months,function(m){return m.spend})/purchases:0;
+  var l3=cardSum(months.slice(-3),function(m){return m.spend}),p3=cardSum(months.slice(-6,-3),function(m){return m.spend});
+  an.spend3=l3;an.pay3=cardSum(months.slice(-3),function(m){return m.pay});an.trendPct=p3>=50&&months.slice(-6).filter(function(m){return m.spend>0}).length>=4?(l3-p3)/p3*100:null;
+  var tot=Object.keys(cats).reduce(function(n,k){return n+cats[k]},0);
+  an.cats=Object.keys(cats).map(function(k){return {cat:k,amt:cats[k],share:tot>0?cats[k]/tot:0}}).sort(function(a,b){return b.amt-a.amt}).slice(0,6);
+  an.merchants=Object.keys(mer).map(function(k){return {name:mer[k].name,amt:mer[k].amt,n:mer[k].n}}).sort(function(a,b){return b.amt-a.amt}).slice(0,6);
+  // the same merchant in at least 3 of the last 6 months for a steady amount is a recurring charge
+  var last6=keys.slice(-6),rec=[];
+  Object.keys(mer).forEach(function(k){
+    var g=mer[k],ms=last6.filter(function(m){return g.months[m]}).length;if(ms<3)return;
+    var s=g.amts.slice().sort(function(a,b){return a-b}),med=s[Math.floor(s.length/2)],steady=s.filter(function(a){return Math.abs(a-med)<=med*0.2}).length>=Math.max(3,s.length*0.7);
+    if(steady&&med>=1)rec.push({name:g.name,amt:Math.round(med*100)/100,months:ms});
+  });
+  an.recurring=rec.sort(function(a,b){return b.amt-a.amt}).slice(0,8);an.recurringMonthly=cardSum(rec,function(r){return r.amt});
+  return an;
+}
+// The balance over time from the figures you recorded or imported.
+function cardBalanceStory(card,todayISO){
+  var h=(card.history||[]).slice().sort(function(a,b){return a.date<b.date?-1:1}),cur=+card.balance||0,s={points:h,current:cur,peak:cur,peakDate:'',change90:null,progress:null,util:null,ageDays:null};
+  h.forEach(function(p){if(p.balance>s.peak){s.peak=p.balance;s.peakDate=p.date}});
+  if(h.length){
+    var t=Date.parse(todayISO),old=null,i;
+    for(i=0;i<h.length;i++){if(Date.parse(h[i].date)<=t-90*864e5)old=h[i].balance}
+    if(old!==null)s.change90=cur-old;
+    s.ageDays=Math.round((t-Date.parse(h[h.length-1].date))/864e5);
+  }
+  s.progress=s.peak>0?(s.peak-cur)/s.peak:null;
+  if(card.limit>0)s.util=cur/card.limit*100;
+  return s;
+}
+// Plain findings for one card. o: {today, minPay, apr}. Each: {k:'good'|'warn'|'bad'|'info', title, detail, saving}.
+function cardInsights(card,an,story,o){
+  var out=[],m=function(v){return '$'+Math.round(v).toLocaleString('en-US')},bal=story.current,apr=+card.apr||0,minPay=+card.minPay||0;
+  if(an.linked===0)out.push({k:'info',title:'No transactions are linked to this card yet',detail:'Spending habits, cash back and payments need the card\'s transactions. Import its statements on the Transactions tab (pick this card), link the card to your bank, or filter your transactions and use "Fix all" to link them to this card.',saving:null});
+  if(card.limit>0){
+    var pct=story.util;
+    if(pct>=75)out.push({k:'bad',title:'Using '+Math.round(pct)+'% of the limit',detail:'Over 75% hurts a credit score the most. Paying '+m(bal-0.3*card.limit)+' would bring it under 30%.',saving:null});
+    else if(pct>=50)out.push({k:'warn',title:'Using '+Math.round(pct)+'% of the limit',detail:'Under 30% is the usual target (under 10% is best). Paying '+m(bal-0.3*card.limit)+' gets there.',saving:null});
+    else if(pct>=30)out.push({k:'warn',title:'Using '+Math.round(pct)+'% of the limit',detail:'Just over the common 30% line. Paying '+m(bal-0.3*card.limit)+' brings it under, and paying before the statement closes is what the bureaus usually see.',saving:null});
+    else if(bal>0&&pct<10)out.push({k:'good',title:'Using only '+Math.round(pct)+'% of the limit',detail:'That is the best range for a credit score.',saving:null});
+  }else if(!card.closed)out.push({k:'info',title:'Add this card\'s credit limit',detail:'With the limit the app can show how much of it you use, which is a big part of a credit score. Press Edit on the card.',saving:null});
+  var est=bal>0&&apr>0?bal*apr/1200:0;
+  if(est>0){
+    var cov=minPay>0&&minPay<=est*1.05;
+    out.push({k:cov?'bad':'warn',title:'The balance costs about '+m(est)+' a month in interest',detail:'At '+apr+'% APR on '+m(bal)+'.'+(cov?' Your minimum payment of '+m(minPay)+' barely covers that, so the balance would barely move.':' Paying it off would save about '+m(est*12)+' a year.'),saving:Math.round(est*12)});
+  }
+  if(an.months.slice(-3).some(function(x){return x.spend>0||x.pay>0})){
+    var net=(an.spend3-an.pay3)/3;
+    if(bal>0&&net>Math.max(25,an.spend3*0.05))out.push({k:'warn',title:'You spend more than you pay: the balance grows about '+m(net)+' a month',detail:'Over the last 3 months '+m(an.spend3)+' was charged and '+m(an.pay3)+' paid on this card.',saving:null});
+    else if(an.pay3>an.spend3+25&&bal>0)out.push({k:'good',title:'You pay more than you spend: the balance shrinks about '+m((an.pay3-an.spend3)/3)+' a month',detail:'Over the last 3 months '+m(an.pay3)+' was paid against '+m(an.spend3)+' charged.',saving:null});
+  }
+  if(an.trendPct!==null&&an.trendPct>=30)out.push({k:'warn',title:'Spending is up '+Math.round(an.trendPct)+'% on the 3 months before',detail:'The last 3 months came to '+m(an.spend3)+'. Look at the categories below for what changed.',saving:null});
+  else if(an.trendPct!==null&&an.trendPct<=-30)out.push({k:'good',title:'Spending is down '+Math.round(-an.trendPct)+'% on the 3 months before',detail:'The last 3 months came to '+m(an.spend3)+'.',saving:null});
+  if(an.fees12>0)out.push({k:'warn',title:'Fees of '+m(an.fees12)+' in the last 12 months',detail:'Late, annual, foreign-transaction or returned-payment fees. A late fee can often be reversed if you ask once, and autopay for at least the minimum prevents them.',saving:Math.round(an.fees12)});
+  if(an.cats.length&&an.cats[0].share>=0.4&&an.spend12>200)out.push({k:'info',title:Math.round(an.cats[0].share*100)+'% of this card goes to '+an.cats[0].cat,detail:'If this card earns more in some categories than others, make sure it is the one you use for them.',saving:null});
+  if(an.recurring.length)out.push({k:'info',title:an.recurring.length+' recurring charge'+(an.recurring.length===1?'':'s')+' on this card, about '+m(an.recurringMonthly)+' a month',detail:an.recurring.slice(0,4).map(function(r){return r.name+' '+m(r.amt)}).join(', ')+'. Moving them to a card with better rewards, or cancelling ones you do not use, adds up.',saving:Math.round(an.recurringMonthly*12*0.0)||null});
+  if(an.cb12>0&&an.spend12>0)out.push({k:'info',title:'Earns '+(an.cb12/an.spend12*100).toFixed(1)+'% back ('+m(an.cb12)+' in 12 months)',detail:'Cash back is not counted as income or spending.',saving:null});
+  if(story.ageDays!==null&&story.ageDays>45&&!card.closed)out.push({k:'warn',title:'The balance was last updated '+story.ageDays+' days ago',detail:'Import a recent statement or sync your bank so the numbers here are current.',saving:null});
+  if(!card.closed&&an.linked>0&&an.spend12===0&&an.months.length>=6)out.push({k:'info',title:'Not used in the last 12 months',detail:'Issuers can close cards that sit idle, which lowers your available credit. A small recurring charge on autopay keeps it active.',saving:null});
+  var rank={bad:0,warn:1,info:2,good:3};
+  return out.sort(function(a,b){return rank[a.k]-rank[b.k]||(b.saving||0)-(a.saving||0)});
+}
+// All cards together. cards: [{card, an, story}]
+function cardsSummary(cards){
+  var s={n:0,balance:0,limit:0,minPay:0,estInterest:0,spend12:0,pay12:0,cb12:0,cost12:0,limited:0,pct:null,top:null,best:null};
+  cards.forEach(function(c){
+    if(c.card.closed&&!(c.card.balance>0))return;
+    s.n++;s.balance+=c.story.current;s.minPay+=+c.card.minPay||0;s.spend12+=c.an.spend12;s.pay12+=c.an.pay12;s.cb12+=c.an.cb12;s.cost12+=c.an.fees12+c.an.int12;
+    if(c.card.apr>0&&c.story.current>0)s.estInterest+=c.story.current*c.card.apr/1200;
+    if(c.card.limit>0&&!c.card.closed){s.limit+=c.card.limit;s.limited+=c.story.current}
+    if(!s.top||c.an.spend12>s.top.an.spend12)s.top=c;
+    if(c.an.spend12>=200&&c.an.cb12>0){var r=c.an.cb12/c.an.spend12;if(!s.best||r>s.best.rate)s.best={card:c.card,rate:r}}
+  });
+  s.pct=s.limit>0?s.limited/s.limit*100:null;
+  if(s.top&&!(s.top.an.spend12>0))s.top=null;
+  return s;
+}
+
+// What stands out across all cards together. list: [{card, an, story}], sum: cardsSummary(list)
+function cardsAdvice(list,sum){
+  var out=[],m=function(v){return '$'+Math.round(v).toLocaleString('en-US')},live=list.filter(function(c){return !(c.card.closed&&!(c.card.balance>0))});
+  if(sum.pct!==null&&sum.limited>0){
+    if(sum.pct>=50)out.push({k:'bad',title:'Together your cards use '+Math.round(sum.pct)+'% of your limits',detail:'That is high for a credit score. Getting under 30% means paying down about '+m(sum.limited-0.3*sum.limit)+'.'});
+    else if(sum.pct>=30)out.push({k:'warn',title:'Together your cards use '+Math.round(sum.pct)+'% of your limits',detail:'Just over the 30% line. About '+m(sum.limited-0.3*sum.limit)+' of payments brings it under.'});
+    else if(sum.pct<10)out.push({k:'good',title:'Together your cards use only '+Math.round(sum.pct)+'% of your limits',detail:'That is the best range for a credit score.'});
+  }
+  var hot=live.filter(function(c){return c.story.util!==null&&c.story.util>=50&&c.story.current>0});
+  if(hot.length&&hot.length<live.length)out.push({k:'warn',title:hot.map(function(c){return c.card.name}).join(', ')+' '+(hot.length===1?'is':'are')+' over 50% of '+(hot.length===1?'its':'their')+' limit',detail:'Scores look at each card as well as the total, so spreading the balance across cards with room can help.'});
+  var owing=live.filter(function(c){return c.story.current>0&&c.card.apr>0}).sort(function(a,b){return b.card.apr-a.card.apr});
+  if(owing.length>1)out.push({k:'info',title:'Extra payments save the most on '+owing[0].card.name,detail:'It has the highest rate, '+owing[0].card.apr+'% APR, on '+m(owing[0].story.current)+'. Pay the minimum on the others and put anything extra here.'});
+  if(sum.estInterest>0)out.push({k:'warn',title:'Your balances cost about '+m(sum.estInterest)+' a month in interest',detail:'That is about '+m(sum.estInterest*12)+' a year at today\'s balances and rates.'});
+  var bare=live.filter(function(c){return c.an.linked===0});
+  if(bare.length)out.push({k:'info',title:bare.length+' card'+(bare.length===1?' has':'s have')+' no transactions linked',detail:bare.map(function(c){return c.card.name}).join(', ')+': import '+(bare.length===1?'its statements':'their statements')+' on the Transactions tab (choose the card) or link '+(bare.length===1?'it':'them')+' to your bank so spending habits show here.'});
+  if(live.length>1&&sum.top&&sum.spend12>0){
+    var share=sum.top.an.spend12/sum.spend12;
+    if(share>=0.6)out.push({k:'info',title:Math.round(share*100)+'% of card spending is on '+sum.top.card.name,detail:'Fine if it is your best rewards card. If not, moving everyday spending to the card with the highest cash back adds up.'});
+  }
+  if(live.length>1&&sum.best)out.push({k:'info',title:sum.best.card.name+' earns the most back, '+(sum.best.rate*100).toFixed(1)+'% of what you spend on it',detail:'Use it for everyday purchases when the rewards are better than your other cards.'});
+  var rank={bad:0,warn:1,info:2,good:3};
+  return out.sort(function(a,b){return rank[a.k]-rank[b.k]});
+}
+/*CARDS-END*/
 /*CASH-START*/
 // Cash and receipts: spending paid in cash, a wallet balance, and the checks that stop a receipt being counted twice.
 var ATM_RE=/\b(atm|cash withdrawal|withdrawal at|cash wd|cash out)\b/i;
@@ -3613,10 +3755,10 @@ function homeAdvice(h,r){
 /* ---------- Loans: everything you owe, one strategy ---------- */
 var loanFilter='all';
 var debtUI={monthly:'',lump:'',strat:'avalanche',incl:false,years:'',cRate:'',cMonths:'60',cFee:'0'};
-var LOANFILTERS=[['all','All loans'],['student','Student'],['auto','Car'],['credit','Credit cards'],['loan','Other loans']];
+var LOANFILTERS=[['all','All loans'],['student','Student'],['auto','Car'],['loan','Other loans']];
 function debtList(incl){return S.accounts.filter(function(a){return isDebt(a)&&a.balance>0&&(incl||a.type!=='mortgage')}).map(function(a){return {id:a.id,name:a.name,type:a.type,balance:a.balance,apr:a.apr||0,minPay:a.minPay||0,closed:!!a.closed}})}
 function vLoansHub(){
-  if(!LOANKIND[loanFilter]&&loanFilter!=='all')loanFilter='all';
+  if(loanFilter==='credit'||(!LOANKIND[loanFilter]&&loanFilter!=='all'))loanFilter='all';
   var chips=LOANFILTERS.map(function(f){var n=f[0]==='all'?debtList(false).length:S.accounts.filter(function(a){return a.type===f[0]}).length;
     return '<button class="btn small'+(loanFilter===f[0]?' primary':'')+'" data-act="loan-filter" data-f="'+f[0]+'"'+(loanFilter===f[0]?' aria-current="true"':'')+'>'+f[1]+(n?' ('+n+')':'')+'</button>'}).join('');
   var head='<div class="top"><h1>Loans</h1></div><div class="actions" style="justify-content:flex-start;margin:4px 0 14px;flex-wrap:wrap">'+chips+'</div>';
@@ -3873,7 +4015,83 @@ function loanCard(kind,l){
   if(loanUI[kind].edit===l.id)return loanForm(kind,l);
   return '<div class="row wrap" style="align-items:flex-start">'+logo(l.name)+'<div class="grow" style="flex-basis:220px"><div class="nm">'+esc(l.name)+(l.closed?' <span class="pill mute">Closed</span>':'')+(l.plaid?' <span class="pill good">Linked</span>':'')+'</div><div class="sub">'+meta+'</div><div class="sub" style="margin-top:3px;white-space:normal">'+line+'</div>'+loanStmtBlock(l)+(l.balance>0&&!l.closed?'<div style="margin-top:8px">'+payBtn('loan:'+l.id)+'</div>':'')+(pct!==null?'<div class="bar" style="margin-top:6px;max-width:320px"><i style="width:'+pct+'%"></i></div><div class="sub">'+pct.toFixed(0)+'% paid off of '+money0(l.origBalance)+'</div>':'')+'</div><div class="amt num">'+money(l.balance)+'</div><div class="actions" style="flex:none;flex-wrap:nowrap"><button class="btn small" data-act="loan-edit" data-kind="'+kind+'" data-id="'+l.id+'">Edit</button><button class="btn small" data-act="acct-del" data-id="'+l.id+'" aria-label="Remove">&times;</button></div></div>';
 }
-function vLoans(kind,hub){
+/* ---------- Credit cards tab: every card on its own, with its progress and spending habits ---------- */
+var CARDCOLS=['#4f7cff','#16a34a','#f59e0b','#c8102e','#7c3aed','#0891b2','#db2777','#6b7280'];
+var cardUI={open:{}};
+function cardsData(){
+  var inf=transferInfo(S.txns,S.cardPay),td=iso(TODAY);
+  return S.accounts.filter(function(a){return a.type==='credit'}).map(function(c){
+    var an=cardAnalysis(c,S.txns,{today:td,months:12,keyOf:normName,isCashback:isCashback,isTransfer:function(x){return isTransfer(x,inf)},payRe:cardMatchRe(c)}),story=cardBalanceStory(c,td);
+    return {card:c,an:an,story:story,ins:cardInsights(c,an,story,{today:td})};
+  });
+}
+function cardBars(months){
+  var W=520,H=110,n=months.length,mx=Math.max.apply(null,months.map(function(m){return Math.max(m.spend,m.pay)}).concat([1])),bw=W/n,out='';
+  months.forEach(function(m,i){
+    var x=i*bw,hs=m.spend/mx*H,hp=m.pay/mx*H,w=(bw-6)/2;
+    out+='<rect class="growbar" x="'+(x+3)+'" y="'+(H-hs)+'" width="'+w+'" height="'+hs+'" rx="2" fill="var(--accent)" opacity=".9"><title>'+esc(monthLabel(m.mk)+': spent '+money0(m.spend))+'</title></rect>'+
+      '<rect class="growbar" x="'+(x+3+w)+'" y="'+(H-hp)+'" width="'+w+'" height="'+hp+'" rx="2" fill="var(--good)" opacity=".9"><title>'+esc(monthLabel(m.mk)+': paid '+money0(m.pay))+'</title></rect>'+
+      '<text x="'+(x+bw/2)+'" y="'+(H+13)+'" text-anchor="middle" font-size="9" style="fill:var(--muted)">'+monthLabel(m.mk).slice(0,3)+'</text>';
+  });
+  return '<svg viewBox="0 0 '+W+' '+(H+18)+'" width="100%" style="max-width:560px" role="img" aria-label="Spent and paid by month, last 12 months">'+out+'</svg>'+
+    '<div class="sub" style="display:flex;gap:12px;font-size:12px"><span><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--accent);margin-right:5px"></i>Spent</span><span><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--good);margin-right:5px"></i>Paid</span></div>';
+}
+function insightRows(list){
+  var lab={bad:'Fix',warn:'Watch',good:'Good',info:'Note'},cls={bad:'bad',warn:'warn',good:'good',info:'mute'};
+  return list.map(function(i){return '<div class="row" style="align-items:flex-start;gap:10px"><span class="pill '+cls[i.k]+'" style="flex:0 0 auto">'+lab[i.k]+'</span><div class="grow"><div class="nm" style="white-space:normal">'+esc(i.title)+'</div><div class="sub" style="white-space:normal">'+esc(i.detail)+'</div></div></div>'}).join('');
+}
+function cardPanel(c,n){
+  var card=c.card,an=c.an,st=c.story,id=card.id,open=cardUI.open[id];
+  if(open===undefined)open=n<=2;
+  if(loanUI.credit.edit===id)open=true;
+  var util=st.util,avail=card.limit>0?Math.max(0,card.limit-st.current):null,due=nextDue(card.dueDay,TODAY);
+  var h='<section class="panel cardpanel" data-card="'+esc(id)+'"><div class="row wrap" style="align-items:flex-start;border:0;padding:0">'+logo(card.name)+'<div class="grow" style="flex-basis:200px"><h2 style="margin:0">'+esc(card.name)+(card.last4?' <span class="sub" style="font-weight:400">····'+esc(card.last4)+'</span>':'')+(card.closed?' <span class="pill mute">Closed</span>':'')+(card.plaid?' <span class="pill good">Linked</span>':'')+'</h2>'+
+    '<div class="sub">'+esc(card.lender||'')+(card.lender?' · ':'')+(card.apr>0?card.apr+'% APR':'APR not set')+(card.minPay>0?' · minimum '+money0(card.minPay):'')+(due&&st.current>0?' · next due '+shortDate(iso(due)):'')+'</div></div>'+
+    '<div style="text-align:right"><div class="num" style="font-size:22px;font-weight:700">'+money0(st.current)+'</div><div class="sub">'+(card.limit>0?'of '+money0(card.limit)+' limit':'balance')+'</div></div></div>';
+  if(util!==null)h+=utilBarHTML(util)+'<div class="sub" style="margin:-8px 0 8px">Using '+Math.round(util)+'% · '+money0(avail)+' available'+(st.progress!==null&&st.peak>st.current+1?' · down '+Math.round(st.progress*100)+'% from its peak of '+money0(st.peak):'')+'</div>';
+  else if(st.progress!==null&&st.peak>st.current+1)h+='<div class="sub" style="margin:6px 0">Down '+Math.round(st.progress*100)+'% from its peak of '+money0(st.peak)+'</div>';
+  var net=an.cb12-an.int12-an.fees12;
+  h+='<div class="grid tiles">'+tile('Spent, 12 months',money0(an.spend12),an.avgMonth>0?'about '+money0(an.avgMonth)+' a month':'nothing recorded')+tile('Paid, 12 months',money0(an.pay12),an.pay12>0?'avg '+money0(an.pay12/Math.max(1,an.months.filter(function(m){return m.pay>0}).length))+' when paid':'no payments found')+
+    tile('Interest and fees','<span class="'+(an.int12+an.fees12>0?'bad':'')+'">'+money0(an.int12+an.fees12)+'</span>',an.int12+an.fees12>0?money0(an.int12)+' interest · '+money0(an.fees12)+' fees':'none recorded')+tile('Cash back','<span class="'+(an.cb12>0?'good':'')+'">'+money0(an.cb12)+'</span>',an.cb12>0?'net '+(net>=0?'+':'-')+money0(Math.abs(net))+' after costs':'none recorded')+'</div>';
+  var top=c.ins.filter(function(i){return i.k!=='info'||an.linked===0}).slice(0,open?0:2);
+  if(!open&&top.length)h+=insightRows(top);
+  h+='<div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn small" data-act="card-toggle" data-id="'+esc(id)+'" aria-expanded="'+open+'">'+(open?'Hide details':'Show details')+'</button></div>';
+  if(open){
+    h+='<div style="margin-top:12px">';
+    if(c.ins.length)h+='<h3 style="font-size:15px;margin:0 0 4px">What stands out</h3>'+insightRows(c.ins);
+    if(an.months.some(function(m){return m.spend>0||m.pay>0}))h+='<h3 style="font-size:15px;margin:14px 0 6px">Spent and paid by month</h3>'+cardBars(an.months);
+    var hp=st.points.map(function(p){return [parseD(p.date).getTime(),p.balance]});
+    if(hp.length>=2)h+='<h3 style="font-size:15px;margin:14px 0 6px">Balance over time</h3>'+lineChart(hp,{money:true,h:150,label:'Balance of '+card.name})+(st.change90!==null?'<div class="sub">'+(st.change90>0?'Up ':st.change90<0?'Down ':'No change ')+(st.change90?money0(Math.abs(st.change90))+' ':'')+'in 90 days</div>':'');
+    else h+='<div class="sub muted" style="margin:10px 0">The balance curve appears once this card has two or more recorded balances. Importing statements or syncing your bank adds them.</div>';
+    if(an.cats.length)h+='<h3 style="font-size:15px;margin:14px 0 6px">Where it goes</h3>'+an.cats.map(function(k){return '<div style="margin:0 0 6px;max-width:420px"><div class="sub" style="display:flex;justify-content:space-between;font-size:12px"><span>'+esc(k.cat)+'</span><span class="num">'+money0(k.amt)+' · '+Math.round(k.share*100)+'%</span></div><div class="bar"><i style="width:'+Math.round(k.share*100)+'%"></i></div></div>'}).join('');
+    if(an.merchants.length)h+='<h3 style="font-size:15px;margin:14px 0 6px">Top merchants</h3>'+an.merchants.map(function(mm){return '<div class="row"><div class="grow"><div class="nm">'+esc(mm.name)+'</div><div class="sub">'+mm.n+' purchase'+(mm.n===1?'':'s')+'</div></div><div class="amt num">'+money0(mm.amt)+'</div></div>'}).join('');
+    if(an.recurring.length)h+='<h3 style="font-size:15px;margin:14px 0 6px">Recurring charges<small class="sub" style="font-weight:400"> about '+money0(an.recurringMonthly)+' a month</small></h3>'+an.recurring.map(function(r){return '<div class="row"><div class="grow"><div class="nm">'+esc(r.name)+'</div><div class="sub">in '+r.months+' of the last 6 months</div></div><div class="amt num">'+money0(r.amt)+'</div></div>'}).join('');
+    if(an.big)h+='<p class="sub" style="margin:12px 0 0">Biggest purchase in 12 months: <b>'+esc(an.big.name)+'</b>, '+money0(an.big.amount)+' on '+shortDate(an.big.date)+'.</p>';
+    h+='<h3 style="font-size:15px;margin:14px 0 6px">Card details and payoff</h3>'+loanCard('credit',card)+'</div>';
+  }
+  return h+'</section>';
+}
+function cardsCompare(list){
+  var rows=list.filter(function(c){return !(c.card.closed&&!(c.card.balance>0))}).map(function(c){
+    var u=c.story.util;
+    return '<tr><td><b>'+esc(c.card.name)+'</b></td><td class="num">'+money0(c.story.current)+'</td><td class="num">'+(c.card.limit>0?money0(c.card.limit):'—')+'</td><td class="num '+(u===null?'':u>=50?'bad':u>=30?'warn':'good')+'">'+(u===null?'—':Math.round(u)+'%')+'</td><td class="num">'+(c.card.apr>0?c.card.apr+'%':'—')+'</td><td class="num">'+money0(c.an.spend12)+'</td><td class="num">'+money0(c.an.pay12)+'</td><td class="num '+(c.an.int12+c.an.fees12>0?'bad':'')+'">'+money0(c.an.int12+c.an.fees12)+'</td><td class="num '+(c.an.cb12>0?'good':'')+'">'+money0(c.an.cb12)+'</td></tr>'}).join('');
+  return '<div style="overflow-x:auto"><table class="maptable" style="width:100%"><thead><tr><th>Card</th><th>Balance</th><th>Limit</th><th>Used</th><th>APR</th><th>Spent (12 mo)</th><th>Paid (12 mo)</th><th>Interest and fees</th><th>Cash back</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+}
+function vCards(){
+  var list=cardsData();
+  if(!list.length)return '<div class="top"><h1>Credit cards</h1></div>'+vLoans('credit',true);
+  var sum=cardsSummary(list),adv=cardsAdvice(list,sum),dues=list.filter(function(c){return c.story.current>0&&!c.card.closed}).map(function(c){return nextDue(c.card.dueDay,TODAY)}).filter(Boolean).sort(function(a,b){return a-b}),cbNet=sum.cb12-sum.cost12;
+  var tiles='<div class="grid tiles">'+tile('You owe',money0(sum.balance),sum.n+' card'+(sum.n===1?'':'s'))+tile('Credit used',sum.pct===null?'—':'<span class="'+(sum.pct>=50?'bad':sum.pct>=30?'warn':'good')+'">'+Math.round(sum.pct)+'%</span>',sum.limit>0?'of '+money0(sum.limit)+' in limits':'Add the limits to see it')+
+    tile('Minimums due',money0(sum.minPay)+'<span class="muted" style="font-size:14px">/mo</span>',dues.length?'Next due '+shortDate(iso(dues[0])):'Add due days to see the next one')+tile('Interest a month','<span class="'+(sum.estInterest>0?'bad':'')+'">'+(sum.estInterest>0?money0(sum.estInterest):'$0')+'</span>',sum.estInterest>0?'estimated from balances and rates':'on balances with a rate')+
+    tile('Spent, 12 months',money0(sum.spend12),sum.top?'most on '+esc(sum.top.card.name):'link transactions to see it')+tile('Cash back net','<span class="'+(cbNet>=0?'good':'bad')+'">'+(cbNet>=0?'+':'-')+money0(Math.abs(cbNet))+'</span>',money0(sum.cb12)+' earned, '+money0(sum.cost12)+' interest and fees')+'</div>';
+  var months=list[0].an.months.map(function(m){return m.mk}),series=list.filter(function(c){return c.an.spend12>0}).map(function(c,i){return {name:c.card.name,col:CARDCOLS[i%CARDCOLS.length],vals:c.an.months.map(function(m){return Math.max(0,m.spend)})}});
+  var top='<section class="panel"><h2>All your cards<small>how they compare</small></h2>'+(adv.length?insightRows(adv):'')+'<div style="margin-top:12px">'+cardsCompare(list)+'</div>'+
+    (series.length?'<h3 style="font-size:15px;margin:16px 0 6px">Spending by card, month by month</h3>'+enStack(months,series,{}):'')+'</section>'+cashbackPanel();
+  var shown=list.filter(function(c){return !c.card.closed||c.card.balance>0||c.an.spend12>0});
+  var cards=shown.map(function(c){return cardPanel(c,shown.length)}).join('')+(list.some(function(c){return c.card.closed&&!(c.card.balance>0)&&!(c.an.spend12>0)})?'<p class="sub muted">Closed cards with no balance are hidden. They stay in Accounts.</p>':'');
+  return '<div class="top"><h1>Credit cards</h1></div>'+vLoans('credit',true,{tiles:tiles,top:top,cards:cards});
+}
+function vLoans(kind,hub,x){
   var K=LOANKIND[kind],U=loanUI[kind],loans=S.accounts.filter(function(a){return a.type===kind});
   var head=hub?'<div class="actions" style="justify-content:flex-end;margin:0 0 10px"><button class="btn small primary" data-act="loan-add" data-kind="'+kind+'">'+(kind==='credit'?'Add a card':'Add a loan')+'</button></div>':'<div class="top"><h1>'+K.title+'</h1><button class="btn small" data-act="loan-add" data-kind="'+kind+'">Add a loan</button></div>';
   var msg=U.msg?'<div class="banner"><span>'+esc(U.msg)+'</span></div>':'';
@@ -3884,7 +4102,7 @@ function vLoans(kind,hub){
   var cur=portfolio(loans,0,0),dues=loans.map(function(l){return nextDue(l.dueDay,TODAY)}).filter(Boolean).sort(function(a,b){return a-b});
   var tiles='<div class="grid tiles">'+tile('You owe',money0(total),loans.length+' loan'+(loans.length===1?'':'s'))+tile('Interest rate',wapr.toFixed(2)+'%',loans.length>1?'Average, weighted by balance':'APR')+tile('You pay',money0(mins)+'<span class="muted" style="font-size:14px">/mo</span>',dues.length?'Next due '+shortDate(iso(dues[0])):'Add a due day to see this')+
     tile('Paid off',cur.ok?(cur.months?monthYear(addMonths(TODAY,cur.months)):'Done'):(cur.reason==='nopay'?'Unknown':'Never'),cur.ok?dur(cur.months)+' at today\'s payments':(cur.reason==='nopay'?'Add a minimum payment to see it':'Payments do not cover the interest'))+tile('Interest still to pay',cur.ok?money0(cur.interest):'—','If you only pay what is due')+'</div>';
-  var cards='<section class="panel"><h2>Your loans</h2>'+loans.map(function(l){return loanCard(kind,l)}).join('')+(loans.length>1?'<p class="sub muted" style="margin:10px 0 0;font-size:13px">Extra money works hardest on the highest rate first: '+esc(attackFirst(loans).name)+' ('+attackFirst(loans).apr+'%).</p>':'')+'</section>';
+  var cards=x&&x.cards!==undefined?x.cards:'<section class="panel"><h2>Your loans</h2>'+loans.map(function(l){return loanCard(kind,l)}).join('')+(loans.length>1?'<p class="sub muted" style="margin:10px 0 0;font-size:13px">Extra money works hardest on the highest rate first: '+esc(attackFirst(loans).name)+' ('+attackFirst(loans).apr+'%).</p>':'')+'</section>';
   var extraV=Math.max(0,+U.extra||0),lumpV=Math.max(0,+U.lump||0),biV=U.bi?mins/12:0,fast=portfolio(loans,extraV+biV,lumpV),changed=extraV>0||lumpV>0||U.bi;
   var cmp='';
   if(cur.ok){
@@ -3914,7 +4132,7 @@ function vLoans(kind,hub){
   loans.forEach(function(l){var re=loanMatchRe(l),k=re?re.source:'';if(!k)return;if(!groups[k]){groups[k]=[];gOrder.push(k)}groups[k].push(l)});
   var seen=gOrder.map(function(k){var ls=groups[k],l=ls[0];var p=paymentsSeen(S.txns,l);if(!p.length)return '';var typ=p[0].amount,diff=ls.length===1&&Math.abs(typ-l.minPay)>5&&l.minPay>0;return '<div style="margin-bottom:10px"><div class="nm">'+esc(ls.map(function(x){return x.name}).join(', '))+'</div>'+p.map(function(x){return '<div class="row"><div class="grow"><div class="sub">'+shortDate(x.date)+' · '+esc(x.name)+'</div></div><div class="amt num">'+money(x.amount)+'</div></div>'}).join('')+(diff?'<p class="sub warn" style="margin:4px 0 0">Your latest payment was '+money(typ)+' but you entered '+money(l.minPay)+'. Edit the loan if the amount changed.</p>':'')+'</div>'}).join('');
   var seenP=seen?'<section class="panel histpanel"><h2>'+(kind==='auto'?'Payment history':'Payments I found')+'<small>found in your transactions</small></h2>'+seen+'</section>':'';
-  return head+msg+csBlock+adding+(kind==='auto'?loans.map(autoHero).join(''):tiles)+loanVisuals(kind,loans)+(kind==='credit'?cashbackPanel():'')+cards+contractPanels(loans)+faster+pay+seenP+loanImportPanel(kind)+loanTips(kind);
+  return head+msg+csBlock+adding+(kind==='auto'?loans.map(autoHero).join(''):(x&&x.tiles||tiles))+(x?'':loanVisuals(kind,loans))+(kind==='credit'?(x?x.top:cashbackPanel()):'')+cards+contractPanels(loans)+faster+pay+seenP+loanImportPanel(kind)+loanTips(kind);
 }
 function attackFirst(loans){return loans.filter(function(l){return l.balance>0}).slice().sort(function(a,b){return b.apr-a.apr||a.balance-b.balance})[0]||loans[0]}
 var plLoading=false;
@@ -5191,7 +5409,7 @@ function factorCards(adv,ages,profile){
 function vCredit(){
   var cr=S.credit,P=cr.profile,series=scoreSeries(cr.scores),adv=creditAdvice(S.accounts,P,money0),u=adv.util,ages=creditAges(S.accounts,P,TODAY);
   var ins=creditInsights(cr.scores,S.accounts,P,TODAY,money0),story=scoreStory(series,S.accounts),gap=scoreGap(series);
-  var head='<div class="top"><h1>Credit score</h1></div><div class="actions" style="justify-content:flex-end;margin:0 0 10px">'+cardStmtButton('Add a credit card from a statement','')+'</div>'+cardStmtPanel();
+  var head='<div class="top"><h1>Credit score</h1></div><div class="actions" style="justify-content:flex-end;margin:0 0 10px"><button class="btn small" data-view="cards">Your credit cards →</button></div>';
   var cards=series.length?'<div class="scgrid">'+series.map(scoreCardHTML).join('')+'</div>'+(gap&&gap.gap>=5?'<p class="sub" style="margin:10px 0 0;white-space:normal">'+esc(gap.hi.name)+' is <b>'+gap.gap+'</b> point'+(gap.gap===1?'':'s')+' higher than '+esc(gap.lo.name)+'. Small gaps are normal: each bureau holds slightly different information about you.</p>':''):'<div class="empty" style="white-space:normal">No score yet. Add the scores you see in Credit Karma, your bank or card app below, one per bureau.</div>';
   var scoresPanel='<section class="panel"><h2>Your scores<small>TransUnion, Equifax and Experian</small></h2>'+cards+(series.reduce(function(n,s){return n+s.entries.length},0)>1?'<div style="margin-top:16px">'+scoreTrend(series)+'</div>':'')+(story.length?'<div class="banner" style="margin-top:14px;display:block;white-space:normal"><b>What moved your score</b><ul style="margin:6px 0 0;padding-left:18px">'+story.map(function(t){return '<li style="margin:3px 0">'+esc(t)+'</li>'}).join('')+'</ul></div>':'')+'</section>';
   var insPanel=ins.length?'<section class="panel"><h2>For you<small>what the app noticed</small></h2>'+ins.slice(0,8).map(function(x){return '<div class="row" style="align-items:flex-start"><span class="dot" style="flex:none;width:10px;height:10px;border-radius:50%;margin-top:6px;background:var(--'+(x.k==='good'?'good':x.k==='bad'?'bad':x.k==='warn'?'warn':'accent')+')"></span><div class="grow" style="white-space:normal"><div class="nm" style="white-space:normal">'+esc(x.title)+'</div><div class="sub" style="white-space:normal">'+esc(x.detail)+'</div></div></div>'}).join('')+'</section>':'';
@@ -5705,7 +5923,7 @@ function bindView(){
   m.querySelectorAll('[data-budget]').forEach(function(i){i.onchange=function(){var v=parseFloat(i.value);if(v>0)S.budgets[i.dataset.budget]=v;else delete S.budgets[i.dataset.budget];save();render()}});
   m.querySelectorAll('[data-cat]').forEach(function(s){s.onchange=function(){editTxn(s.dataset.cat,{cat:s.value},false);save();toast('Category updated.')}});
   var q=$('#q',m);if(q)q.oninput=function(){filter.q=q.value;var pos=q.selectionStart;render();var n=$('#q');n.focus();n.setSelectionRange(pos,pos)};
-  m.querySelectorAll('[data-f]').forEach(function(el){el.onchange=function(){var k=el.dataset.f;if(k==='bulkkind'){filter.bulkKind=el.value;if(el.value)filter.bulkCat='';filter.bulk='';filter.bulkOpen=true;render();return}if(k==='bulkCat'){filter.bulkCat=el.value;if(el.value)filter.bulkKind='';filter.bulk='';filter.bulkOpen=true;render();return}filter[k]=el.value;filter.limit=150;filter.bulk='';filter.bulkOpen=false;filter.open=true;render()}});
+  m.querySelectorAll('[data-f]').forEach(function(el){el.onchange=function(){var k=el.dataset.f;if(k==='bulkAcct'){filter.bulkAcct=el.value;if(el.value){filter.bulkKind='';filter.bulkCat=''}filter.bulk='';filter.bulkOpen=true;render();return}if(k==='bulkkind'){filter.bulkKind=el.value;if(el.value){filter.bulkCat='';filter.bulkAcct=''}filter.bulk='';filter.bulkOpen=true;render();return}if(k==='bulkCat'){filter.bulkCat=el.value;if(el.value){filter.bulkKind='';filter.bulkAcct=''}filter.bulk='';filter.bulkOpen=true;render();return}filter[k]=el.value;filter.limit=150;filter.bulk='';filter.bulkOpen=false;filter.open=true;render()}});
   m.querySelectorAll('[data-photo]').forEach(function(inp){inp.onchange=function(){var f=inp.files[0],k=String(inp.dataset.photo).split(':');if(!f)return;photoToData(f,function(url){if(!url){toast('That photo could not be read or is too large.');return}if(k[0]==='home')S.home.photo=url;else{var pa=S.accounts.filter(function(x){return x.id===k[1]})[0];if(pa)pa.photo=url}save();render();toast('Photo saved on this device.')});inp.value=''}});
   m.querySelectorAll('[data-cartype]').forEach(function(sel){sel.onchange=function(){var ca=S.accounts.filter(function(x){return x.id===sel.dataset.cartype})[0];if(ca&&CAR_TYPES[sel.value]){ca.carType=sel.value;save();render()}}});
   var apf=$('#apple-file',m);if(apf)apf.onchange=function(){var fl=Array.prototype.slice.call(apf.files);if(!fl.length)return;pdf.apple=true;pdf.type='credit';stmtRead(fl);apf.value='';var pp=$('#pdfpanel');if(pp)pp.scrollIntoView({behavior:'smooth',block:'start'})};
@@ -5824,7 +6042,7 @@ function bindView(){
   if(view==='look'){secBind(m);if(T&&!aiSt)loadAi();if(T&&T.bio&&!BIO.loaded)bioLoad(function(){if(view==='look')render()})}
 }
 document.addEventListener('click',function(e){
-  var v=e.target.closest('[data-view]');if(v){view=v.dataset.view;if(view!=='bills'&&month>NOWKEY)month=NOWKEY;if(view==='carloan'||view==='student'||view==='cashback'){loanFilter=view==='student'?'student':view==='cashback'?'credit':'auto';view='loans'}pendingImport=null;pendingEnc=null;secMsg='';payUI.edit='';editTx='';render();window.scrollTo(0,0);return}
+  var v=e.target.closest('[data-view]');if(v){view=v.dataset.view;if(view!=='bills'&&month>NOWKEY)month=NOWKEY;if(view==='cashback')view='cards';else if(view==='carloan'||view==='student'){loanFilter=view==='student'?'student':'auto';view='loans'}pendingImport=null;pendingEnc=null;secMsg='';payUI.edit='';editTx='';render();window.scrollTo(0,0);return}
   var pl=e.target.closest('a[data-pay]');if(pl){toast('Opening '+pl.dataset.host+' in your browser. Come back and mark it paid when you are done.');return}
   var b=e.target.closest('[data-act]');if(!b)return;
   var a=b.dataset.act,id=b.dataset.id,s=S.subs.filter(function(x){return x.id===id})[0];
@@ -5877,16 +6095,17 @@ document.addEventListener('click',function(e){
     if(ids.length)S.txns=removeTxns(S.txns,ids);
     impUI.confirm='';toast(ids.length?'Removed '+ids.length+' transaction'+(ids.length===1?'':'s')+'. Undo is at the top if that was a mistake.':'Nothing to remove.');
   }
-  else if(a==='f-clear'){filter.q='';filter.cat='';filter.kind='';filter.acct='';filter.from='';filter.to='';filter.min='';filter.max='';filter.sort='new';filter.limit=150;filter.bulk='';filter.bulkOpen=false;filter.bulkKind='';filter.bulkCat=''}
+  else if(a==='f-clear'){filter.q='';filter.cat='';filter.kind='';filter.acct='';filter.from='';filter.to='';filter.min='';filter.max='';filter.sort='new';filter.limit=150;filter.bulk='';filter.bulkOpen=false;filter.bulkKind='';filter.bulkCat='';filter.bulkAcct=''}
   else if(a==='f-range'){var rg=rangeDates(b.dataset.r,TODAY);filter.from=rg.from;filter.to=rg.to;filter.limit=150;filter.bulk='';filter.open=true}
   else if(a==='f-more'){filter.limit=(filter.limit||150)+250}
-  else if(a==='bulk-ask'){if(filter.bulkKind)filter.bulk='kind:'+filter.bulkKind;else if(filter.bulkCat)filter.bulk='cat:'+filter.bulkCat}
+  else if(a==='bulk-ask'){if(filter.bulkAcct&&!filter.bulkKind&&!filter.bulkCat)filter.bulk='acct:'+filter.bulkAcct;else if(filter.bulkKind)filter.bulk='kind:'+filter.bulkKind;else if(filter.bulkCat)filter.bulk='cat:'+filter.bulkCat}
   else if(a==='bulk-no'){filter.bulk=''}
   else if(a==='bulk-yes'){
     var bi=transferInfo(S.txns,S.cardPay),bl=filterTxns(S.txns,filter,bi),bn=0,ba=filter.bulk;
     if(ba.indexOf('kind:')===0){var bk=ba.slice(5);bl.forEach(function(t){if(txKind(t,transferInfo(S.txns,S.cardPay))!==bk){applyKind(t,bk);bn++}})}
     else if(ba.indexOf('cat:')===0){var bc=ba.slice(4);if(CATS.indexOf(bc)>-1)bl.forEach(function(t){if(t.cat!==bc){t.cat=bc;var sb=subFor(bc,t.name,'');if(sb)t.sub=sb;else delete t.sub;bn++}})}
-    filter.bulk='';filter.bulkKind='';filter.bulkCat='';filter.bulkOpen=false;syncXfer();toast(bn?bn+' transaction'+(bn===1?'':'s')+' changed. Undo is at the top if that was a mistake.':'Nothing needed changing.');
+    else if(ba.indexOf('acct:')===0){var bq=ba.slice(5);if(S.accounts.some(function(a){return a.id===bq}))bl.forEach(function(t){if(t.acct!==bq){t.acct=bq;bn++}})}
+    filter.bulk='';filter.bulkKind='';filter.bulkCat='';filter.bulkAcct='';filter.bulkOpen=false;syncXfer();toast(bn?bn+' transaction'+(bn===1?'':'s')+' changed. Undo is at the top if that was a mistake.':'Nothing needed changing.');
   }
   else if(a==='en-fuel'){enUI.fuel=FUELS[b.dataset.f]?b.dataset.f:'propane';enUI.adding=false;enUI.pasteOpen=false;enUI.txOpen=false;enUI.imp=null;enUI.msg=''}
   else if(a==='en-fadd'){enUI.adding=true;enUI.pasteOpen=false;enUI.txOpen=false;enUI.msg=''}
@@ -6005,6 +6224,7 @@ document.addEventListener('click',function(e){
   else if(a==='mort-cancel'){mortUI.edit=false;mortUI.pre=null;mortUI.imp=null}
   else if(a==='dp-usehist'){debtUI.monthly=b.dataset.v;S.debtMonthly=+b.dataset.v||0}
   else if(a==='loan-filter'){loanFilter=b.dataset.f}
+  else if(a==='card-toggle'){var cid=b.dataset.id,cur=cardUI.open[cid];if(cur===undefined)cur=S.accounts.filter(function(a2){return a2.type==='credit'&&(!a2.closed||a2.balance>0)}).length<=2;cardUI.open[cid]=!cur}
   else if(a==='loan-add'){loanUI[b.dataset.kind].adding=true;loanUI[b.dataset.kind].edit=''}
   else if(a==='loan-cancel'){loanUI[b.dataset.kind].adding=false;loanUI[b.dataset.kind].edit=''}
   else if(a==='loan-edit'){loanUI[b.dataset.kind].edit=id;loanUI[b.dataset.kind].adding=false}
@@ -6169,7 +6389,7 @@ function thBind(m){
   var dpi=$('#dp-incl',m);if(dpi)dpi.onchange=function(){debtUI.incl=dpi.checked;render()};
   var ar=$('#af-rate',m);if(ar)ar.onchange=function(){aff.rate=parseFloat(ar.value)||0;render()};
   m.querySelectorAll('[data-lr]').forEach(function(i2){i2.onchange=function(){
-    var kind=LOANKIND[loanFilter]?loanFilter:'auto',r=loanUI[kind].imp&&loanUI[kind].imp.rows&&loanUI[kind].imp.rows[+i2.dataset.i];if(!r)return;
+    var kind=view==='cards'?'credit':LOANKIND[loanFilter]?loanFilter:'auto',r=loanUI[kind].imp&&loanUI[kind].imp.rows&&loanUI[kind].imp.rows[+i2.dataset.i];if(!r)return;
     var f=i2.dataset.lr;if(f==='on')r.on=i2.checked;else if(f==='name'||f==='lender'||f==='dueDate'||f==='lastPayDate'||f==='asOf')r[f]=i2.value;else r[f]=parseFloat(i2.value)||0;
     if(f==='on')render();
   }});
@@ -6245,7 +6465,7 @@ function subOptions(cat,cur){
   return '<option value="">None</option>'+l.map(function(n){return '<option'+(n===cur?' selected':'')+'>'+esc(n)+'</option>'}).join('');
 }
 function refinePanel(list,xinf,rows,shownN){
-  var f=filter,act=filterActive(f),tot=filterTotals(list,xinf),cards=S.accounts.filter(function(a){return S.txns.some(function(t){return t.acct===a.id})});
+  var f=filter,act=filterActive(f),tot=filterTotals(list,xinf),ccl=S.accounts.filter(function(a){return a.type==='credit'}),cards=S.accounts.filter(function(a){return S.txns.some(function(t){return t.acct===a.id})});
   var sel=function(k,opts,cur){return '<select data-f="'+k+'" aria-label="'+k+'">'+opts.map(function(o){return '<option value="'+esc(o[0])+'"'+(String(cur)===String(o[0])?' selected':'')+'>'+esc(o[1])+'</option>'}).join('')+'</select>'};
   var chip=function(r,l){return '<button class="btn small" data-act="f-range" data-r="'+r+'">'+l+'</button>'};
   var more=f.from||f.to||f.acct||f.min!==''||f.max!==''||f.sort!=='new'||f.open;
@@ -6262,9 +6482,9 @@ function refinePanel(list,xinf,rows,shownN){
     '<p class="sub" style="margin:0 0 8px;white-space:normal">'+(act?'<b>'+list.length.toLocaleString('en-US')+'</b> match':'<b>'+list.length.toLocaleString('en-US')+'</b> transactions')+' · in '+money0(tot.inn)+' · out '+money0(tot.out)+(tot.skipped?' · '+tot.skipped+' not counted (payments, transfers, cash back)':'')+'</p>';
   if(act&&list.length){
     var ask=f.bulk,kindLab={cardpay:'card payments (not counted)',transfer:'transfers (not counted)',count:'real spending or income',cashback:'cash back'};
-    h+='<details style="margin:0 0 8px"'+(ask||f.bulkOpen?' open':'')+'><summary class="sub" style="cursor:pointer">Fix all '+list.length+' at once</summary><div class="form" style="align-items:flex-end;margin-top:8px"><label>Mark them as'+sel('bulkkind',[['','Choose…'],['cardpay','Card payment (not counted)'],['transfer','Transfer between my accounts (not counted)'],['count','Real spending or income (counted)'],['cashback','Cash back']],f.bulkKind||'')+'</label><label>or set category'+'<select data-f="bulkCat"><option value="">Choose…</option>'+CATS.map(function(c){return '<option'+(c===f.bulkCat?' selected':'')+'>'+esc(c)+'</option>'}).join('')+'</select></label></div>';
-    if(ask)h+='<div class="banner" style="margin-top:8px;display:block;white-space:normal"><b>Change '+list.length+' transaction'+(list.length===1?'':'s')+' to '+(ask.indexOf('kind:')===0?kindLab[ask.slice(5)]:'the category '+esc(ask.slice(4)))+'?</b> Undo is at the top if that is a mistake.<div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn small danger" data-act="bulk-yes">Yes, change them</button><button class="btn small" data-act="bulk-no">Cancel</button></div></div>';
-    else h+='<div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn small" data-act="bulk-ask"'+((f.bulkKind||f.bulkCat)?'':' disabled')+'>Apply</button></div>';
+    h+='<details style="margin:0 0 8px"'+(ask||f.bulkOpen?' open':'')+'><summary class="sub" style="cursor:pointer">Fix all '+list.length+' at once</summary><div class="form" style="align-items:flex-end;margin-top:8px"><label>Mark them as'+sel('bulkkind',[['','Choose…'],['cardpay','Card payment (not counted)'],['transfer','Transfer between my accounts (not counted)'],['count','Real spending or income (counted)'],['cashback','Cash back']],f.bulkKind||'')+'</label><label>or set category'+'<select data-f="bulkCat"><option value="">Choose…</option>'+CATS.map(function(c){return '<option'+(c===f.bulkCat?' selected':'')+'>'+esc(c)+'</option>'}).join('')+'</select></label>'+(ccl.length?'<label>or link them to card<select data-f="bulkAcct"><option value="">Choose…</option>'+ccl.map(function(a){return '<option value="'+esc(a.id)+'"'+(f.bulkAcct===a.id?' selected':'')+'>'+esc(a.name)+'</option>'}).join('')+'</select></label>':'')+'</div>';
+    if(ask)h+='<div class="banner" style="margin-top:8px;display:block;white-space:normal"><b>'+(ask.indexOf('acct:')===0?'Link '+list.length+' transaction'+(list.length===1?'':'s')+' to '+esc((S.accounts.filter(function(a){return a.id===ask.slice(5)})[0]||{name:'that card'}).name):'Change '+list.length+' transaction'+(list.length===1?'':'s')+' to '+(ask.indexOf('kind:')===0?kindLab[ask.slice(5)]:'the category '+esc(ask.slice(4))))+'?</b> Undo is at the top if that is a mistake.<div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn small danger" data-act="bulk-yes">Yes, change them</button><button class="btn small" data-act="bulk-no">Cancel</button></div></div>';
+    else h+='<div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn small" data-act="bulk-ask"'+((f.bulkKind||f.bulkCat||f.bulkAcct)?'':' disabled')+'>Apply</button></div>';
     h+='</details>';
   }
   return h+(rows||'<div class="empty">No transactions match.</div>')+(list.length>shownN?'<div class="empty">Showing '+shownN+' of '+list.length.toLocaleString('en-US')+'. <button class="btn small" data-act="f-more">Show more</button></div>':'')+'</section>';

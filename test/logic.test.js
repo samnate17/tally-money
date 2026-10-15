@@ -1141,7 +1141,7 @@ test('debt advice: recommends by the numbers and flags the real problems', () =>
 test('Loans hub and Mortgage tab are wired in, old tab names still open the hub, and backups carry the new data', () => {
   const src = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
   assert.ok(src.includes("['loans','Loans']") && src.includes("['mortgage','Mortgage'") && src.includes('loans:vLoansHub,mortgage:vMortgage'));
-  assert.ok(!src.includes("['carloan','Car loan'") && src.includes("loanFilter=view==='student'?'student':view==='cashback'?'credit':'auto';view='loans'"));
+  assert.ok(!src.includes("['carloan','Car loan'") && src.includes("if(view==='cashback')view='cards';else if(view==='carloan'||view==='student'){loanFilter=view==='student'?'student':'auto';view='loans'}"));
   assert.ok(src.includes('home:S.home,debtMonthly:S.debtMonthly') && src.includes('home:home,debtMonthly:') && src.includes('home:pendingImport.home||{}'));
 });
 
@@ -1751,4 +1751,109 @@ test('bills: paid by name, by card statement, by amount and date, with one payme
   // a mark always wins, and the amount must be close
   const marked = B.billsSummary(items.slice(0, 1), '2026-10', txns, { 'ph:2026-10': 'unpaid' }, today); assert.notStrictEqual(marked.rows[0].st.state, 'paid');
   const off = B.billsSummary(B.billItems([{ id: 'y', name: 'Thing', amount: 80, dueDay: 20, match: '' }], []), '2026-10', [{ id: 'a', date: '2026-10-19', name: 'Somewhere', amount: -95 }], {}, today); assert.strictEqual(off.rows[0].st.state, 'overdue');
+});
+
+// ---------- Credit cards tab: per-card analysis, balance story, insights ----------
+function cardsWorld() {
+  return new Function(srcBlock('/*TRANSFER-START*/', '/*TRANSFER-END*/') + srcBlock('/*CASHBACK-START*/', '/*CASHBACK-END*/') + srcBlock('/*CARDS-START*/', '/*CARDS-END*/') + '\nreturn {cardMonthKeys, cardAnalysis, cardBalanceStory, cardInsights, cardsSummary, cardsAdvice, isCashback, isTransfer, transferInfo};')();
+}
+function cardOpts(C, txns) {
+  const inf = C.transferInfo(txns, 'off');
+  return { today: '2026-10-15', months: 12, keyOf: (n) => n.toLowerCase().replace(/[#\d*]+/g, '').replace(/\s+/g, ' ').trim(), isCashback: C.isCashback, isTransfer: (x) => C.isTransfer(x, inf), payRe: null };
+}
+test('cardMonthKeys: the last n months ending this month, across a year boundary', () => {
+  const C = cardsWorld();
+  assert.deepEqual(C.cardMonthKeys('2026-02-10', 4), ['2025-11', '2025-12', '2026-01', '2026-02']);
+});
+test('cardAnalysis: spending, payments, interest, fees, cash back and categories for one card', () => {
+  const C = cardsWorld();
+  const card = { id: 'c1', type: 'credit', name: 'Sample Card', balance: 800, limit: 2000, apr: 24, minPay: 35 };
+  const t = [
+    { id: '1', date: '2026-10-02', name: 'Grocer One', amount: -120, cat: 'Groceries', acct: 'c1' },
+    { id: '2', date: '2026-10-05', name: 'Grocer One', amount: -80, cat: 'Groceries', acct: 'c1' },
+    { id: '3', date: '2026-10-06', name: 'Gas Stop', amount: -40, cat: 'Gas', acct: 'c1' },
+    { id: '4', date: '2026-10-08', name: 'PAYMENT THANK YOU', amount: 300, acct: 'c1', cardPay: true },
+    { id: '5', date: '2026-10-09', name: 'INTEREST CHARGE', amount: -18.5, acct: 'c1' },
+    { id: '6', date: '2026-10-10', name: 'LATE FEE', amount: -29, acct: 'c1' },
+    { id: '7', date: '2026-10-11', name: 'Daily Cash', amount: 4, acct: 'c1' },
+    { id: '8', date: '2026-10-12', name: 'Grocer One return', amount: 20, acct: 'c1', cat: 'Groceries' },
+    { id: '9', date: '2026-10-03', name: 'Other card buy', amount: -999, acct: 'c2' },
+  ];
+  const an = C.cardAnalysis(card, t, cardOpts(C, t));
+  const oct = an.months[an.months.length - 1];
+  assert.equal(an.linked, 8);
+  assert.equal(Math.round(oct.spend), 220);            // 120+80+40 minus the 20 refund
+  assert.equal(oct.pay, 300);
+  assert.equal(oct.interest, 18.5);
+  assert.equal(oct.fees, 29);
+  assert.equal(oct.cb, 4);
+  assert.equal(an.cats[0].cat, 'Groceries');
+  assert.equal(an.merchants[0].name, 'Grocer One');
+  assert.equal(an.big.amount, 120);
+  assert.equal(an.spend12, oct.spend);
+});
+test('cardAnalysis: a payment from checking that names the card counts once, not twice', () => {
+  const C = cardsWorld();
+  const card = { id: 'c1', type: 'credit', name: 'Sample Card', balance: 500 };
+  const t = [
+    { id: '1', date: '2026-09-10', name: 'PAYMENT THANK YOU', amount: 250, acct: 'c1', cardPay: true },
+    { id: '2', date: '2026-09-09', name: 'SAMPLE CARD PAYMENT', amount: -250 },           // the same payment seen from checking
+    { id: '3', date: '2026-08-12', name: 'SAMPLE CARD PAYMENT', amount: -100 },          // only the checking side exists
+  ];
+  const o = cardOpts(C, t); o.payRe = /sample.*payment/i;
+  const an = C.cardAnalysis(card, t, o);
+  assert.equal(an.pay12, 350);
+});
+test('cardAnalysis: recurring charges need 3 of the last 6 months at a steady amount', () => {
+  const C = cardsWorld();
+  const card = { id: 'c1', type: 'credit', name: 'Sample Card', balance: 0 };
+  const t = [];
+  ['2026-05', '2026-06', '2026-07', '2026-08', '2026-09', '2026-10'].forEach((m, i) => { t.push({ id: 's' + i, date: m + '-03', name: 'StreamCo 123', amount: -15.99, acct: 'c1' }); if (i < 2) t.push({ id: 'r' + i, date: m + '-09', name: 'Rare Shop', amount: -50, acct: 'c1' }); });
+  const an = C.cardAnalysis(card, t, cardOpts(C, t));
+  assert.equal(an.recurring.length, 1);
+  assert.equal(an.recurring[0].amt, 15.99);
+  assert.equal(an.recurring[0].months, 6);
+});
+test('cardBalanceStory: peak, progress, 90-day change and utilization', () => {
+  const C = cardsWorld();
+  const card = { id: 'c1', balance: 600, limit: 2000, history: [{ date: '2026-05-01', balance: 1500 }, { date: '2026-07-10', balance: 1000 }, { date: '2026-10-10', balance: 600 }] };
+  const st = C.cardBalanceStory(card, '2026-10-15');
+  assert.equal(st.peak, 1500);
+  assert.equal(Math.round(st.progress * 100), 60);
+  assert.equal(st.change90, -400);                     // from 1000 on 07-10 (older than 90 days) to 600
+  assert.equal(st.util, 30);
+  assert.equal(st.ageDays, 5);
+});
+test('cardInsights: flags high use, interest that the minimum barely covers, fees and no linked transactions', () => {
+  const C = cardsWorld();
+  const card = { id: 'c1', name: 'Sample Card', balance: 1800, limit: 2000, apr: 28, minPay: 40 };
+  const t = [{ id: '1', date: '2026-10-10', name: 'LATE FEE', amount: -35, acct: 'c1' }];
+  const an = C.cardAnalysis(card, t, cardOpts(C, t)), st = C.cardBalanceStory(card, '2026-10-15');
+  const ins = C.cardInsights(card, an, st, { today: '2026-10-15' });
+  assert.equal(ins[0].k, 'bad');
+  assert.ok(ins.some((i) => /Using 90%/.test(i.title)));
+  assert.ok(ins.some((i) => /barely covers/.test(i.detail)));
+  assert.ok(ins.some((i) => /Fees of \$35/.test(i.title)));
+  const none = C.cardInsights(card, C.cardAnalysis(card, [], cardOpts(C, [])), st, {});
+  assert.ok(none.some((i) => /No transactions are linked/.test(i.title)));
+});
+test('cardsSummary and cardsAdvice: totals, combined use and which card to pay extra on', () => {
+  const C = cardsWorld();
+  const mk = (id, name, bal, lim, apr, cb, spend) => {
+    const card = { id, name, balance: bal, limit: lim, apr, minPay: 25 };
+    const an = { linked: 5, spend12: spend, pay12: 0, cb12: cb, fees12: 0, int12: 0, months: [], cats: [], recurring: [], recurringMonthly: 0 };
+    return { card, an, story: C.cardBalanceStory(card, '2026-10-15') };
+  };
+  const list = [mk('a', 'Card A', 900, 1000, 29, 0, 3000), mk('b', 'Card B', 100, 4000, 15, 60, 1000), { ...mk('c', 'Old Card', 0, 500, 20, 0, 0), card: { id: 'c', name: 'Old Card', balance: 0, limit: 500, closed: true } }];
+  const sum = C.cardsSummary(list);
+  assert.equal(sum.n, 2);
+  assert.equal(sum.balance, 1000);
+  assert.equal(sum.limit, 5000);
+  assert.equal(Math.round(sum.pct), 20);
+  assert.equal(sum.top.card.id, 'a');
+  assert.equal(sum.best.card.id, 'b');
+  const adv = C.cardsAdvice(list, sum);
+  assert.ok(adv.some((a) => /Extra payments save the most on Card A/.test(a.title)));
+  assert.ok(adv.some((a) => /Card A is over 50%/.test(a.title)));
+  assert.ok(adv.some((a) => /Card B earns the most back/.test(a.title)));
 });
