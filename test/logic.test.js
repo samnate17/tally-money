@@ -2119,3 +2119,59 @@ test('taxDeadlines and cleanTaxState', () => {
   assert.equal(c.forms.length, 1);
   assert.equal(c.forms[0].wages, 1000);
 });
+
+// ---------- Tax figures looked up online: checked before use, stored safely, can be reset ----------
+function ratesWorld() { return new Function(srcBlock('/*PAY-START*/', '/*PAY-END*/') + srcBlock('/*TAX-START*/', '/*TAX-END*/') + '\nreturn {TAX_YEARS, STATE_TAX, cleanTaxRates, taxApplyOnline, cleanTaxOnline, cleanTaxState, taxEstimate, taxYearOf};')(); }
+function rawFed(X, y, bump) {
+  const t = X.TAX_YEARS[y], br = {};
+  for (const k of Object.keys(t.br)) br[k] = t.br[k].map((r) => [r[0] === Infinity ? null : r[0], r[1]]);
+  return { year: y, federal: { std: Object.assign({}, t.std, bump || {}), ssWageBase: t.ssBase, saltCap: t.salt, brackets: br }, state: { code: 'MA', ratePct: 4.2, type: 'flat', note: 'Flat rate.' } };
+}
+test('cleanTaxRates accepts complete, sane figures and rejects broken ones', () => {
+  const X = ratesWorld();
+  const ok = X.cleanTaxRates(rawFed(X, 2026, { single: 17000 }), 2026);
+  assert.equal(ok.fed.std.single, 17000);
+  assert.equal(ok.fed.br.single[6][0], Infinity);
+  assert.equal(ok.state.rate, 4.2);
+  assert.equal(X.cleanTaxRates(rawFed(X, 2026), 2027).fed, null);                     // figures for a different year are not used
+  const bad = rawFed(X, 2026); bad.federal.brackets.single[2][1] = 0.25;
+  assert.equal(X.cleanTaxRates(bad, 2026).fed, null);                                 // rates must be the known seven
+  const jumbled = rawFed(X, 2026); jumbled.federal.brackets.mfj[1][0] = 5;
+  assert.equal(X.cleanTaxRates(jumbled, 2026).fed, null);
+  const silly = rawFed(X, 2026, { single: 900 });
+  assert.equal(X.cleanTaxRates(silly, 2026).fed, null);
+  const st = rawFed(X, 2026); st.state = { code: 'MA', ratePct: 90 };
+  assert.equal(X.cleanTaxRates(st, 2026).state, null);
+  const nul = rawFed(X, 2026); nul.federal.std.single = null;
+  assert.equal(X.cleanTaxRates(nul, 2026).fed, null);
+  assert.equal(X.cleanTaxRates(null, 2026).fed, null);
+});
+test('online figures are stored, applied to the estimate, survive JSON, and can be reset', () => {
+  const X = ratesWorld();
+  const before = X.taxEstimate({ year: 2026, status: 'single', wages: 100000, grossForFica: 100000, state: 'MA' });
+  const c = X.cleanTaxRates(rawFed(X, 2026, { single: 20000 }), 2026);
+  const br = {}; for (const k of Object.keys(c.fed.br)) br[k] = c.fed.br[k].map((r) => [r[0] === Infinity ? null : r[0], r[1]]);
+  const stored = JSON.parse(JSON.stringify(X.cleanTaxOnline({ fed: { 2026: { std: c.fed.std, ssBase: c.fed.ssBase, salt: c.fed.salt, br, fetched: '2026-10-15', sources: ['https://www.irs.gov/x', 'javascript:alert(1)'] } }, states: { MA: { rate: 4.2, type: 'flat', note: 'n', fetched: '2026-10-15', sources: [] }, ZZ: { rate: 3 } } })));
+  assert.deepEqual(stored.fed[2026].sources, ['https://www.irs.gov/x']);
+  assert.equal(stored.fed[2026].br.single[6][0], null);
+  assert.equal(stored.states.ZZ, undefined);
+  X.taxApplyOnline(stored);
+  const after = X.taxEstimate({ year: 2026, status: 'single', wages: 100000, grossForFica: 100000, state: 'MA' });
+  assert.equal(after.deduction, 20000);
+  assert.equal(after.state.rate, 4.2);
+  assert.ok(after.income < before.income);
+  assert.equal(X.cleanTaxState({ online: stored }).online.fed[2026].std.single, 20000);
+  assert.deepEqual(X.cleanTaxState({ online: { fed: { 2026: { std: { single: 1 } } } } }).online.fed, {});    // broken stored data is dropped
+  X.taxApplyOnline(null);
+  const reset = X.taxEstimate({ year: 2026, status: 'single', wages: 100000, grossForFica: 100000, state: 'MA' });
+  assert.equal(reset.deduction, 16100);
+  assert.equal(reset.state.rate, 5);
+});
+test('cleanTaxRatesRaw pulls the JSON out of Claude\'s reply and keeps only https sources', () => {
+  const { cleanTaxRatesRaw } = require('../ai.js');
+  const r = cleanTaxRatesRaw('Here you go:\n{"year":2026,"federal":{"std":{"single":16100}},"state":{"code":"MA","ratePct":5},"sources":["https://www.irs.gov/newsroom/x","http://evil.example","javascript:1"]}\nDone.');
+  assert.equal(r.raw.year, 2026);
+  assert.deepEqual(r.sources, ['https://www.irs.gov/newsroom/x']);
+  assert.equal(cleanTaxRatesRaw('no json here'), null);
+  assert.equal(cleanTaxRatesRaw('{bad json}'), null);
+});

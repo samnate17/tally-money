@@ -424,6 +424,20 @@ function cleanTaxDocs(raw) {
   }
   return out;
 }
+const TAXRATES_SYSTEM = [
+  'You look up current US income tax figures for a personal-finance app, using web search. Prefer irs.gov (Revenue Procedures and newsroom releases) for federal figures and the state revenue department website for state figures. Do not use forums or blogs unless an official page is unavailable.',
+  'Reply with ONE JSON object and nothing else, in this exact shape: {"year":2026,"federal":{"std":{"single":0,"mfj":0,"hoh":0,"mfs":0},"ssWageBase":0,"saltCap":0,"brackets":{"single":[[upTo,rate],...],"mfj":[...],"hoh":[...],"mfs":[...]}},"state":{"code":"MA","ratePct":0,"type":"flat","note":""},"sources":["https://..."]}.',
+  'Each bracket list has 7 entries [top of the bracket in dollars of taxable income, rate as a decimal such as 0.10], in order 0.10, 0.12, 0.22, 0.24, 0.32, 0.35, 0.37, and the last top is null. std is the standard deduction. saltCap is the state and local tax deduction cap. For the state, ratePct is the typical average share of income a middle earner (about $80,000) pays in state income tax, as a percent; for a flat tax it is the flat rate; use 0 for a state with no wage income tax; type is none, flat or progressive; note is one short sentence. If a figure is not published yet or you cannot find it, use null for it. Never guess. sources lists the official pages you used.',
+].join(' ');
+function cleanTaxRatesRaw(text) {
+  const m = /\{[\s\S]*\}/.exec(String(text || ''));
+  if (!m) return null;
+  let raw;
+  try { raw = JSON.parse(m[0]); } catch (e) { return null; }
+  if (!raw || typeof raw !== 'object') return null;
+  const sources = (Array.isArray(raw.sources) ? raw.sources : []).map((u) => String(u || '')).filter((u) => /^https:\/\/[\w.-]+\.[a-z]{2,}(\/[^\s"<>]*)?$/i.test(u)).slice(0, 8);
+  return { raw: { year: raw.year, federal: raw.federal, state: raw.state }, sources };
+}
 const ADVICE_SCHEMA = {
   type: 'object', additionalProperties: false,
   properties: { bullets: { type: 'array', items: { type: 'object', additionalProperties: false, properties: { title: { type: 'string' }, detail: { type: 'string' } }, required: ['title', 'detail'] } } },
@@ -882,6 +896,32 @@ function createAI({ store, clientFactory }) {
     try { parsed = JSON.parse(body); } catch (e) { throw new Error('Claude returned an answer the app could not read. Try again.'); }
     return cleanTaxDocs(parsed);
   }
+  // Looks the current tax figures up on the web (Claude with web search). The page checks every number before anything is used.
+  async function taxRates(req) {
+    const apiKey = store.get('anthropicKey');
+    if (!apiKey) throw new Error('Add your Anthropic API key first.');
+    const year = Math.round(Number(req && req.year)), state = /^[A-Z]{2}$/.test(String((req && req.state) || '')) ? req.state : '';
+    if (!(year >= 2024 && year <= 2100)) throw new Error('Pick a tax year.');
+    const messages = [{ role: 'user', content: 'Find the official US federal income tax figures for tax year ' + year + (state ? ' and the state income tax picture for ' + state : ' (no state)') + '. Reply with the JSON object only.' }];
+    let msg;
+    try {
+      for (let i = 0; i < 4; i++) {
+        msg = await make(apiKey).messages.create({
+          model: MODEL, max_tokens: 4000, system: TAXRATES_SYSTEM, messages,
+          tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 6 }],
+        });
+        if (msg.stop_reason !== 'pause_turn') break;
+        messages.push({ role: 'assistant', content: msg.content });
+      }
+    } catch (err) {
+      throw new Error(friendlyError(err));
+    }
+    if (msg.stop_reason === 'refusal') throw new Error('Claude declined this request.');
+    const body = (msg.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('');
+    const out = cleanTaxRatesRaw(body);
+    if (!out) throw new Error('Claude did not return figures the app could read. Try again.');
+    return out;
+  }
   // Written advice from the monthly numbers only (no names, addresses or account details).
   async function energyAdvice(summary) {
     const apiKey = store.get('anthropicKey');
@@ -906,7 +946,7 @@ function createAI({ store, clientFactory }) {
     return cleanAdvice(parsed);
   }
 
-  return { status, saveKey, clearKey, analyze, categorize, loansFromText, statement, statementPdf, testKey, carArt, creditShot, receipt, assetValue, energyFromText, energyAdvice, serviceFromText, payStubFromText, taxDocFromText };
+  return { status, saveKey, clearKey, analyze, categorize, loansFromText, statement, statementPdf, testKey, carArt, creditShot, receipt, assetValue, energyFromText, energyAdvice, serviceFromText, payStubFromText, taxDocFromText, taxRates };
 }
 
 // For a model running on this computer: the same job as the Claude version, but it must answer with plain JSON text.
@@ -920,4 +960,4 @@ function parseLocalLoans(reply) {
   return cleanLoans(parsed);
 }
 module.exports = {
-  LOANS_LOCAL_SYSTEM, parseLocalLoans, cleanLoans, cleanScoreShot, cleanReceipt, cleanAssetValue, cleanEnergyDocs, cleanAdvice, cleanServiceRecords, cleanPayStubRecord, cleanTaxDocs, createAI, cleanResult, cleanStatement, friendlyError, detailOf, MODEL, SCHEMA, schemaFor, SYSTEM, MAX_STATEMENT_CHARS };
+  LOANS_LOCAL_SYSTEM, parseLocalLoans, cleanLoans, cleanScoreShot, cleanReceipt, cleanAssetValue, cleanEnergyDocs, cleanAdvice, cleanServiceRecords, cleanPayStubRecord, cleanTaxDocs, cleanTaxRatesRaw, createAI, cleanResult, cleanStatement, friendlyError, detailOf, MODEL, SCHEMA, schemaFor, SYSTEM, MAX_STATEMENT_CHARS };

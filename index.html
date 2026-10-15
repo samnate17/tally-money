@@ -486,7 +486,7 @@ try{var _lk=JSON.parse(localStorage.getItem('tally-lock-v1')||'{}');if(_lk&&_lk.
 function load(){try{if(localStorage.getItem('tally-vault-v1')){VLT.on=true;VLT.locked=true;S=sample();migrate();syncCats();return}}catch(e){}try{var j=localStorage.getItem('tally-money-v1');if(j){S=JSON.parse(j);migrate();syncCats();undoInit();return}}catch(e){}S=sample();migrate();syncCats();undoInit()}
 function defCredit(){return {scores:[],profile:{late:'unknown',inq:'unknown',oldest:'',derog:'unknown'}}}
 function syncXfer(){setXferContext(S.accounts.filter(function(a){return a.type==='credit'}).map(function(a){return a.id}),S.xferLearn)}
-function migrate(){S.pay=cleanPayState(S.pay,uid);S.tax=cleanTaxState(S.tax);if(!Array.isArray(S.fuel))S.fuel=[];S.fuel=cleanFuel(S.fuel,uid);if(!S.energyCfg||typeof S.energyCfg!=='object'||Array.isArray(S.energyCfg))S.energyCfg={};if(S.weather&&!cleanWeather(S.weather))delete S.weather;if(!S.weather)S.weather={};if(!S.xferLearn||typeof S.xferLearn!=='object'||Array.isArray(S.xferLearn))S.xferLearn={};S.hideWords=cleanHideWords(S.hideWords);if(!Array.isArray(S.imports))S.imports=[];if(!S.payLinks||typeof S.payLinks!=='object'||Array.isArray(S.payLinks))S.payLinks={};if(!S.apple||typeof S.apple!=='object'||Array.isArray(S.apple))S.apple={};if(!S.billIgnore||typeof S.billIgnore!=='object'||Array.isArray(S.billIgnore))S.billIgnore={};if(S.cardPay!=='skip'&&S.cardPay!=='count')S.cardPay='auto';if(!S.home||typeof S.home!=='object'||Array.isArray(S.home))S.home={};if(!(S.debtMonthly>=0))S.debtMonthly=0;if(!Array.isArray(S.customCats))S.customCats=[];if(!Array.isArray(S.setAside))S.setAside=[];if(!S.merchantCats||typeof S.merchantCats!=='object'||Array.isArray(S.merchantCats))S.merchantCats={};if(!Array.isArray(S.energy))S.energy=[];if(!Array.isArray(S.bills))S.bills=[];if(!S.billMarks||typeof S.billMarks!=='object'||Array.isArray(S.billMarks))S.billMarks={};if(!S.subCats||typeof S.subCats!=='object'||Array.isArray(S.subCats))S.subCats={};if(!S.merchantSubs||typeof S.merchantSubs!=='object'||Array.isArray(S.merchantSubs))S.merchantSubs={};if(!Array.isArray(S.holdings))S.holdings=S.sample?sampleHoldings():[];if(!S.credit||!Array.isArray(S.credit.scores))S.credit=S.sample?sampleCredit():defCredit();if(!Array.isArray(S.plaidIgnored))S.plaidIgnored=[];if(!Array.isArray(S.accounts))S.accounts=S.sample?sampleAccounts():[];if(typeof S.extraPay!=='number')S.extraPay=S.sample?100:0}
+function migrate(){S.pay=cleanPayState(S.pay,uid);S.tax=cleanTaxState(S.tax);taxApplyOnline(S.tax.online);if(!Array.isArray(S.fuel))S.fuel=[];S.fuel=cleanFuel(S.fuel,uid);if(!S.energyCfg||typeof S.energyCfg!=='object'||Array.isArray(S.energyCfg))S.energyCfg={};if(S.weather&&!cleanWeather(S.weather))delete S.weather;if(!S.weather)S.weather={};if(!S.xferLearn||typeof S.xferLearn!=='object'||Array.isArray(S.xferLearn))S.xferLearn={};S.hideWords=cleanHideWords(S.hideWords);if(!Array.isArray(S.imports))S.imports=[];if(!S.payLinks||typeof S.payLinks!=='object'||Array.isArray(S.payLinks))S.payLinks={};if(!S.apple||typeof S.apple!=='object'||Array.isArray(S.apple))S.apple={};if(!S.billIgnore||typeof S.billIgnore!=='object'||Array.isArray(S.billIgnore))S.billIgnore={};if(S.cardPay!=='skip'&&S.cardPay!=='count')S.cardPay='auto';if(!S.home||typeof S.home!=='object'||Array.isArray(S.home))S.home={};if(!(S.debtMonthly>=0))S.debtMonthly=0;if(!Array.isArray(S.customCats))S.customCats=[];if(!Array.isArray(S.setAside))S.setAside=[];if(!S.merchantCats||typeof S.merchantCats!=='object'||Array.isArray(S.merchantCats))S.merchantCats={};if(!Array.isArray(S.energy))S.energy=[];if(!Array.isArray(S.bills))S.bills=[];if(!S.billMarks||typeof S.billMarks!=='object'||Array.isArray(S.billMarks))S.billMarks={};if(!S.subCats||typeof S.subCats!=='object'||Array.isArray(S.subCats))S.subCats={};if(!S.merchantSubs||typeof S.merchantSubs!=='object'||Array.isArray(S.merchantSubs))S.merchantSubs={};if(!Array.isArray(S.holdings))S.holdings=S.sample?sampleHoldings():[];if(!S.credit||!Array.isArray(S.credit.scores))S.credit=S.sample?sampleCredit():defCredit();if(!Array.isArray(S.plaidIgnored))S.plaidIgnored=[];if(!Array.isArray(S.accounts))S.accounts=S.sample?sampleAccounts():[];if(typeof S.extraPay!=='number')S.extraPay=S.sample?100:0}
 function ledger(){return ledgerOf(S.txns,S.cardPay)}
 function billCatOf(n){var c=guessCat(n);return {cat:c,sub:c==='Other'?'':(guessSub(c,n)||'')}}
 var showHidden=false;
@@ -2017,6 +2017,50 @@ var TAX_YEARS={
 var TAX_STATUS={single:'Single',mfj:'Married filing jointly',hoh:'Head of household',mfs:'Married filing separately'};
 // Rough average state income tax as a share of income for a typical earner. A guide only: use your own state's rate if you know it.
 var STATE_TAX={AL:['Alabama',4],AK:['Alaska',0],AZ:['Arizona',2.5],AR:['Arkansas',3.9],CA:['California',5],CO:['Colorado',4.4],CT:['Connecticut',4.5],DE:['Delaware',5],DC:['District of Columbia',6],FL:['Florida',0],GA:['Georgia',5.1],HI:['Hawaii',6.5],ID:['Idaho',5.3],IL:['Illinois',4.95],IN:['Indiana',3],IA:['Iowa',3.8],KS:['Kansas',4.9],KY:['Kentucky',4],LA:['Louisiana',3],ME:['Maine',5.8],MD:['Maryland',4.6],MA:['Massachusetts',5],MI:['Michigan',4.25],MN:['Minnesota',5.5],MS:['Mississippi',4],MO:['Missouri',4.3],MT:['Montana',5],NE:['Nebraska',4.6],NV:['Nevada',0],NH:['New Hampshire',0],NJ:['New Jersey',3.9],NM:['New Mexico',4.2],NY:['New York',5],NC:['North Carolina',4],ND:['North Dakota',1.5],OH:['Ohio',3],OK:['Oklahoma',4],OR:['Oregon',7.5],PA:['Pennsylvania',3.07],RI:['Rhode Island',4.5],SC:['South Carolina',5],SD:['South Dakota',0],TN:['Tennessee',0],TX:['Texas',0],UT:['Utah',4.5],VT:['Vermont',5.5],VA:['Virginia',5],WA:['Washington',0],WV:['West Virginia',4],WI:['Wisconsin',4.5],WY:['Wyoming',0]};
+
+// Figures found online (checked here before use): federal tables per year and a state's typical rate. They replace the built-in ones.
+var TAX_BASE_YEARS={},STATE_BASE_RATE={};
+(function(){Object.keys(TAX_YEARS).forEach(function(y){TAX_BASE_YEARS[y]=TAX_YEARS[y]});Object.keys(STATE_TAX).forEach(function(k){STATE_BASE_RATE[k]=STATE_TAX[k][1]})})();
+var TAX_RATE_SET=[0.10,0.12,0.22,0.24,0.32,0.35,0.37];
+function taxFedOk(f){
+  if(!f||typeof f!=='object'||!f.std||!f.br)return null;
+  var st=['single','mfj','hoh','mfs'],std={},br={},i,k;
+  for(k=0;k<st.length;k++){
+    var d=+f.std[st[k]];if(!(d>=5000&&d<=100000))return null;std[st[k]]=Math.round(d);
+    var b=f.br[st[k]];if(!Array.isArray(b)||b.length!==7)return null;var prev=0,rows=[];
+    for(i=0;i<7;i++){var top=i===6?Infinity:+(b[i]&&b[i][0]);var rate=+(b[i]&&b[i][1]);if(Math.abs(rate-TAX_RATE_SET[i])>0.0001)return null;if(i<6&&!(top>prev&&top<=5e7))return null;prev=top;rows.push([i===6?Infinity:Math.round(top),TAX_RATE_SET[i]])}
+    br[st[k]]=rows;
+  }
+  if(!(std.mfj>=std.single&&std.single>=std.mfs-1))return null;
+  var ss=+f.ssBase,salt=+f.salt;if(!(ss>=100000&&ss<=400000))return null;
+  return {std:std,br:br,ssBase:Math.round(ss),salt:salt>=10000&&salt<=100000?Math.round(salt):null};
+}
+// raw: what the web lookup returned. Returns {year,fed,state} with only the parts that passed every check.
+function cleanTaxRates(raw,year){
+  var out={year:+year,fed:null,state:null};if(!raw||typeof raw!=='object')return out;
+  var f=raw.federal;
+  if(f&&+raw.year===+year&&f.std&&f.brackets)out.fed=taxFedOk({std:f.std,br:f.brackets,ssBase:f.ssWageBase,salt:f.saltCap});
+  var st=raw.state;
+  if(st&&STATE_TAX[st.code]){var r=+st.ratePct;if(isFinite(r)&&r>=0&&r<=15&&(st.ratePct!==null))out.state={code:st.code,rate:Math.round(r*100)/100,type:['none','flat','progressive'].indexOf(st.type)>-1?st.type:'',note:String(st.note||'').replace(/[<>"]/g,'').slice(0,160)}}
+  return out;
+}
+function taxApplyOnline(online){
+  Object.keys(TAX_BASE_YEARS).forEach(function(y){TAX_YEARS[y]=TAX_BASE_YEARS[y]});
+  Object.keys(STATE_BASE_RATE).forEach(function(k){STATE_TAX[k][1]=STATE_BASE_RATE[k]});
+  if(!online)return;
+  Object.keys(online.fed||{}).forEach(function(y){var f=online.fed[y],ok=taxFedOk(f);if(!ok)return;TAX_YEARS[y]={std:ok.std,br:ok.br,ssBase:ok.ssBase,salt:ok.salt||(TAX_BASE_YEARS[y]?TAX_BASE_YEARS[y].salt:40000)}});
+  Object.keys(online.states||{}).forEach(function(k){if(STATE_TAX[k]&&isFinite(+online.states[k].rate))STATE_TAX[k][1]=+online.states[k].rate});
+}
+// The stored form of online figures: infinity becomes null so it survives JSON.
+function cleanTaxOnline(o){
+  var out={fed:{},states:{}};if(!o||typeof o!=='object')return out;
+  var dre=/^\d{4}-\d{2}-\d{2}$/,src=function(a){return (Array.isArray(a)?a:[]).filter(function(u){return typeof u==='string'&&/^https:\/\/[\w.-]+\.[a-z]{2,}(\/[^\s"<>]*)?$/i.test(u)}).slice(0,8)};
+  Object.keys(o.fed||{}).slice(0,6).forEach(function(y){if(!/^\d{4}$/.test(y))return;var f=o.fed[y],raw={std:f&&f.std,br:{},ssBase:f&&f.ssBase,salt:f&&f.salt};
+    ['single','mfj','hoh','mfs'].forEach(function(k){raw.br[k]=((f&&f.br&&f.br[k])||[]).map(function(r){return [r[0]===null?Infinity:r[0],r[1]]})});
+    var ok=taxFedOk(raw);if(ok)out.fed[y]={std:ok.std,ssBase:ok.ssBase,salt:ok.salt,br:Object.keys(ok.br).reduce(function(m,k){m[k]=ok.br[k].map(function(r){return [r[0]===Infinity?null:r[0],r[1]]});return m},{}),fetched:dre.test(f.fetched||'')?f.fetched:'',sources:src(f.sources)}});
+  Object.keys(o.states||{}).slice(0,60).forEach(function(k){var v=o.states[k];if(!STATE_TAX[k]||!v)return;var r=+v.rate;if(isFinite(r)&&r>=0&&r<=15)out.states[k]={rate:Math.round(r*100)/100,type:['none','flat','progressive'].indexOf(v.type)>-1?v.type:'',note:String(v.note||'').replace(/[<>"]/g,'').slice(0,160),fetched:dre.test(v.fetched||'')?v.fetched:'',sources:src(v.sources)}});
+  return out;
+}
 function taxYearOf(y){return TAX_YEARS[y]?{y:+y,t:TAX_YEARS[y],exact:true}:{y:+y>=2026?2026:2025,t:TAX_YEARS[+y>=2026?2026:2025],exact:false}}
 function taxBrackets(br,income){
   var prev=0,tax=0,marg=br[0][1],i;
@@ -2085,6 +2129,7 @@ function cleanTaxState(raw){
   if(r.rate!==undefined&&r.rate!==''&&num(r.rate,30)!==null)o.rate=num(r.rate,30);
   var yr=Math.round(+r.year);if(yr>=2024&&yr<=2100)o.year=yr;
   o.useForms=r.useForms!==false;
+  o.online=cleanTaxOnline(r.online);
   var dre=/^\d{4}-\d{2}-\d{2}$/;
   o.forms=(Array.isArray(r.forms)?r.forms:[]).slice(0,80).map(function(f){
     if(!f||['W-2','1099-INT','1099-DIV','1099-NEC','1099-MISC','1099-R','1099-G','1099-B','1099-K','1098','1095','other'].indexOf(f.form)<0)return null;var y=Math.round(+f.year);if(!(y>=1990&&y<=2100))return null;
@@ -5468,7 +5513,7 @@ function unlinkedVehPanel(list){
 function taxBind(m){
   m.querySelectorAll('[data-taxfile]').forEach(function(inp){inp.onchange=function(){taxRead(inp)}});
   m.querySelectorAll('[data-taxuse]').forEach(function(c){c.onchange=function(){S.tax.useForms=c.checked;save();render()}});
-  m.querySelectorAll('.taxform').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();var g=function(n){return fm.elements[n]?fm.elements[n].value:''},old=S.tax,o={year:old.year,forms:old.forms,useForms:old.useForms,state:g('state'),status:g('status'),kids:g('kids'),rate:g('rate'),otherIncome:g('otherIncome'),seIncome:g('seIncome'),otherCredits:g('otherCredits'),mortgageInterest:g('mortgageInterest'),propertyTax:g('propertyTax'),medical:g('medical'),charity:g('charity'),manualWages:g('manualWages'),manualWithheld:g('manualWithheld')};
+  m.querySelectorAll('.taxform').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();var g=function(n){return fm.elements[n]?fm.elements[n].value:''},old=S.tax,o={year:old.year,forms:old.forms,online:old.online,useForms:old.useForms,state:g('state'),status:g('status'),kids:g('kids'),rate:g('rate'),otherIncome:g('otherIncome'),seIncome:g('seIncome'),otherCredits:g('otherCredits'),mortgageInterest:g('mortgageInterest'),propertyTax:g('propertyTax'),medical:g('medical'),charity:g('charity'),manualWages:g('manualWages'),manualWithheld:g('manualWithheld')};
     if(!fm.elements['manualWages']){o.manualWages=old.manualWages;o.manualWithheld=old.manualWithheld}
     S.tax=cleanTaxState(o);save();render();toast('Estimate updated.')}});
 }
@@ -5859,7 +5904,7 @@ function docsRead(inp){
   next(0);
 }
 /* ---------- Taxes: what to expect, from your pay statements and forms ---------- */
-var taxUI={year:0,imp:null,impBuf:null,impName:'',busy:false,msg:''};
+var taxUI={year:0,imp:null,impBuf:null,impName:'',busy:false,msg:'',rates:null};
 function taxYearSel(){return taxUI.year||(S.tax&&S.tax.year)||TODAY.getFullYear()}
 function taxField(n,l,v,ph,w){return '<label>'+l+'<input name="'+n+'" type="number" min="0" step="any" value="'+(v===undefined||v===null?'':v)+'" placeholder="'+(ph||'0')+'" style="width:'+(w||110)+'px"></label>'}
 function taxMoneyLine(v,owe,refund){return v>=0?'<span class="bad">'+(owe||'owe about ')+money0(v)+'</span>':'<span class="good">'+(refund||'refund of about ')+money0(-v)+'</span>'}
@@ -5895,7 +5940,30 @@ function vTax(){
     res+=det+'<section class="panel"><h2>What you can do</h2>'+tips.map(function(t){return '<p style="margin:0 0 10px;white-space:normal">'+t+'</p>'}).join('')+'</section>';
   }
   var dl='<section class="panel"><h2>Dates<small>for '+yr+' taxes</small></h2>'+taxDeadlines(yr,TODAY).filter(function(d){return !(d.past&&d.days<-120)}).map(function(d){return '<div class="row"><div class="grow"><div class="nm">'+esc(d.label)+'</div></div><div class="sub" style="flex:none">'+shortDate(d.date)+(d.past?' · past':' · in '+d.days+' days')+'</div></div>'}).join('')+'<p class="sub muted" style="margin:8px 0 0;font-size:12px">Dates move when they fall on a weekend or holiday. Some states have their own dates.</p></section>';
-  return head+yb+settings+res+formsPanel+dl;
+  return head+yb+settings+taxRatesPanel(yr)+res+formsPanel+dl;
+}
+function taxRatesPanel(yr){
+  var on=S.tax.online,fy=on.fed[yr],code=S.tax.state,sv=code&&on.states[code],R=taxUI.rates,canAi=!!(T&&T.ai&&T.ai.taxRates),key=!!(aiSt&&aiSt.hasKey);
+  var link=function(a){return (a||[]).map(function(u){return '<a href="'+esc(u)+'" target="_blank" rel="noopener noreferrer">'+esc(u.replace(/^https:\/\//,'').slice(0,48))+'</a>'}).join(' · ')};
+  var h='<section class="panel"><h2>Tax figures<small>brackets, deductions and state rates</small></h2>';
+  h+='<div class="sub" style="white-space:normal">Federal '+yr+': '+(fy?'<b>updated online '+esc(fy.fetched||'')+'</b>'+(fy.sources.length?' ('+link(fy.sources)+')':''):'built-in tables'+(TAX_BASE_YEARS[yr]?'':' (not available for '+yr+', so the nearest year is used)'))+'.</div>';
+  h+='<div class="sub" style="white-space:normal;margin-top:4px">State'+(code?' ('+esc(STATE_TAX[code][0])+')':'')+': '+(code?(sv?'<b>updated online '+esc(sv.fetched||'')+'</b>, about '+sv.rate+'%'+(sv.sources.length?' ('+link(sv.sources)+')':''):'built-in guide, about '+STATE_TAX[code][1]+'%'):'pick a state above')+'.</div>';
+  h+='<div class="actions" style="justify-content:flex-start;align-items:center;flex-wrap:wrap;margin-top:10px"><button class="btn small primary" data-act="tax-rates-go"'+(canAi&&key&&!(R&&R.busy)?'':' disabled')+'>'+(R&&R.busy?'Searching the web…':'Look up the latest figures online')+'</button>'+((fy||sv)?'<button class="btn small" data-act="tax-rates-reset">Go back to the built-in figures</button>':'')+(canAi&&key?'':'<span class="sub muted">Needs the desktop app and your Anthropic API key (Transactions tab).</span>')+'</div>';
+  h+='<p class="sub muted" style="margin:8px 0 0;font-size:12px;white-space:normal">Claude searches the web (IRS and your state\'s revenue department first) with your Anthropic key, a few cents per lookup. Nothing changes until you have seen what it found and press Use these. Only the tax year and state are sent.</p>';
+  if(R&&R.msg)h+='<div class="sub bad" role="alert" style="margin-top:6px;white-space:normal">'+esc(R.msg)+'</div>';
+  if(R&&R.res){
+    var r=R.res,cur=taxYearOf(yr).t,rows=[];
+    if(r.fed){
+      ['single','mfj','hoh'].forEach(function(k){rows.push(['Standard deduction, '+TAX_STATUS[k].toLowerCase(),cur.std[k],r.fed.std[k]])});
+      rows.push(['Social Security wage limit',cur.ssBase,r.fed.ssBase]);if(r.fed.salt)rows.push(['State and local tax deduction cap',cur.salt,r.fed.salt]);
+      r.fed.br.single.slice(0,6).forEach(function(b,i){rows.push(['Single, '+Math.round(b[1]*100)+'% bracket ends at',cur.br.single[i][0],b[0]])});
+    }
+    h+='<div class="banner" style="display:block;margin-top:10px;white-space:normal"><b>What Claude found</b>'+(R.sources.length?' (sources: '+link(R.sources)+')':'')+
+      (r.fed?'<table class="maptable" style="width:100%;margin-top:6px"><thead><tr><th>Figure</th><th>Now</th><th>Found</th></tr></thead><tbody>'+rows.map(function(x){return '<tr><td>'+esc(x[0])+'</td><td class="num">'+money0(x[1])+'</td><td class="num'+(Math.round(x[1])!==Math.round(x[2])?' warn':'')+'">'+money0(x[2])+'</td></tr>'}).join('')+'</tbody></table>':'<div class="sub" style="margin-top:6px">No complete federal figures for '+yr+' passed the checks (they may not be published yet), so the federal tables stay as they are.</div>')+
+      (r.state?'<div class="sub" style="margin-top:6px">State: about <b>'+r.state.rate+'%</b> ('+esc(r.state.type||'')+'). '+esc(r.state.note)+' Now: '+STATE_TAX[r.state.code][1]+'%.</div>':(code?'<div class="sub" style="margin-top:6px">No usable state rate was found.</div>':''))+
+      ((r.fed||r.state)?'<div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn small primary" data-act="tax-rates-apply">Use these</button><button class="btn small" data-act="tax-rates-no">Discard</button></div><p class="sub muted" style="margin:6px 0 0;font-size:12px">Compare a few numbers with the linked pages before using them; a web lookup can misread.</p>':'<div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn small" data-act="tax-rates-no">Close</button></div>')+'</div>';
+  }
+  return h+'</section>';
 }
 function taxRead(inp){
   var f=inp.files[0];inp.value='';if(!f)return;
@@ -6660,7 +6728,14 @@ document.addEventListener('click',function(e){
   else if(a==='ph-stop'){tcall(T.phone.stop()).catch(function(){});rcpt.phone={on:false,url:'',qr:'',msg:'',expires:0}}
   else if(a==='as-add'){asUI.adding=true}
   else if(a==='pay-manual'){mypayUI.manual=!mypayUI.manual}
-  else if(a==='tax-year'){taxUI.year=+b.dataset.y}
+  else if(a==='tax-year'){taxUI.year=+b.dataset.y;taxUI.rates=null}
+  else if(a==='tax-rates-no'){taxUI.rates=null}
+  else if(a==='tax-rates-reset'){var ry=String(taxYearSel());delete S.tax.online.fed[ry];if(S.tax.state)delete S.tax.online.states[S.tax.state];taxApplyOnline(S.tax.online);toast('Back to the built-in figures.')}
+  else if(a==='tax-rates-go'){var gy=taxYearSel();taxUI.rates={busy:true,res:null,sources:[],msg:''};tcall(T.ai.taxRates({year:gy,state:S.tax.state||''})).then(function(r){var c=cleanTaxRates(r.raw,gy);taxUI.rates={busy:false,res:c,sources:r.sources||[],msg:''};if(!c.fed&&!c.state)taxUI.rates.msg='Claude found nothing that passed the checks. Try again later, or the figures may not be published yet.';render()}).catch(function(e){taxUI.rates={busy:false,res:null,sources:[],msg:(e&&e.message)||'The lookup failed.'};render()})}
+  else if(a==='tax-rates-apply'){var R=taxUI.rates;if(R&&R.res){var ay=String(R.res.year),today=iso(TODAY),raw={fed:JSON.parse(JSON.stringify(S.tax.online.fed)),states:JSON.parse(JSON.stringify(S.tax.online.states))};
+    if(R.res.fed){var br={};Object.keys(R.res.fed.br).forEach(function(k){br[k]=R.res.fed.br[k].map(function(x){return [x[0]===Infinity?null:x[0],x[1]]})});raw.fed[ay]={std:R.res.fed.std,ssBase:R.res.fed.ssBase,salt:R.res.fed.salt,br:br,fetched:today,sources:R.sources}}
+    if(R.res.state)raw.states[R.res.state.code]={rate:R.res.state.rate,type:R.res.state.type,note:R.res.state.note,fetched:today,sources:R.sources};
+    S.tax.online=cleanTaxOnline(raw);taxApplyOnline(S.tax.online);taxUI.rates=null;toast('Tax figures updated.')}}
   else if(a==='tax-imp-no'){taxUI.imp=null;taxUI.impBuf=null}
   else if(a==='tax-imp-save'){if(taxUI.imp){var tf=taxUI.imp.slice(),ty0=tf[0].year;tf.forEach(function(f){S.tax.forms=S.tax.forms.filter(function(x){return !(x.form===f.form&&x.year===f.year&&x.wages===f.wages&&x.interest===f.interest&&x.nonemployeeComp===f.nonemployeeComp)});S.tax.forms.push(f)});S.tax.forms=S.tax.forms.slice(-80);taxUI.year=ty0;
     if(taxUI.impBuf&&T&&T.docs)tcall(T.docs.save('Tax documents',taxUI.impName||'tax-form.pdf',taxUI.impBuf,ty0)).then(function(){docsTouch()}).catch(function(){});

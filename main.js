@@ -323,6 +323,7 @@ function wireIpc() {
     if (!text) throw new Error('That file is no longer in memory. Choose it again.');
     return ai.taxDocFromText(text);
   });
+  handle('ai:taxRates', (req) => ai.taxRates(req || {}));
   handle('ai:energyAdvice', (summary) => ai.energyAdvice(summary));
   const docsSvc = createDocs({ root: path.join(app.getPath('documents'), 'Tally Money'), shell });
   handle('docs:categories', () => docsSvc.CATEGORIES);

@@ -84,6 +84,7 @@ contextBridge.exposeInMainWorld('tally', {
     service: inv('ai:service'),
     payStub: inv('ai:payStub'),
     taxDoc: inv('ai:taxDoc'),
+    taxRates: inv('ai:taxRates'),
     test: inv('ai:test'),
     categorize: inv('ai:categorize'),
     loans: inv('ai:loans'),
