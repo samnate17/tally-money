@@ -2048,7 +2048,7 @@ test('docGuess files documents by name', () => {
 });
 
 // ---------- Taxes: federal estimate, state guide, inputs from pay statements and forms ----------
-function taxWorld() { return new Function(srcBlock('/*PAY-START*/', '/*PAY-END*/') + srcBlock('/*TAX-START*/', '/*TAX-END*/') + '\nreturn {taxBrackets, taxEstimate, taxInputs, taxDeadlines, taxSaving, cleanTaxState, payYear, cleanPayStub};')(); }
+function taxWorld() { return new Function(srcBlock('/*PAY-START*/', '/*PAY-END*/') + srcBlock('/*TAX-START*/', '/*TAX-END*/') + '\nreturn {taxFormWarn, taxBrackets, taxEstimate, taxInputs, taxDeadlines, taxSaving, cleanTaxState, payYear, cleanPayStub};')(); }
 test('taxEstimate: 2026 single, standard deduction, brackets, child credit and payroll tax', () => {
   const X = taxWorld();
   const e = X.taxEstimate({ year: 2026, status: 'single', wages: 100000, grossForFica: 100000, withheldFed: 12000, state: 'TX' });
@@ -2449,4 +2449,16 @@ test('payBreakdown warns when the 401(k) pace passes the limit and with a lone s
   const b = P.payBreakdown([one], one, new Date(2026, 5, 20));
   assert.ok(b.insights.some((i) => /on pace to hit/.test(i.title)));
   assert.ok(b.groups.every((x) => x.lines.length));
+});
+
+test('taxFormWarn flags a W-2 whose box 2 copied box 1, and the estimate shows why that mattered', () => {
+  const W = taxWorld();
+  const w2 = { form: 'W-2', year: 2025, wages: 80000, fedWithheld: 10000, ssWages: 82000, ssWithheld: 5084, medicareWages: 82000, medicareWithheld: 1189 };
+  assert.equal(W.taxFormWarn(w2), '');
+  assert.match(W.taxFormWarn(Object.assign({}, w2, { fedWithheld: 80000 })), /same as box 1/);
+  assert.match(W.taxFormWarn(Object.assign({}, w2, { fedWithheld: 50000 })), /more than half/);
+  assert.match(W.taxFormWarn(Object.assign({}, w2, { ssWithheld: 3000 })), /6\.2%/);
+  const est = (fw) => W.taxInputs({ status: 'single', state: 'NH' }, 2025, [], [Object.assign({}, w2, { fedWithheld: fw })], [], new Date(2026, 9, 15));
+  assert.ok(Math.abs(est(10000).balance) < 3000);        // a normal refund or bill
+  assert.ok(est(80000).balance < -60000);                // the absurd result the warning exists to prevent
 });

@@ -71,16 +71,21 @@ function parseW2(text) {
   for (let li = 0; li < lines.length; li++) {
     const h = hits[li];
     if (!h.length) continue;
-    const labelEndsAll = h.map((x) => x.end);
-    // 1) same line, directly after each label
+    // 1) same line, directly after each label. When several labels sit side by side and their amounts follow together
+    //    ("1 Wages ... 2 Federal income tax withheld 86425.06 10614.85") the amounts belong to the labels in order,
+    //    not all to the last label.
     const pending = [];
+    let queue = [];
     h.forEach((x, n) => {
       const stop = n + 1 < h.length ? h[n + 1].i : lines[li].length;
-      const seg = lines[li].slice(x.end, stop);
-      // a box number is not an amount; drop leading "2" style box digits that belong to the next label (they sit after the stop)
-      const mv = moneyIn(seg, true);
-      if (mv.length) { if (vals[x.k] === undefined) vals[x.k] = mv[0].v; } else pending.push(x);
+      const mv = moneyIn(lines[li].slice(x.end, stop), true);
+      if (!mv.length) { queue.push(x); return; }
+      const group = queue.concat([x]);
+      if (group.length > 1 && mv.length >= group.length) group.forEach((g, i) => { if (vals[g.k] === undefined) vals[g.k] = mv[i].v; });
+      else { if (vals[x.k] === undefined) vals[x.k] = mv[0].v; queue.forEach((q) => pending.push(q)); }
+      queue = [];
     });
+    queue.forEach((q) => pending.push(q));
     if (!pending.length) continue;
     // 2) header row: amounts on the next lines, left to right in label order. Use the first following line with amounts.
     for (let nj = li + 1; nj <= Math.min(li + 3, lines.length - 1); nj++) {
@@ -91,7 +96,6 @@ function parseW2(text) {
       else if (mv.length === 1 && h.length >= 1 && pending.length === 1) { if (vals[pending[0].k] === undefined) vals[pending[0].k] = mv[0].v; }
       break;
     }
-    void labelEndsAll;
   }
 
   // Box 12: pairs of "code amount" after the "12a ... See instructions for box 12" cell.
@@ -142,7 +146,8 @@ function parseW2(text) {
     if (!near(f.medicareWithheld, base, 0.01) && !near(f.medicareWithheld, base + extra, 0.01)) { ok = false; why.push('Medicare tax is not 1.45% of box 5'); }
   }
   if (f.wages && f.medicareWages && f.wages > f.medicareWages + 1) { ok = false; why.push('box 1 is larger than box 5'); }
-  if (f.fedWithheld && f.wages && f.fedWithheld > f.wages) { ok = false; why.push('federal tax is larger than box 1'); }
+  if (f.fedWithheld && f.wages && f.fedWithheld > f.wages * 0.5) { ok = false; why.push('federal tax withheld is more than half of box 1'); }
+  if (f.fedWithheld && f.wages && f.fedWithheld === f.wages) { ok = false; why.push('box 2 equals box 1'); }
   // Box 1 equals Medicare wages minus pre-tax retirement and section 125 benefits; when we know the retirement part, the gap should be at least that.
   if (f.wages && f.medicareWages && f.retire401k && f.medicareWages - f.wages + 1 < f.retire401k) { ok = false; why.push('box 1 is not lower than box 5 by the 401(k) amount'); }
   out.forms.push(f);

@@ -75,3 +75,22 @@ test('no personal details in the result', () => {
   const r = parseW2('JANE EXAMPLE 123-45-6789\n' + SHAPE_A);
   assert.ok(!/JANE|123-45/.test(JSON.stringify(r)));
 });
+
+test('side-by-side labels with their amounts together on the next part of the line (the bug that read box 1 as box 2)', () => {
+  const t = ['Form W-2 Wage and Tax Statement 2025',
+    '1 Wages, tips, other compensation 2 Federal income tax withheld 50000.00 5000.00',
+    '3 Social security wages 4 Social security tax withheld 52000.00 3224.00',
+    '5 Medicare wages and tips 6 Medicare tax withheld 52000.00 754.00'].join('\n');
+  const f = parseW2(t).forms[0];
+  assert.equal(f.wages, 50000); assert.equal(f.fedWithheld, 5000);
+  assert.equal(f.ssWages, 52000); assert.equal(f.ssWithheld, 3224);
+  assert.equal(f.medicareWages, 52000); assert.equal(f.medicareWithheld, 754);
+  assert.equal(parseW2(t).checked, true);
+});
+
+test('a box 2 that copies box 1 or is more than half of it is flagged, never trusted', () => {
+  const bad = SHAPE_A.replace('2 Federal income tax withheld 5000.00', '2 Federal income tax withheld 50000.00');
+  const r = parseW2(bad);
+  assert.equal(r.checked, false);
+  assert.match(r.notes, /box 2 equals box 1|more than half/);
+});
