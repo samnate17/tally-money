@@ -2175,3 +2175,16 @@ test('cleanTaxRatesRaw pulls the JSON out of Claude\'s reply and keeps only http
   assert.equal(cleanTaxRatesRaw('no json here'), null);
   assert.equal(cleanTaxRatesRaw('{bad json}'), null);
 });
+
+test('cleanAssetWeb needs three real https listings and keeps the price range sane', () => {
+  const { cleanAssetWeb } = require('../ai.js');
+  const L = (p, u) => ({ title: 'Car <b>', price: p, miles: 40000, url: u || 'https://www.example.com/a' });
+  const ok = cleanAssetWeb('Found: {"low":18000,"mid":20000,"high":23000,"yearlyDepreciationPct":11,"confidence":"medium","basis":"Asking prices.","listings":[' + [L(19000), L(20000), L(22000), L(21000, 'http://bad.example'), L(5, 'https://x.example.com/z')].map((l) => JSON.stringify(l)).join(',') + ']}');
+  assert.equal(ok.mid, 20000);
+  assert.equal(ok.listings.length, 3);                                  // the http link and the $5 listing are dropped
+  assert.equal(ok.listings[0].title, 'Car b');
+  const few = cleanAssetWeb('{"low":1,"mid":2000,"high":3,"confidence":"high","basis":"","listings":[' + JSON.stringify(L(19000)) + ']}');
+  assert.equal(few.mid, 0);
+  assert.match(few.basis, /Fewer than three/);
+  assert.equal(cleanAssetWeb('nothing'), null);
+});

@@ -490,6 +490,29 @@ function cleanAssetValue(raw) {
   return out;
 }
 
+const ASSETWEB_SYSTEM = [
+  'You price a used vehicle or other asset for a personal-finance app using web search. Find at least three current listings or recent sales of comparable items (same year, make and model, similar trim and mileage or hours) on dealer, marketplace or auction sites, and any published valuation range you can find. Kelley Blue Book and similar pages often hide the number behind a form; use what is actually visible and never invent a figure.',
+  'Reply with ONE JSON object and nothing else: {"low":0,"mid":0,"high":0,"yearlyDepreciationPct":0,"confidence":"low","basis":"","listings":[{"title":"","price":0,"miles":0,"url":"https://..."}]}. mid is the typical (median) asking price of the comparable listings, low and high bracket them, all in whole dollars. yearlyDepreciationPct is the typical yearly loss of value for this model, as a percent. confidence is low, medium or high (high only with five or more close comparables). basis is one or two plain sentences saying what you compared and that these are asking prices.',
+  'List at most 6 listings; each url must be the https page you saw. If you cannot find at least three comparables, set low, mid and high to 0 and explain in basis.',
+].join(' ');
+function cleanAssetWeb(text) {
+  const m = /\{[\s\S]*\}/.exec(String(text || ''));
+  if (!m) return null;
+  let raw;
+  try { raw = JSON.parse(m[0]); } catch (e) { return null; }
+  if (!raw || typeof raw !== 'object') return null;
+  const out = cleanAssetValue(raw);
+  out.listings = [];
+  for (const l of Array.isArray(raw.listings) ? raw.listings : []) {
+    const price = Math.round(Number(l && l.price)), url = String((l && l.url) || '');
+    if (!(price >= 100 && price <= 50000000) || !/^https:\/\/[\w.-]+\.[a-z]{2,}(\/[^\s"<>]*)?$/i.test(url)) continue;
+    const mi = Math.round(Number(l.miles));
+    out.listings.push({ title: String(l.title || '').replace(/[<>"]/g, '').replace(/\s+/g, ' ').trim().slice(0, 80), price, miles: Number.isFinite(mi) && mi >= 0 && mi <= 5e6 ? mi : 0, url });
+    if (out.listings.length >= 6) break;
+  }
+  if (out.listings.length < 3) { out.low = 0; out.mid = 0; out.high = 0; if (!out.basis) out.basis = 'Fewer than three comparable listings were found.'; }
+  return out;
+}
 const RECEIPT_SCHEMA = {
   type: 'object',
   additionalProperties: false,
@@ -796,6 +819,28 @@ function createAI({ store, clientFactory }) {
     return cleanAssetValue(parsed);
   }
 
+  // Prices an asset from comparable listings found on the web (Claude with web search). Asking prices, not Kelley Blue Book.
+  async function assetValueWeb(req) {
+    const apiKey = store.get('anthropicKey');
+    if (!apiKey) throw new Error('Add your Anthropic API key first.');
+    const f = (v, n) => String(v == null ? '' : v).replace(/[\r\n]+/g, ' ').trim().slice(0, n);
+    const desc = ['kind: ' + f(req.kind, 20), 'year: ' + f(req.year, 6), 'make: ' + f(req.make, 40), 'model: ' + f(req.model, 60), 'trim or details: ' + f(req.trim, 60), 'mileage or hours: ' + f(req.mileage, 12), 'today: ' + f(req.today, 10)].join('; ');
+    const messages = [{ role: 'user', content: 'Price this asset from comparable listings. ' + desc + '. Reply with the JSON object only.' }];
+    let msg;
+    try {
+      for (let i = 0; i < 4; i++) {
+        msg = await make(apiKey).messages.create({ model: MODEL, max_tokens: 4000, system: ASSETWEB_SYSTEM, messages, tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 6 }] });
+        if (msg.stop_reason !== 'pause_turn') break;
+        messages.push({ role: 'assistant', content: msg.content });
+      }
+    } catch (err) {
+      throw new Error(friendlyError(err));
+    }
+    if (msg.stop_reason === 'refusal') throw new Error('Claude declined to price this one.');
+    const out = cleanAssetWeb((msg.content || []).filter((b) => b.type === 'text').map((b) => b.text).join(''));
+    if (!out) throw new Error('Claude did not return figures the app could read. Try again.');
+    return out;
+  }
   // Delivery or usage history (a PDF or text the user chose) to energy records. The page shows them for checking before anything is saved.
   async function energyFromText(text, fuel) {
     const apiKey = store.get('anthropicKey');
@@ -946,7 +991,7 @@ function createAI({ store, clientFactory }) {
     return cleanAdvice(parsed);
   }
 
-  return { status, saveKey, clearKey, analyze, categorize, loansFromText, statement, statementPdf, testKey, carArt, creditShot, receipt, assetValue, energyFromText, energyAdvice, serviceFromText, payStubFromText, taxDocFromText, taxRates };
+  return { status, saveKey, clearKey, analyze, categorize, loansFromText, statement, statementPdf, testKey, carArt, creditShot, receipt, assetValue, energyFromText, energyAdvice, serviceFromText, payStubFromText, taxDocFromText, taxRates, assetValueWeb };
 }
 
 // For a model running on this computer: the same job as the Claude version, but it must answer with plain JSON text.
@@ -960,4 +1005,4 @@ function parseLocalLoans(reply) {
   return cleanLoans(parsed);
 }
 module.exports = {
-  LOANS_LOCAL_SYSTEM, parseLocalLoans, cleanLoans, cleanScoreShot, cleanReceipt, cleanAssetValue, cleanEnergyDocs, cleanAdvice, cleanServiceRecords, cleanPayStubRecord, cleanTaxDocs, cleanTaxRatesRaw, createAI, cleanResult, cleanStatement, friendlyError, detailOf, MODEL, SCHEMA, schemaFor, SYSTEM, MAX_STATEMENT_CHARS };
+  LOANS_LOCAL_SYSTEM, parseLocalLoans, cleanLoans, cleanScoreShot, cleanReceipt, cleanAssetValue, cleanEnergyDocs, cleanAdvice, cleanServiceRecords, cleanPayStubRecord, cleanTaxDocs, cleanTaxRatesRaw, cleanAssetWeb, createAI, cleanResult, cleanStatement, friendlyError, detailOf, MODEL, SCHEMA, schemaFor, SYSTEM, MAX_STATEMENT_CHARS };

@@ -79,6 +79,7 @@ contextBridge.exposeInMainWorld('tally', {
     creditShot: inv('ai:creditShot'),
     receipt: inv('ai:receipt'),
     assetValue: inv('ai:assetValue'),
+    assetWeb: inv('ai:assetWeb'),
     energy: inv('ai:energy'),
     energyAdvice: inv('ai:energyAdvice'),
     service: inv('ai:service'),

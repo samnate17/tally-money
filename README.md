@@ -524,3 +524,6 @@ The **Taxes** tab estimates what to expect at tax time. Pick your state and fili
 
 ### Looking up tax figures online
 On the Taxes tab, "Look up the latest figures online" has Claude search the web (IRS and your state's revenue department first) for the federal brackets, standard deduction, Social Security wage limit and your state's typical rate. Every figure is checked (seven known rates in order, rising bracket tops, plausible ranges) and shown beside the current value with its source links; nothing is used until you press Use these, and "Go back to the built-in figures" undoes it. Only the tax year and state are sent. It uses your Anthropic key (a few cents) and needs the desktop app.
+
+### Vehicle values from listings online
+On a vehicle, "Look up listings online" has Claude search the web for comparable listings (same year, make, model, similar mileage) and show them with links, the range and the median asking price, with the yearly depreciation for that model. It needs at least three real listings or it reports nothing. These are asking prices, which run higher than what you would get selling or trading in, and they are not Kelley Blue Book. Use sets the value (source "Web listings") and the depreciation rate. It uses your Anthropic key and needs the desktop app.

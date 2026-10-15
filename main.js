@@ -303,6 +303,7 @@ function wireIpc() {
   handle('ai:creditShot', (r) => ai.creditShot(r));
   handle('ai:receipt', (r) => ai.receipt(r));
   handle('ai:assetValue', (r) => ai.assetValue(r));
+  handle('ai:assetWeb', (r) => ai.assetValueWeb(r || {}));
   handle('ai:energy', (textId, fuel) => {
     const text = statementText.get(String(textId));
     if (!text) throw new Error('That file is no longer in memory. Choose it again.');
