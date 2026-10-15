@@ -83,7 +83,7 @@ function parsePayStub(text) {
   const ytdGross = gm.nums[1] ? gm.nums[1].v : 0;
   if (!(gross > 0) || net < 0 || net > gross * 1.5) { out.notes = 'The gross and net amounts did not look right.'; return out; }
 
-  const items = [];
+  const items = [], ytdOnly = [];
   let hours = 0;
 
   // Earnings: lines above Gross Pay with a pay-type label. Rate/hours/amount/year-to-date columns come in that order; a lone number is year-to-date only.
@@ -96,6 +96,7 @@ function parsePayStub(text) {
     let amount = 0, ytd = 0;
     if (n.length >= 3) { amount = n[n.length - 2].v; ytd = n[n.length - 1].v; if (n.length >= 4 && n[1].v > 0 && n[1].v <= 400 && !hours) hours = n[1].v; }
     else if (n.length === 2) { amount = n[0].v; ytd = n[1].v; }
+    else if (n.length === 1) ytdOnly.push({ name: cleanName(r.label), ytd: n[0].v });   // a lone number is the year-to-date figure (a bonus or holiday paid earlier in the year)
     if (amount > 0) items.push({ section: 'earnings', name: cleanName(r.label), amount, ytd });
   }
 
@@ -135,6 +136,11 @@ function parsePayStub(text) {
   if (hm) hours = toNum(hm[1]);
 
   const stub = { payDate, gross, net, lines: [] };
+  // A check whose only earnings are a bonus (or similar) is not part of the regular pay cycle.
+  const earn = items.filter((x) => x.section === 'earnings');
+  const REG = /regular|salary|hourly|wage|base pay|straight|overtime|holiday|vacation|pto|sick|personal|float|bereavement|jury/i, BON = /bonus|commission|incentive|award|payout|spot|retention|signing|severance/i;
+  stub.kind = earn.length && !earn.some((x) => REG.test(x.name)) && earn.some((x) => BON.test(x.name)) ? 'bonus' : 'regular';
+  if (ytdOnly.length) stub.ytdLines = ytdOnly.slice(0, 20);
   if (periodStart) stub.periodStart = periodStart;
   if (periodEnd) stub.periodEnd = periodEnd;
   if (hours > 0 && hours <= 400) stub.hours = hours;

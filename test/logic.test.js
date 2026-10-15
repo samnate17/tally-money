@@ -1936,7 +1936,7 @@ test('income sub-categories: salary, bonus, tax refund, interest and more are re
 });
 
 // ---------- My Pay: statements, next paycheck, change detection ----------
-function payWorld() { return new Function(srcBlock('/*PAY-START*/', '/*PAY-END*/') + '\nreturn {cleanPayStub, payTotals, payFreqOf, payNext, payArrived, payChanges, payYear, payBreakdown};')(); }
+function payWorld() { return new Function(srcBlock('/*PAY-START*/', '/*PAY-END*/') + '\nreturn {cleanPayStub, payTotals, payFreqOf, payNext, payArrived, payChanges, payYear, payBreakdown, payKind, payBonusPlan, payBonusYtd, payRegulars};')(); }
 const mkStub = (date, gross, lines, extra) => Object.assign({ id: 's' + date, payDate: date, gross, net: 0, lines }, extra || {});
 function stubOf(P, date, gross, fed, ss, med, state, k401, health, extra) {
   const lines = [{ section: 'earnings', name: 'Regular', amount: gross }, { section: 'tax', name: 'Federal Income Tax', amount: fed }, { section: 'tax', name: 'Social Security', amount: ss }, { section: 'tax', name: 'Medicare', amount: med }, { section: 'tax', name: 'State Income Tax', amount: state }, { section: 'retirement', name: '401(k)', amount: k401 }, { section: 'benefit', name: 'Health Insurance', amount: health }];
@@ -2514,4 +2514,50 @@ test('help: every tab has a guide, the walkthrough covers all of them, and nothi
   assert.strictEqual(steps[0].id, 'start'); assert.strictEqual(steps[steps.length - 1].id, 'finish');
   assert.deepStrictEqual(steps.slice(1, -1).map((x) => x.view), TABS.map((t) => t[0]));
   Object.keys(H.HELP).forEach((k) => assert.ok(TABS.some((t) => t[0] === k), 'help for a tab that does not exist: ' + k));
+});
+
+test('pay: a bonus check and a year-old statement do not disturb the pay schedule, the comparison or the projection', () => {
+  const P = payWorld();
+  const reg = (id, d, gross, net, extra) => Object.assign({ id, payDate: d, gross, net, lines: [{ section: 'earnings', name: 'Regular', amount: gross, ytd: 60000 }, { section: 'tax', name: 'Federal Income Tax', amount: gross * 0.11 }] }, extra || {});
+  const bonus = { id: 'b25', payDate: '2025-10-24', gross: 2106.92, net: 1432.91, ytdGross: 73821.32, lines: [{ section: 'earnings', name: 'Bonus', amount: 2106.92, ytd: 3823.27 }, { section: 'tax', name: 'Federal Income Tax', amount: 449.62 }, { section: 'tax', name: 'Social Security Tax', amount: 130.63 }, { section: 'tax', name: 'Medicare Tax', amount: 30.55 }, { section: 'retirement', name: '401K Ee Contr', amount: 63.21 }] };
+  const a = reg('a', '2026-09-18', 3451.5, 2600), b = reg('b', '2026-10-02', 3451.5, 2624.58, { ytdLines: [{ name: 'Bonus', ytd: 2136.24 }] }), today = new Date(2026, 9, 15);
+  assert.strictEqual(P.payKind(bonus), 'bonus'); assert.strictEqual(P.payKind(a), 'regular');
+  assert.strictEqual(P.payKind(Object.assign({}, bonus, { kind: 'regular' })), 'regular');          // what you say wins
+  // the schedule: still every two weeks, and the next paycheck is the one after Oct 2
+  const all = [bonus, a, b];
+  assert.strictEqual(P.payFreqOf(all).key, 'biweekly');
+  assert.strictEqual(P.payNext(all, today).date, '2026-10-16');
+  assert.strictEqual(P.payNext(all, today).net, 2624.58 > 2600 ? 2624.58 : 2600);                    // from the last regular checks only
+  // What changed: the latest regular check against the one before it, not against the bonus of a year ago
+  const ch = P.payChanges(all); assert.ok(!ch.some((x) => /2025-10-24/.test(x.detail + x.title)));
+  // a regular check with only an old statement before it says so instead of comparing
+  const far = P.payChanges([Object.assign({}, a, { id: 'old', payDate: '2025-10-03' }), b]); assert.ok(far.some((x) => /too long ago/.test(x.title)));
+  // the year: 2026 is not affected by the 2025 statement; 2025 (bonus only) is worked out from year-to-date figures
+  const y26 = P.payYear(all, 2026, today); assert.strictEqual(y26.regularCount, 2); assert.strictEqual(y26.freq.key, 'biweekly'); assert.strictEqual(Math.round(y26.perPeriod.gross), 3452);
+  assert.strictEqual(y26.bonusYtd, 2136.24);
+  const y25 = P.payYear(all, 2025, today); assert.strictEqual(y25.estimated, true); assert.ok(y25.perPeriod.gross > 3000 && y25.perPeriod.gross < 4000, 'usual pay about ' + y25.perPeriod.gross);
+  // a bonus in the last three checks of the year is not part of the usual paycheck
+  const c = reg('c', '2026-10-16', 3451.5, 2620), bn = Object.assign({}, bonus, { id: 'b26', payDate: '2026-10-23' });
+  const y26b = P.payYear([a, b, c, bn], 2026, new Date(2026, 9, 25)); assert.strictEqual(Math.round(y26b.perPeriod.gross), 3452);
+});
+
+test('pay: bonus forecast from one check, from two years, and from year-to-date hints', () => {
+  const P = payWorld();
+  const bonus = { id: 'b25', payDate: '2025-10-24', gross: 2106.92, net: 1432.91, lines: [{ section: 'earnings', name: 'Bonus', amount: 2106.92, ytd: 3823.27 }] };
+  const b = { id: 'b', payDate: '2026-10-02', gross: 3451.5, net: 2624.58, lines: [{ section: 'earnings', name: 'Regular', amount: 3451.5 }], ytdLines: [{ name: 'Bonus', ytd: 2136.24 }] };
+  let pl = P.payBonusPlan([bonus, b], new Date(2026, 9, 15));
+  assert.strictEqual(pl.next.date, '2026-10-23');                                   // a year after, on a Friday like the first
+  assert.strictEqual(new Date(2026, 9, 23).getDay(), 5);
+  assert.strictEqual(pl.next.confidence, 'low'); assert.strictEqual(pl.next.amount, 2106.92);
+  assert.strictEqual(pl.byYear['2026'].ytd, 2136.24); assert.strictEqual(pl.byYear['2025'].ytd, 3823.27);
+  assert.strictEqual(pl.checks[0].earlier, 1716.35);                                // 3823.27 - 2106.92 was paid earlier in 2025
+  // after the date has passed (and the check for this year is in), the forecast moves to next year
+  const bonus26 = { id: 'b26', payDate: '2026-10-23', gross: 2200, net: 1500, lines: [{ section: 'earnings', name: 'Bonus', amount: 2200, ytd: 4336.24 }] };
+  pl = P.payBonusPlan([bonus, bonus26, b], new Date(2026, 10, 2));
+  assert.ok(pl.next.date.startsWith('2027-10-')); assert.strictEqual(pl.next.confidence, 'medium'); assert.strictEqual(pl.next.count, 2);
+  // no bonus checks: no forecast, but year-to-date bonus pay still shows
+  pl = P.payBonusPlan([b], new Date(2026, 9, 15)); assert.strictEqual(pl.next, null); assert.strictEqual(pl.byYear['2026'].ytd, 2136.24);
+  // two bonuses a year are two patterns
+  const q2 = { id: 'q2', payDate: '2025-04-11', gross: 1700, net: 1200, lines: [{ section: 'earnings', name: 'Bonus', amount: 1700 }] };
+  pl = P.payBonusPlan([q2, bonus], new Date(2026, 2, 1)); assert.ok(pl.next.date.startsWith('2026-04-')); assert.strictEqual(pl.others.length, 1);
 });

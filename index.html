@@ -2266,6 +2266,8 @@ function cleanPayStub(raw,newId){
   var h=payNum(raw.hours,10000);if(h!==null&&h>0)o.hours=h;
   var yg=payNum(raw.ytdGross),yn=payNum(raw.ytdNet);if(yg!==null&&yg>0)o.ytdGross=yg;if(yn!==null&&yn>0)o.ytdNet=yn;
   if(/^[\w-]{1,20}$/.test(raw.doc||''))o.doc=raw.doc;
+  if(raw.kind==='bonus'||raw.kind==='regular')o.kind=raw.kind;
+  var yl=[];(Array.isArray(raw.ytdLines)?raw.ytdLines:[]).slice(0,20).forEach(function(l){var nm=l&&payStr(l.name,40),y=l&&payNum(l.ytd);if(nm&&y!==null&&y>0)yl.push({name:nm,ytd:y})});if(yl.length)o.ytdLines=yl;
   (Array.isArray(raw.lines)?raw.lines:[]).slice(0,60).forEach(function(l){
     if(!l||!PAY_SECTIONS[l.section])return;var nm=payStr(l.name,60),a=payNum(l.amount);if(!nm||a===null)return;
     var r={section:l.section,name:nm,amount:Math.abs(a)};var y=payNum(l.ytd);if(y!==null&&y>0)r.ytd=y;o.lines.push(r)});
@@ -2289,8 +2291,8 @@ function payCanon(name){
   return n.replace(/[^a-z0-9]/g,'');
 }
 function payFreqOf(stubs){
-  var d=stubs.map(function(s){return s.payDate}).sort(),gaps=[];
-  for(var i=1;i<d.length;i++){var g=Math.round((Date.parse(d[i])-Date.parse(d[i-1]))/864e5);if(g>0)gaps.push(g)}
+  var d=payRegulars(stubs).slice(-14).map(function(x){return x.payDate}),gaps=[];
+  for(var i=1;i<d.length;i++){var g=payDays(d[i-1],d[i]);if(g>0&&g<=45)gaps.push(g)}   // a gap of months (a missing statement, a year-old one) says nothing about how often you are paid
   if(!gaps.length)return null;
   var s=gaps.slice().sort(function(a,b){return a-b}),m=s[Math.floor(s.length/2)];
   if(m<=8)return {key:'weekly',days:7,perYear:52,label:'weekly'};
@@ -2302,6 +2304,7 @@ function payIso(d){return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'
 function payParse(s){var p=s.split('-');return new Date(+p[0],+p[1]-1,+p[2])}
 // The next paycheck: its date and what it should roughly be (the middle of the last three).
 function payNext(stubs,today,freqOverride){
+  stubs=payRegulars(stubs);
   if(!stubs.length)return null;
   var sorted=stubs.slice().sort(function(a,b){return a.payDate<b.payDate?-1:1}),last=sorted[sorted.length-1],f=freqOverride||payFreqOf(sorted);
   if(!f)return null;
@@ -2315,9 +2318,32 @@ function payNext(stubs,today,freqOverride){
     if(f.key==='monthly'){var ld=payParse(last.payDate),dd=ld.getDate(),atEom=dd===new Date(ld.getFullYear(),ld.getMonth()+1,0).getDate(),nm=new Date(x.getFullYear(),x.getMonth()+1,1),eomN=new Date(nm.getFullYear(),nm.getMonth()+1,0).getDate();return new Date(nm.getFullYear(),nm.getMonth(),atEom?eomN:Math.min(dd,eomN))}
     return new Date(x.getFullYear(),x.getMonth(),x.getDate()+f.days)};
   d=step(d);while(d<t0&&guard++<200)d=step(d);
-  var recent=sorted.slice(-3).map(function(s){return s.net}).sort(function(a,b){return a-b}),grossR=sorted.slice(-3).map(function(s){return s.gross}).sort(function(a,b){return a-b});
+  var win=sorted.filter(function(x){return payDays(x.payDate,last.payDate)<=60}).slice(-3);   // the usual paycheck is the last few, not one from last year
+  var recent=win.map(function(s){return s.net}).sort(function(a,b){return a-b}),grossR=win.map(function(s){return s.gross}).sort(function(a,b){return a-b});
   var late=step(payParse(last.payDate)),overdue=late<t0;
-  return {date:payIso(d),days:Math.round((d-t0)/864e5),net:recent[Math.floor(recent.length/2)],gross:grossR[Math.floor(grossR.length/2)],freq:f,overdue:overdue,expected:payIso(late)};
+  return {date:payIso(d),days:Math.round((d-t0)/864e5),net:recent[Math.floor(recent.length/2)],gross:grossR[Math.floor(grossR.length/2)],freq:f,overdue:overdue,expected:payIso(late),lastDate:last.payDate,staleDays:Math.round((t0-payParse(last.payDate))/864e5)};
+}
+
+// A bonus check is its own kind of pay statement: it is not part of your regular pay cycle, so it must not set the pay schedule,
+// the usual take-home or the comparison with the last paycheck.
+var PAY_REGULAR_NAME=/regular|salary|hourly|wage|base pay|straight|overtime|\bot\b|holiday|vacation|\bpto\b|sick|personal|floating|float|bereavement|jury/i;
+var PAY_BONUS_NAME=/bonus|commission|incentive|award|payout|spot|retention|signing|severance/i;
+function payKind(s){
+  if(s&&(s.kind==='bonus'||s.kind==='regular'))return s.kind;
+  var earn=((s&&s.lines)||[]).filter(function(l){return l.section==='earnings'&&l.amount>0});
+  if(!earn.length)return 'regular';
+  var reg=earn.some(function(l){return PAY_REGULAR_NAME.test(l.name)}),bon=earn.some(function(l){return PAY_BONUS_NAME.test(l.name)});
+  return !reg&&bon?'bonus':'regular';
+}
+function payByDate(a,b){return a.payDate<b.payDate?-1:a.payDate>b.payDate?1:0}
+function payRegulars(stubs){return (stubs||[]).filter(function(s){return payKind(s)!=='bonus'}).sort(payByDate)}
+function payBonuses(stubs){return (stubs||[]).filter(function(s){return payKind(s)==='bonus'}).sort(payByDate)}
+function payDays(a,b){return Math.round((Date.parse(b)-Date.parse(a))/864e5)}
+// The year-to-date bonus a statement shows (a line with an amount, or a year-to-date-only line).
+function payBonusYtd(s){
+  var v=0;(s.lines||[]).forEach(function(l){if(l.section==='earnings'&&PAY_BONUS_NAME.test(l.name)&&l.ytd>0)v+=l.ytd});
+  if(!v)(s.ytdLines||[]).forEach(function(l){if(PAY_BONUS_NAME.test(l.name))v+=l.ytd});
+  return Math.round(v*100)/100;
 }
 // Did the deposit of the paycheck that should already have arrived show up? Looks for income close to the take-home amount.
 function payArrived(stubs,txns,today){
@@ -2329,9 +2355,15 @@ function payArrived(stubs,txns,today){
 function payChanges(stubs){
   var s=stubs.slice().sort(function(a,b){return a.payDate<b.payDate?-1:1}),out=[],m=function(v){return '$'+Math.abs(Math.round(v)).toLocaleString('en-US')};
   if(!s.length)return out;
-  var cur=s[s.length-1],pre=s.length>1?s[s.length-2]:null,ct=payTotals(cur);
+  var cur=s[s.length-1],kind=payKind(cur),same=s.slice(0,-1).filter(function(x){return payKind(x)===kind}),pre=same.length?same[same.length-1]:null,far=null,ct=payTotals(cur);
+  if(pre&&kind==='regular'&&payDays(pre.payDate,cur.payDate)>45){far=pre;pre=null}   // compare one pay period with the next, never with a statement from months ago
   if(Math.abs(ct.unexplained)>Math.max(2,cur.gross*0.01)&&cur.lines.length)out.push({k:'info',title:'This statement does not add up by '+m(ct.unexplained),detail:'Gross minus the taxes and deductions listed does not equal take-home. A line may be missing or misread; check it against your statement.'});
-  if(!pre)return out;
+  if(kind==='bonus'){
+    if(!pre)out.push({k:'info',title:'This is a bonus check',detail:'It is kept apart from your regular paychecks, so it does not change your pay schedule or your usual take-home. Add your other bonus statements and the app compares them and works out when the next one is due.'});
+    if(pre){var bd=cur.gross-pre.gross;out.push({k:'info',title:'This bonus is '+m(cur.gross)+(Math.abs(bd)>=1?', '+m(bd)+(bd>0?' more':' less')+' than your bonus of '+pre.payDate:''),detail:'You kept '+(cur.gross>0?(cur.net/cur.gross*100).toFixed(0):0)+'% of it after taxes and deductions, against '+(pre.gross>0?(pre.net/pre.gross*100).toFixed(0):0)+'% last time.'})}
+    return out;
+  }
+  if(!pre){if(far)out.push({k:'info',title:'The paycheck before this one is from '+far.payDate+', too long ago to compare',detail:'Add your recent statements, one for each pay period, and What changed will compare them.'});return out}
   var pt=payTotals(pre),netD=cur.net-pre.net,grossD=cur.gross-pre.gross;
   var map=function(st){var o={};st.lines.forEach(function(l){var k=payCanon(l.name);o[k]=o[k]||{name:l.name,section:l.section,amt:0};o[k].amt+=l.amount});return o},cm=map(cur),pm=map(pre),keys={};
   Object.keys(cm).concat(Object.keys(pm)).forEach(function(k){keys[k]=1});
@@ -2350,26 +2382,40 @@ function payChanges(stubs){
   }
   if(Math.abs(ct.benefit-pt.benefit)>=5&&Math.abs(grossD)<pre.gross*0.15)out.push({k:'info',title:'Benefit deductions '+(ct.benefit>pt.benefit?'went up ':'went down ')+m(ct.benefit-pt.benefit),detail:'Health, dental, vision and similar premiums changed. Open enrollment or a life change usually causes this.'});
   if(cur.hours>0&&pre.hours>0&&Math.abs(cur.hours-pre.hours)>=1&&Math.abs(grossD)>=1)out.push({k:'info',title:'Hours changed from '+pre.hours+' to '+cur.hours,detail:'That explains '+(grossD>0?'a higher':'a lower')+' gross of '+m(grossD)+(cur.hours>0&&pre.hours>0&&Math.abs(cur.gross/cur.hours-pre.gross/pre.hours)>0.25?'. The hourly rate also differs, which looks like a raise or a different pay type.':'.')});
-  if(cur.ytdGross>0&&pre.ytdGross>0){var step=cur.ytdGross-pre.ytdGross;if(step<cur.gross*0.97||step>cur.gross*1.03)out.push({k:'warn',title:'Year-to-date gross rose by '+m(step)+', but this paycheck is '+m(cur.gross),detail:'A missing statement, a correction or a back-pay adjustment in between can cause this.'})}
+  if(cur.ytdGross>0&&pre.ytdGross>0&&cur.payDate.slice(0,4)===pre.payDate.slice(0,4)){var step=cur.ytdGross-pre.ytdGross,between=s.filter(function(x){return payKind(x)==='bonus'&&x.payDate>pre.payDate&&x.payDate<cur.payDate}).reduce(function(n,x){return n+x.gross},0),want=cur.gross+between;if(step<want*0.97||step>want*1.03)out.push({k:'warn',title:'Year-to-date gross rose by '+m(step)+', but this paycheck is '+m(want),detail:'A missing statement (a bonus check you have not added, for example), a correction or a back-pay adjustment in between can cause this.'})}
   if(grossD>=1&&cur.gross>=pre.gross*1.02&&!out.some(function(o){return /New on/.test(o.title)})&&!(cur.hours>0&&pre.hours>0&&cur.hours!==pre.hours))out.push({k:'good',title:'Gross pay went up '+m(grossD)+' ('+(grossD/pre.gross*100).toFixed(1)+'%)',detail:'No new pay line explains it, so this looks like a raise.'});
   var rank={warn:0,good:1,info:2};return out.sort(function(a,b){return rank[a.k]-rank[b.k]});
 }
 // Totals for a calendar year from statements, with the rest of the year estimated from the usual paycheck.
 function payYear(stubs,year,today){
-  var inYear=stubs.filter(function(s){return s.payDate.slice(0,4)===String(year)}).sort(function(a,b){return a.payDate<b.payDate?-1:1});
+  var inYear=stubs.filter(function(s){return s.payDate.slice(0,4)===String(year)}).sort(payByDate);
   if(!inYear.length)return null;
-  var f=payFreqOf(stubs.slice().sort(function(a,b){return a.payDate<b.payDate?-1:1}))||{perYear:12,label:'monthly'},last=inYear[inYear.length-1],sum={gross:0,net:0,tax:0,benefit:0,retirement:0,deduction:0,n:inYear.length,fed:0,ss:0,medicare:0,state:0};
+  var f=payFreqOf(stubs)||{perYear:12,label:'monthly',key:'monthly'},last=inYear[inYear.length-1],sum={gross:0,net:0,tax:0,benefit:0,retirement:0,deduction:0,n:inYear.length,fed:0,ss:0,medicare:0,state:0};
   inYear.forEach(function(s){var t=payTotals(s);sum.gross+=s.gross;sum.net+=s.net;sum.tax+=t.tax;sum.benefit+=t.benefit;sum.retirement+=t.retirement;sum.deduction+=t.deduction;
     s.lines.forEach(function(l){if(l.section!=='tax')return;var c=payCanon(l.name);if(c==='federal tax')sum.fed+=l.amount;else if(c==='social security')sum.ss+=l.amount;else if(c==='medicare')sum.medicare+=l.amount;else if(/state|\bst\b|\bsit\b/i.test(l.name))sum.state+=l.amount})});
   // A statement's year-to-date total is more reliable than the sum of the statements you added (you may be missing some).
   var ytdG=last.ytdGross>0?last.ytdGross:sum.gross,ytdFactor=sum.gross>0?ytdG/sum.gross:1;
-  var lastT=payParse(last.payDate).getTime(),periodsLeft=Math.max(0,Math.round(f.perYear*(1-((lastT-new Date(year,0,1).getTime())/864e5)/365)));   // paychecks after the latest statement, not after today
-  var typical=inYear.slice(-3),avg=function(k){return typical.reduce(function(n,s){return n+(k==='gross'?s.gross:k==='net'?s.net:payTotals(s)[k])},0)/typical.length};
-  return {year:year,lastDate:last.payDate,staleDays:Math.round((today.getTime()-lastT)/864e5),count:sum.n,sumGross:sum.gross,ytdGross:ytdG,ytdFactor:ytdFactor,perPeriod:{gross:avg('gross'),net:avg('net'),tax:avg('tax'),retirement:avg('retirement'),benefit:avg('benefit')},periodsLeft:periodsLeft,freq:f,
-    projGross:ytdG+avg('gross')*periodsLeft,projNet:sum.net*ytdFactor+avg('net')*periodsLeft,withheldFed:sum.fed*ytdFactor,withheldState:sum.state*ytdFactor,withheldSS:sum.ss*ytdFactor,withheldMed:sum.medicare*ytdFactor,
-    fedPerPeriod:typical.reduce(function(n,s){return n+s.lines.filter(function(l){return l.section==='tax'&&payCanon(l.name)==='federal tax'}).reduce(function(m,l){return m+l.amount},0)},0)/typical.length,
-    statePerPeriod:typical.reduce(function(n,s){return n+s.lines.filter(function(l){return l.section==='tax'&&/state|\bst\b|\bsit\b/i.test(l.name)}).reduce(function(m,l){return m+l.amount},0)},0)/typical.length,
-    retirementPerPeriod:avg('retirement'),benefitPerPeriod:avg('benefit')};
+  var lastT=payParse(last.payDate).getTime(),yStart=new Date(year,0,1).getTime(),periodsLeft=Math.max(0,Math.round(f.perYear*(1-((lastT-yStart)/864e5)/365)));   // paychecks after the latest statement, not after today
+  // The usual paycheck comes from your regular paychecks only: a bonus check is not what you earn every pay period.
+  var reg=inYear.filter(function(s){return payKind(s)!=='bonus'}),typical=reg.slice(-3),estimated=false;
+  var bonusYtd=0;inYear.forEach(function(s){var b=payBonusYtd(s);if(b>bonusYtd)bonusYtd=b});
+  var bonusSum=inYear.filter(function(s){return payKind(s)==='bonus'}).reduce(function(n,s){return n+s.gross},0);if(bonusSum>bonusYtd)bonusYtd=bonusSum;
+  var avg=function(k){return typical.reduce(function(n,s){return n+(k==='gross'?s.gross:k==='net'?s.net:payTotals(s)[k])},0)/typical.length};
+  var per={},fedPer=0,statePer=0;
+  if(typical.length){
+    per={gross:avg('gross'),net:avg('net'),tax:avg('tax'),retirement:avg('retirement'),benefit:avg('benefit')};
+    fedPer=typical.reduce(function(n,s){return n+s.lines.filter(function(l){return l.section==='tax'&&payCanon(l.name)==='federal tax'}).reduce(function(m,l){return m+l.amount},0)},0)/typical.length;
+    statePer=typical.reduce(function(n,s){return n+s.lines.filter(function(l){return l.section==='tax'&&/state|\bst\b|\bsit\b/i.test(l.name)}).reduce(function(m,l){return m+l.amount},0)},0)/typical.length;
+  }else{
+    // Only bonus checks in this year: work the usual paycheck out from the year-to-date total, minus bonuses, over the paychecks so far.
+    estimated=true;var elapsed=Math.max(1,f.perYear*((lastT-yStart)/864e5+1)/365),regYtd=Math.max(0,ytdG-bonusYtd),gk=regYtd/elapsed,ratio=sum.gross>0?sum.net/sum.gross:0.75;
+    per={gross:gk,net:gk*ratio,tax:gk*(sum.gross>0?sum.tax/sum.gross:0.2),retirement:0,benefit:0};fedPer=gk*(sum.gross>0?sum.fed/sum.gross:0.1);statePer=0;
+  }
+  var latestReg=reg.length?reg[reg.length-1].payDate:'';
+  return {year:year,lastDate:last.payDate,staleDays:Math.round((today.getTime()-lastT)/864e5),count:sum.n,regularCount:reg.length,sumGross:sum.gross,ytdGross:ytdG,ytdFactor:ytdFactor,perPeriod:per,periodsLeft:periodsLeft,freq:f,bonusYtd:Math.round(bonusYtd*100)/100,estimated:estimated,latestRegular:latestReg,
+    projGross:ytdG+per.gross*periodsLeft,projNet:sum.net*ytdFactor+per.net*periodsLeft,withheldFed:sum.fed*ytdFactor,withheldState:sum.state*ytdFactor,withheldSS:sum.ss*ytdFactor,withheldMed:sum.medicare*ytdFactor,
+    fedPerPeriod:fedPer,statePerPeriod:statePer,
+    retirementPerPeriod:per.retirement,benefitPerPeriod:per.benefit};
 }
 function cleanPayState(raw,newId){
   var out={stubs:[]},seen={};
@@ -2383,24 +2429,25 @@ function pbMoney(n){var v=Math.abs(n),x=v.toFixed(2).replace(/\B(?=(\d{3})+(?!\d
 function pbMoney0(n){var v=Math.round(Math.abs(n)),x=String(v).replace(/\B(?=(\d{3})+(?!\d))/g,',');return (n<0?'-':'')+'$'+x}
 var PAY_401K_LIMIT={2024:23000,2025:23500,2026:24500};   // employee 401(k)/403(b) deferral limit by year (IRS)
 function payBreakdown(stubs,sel,today){
-  var all=stubs.slice().sort(function(a,b){return a.payDate<b.payDate?-1:1}),f=payFreqOf(all)||{perYear:12,label:'monthly',key:'monthly'},py=f.perYear,g=Math.max(1,sel.gross),t=payTotals(sel);
+  var all=stubs.slice().sort(function(a,b){return a.payDate<b.payDate?-1:1}),f=payFreqOf(all)||{perYear:12,label:'monthly',key:'monthly'},py=f.perYear,g=Math.max(1,sel.gross),t=payTotals(sel),isBonus=payKind(sel)==='bonus',regs=payRegulars(all),lastReg=regs.length?regs[regs.length-1]:null;
   var yr=+sel.payDate.slice(0,4),pm=function(x){return Math.round(x*100)/100};
   var groups=['tax','benefit','retirement','deduction'].map(function(sec){
     var ls=sel.lines.filter(function(l){return l.section===sec}).map(function(l){return {name:l.name,amount:l.amount,pct:l.amount/g*100,ytd:l.ytd||0,year:pm(l.amount*py)}}).sort(function(a,b){return b.amount-a.amount});
     var total=ls.reduce(function(n,l){return n+l.amount},0);
     return {key:sec,label:PAY_SECTIONS[sec],total:pm(total),pct:total/g*100,lines:ls,year:pm(total*py),ytd:ls.length&&ls.every(function(l){return l.ytd>0})?pm(ls.reduce(function(n,l){return n+l.ytd},0)):0};
   }).filter(function(x){return x.lines.length});
-  var trend=all.slice(-12).map(function(s){var tt=payTotals(s);return {id:s.id,date:s.payDate,gross:s.gross,net:s.net,tax:tt.tax,benefit:tt.benefit,retirement:tt.retirement,deduction:tt.deduction}});
-  var typ=all.slice(-3),avgG=typ.reduce(function(n,s){return n+s.gross},0)/typ.length,avgN=typ.reduce(function(n,s){return n+s.net},0)/typ.length;
+  var winFrom=all.length?Date.parse(all[all.length-1].payDate)-400*864e5:0,trend=all.filter(function(x){return Date.parse(x.payDate)>=winFrom}).slice(-12).map(function(s){var tt=payTotals(s);return {id:s.id,date:s.payDate,gross:s.gross,net:s.net,tax:tt.tax,benefit:tt.benefit,retirement:tt.retirement,deduction:tt.deduction}});
+  var typ=(lastReg?regs.filter(function(x){return payDays(x.payDate,lastReg.payDate)<=60}):all).slice(-3);if(!typ.length)typ=all.slice(-3);var avgG=typ.reduce(function(n,s){return n+s.gross},0)/typ.length,avgN=typ.reduce(function(n,s){return n+s.net},0)/typ.length;
   var terms={annualGross:Math.round(avgG*py),annualNet:Math.round(avgN*py),monthlyNet:Math.round(avgN*py/12),perHour:sel.hours>0?sel.gross/sel.hours:0,perYear:py,freq:f.label};
-  var rl=sel.lines.filter(function(l){return l.section==='retirement'}),per=rl.reduce(function(n,l){return n+l.amount},0);
-  var dayOfYear=(payParse(sel.payDate).getTime()-new Date(yr,0,1).getTime())/864e5,left=Math.max(0,Math.round(py*(1-dayOfYear/365)));
+  var ref=isBonus&&lastReg?lastReg:sel,rl=ref.lines.filter(function(l){return l.section==='retirement'}),per=rl.reduce(function(n,l){return n+l.amount},0);
+  var dayOfYear=(payParse(ref.payDate).getTime()-new Date(yr,0,1).getTime())/864e5,left=Math.max(0,Math.round(py*(1-dayOfYear/365)));
   var ytdR=rl.length&&rl.every(function(l){return l.ytd>0})?rl.reduce(function(n,l){return n+l.ytd},0):0;
   var pace=ytdR>0?ytdR+per*left:per*py,limit=PAY_401K_LIMIT[yr]||0;
-  var retire=per>0?{perPeriod:pm(per),rate:per/g*100,ytd:pm(ytdR),pace:pm(pace),limit:limit,limitPct:limit?pace/limit*100:0,left:left}:null;
+  var retire=per>0?{perPeriod:pm(per),rate:per/Math.max(1,ref.gross)*100,ytd:pm(ytdR),pace:pm(pace),limit:limit,limitPct:limit?pace/limit*100:0,left:left}:null;
   var ins=[],fed=0,fica=0;
   sel.lines.forEach(function(l){if(l.section!=='tax')return;var c=payCanon(l.name);if(c==='federal tax')fed+=l.amount;else if(c==='social security'||c==='medicare')fica+=l.amount});
   if(fed>0)ins.push({k:'info',title:'Federal income tax takes '+(fed/g*100).toFixed(1)+'% of this paycheck',detail:(fica>0?'Social Security and Medicare take another '+(fica/g*100).toFixed(1)+'% (the standard rate for both together is 7.65% of taxable pay; pre-tax benefits lower the base, so yours can read a little under).':'')+' Total taxes: '+(t.tax/g*100).toFixed(1)+'% of gross.'});
+  if(isBonus&&fed>0){var fb=Math.max(1,sel.gross-t.retirement-t.benefit);if(Math.abs(fed/fb-0.22)<=0.004)ins.unshift({k:'info',title:'Federal tax on this bonus is the flat 22% rate',detail:'Employers usually withhold bonuses at a flat 22% of the taxable amount ('+pbMoney0(fb)+' here). Your real tax on it depends on your whole year, so it can come back at filing time if your rate is lower.'})}
   var nonTax=groups.filter(function(x){return x.key!=='tax'}),big=null;
   nonTax.forEach(function(x){x.lines.forEach(function(l){if(x.key!=='retirement'&&(!big||l.amount>big.amount))big={name:l.name,amount:l.amount,year:l.year}})});
   if(big)ins.push({k:'info',title:big.name+' is your biggest benefit or deduction',detail:pbMoney(big.amount)+' each paycheck, about '+pbMoney0(big.year)+' a year. Compare it with what your employer offers during open enrollment.'});
@@ -2415,7 +2462,30 @@ function payBreakdown(stubs,sel,today){
   }
   var cred=sel.lines.filter(function(l){return l.section==='other'&&/credit|reimburs|refund|adjust/i.test(l.name)});
   if(cred.length)ins.push({k:'info',title:cred.map(function(l){return l.name}).join(', ')+' added '+pbMoney(cred.reduce(function(n,l){return n+l.amount},0))+' to your take-home',detail:'It is paid after tax, so it shows up in net pay but not in gross.'});
-  return {groups:groups,trend:trend,terms:terms,retire:retire,insights:ins,takeHomePct:sel.net/g*100,perYear:py};
+  return {groups:groups,trend:trend,terms:terms,retire:retire,insights:ins,takeHomePct:sel.net/g*100,perYear:py,isBonus:isBonus};
+}
+
+// When to expect the next bonus, from the bonus checks you added and what your statements say you have been paid in bonuses so far.
+function payBonusPlan(stubs,today){
+  var bon=payBonuses(stubs),out={checks:[],byYear:{},next:null,others:[]};
+  var by={};stubs.forEach(function(s){var b=payBonusYtd(s);if(b>0){var y=s.payDate.slice(0,4);if(!by[y]||s.payDate>by[y].date)by[y]={date:s.payDate,ytd:b}}});out.byYear=by;
+  out.checks=bon.map(function(s){return {id:s.id,date:s.payDate,amount:s.gross,net:s.net,earlier:Math.max(0,Math.round((payBonusYtd(s)-s.gross)*100)/100)}});
+  if(!out.checks.length)return out;
+  var t0=new Date(today.getFullYear(),today.getMonth(),today.getDate()),doy=function(d){return Math.round((payParse(d)-new Date(payParse(d).getFullYear(),0,1))/864e5)};
+  // Group checks that fall at about the same time of year (within 45 days), so two bonuses a year are two patterns.
+  var cl=[];out.checks.slice().sort(function(a,b){return doy(a.date)-doy(b.date)}).forEach(function(c){var g=cl[cl.length-1];if(g&&doy(c.date)-doy(g.items[g.items.length-1].date)<=45)g.items.push(c);else cl.push({items:[c]})});
+  var wk=function(c){return payParse(c.date).getDay()};
+  var cands=cl.map(function(g){
+    var n=g.items.length,md=Math.round(g.items.reduce(function(a,c){return a+doy(c.date)},0)/n),years={};g.items.forEach(function(c){years[c.date.slice(0,4)]=1});
+    var counts={};g.items.forEach(function(c){counts[wk(c)]=(counts[wk(c)]||0)+1});var wd=+Object.keys(counts).sort(function(a,b){return counts[b]-counts[a]})[0];
+    var amount=Math.round(g.items.reduce(function(a,c){return a+c.amount},0)/n*100)/100,net=Math.round(g.items.reduce(function(a,c){return a+c.net},0)/n*100)/100;
+    var pick=function(y){var base=new Date(y,0,1+md),best=base,bk=99;for(var k=-3;k<=3;k++){var e=new Date(y,0,1+md+k);if(e.getDay()===wd&&Math.abs(k)<bk){best=e;bk=Math.abs(k)}}return best};
+    var y0=t0.getFullYear(),date=pick(y0),seen=g.items.some(function(c){return c.date.slice(0,4)===String(y0)&&Math.abs(payDays(c.date,payIso(date)))<=30});
+    if(date<new Date(t0.getFullYear(),t0.getMonth(),t0.getDate()-3)||seen)date=pick(y0+1);
+    return {date:payIso(date),from:payIso(new Date(date.getFullYear(),date.getMonth(),date.getDate()-7)),to:payIso(new Date(date.getFullYear(),date.getMonth(),date.getDate()+7)),amount:amount,net:net,count:n,years:Object.keys(years).length,confidence:Object.keys(years).length>=3?'high':Object.keys(years).length===2?'medium':'low',weekday:wd,last:g.items[g.items.length-1].date};
+  }).sort(function(a,b){return a.date<b.date?-1:1});
+  out.next=cands[0]||null;out.others=cands.slice(1);
+  return out;
 }
 /*PAY-END*/
 /*TAX-START*/
@@ -6092,6 +6162,7 @@ function taxBind(m){
 function payBind(m){
   taxBind(m);
   m.querySelectorAll('[data-payfile]').forEach(function(inp){inp.onchange=function(){payRead(inp)}});
+  m.querySelectorAll('[data-paykind]').forEach(function(c){c.onchange=function(){if(mypayUI.imp)mypayUI.imp.kind=c.checked?'bonus':'regular'}});
   m.querySelectorAll('[data-docfile]').forEach(function(inp){inp.onchange=function(){docsRead(inp)}});
   m.querySelectorAll('.paystubform').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();var g=function(n){var v=parseFloat(fm.elements[n].value);return v>=0?v:0},d=fm.elements['d'].value,gross=g('g');
     if(!/^\d{4}-\d{2}-\d{2}$/.test(d)||!(gross>0)){toast('Enter the pay date and the gross pay.');return}
@@ -6367,7 +6438,7 @@ function payStack(stub){
     '<div class="sub" style="display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px">'+parts.map(function(p){return '<span><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:'+p[2]+';margin-right:5px"></i>'+p[0]+' '+money0(p[1])+' ('+Math.round(p[1]/g*100)+'%)</span>'}).join('')+'</div>';
 }
 function payStatement(stub){
-  var t=payTotals(stub),dep=payDeposit(stub),h='<section class="panel paystub"><h2>Pay statement<small>paid '+shortDate(stub.payDate)+(stub.periodStart&&stub.periodEnd?' · period '+shortDate(stub.periodStart)+' to '+shortDate(stub.periodEnd):'')+'</small></h2>';
+  var t=payTotals(stub),dep=payDeposit(stub),h='<section class="panel paystub"><h2>'+(payKind(stub)==='bonus'?'Bonus check':'Pay statement')+'<small>paid '+payDateLabel(stub.payDate)+(stub.periodStart&&stub.periodEnd?' · period '+shortDate(stub.periodStart)+' to '+shortDate(stub.periodEnd):'')+'</small></h2>';
   h+='<div class="grid tiles">'+tile('Gross pay',money0(stub.gross),stub.hours>0?stub.hours+' hours · '+money(stub.gross/stub.hours)+'/hr':'')+tile('Taxes','<span class="bad">'+money0(t.tax)+'</span>',(stub.gross>0?(t.tax/stub.gross*100).toFixed(1):0)+'% of gross')+tile('Deductions',money0(t.benefit+t.retirement+t.deduction),'benefits, retirement, after-tax')+tile('Net pay','<span class="good">'+money0(stub.net)+'</span>',dep?'Deposited '+shortDate(dep.date):'<span class="muted">no matching deposit found</span>')+'</div>'+payStack(stub);
   ['earnings','tax','benefit','retirement','deduction','other'].forEach(function(sec){
     var ls=stub.lines.filter(function(l){return l.section===sec});if(!ls.length)return;
@@ -6377,7 +6448,7 @@ function payStatement(stub){
   h+='<div class="row" style="margin-top:12px;font-weight:700"><div class="grow">Net pay</div><div class="amt num good">'+money(stub.net)+'</div></div>';
   if(Math.abs(t.unexplained)>Math.max(2,stub.gross*0.01)&&stub.lines.length)h+='<p class="sub warn" style="margin:6px 0 0;white-space:normal">The items above do not add up to the take-home by '+money(Math.abs(t.unexplained))+'. A line may be missing; compare with your statement.</p>';
   if(stub.ytdGross>0)h+='<p class="sub" style="margin:8px 0 0">Year to date: '+money0(stub.ytdGross)+' gross'+(stub.ytdNet>0?', '+money0(stub.ytdNet)+' take-home':'')+'.</p>';
-  return h+'<div class="actions" style="justify-content:flex-end;margin-top:8px"><button class="btn small danger" data-act="pay-del" data-id="'+esc(stub.id)+'">Remove this statement</button></div></section>';
+  return h+'<div class="actions" style="justify-content:flex-end;margin-top:8px"><button class="btn small" data-act="pay-kind" data-id="'+esc(stub.id)+'" title="A bonus check is not part of your regular pay schedule, so it is left out of your usual paycheck and pay dates.">'+(payKind(stub)==='bonus'?'This is a regular paycheck':'This is a bonus check')+'</button><button class="btn small danger" data-act="pay-del" data-id="'+esc(stub.id)+'">Remove this statement</button></div></section>';
 }
 
 var PAY_COLORS={tax:'var(--bad)',benefit:'#f59e0b',retirement:'var(--accent)',deduction:'#7c3aed'};
@@ -6404,10 +6475,34 @@ function payBreakdownPanel(stubs,sel){
   if(b.insights.length)h+='<h3 style="font-size:15px;margin:18px 0 6px">What stands out</h3>'+insightRows(b.insights);
   return h+'</section>';
 }
+
+function bonusPanel(stubs){
+  var pl=payBonusPlan(stubs,TODAY),yrs=Object.keys(pl.byYear).sort().reverse(),h='<section class="panel"><h2>Bonus checks<small>when to expect the next one</small></h2>';
+  var wd=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  if(!pl.checks.length){
+    h+='<p class="sub" style="margin:0 0 8px;white-space:normal">Add a pay statement for a bonus check (the app recognises one when the only earnings are a bonus) and it works out when to expect the next one.</p>'+(yrs.length?'<p class="sub muted" style="margin:0;white-space:normal">Your statements already show bonus pay: '+yrs.map(function(y){return money0(pl.byYear[y].ytd)+' by '+payDateLabel(pl.byYear[y].date)}).join(', ')+'. Add the statements for those bonus checks to see their dates.</p>':'');
+    return h+'</section>';
+  }
+  var n=pl.next;
+  if(n){
+    var days=Math.round((payParse(n.date)-new Date(TODAY.getFullYear(),TODAY.getMonth(),TODAY.getDate()))/864e5);
+    h+='<div class="grid tiles">'+tile('Next bonus, about',payLongDate(n.date),(days<=0?'any day now':days===1?'tomorrow':'in '+days+' days')+' · window '+shortDate(n.from)+' to '+shortDate(n.to))+tile('Expect about',money0(n.amount),'gross · about '+money0(n.net)+' after tax')+tile('How sure',n.confidence==='high'?'Fairly':n.confidence==='medium'?'Somewhat':'Not very',n.count+' bonus check'+(n.count===1?'':'s')+' at about this time')+'</div>';
+    h+='<p class="sub" style="margin:8px 0 0;white-space:normal">Based on your bonus check of '+payDateLabel(n.last)+(n.count>1?' and '+(n.count-1)+' like it':'')+', paid on a '+['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][n.weekday]+'. '+(n.confidence==='low'?'This is one data point, so treat the date as a guess. Add your earlier bonus statements and it sharpens.':'The date moves a little each year; the window shows the likely range.')+'</p>';
+    if(pl.others.length)h+='<p class="sub muted" style="margin:6px 0 0;font-size:12px;white-space:normal">Another pattern: about '+pl.others.map(function(o){return payLongDate(o.date)}).join(', ')+'.</p>';
+  }
+  var thisY=pl.byYear[String(TODAY.getFullYear())],prevY=pl.byYear[String(TODAY.getFullYear()-1)];
+  if(thisY||prevY)h+='<p class="sub" style="margin:8px 0 0;white-space:normal">'+(thisY?'Bonus pay so far in '+TODAY.getFullYear()+': <b>'+money0(thisY.ytd)+'</b> (from your statement of '+payDateLabel(thisY.date)+')':'')+(thisY&&prevY?'. ':'')+(prevY?'In '+(TODAY.getFullYear()-1)+' it came to <b>'+money0(prevY.ytd)+'</b>.':'')+'</p>';
+  var early=pl.checks.filter(function(c){return c.earlier>0});
+  if(early.length)h+='<p class="sub muted" style="margin:6px 0 0;font-size:12px;white-space:normal">'+early.map(function(c){return 'Your statement of '+payDateLabel(c.date)+' shows '+money0(c.earlier)+' of bonus pay earlier that year, so there was another bonus before it'}).join('. ')+'.</p>';
+  h+='<div style="margin-top:10px">'+pl.checks.slice().reverse().map(function(c){return '<div class="row"><div class="grow"><div class="nm">Bonus check '+payDateLabel(c.date)+'</div><div class="sub">'+money(c.amount)+' gross · '+money(c.net)+' take-home</div></div><button class="btn small" data-act="pay-sel" data-id="'+esc(c.id)+'">View</button></div>'}).join('')+'</div>';
+  return h+'</section>';
+}
+function payOldNote(im){var d=payDays(im.payDate,iso(TODAY));return d>120?'This statement is from '+payDateLabel(im.payDate)+', '+Math.round(d/30)+' months ago. It goes into your history and that year\'s totals, but it is not used for your next paycheck or this year\'s projection.':''}
+function payDateLabel(d){return shortDate(d)+(d.slice(0,4)!==String(TODAY.getFullYear())?', '+d.slice(0,4):'')}
 function payBars(stubs){
-  var s=stubs.slice(-12),W=520,H=120,n=s.length,mx=Math.max.apply(null,s.map(function(x){return x.gross}).concat([1])),bw=W/n,out='';
+  var wf=stubs.length?Date.parse(stubs[stubs.length-1].payDate)-400*864e5:0,s=stubs.filter(function(x){return Date.parse(x.payDate)>=wf}).slice(-12),W=520,H=120,n=s.length,mx=Math.max.apply(null,s.map(function(x){return x.gross}).concat([1])),bw=W/n,out='';
   s.forEach(function(x,i){var gx=i*bw,w=(bw-6)/2,hg=x.gross/mx*H,hn=x.net/mx*H;
-    out+='<rect x="'+(gx+3)+'" y="'+(H-hg)+'" width="'+w+'" height="'+hg+'" rx="2" fill="var(--accent)" opacity=".5"><title>'+esc(shortDate(x.payDate)+': gross '+money0(x.gross))+'</title></rect><rect x="'+(gx+3+w)+'" y="'+(H-hn)+'" width="'+w+'" height="'+hn+'" rx="2" fill="var(--good)" opacity=".9"><title>'+esc(shortDate(x.payDate)+': take-home '+money0(x.net))+'</title></rect><text x="'+(gx+bw/2)+'" y="'+(H+13)+'" text-anchor="middle" font-size="9" style="fill:var(--muted)">'+esc(shortDate(x.payDate).replace(/,.*/,''))+'</text>'});
+    out+='<rect x="'+(gx+3)+'" y="'+(H-hg)+'" width="'+w+'" height="'+hg+'" rx="2" fill="'+(payKind(x)==='bonus'?'#f59e0b':'var(--accent)')+'" opacity=".6"><title>'+esc(payDateLabel(x.payDate)+(payKind(x)==='bonus'?' (bonus)':'')+': gross '+money0(x.gross))+'</title></rect><rect x="'+(gx+3+w)+'" y="'+(H-hn)+'" width="'+w+'" height="'+hn+'" rx="2" fill="var(--good)" opacity=".9"><title>'+esc(shortDate(x.payDate)+': take-home '+money0(x.net))+'</title></rect><text x="'+(gx+bw/2)+'" y="'+(H+13)+'" text-anchor="middle" font-size="9" style="fill:var(--muted)">'+esc(shortDate(x.payDate).replace(/,.*/,''))+'</text>'});
   return '<svg viewBox="0 0 '+W+' '+(H+18)+'" width="100%" style="max-width:600px" role="img" aria-label="Gross and take-home pay by paycheck">'+out+'</svg><div class="sub" style="display:flex;gap:12px;font-size:12px"><span><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--accent);opacity:.5;margin-right:5px"></i>Gross</span><span><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--good);margin-right:5px"></i>Take-home</span></div>';
 }
 function payForm(){
@@ -6421,9 +6516,9 @@ function payImpPreview(){
   var im=mypayUI.imp;if(!im)return '';
   var t=payTotals(im),dup=S.pay.stubs.some(function(s){return s.payDate===im.payDate&&Math.abs(s.net-im.net)<0.5});
   return '<section class="panel"><h2>Check this before saving<small>read from '+esc(mypayUI.impName)+'</small></h2><p class="sub" style="margin:0 0 8px;white-space:normal">'+(mypayUI.impSrc==='ai'?'Claude':'The app')+' read these numbers; compare them with your statement. Nothing is saved until you press Save.</p>'+
-    '<div class="grid tiles">'+tile('Pay date',shortDate(im.payDate),im.periodStart&&im.periodEnd?shortDate(im.periodStart)+' to '+shortDate(im.periodEnd):'')+tile('Gross',money(im.gross),im.hours?im.hours+' hours':'')+tile('Taxes',money(t.tax),'')+tile('Net',money(im.net),Math.abs(t.unexplained)>Math.max(2,im.gross*0.01)?'<span class="warn">items differ by '+money(Math.abs(t.unexplained))+'</span>':'adds up')+'</div>'+
+    '<div class="grid tiles">'+tile('Pay date',payDateLabel(im.payDate),im.periodStart&&im.periodEnd?shortDate(im.periodStart)+' to '+shortDate(im.periodEnd):'')+tile('Gross',money(im.gross),im.hours?im.hours+' hours':'')+tile('Taxes',money(t.tax),'')+tile('Net',money(im.net),Math.abs(t.unexplained)>Math.max(2,im.gross*0.01)?'<span class="warn">items differ by '+money(Math.abs(t.unexplained))+'</span>':'adds up')+'</div>'+
     ['earnings','tax','benefit','retirement','deduction','other'].map(function(sec){var ls=im.lines.filter(function(l){return l.section===sec});return ls.length?'<div class="sub" style="margin-top:8px"><b>'+PAY_SECTIONS[sec]+'</b>: '+ls.map(function(l){return esc(l.name)+' '+money(l.amount)}).join(' · ')+'</div>':''}).join('')+
-    (dup?'<p class="sub warn" style="margin:8px 0 0">You already have a statement with this date and take-home. Saving replaces it.</p>':'')+
+    '<label style="display:flex;gap:8px;align-items:center;margin-top:8px;font-size:13px"><input type="checkbox" data-paykind'+(payKind(im)==='bonus'?' checked':'')+'> This is a bonus check (it is left out of your usual paycheck and pay dates)</label>'+(dup?'<p class="sub warn" style="margin:8px 0 0">You already have a statement with this date and take-home. Saving replaces it.</p>':'')+(payOldNote(im)?'<p class="sub warn" style="margin:8px 0 0;white-space:normal">'+payOldNote(im)+'</p>':'')+
     '<div class="actions" style="justify-content:flex-start;margin-top:10px"><button class="btn primary small" data-act="pay-imp-save">Save this statement</button><button class="btn small" data-act="pay-imp-no">Discard</button></div></section>';
 }
 function vPay(){
@@ -6435,13 +6530,14 @@ function vPay(){
   if(!stubs.length)return head+actions+msg+payImpPreview()+(mypayUI.manual?payForm():'')+'<section class="panel"><div class="empty" style="white-space:normal">Add your latest pay statement to see what you earn, what comes out, when your next paycheck should arrive and what changed since the last one. Add a few and the app learns your pay schedule.</div></section>'+note;
   var last=stubs[stubs.length-1],sel=stubs.filter(function(s){return s.id===mypayUI.sel})[0]||last,nx=payNext(stubs,TODAY),arr=payArrived(stubs,S.txns,TODAY),ch=payChanges(stubs.slice(0,stubs.indexOf(sel)+1)),yr=payYear(stubs,TODAY.getFullYear(),TODAY);
   var hero='';
+  var staleNote=nx&&nx.staleDays>Math.max(30,nx.freq.days*2.2)?'<p class="sub warn" style="margin:8px 0 0;white-space:normal">Your latest regular statement is from '+payDateLabel(nx.lastDate)+' ('+nx.staleDays+' days ago), so this date and amount are estimates. Add a recent statement to make them accurate.</p>':'';
   if(nx)hero='<section class="panel"><h2>Next paycheck</h2><div class="row wrap" style="border:0;padding:0;align-items:flex-end"><div class="grow"><div class="num" style="font-size:28px;font-weight:700">'+payLongDate(nx.date)+'</div><div class="sub">'+(nx.days===0?'Today':nx.days===1?'Tomorrow':'In '+nx.days+' days')+' · paid '+nx.freq.label+'</div></div><div style="text-align:right"><div class="num good" style="font-size:26px;font-weight:700">~'+money0(nx.net)+'</div><div class="sub">take-home, from '+money0(nx.gross)+' gross</div></div></div>'+
     (arr&&!arr.found?'<p class="sub warn" style="margin:8px 0 0;white-space:normal">The paycheck expected around '+shortDate(arr.expected)+' (about '+money0(arr.net)+') has not shown up as income yet. If it was deposited, import your latest transactions; if not, check with payroll.</p>':'')+
-    (arr&&arr.found?'<p class="sub good" style="margin:8px 0 0">The paycheck expected around '+shortDate(arr.expected)+' arrived: '+money(arr.found.amount)+' on '+shortDate(arr.found.date)+'. Add its statement to keep this accurate.</p>':'')+'</section>';
+    (arr&&arr.found?'<p class="sub good" style="margin:8px 0 0">The paycheck expected around '+shortDate(arr.expected)+' arrived: '+money(arr.found.amount)+' on '+shortDate(arr.found.date)+'. Add its statement to keep this accurate.</p>':'')+staleNote+'</section>';
   var chPanel='<section class="panel"><h2>What changed<small>'+(sel===last?'latest paycheck':'paycheck of '+shortDate(sel.payDate))+' compared with the one before</small></h2>'+(ch.length?insightRows(ch):'<div class="empty">Nothing changed. Your pay, taxes and deductions look the same as last time.</div>')+'</section>';
   var ytd=yr?'<section class="panel"><h2>'+yr.year+' so far<small>from your statements</small></h2><div class="grid tiles">'+tile('Gross so far',money0(yr.ytdGross),yr.ytdFactor>1.05||yr.count<2?'year-to-date from the latest statement':yr.count+' statements')+tile('Federal tax withheld',money0(yr.withheldFed),yr.ytdGross>0?(yr.withheldFed/yr.ytdGross*100).toFixed(1)+'% of gross':'')+tile('Retirement saved',money0(yr.retirementPerPeriod*yr.count*yr.ytdFactor),'about '+money0(yr.retirementPerPeriod)+' each paycheck')+tile('On track for',money0(yr.projGross),'gross this year, '+yr.periodsLeft+' paychecks to go')+'</div><p class="sub" style="margin:8px 0 0"><a href="#" data-view="tax">See what to expect at tax time</a></p></section>':'';
-  var hist='<section class="panel"><h2>Pay history</h2>'+payBars(stubs)+'<div style="overflow-x:auto;margin-top:8px"><table class="maptable" style="width:100%"><thead><tr><th>Paid</th><th>Gross</th><th>Taxes</th><th>Deductions</th><th>Net</th><th></th></tr></thead><tbody>'+stubs.slice().reverse().slice(0,26).map(function(s){var t=payTotals(s);return '<tr'+(s.id===sel.id?' style="font-weight:700"':'')+'><td>'+shortDate(s.payDate)+'</td><td class="num">'+money0(s.gross)+'</td><td class="num">'+money0(t.tax)+'</td><td class="num">'+money0(t.benefit+t.retirement+t.deduction)+'</td><td class="num good">'+money0(s.net)+'</td><td><button class="btn small" data-act="pay-sel" data-id="'+esc(s.id)+'">View</button></td></tr>'}).join('')+'</tbody></table></div></section>';
-  return head+actions+msg+payImpPreview()+(mypayUI.manual?payForm():'')+hero+chPanel+payStatement(sel)+payBreakdownPanel(stubs,sel)+ytd+hist+note;
+  var hist='<section class="panel"><h2>Pay history</h2>'+payBars(stubs)+'<div style="overflow-x:auto;margin-top:8px"><table class="maptable" style="width:100%"><thead><tr><th>Paid</th><th>Gross</th><th>Taxes</th><th>Deductions</th><th>Net</th><th></th></tr></thead><tbody>'+stubs.slice().reverse().slice(0,26).map(function(s){var t=payTotals(s);return '<tr'+(s.id===sel.id?' style="font-weight:700"':'')+'><td>'+payDateLabel(s.payDate)+(payKind(s)==='bonus'?' <span class="pill warn" style="font-size:11px">Bonus</span>':'')+'</td><td class="num">'+money0(s.gross)+'</td><td class="num">'+money0(t.tax)+'</td><td class="num">'+money0(t.benefit+t.retirement+t.deduction)+'</td><td class="num good">'+money0(s.net)+'</td><td><button class="btn small" data-act="pay-sel" data-id="'+esc(s.id)+'">View</button></td></tr>'}).join('')+'</tbody></table></div></section>';
+  return head+actions+msg+payImpPreview()+(mypayUI.manual?payForm():'')+hero+bonusPanel(stubs)+chPanel+payStatement(sel)+payBreakdownPanel(stubs,sel)+ytd+hist+note;
 }
 function payRead(inp){
   var f=inp.files[0];inp.value='';if(!f)return;
@@ -7700,6 +7796,7 @@ document.addEventListener('click',function(e){
   else if(a==='en-clear'){if(confirm('Remove all electricity data from this app?'))S.energy=[]}
   else if(a==='help-walk'){setTimeout(function(){walkOpen(0)},0)}
   else if(a==='help-here'){setTimeout(helpPopOpen,0)}
+  else if(a==='pay-kind'){var pk=S.pay.stubs.filter(function(x){return x.id===id})[0];if(pk){pk.kind=payKind(pk)==='bonus'?'regular':'bonus'}}
   else if(a==='bill-add'){billUI.adding=true;billUI.edit=''}
   else if(a==='bill-cancel'){billUI.adding=false;billUI.edit=''}
   else if(a==='bill-adj'){billUI.adj=id;billUI.edit='';billUI.adding=false}
