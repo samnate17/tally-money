@@ -387,6 +387,48 @@ canvas.confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:non
 .walkfoot{display:flex;gap:8px;align-items:center;padding:12px 16px;border-top:1px solid var(--line);flex-wrap:wrap}.walkfoot .grow{flex:1}
 .walkbar{height:4px;background:var(--line);flex:none}.walkbar i{display:block;height:100%;background:var(--accent)}
 @media (max-width:760px){.helpfab{bottom:calc(76px + env(safe-area-inset-bottom,0px));right:14px}.helppop{bottom:calc(130px + env(safe-area-inset-bottom,0px));right:14px}.walknav{display:none}.walkmain{padding:14px 16px}}
+
+/* coloured tab icons, page headers and the green Energy tab */
+.ni{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:9px;flex:none;color:#fff;background:linear-gradient(145deg,var(--ic,#6366f1),color-mix(in srgb,var(--ic,#6366f1) 66%,#000));box-shadow:0 2px 8px color-mix(in srgb,var(--ic,#6366f1) 38%,transparent),inset 0 1px 0 rgba(255,255,255,.3);font-style:normal}
+.ni svg,.nav .ni svg{width:18px;height:18px}
+.nav .ni svg,.nav[aria-current="page"] .ni svg{color:#fff}
+.nav[aria-current="page"] .ni{box-shadow:0 3px 12px color-mix(in srgb,var(--ic,#6366f1) 55%,transparent),inset 0 1px 0 rgba(255,255,255,.35);transform:scale(1.04)}
+.nav:not([aria-current="page"]) .ni{opacity:.92}
+.tabbar .ni{width:28px;height:28px;border-radius:9px}
+.top h1 .ni{width:38px;height:38px;border-radius:11px;margin-right:12px;vertical-align:-9px}
+.top h1 .ni svg{width:22px;height:22px}
+@media (max-width:760px){.top h1 .ni{width:32px;height:32px;margin-right:9px;vertical-align:-7px}.top h1 .ni svg{width:19px;height:19px}}
+.tile{border-top:3px solid color-mix(in srgb,var(--tab,#6366f1) 60%,transparent)}
+.panel>h2::before{content:"";display:inline-block;width:4px;height:16px;border-radius:2px;background:var(--tab,var(--accent));margin-right:9px;vertical-align:-2px}
+.en-green{--accent:#16a34a;--accent-ink:#ffffff;--accent-soft:#dcf5e5}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .en-green{--accent:#4ade80;--accent-ink:#06210f;--accent-soft:#143a2a}}
+:root[data-theme="dark"] .en-green{--accent:#4ade80;--accent-ink:#06210f;--accent-soft:#143a2a}
+
+/* Energy: a neon banner and glowing charts */
+.enhero{position:relative;display:flex;align-items:center;gap:20px;padding:16px 24px;border-radius:18px;margin:12px 0 14px;overflow:hidden;color:#eafff3;background:radial-gradient(120% 160% at 0% 0%,#0d4a32 0%,#06180f 58%,#04100b 100%);border:1px solid rgba(57,255,136,.4);box-shadow:0 0 0 1px rgba(57,255,136,.12),0 10px 40px rgba(0,255,120,.2)}
+.enhero .enbolt{width:104px;height:104px;flex:none;overflow:visible}
+.enhero .enbolt circle{fill:none;stroke:#39ff88;stroke-width:1.2;opacity:.5;transform-origin:60px 60px}
+.enhero .entxt{position:relative;z-index:1;min-width:0}
+.enhero .entxt h2{font-size:22px;margin:0 0 4px;color:#eafff3;text-shadow:0 0 14px rgba(57,255,136,.55)}
+.enhero .entxt p{margin:0;font-size:14px;color:#b6f5d2}
+.enhero .enchips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.enhero .enchips span{font-size:12px;padding:3px 10px;border-radius:999px;border:1px solid rgba(57,255,136,.5);color:#baffd9;background:rgba(57,255,136,.1)}
+.enhero .enwave{position:absolute;left:0;right:0;bottom:6px;width:100%;height:54px;opacity:.55;pointer-events:none}
+.enhero .enwave polyline{fill:none;stroke:#39ff88;stroke-width:1.6;stroke-linejoin:round;stroke-linecap:round;filter:drop-shadow(0 0 4px #39ff88)}
+:root[data-motion="full"] .enhero .enbolt path{animation:enflick 3.2s ease-in-out infinite}
+:root[data-motion="full"] .enhero .enbolt circle{animation:enring 3.6s ease-out infinite}
+:root[data-motion="full"] .enhero .enbolt .r2{animation-delay:1.2s}
+:root[data-motion="full"] .enhero .enbolt .r3{animation-delay:2.4s}
+:root[data-motion="full"] .enhero .enwave polyline{stroke-dasharray:90 310;animation:enwave 3.4s linear infinite}
+@keyframes enflick{0%,100%{opacity:1}46%{opacity:1}50%{opacity:.72}54%{opacity:1}}
+@keyframes enring{0%{transform:scale(.55);opacity:.8}100%{transform:scale(1.25);opacity:0}}
+@keyframes enwave{from{stroke-dashoffset:400}to{stroke-dashoffset:0}}
+.en-green .tile{border-top-color:#39ff88;box-shadow:0 0 18px rgba(57,255,136,.16)}
+.en-green .panel>h2::before{background:#39ff88;box-shadow:0 0 8px #39ff88}
+.en-green svg rect[fill="var(--accent)"],.en-green svg circle[fill="var(--accent)"]{filter:drop-shadow(0 0 5px rgba(57,255,136,.8))}
+.en-green svg polyline,.en-green svg path[stroke]{filter:drop-shadow(0 0 3px rgba(57,255,136,.55))}
+.en-green .btn.primary{box-shadow:0 0 16px rgba(57,255,136,.45)}
+@media (max-width:560px){.enhero{padding:14px;gap:12px}.enhero .enbolt{width:72px;height:72px}.enhero .entxt h2{font-size:18px}}
 .spotwrap{position:fixed;inset:0;z-index:60;background:rgba(10,12,20,.45);display:flex;align-items:flex-start;justify-content:center;padding:10vh 12px 0;backdrop-filter:blur(3px)}
 .spotbox{width:min(680px,100%);background:var(--surface-solid,var(--bg));color:var(--ink);border:1px solid var(--line);border-radius:18px;box-shadow:0 24px 70px rgba(0,0,0,.35);overflow:hidden}
 .spotbox input{width:100%;border:0;border-bottom:1px solid var(--line);background:transparent;padding:16px 18px;font-size:17px;outline:none}
@@ -643,6 +685,9 @@ function detect(){
   return out;
 }
 
+var TABCOL={overview:'#6366f1',dash:'#0ea5e9',accounts:'#2563eb',pay:'#0d9488',tax:'#f97316',docs:'#f59e0b',assets:'#8b5cf6',subscriptions:'#ec4899',bills:'#f43f5e',energy:'#16a34a',budgets:'#06b6d4',report:'#7c3aed',afford:'#d97706',credit:'#10b981',cards:'#4f46e5',invest:'#059669',transactions:'#64748b',goals:'#db2777',loans:'#b45309',carloan:'#b45309',student:'#b45309',mortgage:'#0f766e',assist:'#a855f7',look:'#475569'};
+function tabColor(v){return Object.prototype.hasOwnProperty.call(TABCOL,v)?TABCOL[v]:'#6366f1'}
+function tabChip(v){return '<i class="ni" style="--ic:'+tabColor(v)+'">'+(ICON[v]||'')+'</i>'}
 /* ---------- icons + shell ---------- */
 var ICON={
  loans:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 3 8l9 5 9-5-9-5z"/><path d="M3 13l9 5 9-5"/><path d="M3 17.5l9 5 9-5" opacity=".5"/></svg>',
@@ -705,7 +750,7 @@ function saveNav(){try{localStorage.setItem('tally-nav-v1',JSON.stringify(NAVP))
 function navIds(){return navOrdered(TABS,NAVP.order).map(function(t){return t[0]})}
 function nav(){
   document.documentElement.setAttribute('data-nav',NAVP.layout);
-  function items(short){return navVisible(TABS,NAVP.order,NAVP.hidden).map(function(t){return '<button class="nav" data-view="'+t[0]+'"'+(short?'':' draggable="true" title="Drag to move this tab"')+(view===t[0]?' aria-current="page"':'')+'>'+ICON[t[0]]+'<span>'+(short&&t[2]||t[1])+'</span></button>'}).join('')}
+  function items(short){return navVisible(TABS,NAVP.order,NAVP.hidden).map(function(t){return '<button class="nav" data-view="'+t[0]+'"'+(short?'':' draggable="true" title="Drag to move this tab"')+(view===t[0]?' aria-current="page"':'')+'>'+tabChip(t[0])+'<span>'+(short&&t[2]||t[1])+'</span></button>'}).join('')}
   var h=items(false);
   $('#rail').innerHTML='<div class="brand"><svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="tl-bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1B2470"/><stop offset="1" stop-color="#05061A"/></linearGradient><linearGradient id="tl-bar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#8FA2FF"/></linearGradient></defs><rect width="24" height="24" fill="url(#tl-bg)"/><g fill="url(#tl-bar)"><rect x="5.2" y="5.4" width="2.1" height="13.2" rx="1.05"/><rect x="8.9" y="5.4" width="2.1" height="13.2" rx="1.05"/><rect x="12.6" y="5.4" width="2.1" height="13.2" rx="1.05"/><rect x="16.3" y="5.4" width="2.1" height="13.2" rx="1.05"/></g><path d="M4.6 17.2 19.4 7.4" stroke="#FFB45A" stroke-width="1.9" stroke-linecap="round" fill="none"/></svg>Tally</div><button class="nav searchbtn" data-act="spot-open" aria-label="Search the app" title="Search (Ctrl or Cmd + K)">'+ICON.search+'<span>Search</span><kbd class="kbd">'+(/Mac|iP(hone|ad)/.test(navigator.platform||'')?'\u2318K':'Ctrl K')+'</kbd></button>'+h+'<div class="railfoot"><span>'+(window.tally?'Your data stays on this computer. Bank sync and AI analysis send data only when you use them.':HOSTED?'Signed in as '+esc(AUTH.email)+'. Your data is encrypted before it leaves this browser.':'Your data stays in this browser. Nothing is uploaded.')+'</span></div>';
   $('#tabbar').innerHTML=items(true);
@@ -736,6 +781,8 @@ function render(){
   if(view!=='invest'&&view!=='look'&&view!=='assist')body=body.replace(/(<div class="top"><h1>[^<]*<\/h1>)/,'$1<button class="btn small refresh" data-act="refresh" aria-label="Refresh this page"'+(refreshing?' disabled':'')+'>'+(refreshing?'Refreshing…':'&#8635; Refresh')+'</button>');
   body=body.replace(/(<div class="top"><h1>[^<]*<\/h1>)/,'$1'+undoButtons());
   if(body.indexOf('class="undo"')<0)body='<div style="display:flex;justify-content:flex-end;margin:0 0 8px">'+undoButtons()+'</div>'+body;
+  body=body.replace('<div class="top"><h1>','<div class="top"><h1>'+tabChip(view));
+  $('#main').style.setProperty('--tab',tabColor(view));
   $('#main').innerHTML=banner+body;
   bindView();thBind($('#main'));afterRender();helpFabSync();
 }
@@ -6032,6 +6079,14 @@ function asAiRun(id,web){
 var enUI={fuel:'propane',adding:false,imp:null,msg:'',busy:'',pasteOpen:false,txOpen:false,place:'',places:null,wmsg:'',wbusy:false,wtried:false,advice:null,adviceBusy:false,adviceMsg:''};
 var FUEL_COL={electric:'var(--accent)',propane:'var(--c6)',oil:'var(--c4)',gas:'var(--c2)',wood:'var(--c8)'};
 var FUEL_TX={propane:/propane|amerigas|ferrellgas|suburban propane|star gas|blue rhino|heritage propane/i,oil:/heating oil|fuel oil|oil delivery|kerosene|irving oil|crowley|petro|bottini|sun oil/i,gas:/national grid|eversource gas|nstar gas|columbia gas|natural gas|piedmont|atmos|spire|southwest gas|dominion energy|peoples gas|nicor|con ?ed gas|gas co\b/i,wood:/firewood|cord of wood|wood delivery|pellet/i};
+
+// A neon banner for the Energy tab: a glowing bolt with pulsing rings and a power wave.
+function enHero(){
+  var wave='0,30 40,30 55,30 62,10 70,50 78,30 120,30 160,30 172,30 180,8 190,52 198,30 240,30 280,30 292,30 300,12 308,48 316,30 360,30 400,30';
+  return '<section class="enhero"><svg class="enbolt" viewBox="0 0 120 120" aria-hidden="true"><defs><filter id="enGlow" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="3.2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter><linearGradient id="enG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f2ffd9"/><stop offset=".45" stop-color="#39ff88"/><stop offset="1" stop-color="#00c46a"/></linearGradient></defs><circle class="r1" cx="60" cy="60" r="34"/><circle class="r2" cx="60" cy="60" r="34"/><circle class="r3" cx="60" cy="60" r="34"/><path d="M70 8 28 68h27l-7 44 44-63H63z" fill="url(#enG)" filter="url(#enGlow)"/></svg>'+
+    '<div class="entxt"><h2>Power and heat, tracked</h2><p>See what keeps the lights on and the house warm, month by month.</p><div class="enchips"><span>Electricity</span><span>Propane</span><span>Heating oil</span><span>Gas</span><span>Weather</span></div></div>'+
+    '<svg class="enwave" viewBox="0 0 400 60" preserveAspectRatio="none" aria-hidden="true"><polyline points="'+wave+'"/></svg></section>';
+}
 function enShortMonth(k){return new Date(+k.slice(0,4),+k.slice(5)-1,1).toLocaleDateString('en-US',{month:'short'})+(k.slice(5)==='01'?" '"+k.slice(2,4):'')}
 function enStack(months,series,o){
   o=o||{};var n=months.length;if(!n)return '';
@@ -6208,7 +6263,7 @@ function vEnergy(){
     c.fuels.forEach(function(f){series.push({name:f.label,col:FUEL_COL[f.fuel],vals:ms.map(function(m){var r=f.months.filter(function(x){return x.month===m})[0];return r?r.cost:0})})});
     stack='<section class="panel"><h2>What energy costs you<small>by month, all fuels</small></h2>'+enStack(ms,series,{label:'Energy cost by month'})+'</section>';
   }
-  return head+enTiles(c)+stack+enWeatherPanel(c)+energyPanel()+enElecPanel(c)+enFuelPanel(c)+enSavePanel(c);
+  return '<div class="en-green">'+head+enHero()+enTiles(c)+stack+enWeatherPanel(c)+energyPanel()+enElecPanel(c)+enFuelPanel(c)+enSavePanel(c)+'</div>';
 }
 function enLoadWeather(quiet){
   var p=enPlace();if(!p||!T||!T.weather||enUI.wbusy)return;

@@ -557,3 +557,6 @@ Every bill on the Bills tab can be changed, whatever its source (a bill you adde
 
 ## Help
 A round **?** button sits at the bottom right of every tab. It opens a short guide to that tab: what it does and how to use it. **Settings, then Help** has **Start the walkthrough**, a step-by-step tour of the whole app (a welcome, every tab in order, and a closing step) with Back, Next, **Open this tab** and a list to jump to any step; arrow keys and Esc work. The text lives in the `HELP` block in `index.html`, and a test fails if a tab is added without a guide.
+
+## Look
+Every tab icon is a coloured, glossy chip (one colour per tab) in the sidebar, the top bar and the phone tab bar, and the same chip heads each page. Panels get a small colour bar and tiles a coloured top edge in the tab's colour. **Energy** is neon green: a glowing lightning-bolt banner with pulsing rings and a power wave (animated unless motion is off in Settings or your system), and glowing bars, dots and lines in its charts.
