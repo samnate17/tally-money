@@ -491,7 +491,30 @@ function ledger(){return ledgerOf(S.txns,S.cardPay)}
 function billCatOf(n){var c=guessCat(n);return {cat:c,sub:c==='Other'?'':(guessSub(c,n)||'')}}
 var showHidden=false;
 function billName(n){return !showHidden&&isHiddenName(n,S.hideWords)?'Hidden bill':n}
-function allBillItems(mk){var base=billItems(S.bills,S.accounts,S.txns);return base.concat(autoBillItems(S.txns,base,mk,S.billIgnore,billCatOf),maintBillItems(S.accounts,mk,TODAY))}
+var FB={key:'',items:[]};
+// The next propane or oil fill as an upcoming bill (an estimate from your deliveries and the weather), until a delivery or payment is recorded.
+function fuelBillItems(mk){
+  var key=(S.fuel||[]).length+':'+((S.fuel||[]).length?S.fuel[S.fuel.length-1].date:'')+':'+((S.weather&&S.weather.fetched)||'')+':'+iso(TODAY);
+  if(FB.key!==key){
+    FB.key=key;FB.items=[];
+    if((S.fuel||[]).length>=3){
+      var W=(S.weather&&S.weather.months)||{},normals=weatherNormals(W);
+      ['propane','oil'].forEach(function(f){
+        var recs=S.fuel.filter(function(r){return r.fuel===f});if(recs.length<3)return;
+        var months=fuelMonths(S.fuel,f),per=fuelPeriods(S.fuel,f).map(function(p){return {date:fqIso(p.to),qty:p.qty,perDay:p.qty/p.days,cost:p.cost}});
+        var nf=nextFillFor({fuel:f,deliveries:per,model:months.length?weatherModel(months.map(function(m){return {month:m.month,perDay:m.perDay}}),W,false):null},normals);
+        if(nf&&nf.cost>0)FB.items.push({f:f,date:nf.date,cost:nf.cost});
+      });
+    }
+  }
+  var nowK=iso(TODAY).slice(0,7),out=[];
+  FB.items.forEach(function(x){
+    var k=x.date.slice(0,7),show=k===mk||(mk===nowK&&x.date<iso(TODAY));if(!show)return;
+    out.push({id:'fuel:'+x.f,name:FUELS[x.f].label+' fill (estimate)',amount:x.cost,dueDay:x.date.slice(0,7)===mk?+x.date.slice(8):1,source:'fuel',cat:'Housing',sub:'Propane and heating oil',re:FUEL_TX[x.f],raw:{fuel:x.f}});
+  });
+  return out;
+}
+function allBillItems(mk){var base=billItems(S.bills,S.accounts,S.txns);return base.concat(autoBillItems(S.txns,base,mk,S.billIgnore,billCatOf),maintBillItems(S.accounts,mk,TODAY),fuelBillItems(mk))}
 // Undo: before each change is saved the app keeps the state it had. Changes made within 0.7 s of each other count as one step. Kept in memory only (up to 30 steps).
 var UNDO={stack:[],redo:[],cur:'',t:0,bytes:0};
 function undoInit(){try{UNDO={stack:[],redo:[],cur:JSON.stringify(S),t:0,bytes:0}}catch(e){}}
@@ -591,7 +614,7 @@ var refreshing=false;
 function refreshAll(){
   if(refreshing)return;
   refreshing=true;
-  TODAY=new Date();TODAY.setHours(0,0,0,0);NOWKEY=monthKey(iso(TODAY));if(month>NOWKEY)month=NOWKEY;
+  TODAY=new Date();TODAY.setHours(0,0,0,0);NOWKEY=monthKey(iso(TODAY));if(month>shiftMonth(NOWKEY,3))month=NOWKEY;
   if(aff.res&&+aff.amount>0){aff.ctx=afCtx(aff.cat);aff.res=assessAfford({type:aff.type,cat:aff.cat,amount:+aff.amount,name:aff.name},aff.ctx)}
   pullIfNewer();
   render();
@@ -611,7 +634,9 @@ function render(){
   $('#main').innerHTML=banner+body;
   bindView();thBind($('#main'));afterRender();
 }
-function monthNav(){return '<div class="monthnav"><button class="btn small" data-act="mprev" aria-label="Previous month">&larr;</button><b>'+monthLabel(month)+'</b><button class="btn small" data-act="mnext" aria-label="Next month"'+(month>=NOWKEY?' disabled':'')+'>&rarr;</button></div>'}
+function monthNav(){return '<div class="monthnav"><button class="btn small" data-act="mprev" aria-label="Previous month">&larr;</button><b>'+monthLabel(month)+'</b><button class="btn small" data-act="mnext" aria-label="Next month"'+(month>=monthLimit()?' disabled':'')+'>&rarr;</button></div>'}
+// Bills can be looked at a few months ahead (maintenance and fills due later); other tabs stop at this month.
+function monthLimit(){return view==='bills'?shiftMonth(NOWKEY,3):NOWKEY}
 
 /* ---------- Overview ---------- */
 function donut(by,total){
@@ -800,7 +825,7 @@ setInterval(function(){
 },1000);
 setInterval(function(){
   if(VLT.locked||view!=='dash'||document.hidden)return;
-  TODAY=new Date();TODAY.setHours(0,0,0,0);NOWKEY=monthKey(iso(TODAY));if(month>NOWKEY)month=NOWKEY;
+  TODAY=new Date();TODAY.setHours(0,0,0,0);NOWKEY=monthKey(iso(TODAY));if(month>shiftMonth(NOWKEY,3))month=NOWKEY;
   var ids=T&&PL&&PL.items?Object.keys(PL.items):[];
   if(DASH.auto&&ids.length&&!DASH.syncing&&Date.now()-DASH.last>30*60*1000){
     DASH.syncing=true;DASH.last=Date.now();
@@ -1633,6 +1658,12 @@ function nextFillDate(model,normals,last,avgFill){
     if(used>=avgFill)return fqIso(d);
   }
   return null;
+}
+// When the next fill is due and what a usual fill costs, from your last deliveries (needs 3 or more). f: {fuel, deliveries:[{date,qty,perDay,cost}], model}.
+function nextFillFor(f,normals){
+  var ds=f.deliveries||[];if(!FUELS[f.fuel].delivered||ds.length<3)return null;
+  var last=ds[ds.length-1],recent=ds.slice(-6),avgFill=recent.reduce(function(a,d){return a+d.qty},0)/recent.length,avgCost=recent.reduce(function(a,d){return a+(d.cost||0)},0)/recent.length,nd=nextFillDate(f.model,normals,last,avgFill);
+  return nd?{date:nd,qty:avgFill,cost:Math.round(avgCost),last:last.date}:null;
 }
 function annualOf(rows){
   var d=0,q=0,c=0;rows.forEach(function(r){d+=r.days;q+=r.qty;c+=r.cost});
@@ -2600,7 +2631,9 @@ function widgetSummary(){
   cats.forEach(function(c){var bud=S.budgets[c]||0;if(bud>0){var x=sp.by[c]||0;b+=bud;bs+=x;if(x>bud)over.push({cat:c,spent:x,budget:bud})}});
   over.sort(function(a,c){return (c.spent-c.budget)-(a.spent-a.budget)});
   var dim=new Date(TODAY.getFullYear(),TODAY.getMonth()+1,0).getDate(),daysLeft=dim-TODAY.getDate()+1,left=b-bs;
-  var bills=activeSubs().map(function(x){var d=nextDate(x);return {name:x.name,amount:x.amount,days:dayDiff(TODAY,d)}}).filter(function(x){return x.days<=7}).sort(function(a,c){return a.days-c.days}).slice(0,4);
+  var bills=billsSummary(allBillItems(mk),mk,S.txns,S.billMarks,TODAY).rows.filter(function(r){return r.st.state!=='paid'&&r.st.due}).map(function(r){return {name:billName(r.item.name),amount:r.item.amount,days:dayDiff(TODAY,r.st.due)}}).filter(function(x){return x.days<=7});
+  activeSubs().forEach(function(x){var d=nextDate(x),dd=dayDiff(TODAY,d);if(dd<=7&&!bills.some(function(b){return b.name.toLowerCase().indexOf(String(x.name).toLowerCase())>-1||String(x.name).toLowerCase().indexOf(b.name.toLowerCase())>-1}))bills.push({name:isHiddenName(x.name,S.hideWords)?'Hidden bill':x.name,amount:x.amount,days:dd})});
+  bills.sort(function(a,c){return a.days-c.days});bills=bills.slice(0,4);
   var goal=null;S.goals.forEach(function(g){if(!(g.target>0)||g.saved>=g.target)return;var p=g.saved/g.target*100;if(!goal||p>goal.pct)goal={name:g.name,pct:p}});
   return {asOf:iso(TODAY),sample:!!S.sample,month:monthLabel(mk),daysLeft:daysLeft,
     net:S.accounts.length?netWorth():null,
@@ -3325,11 +3358,12 @@ function vBills(){
     var act=st.state==='paid'?(st.found&&st.found.guess&&it.source==='bill'?'<button class="btn small primary" data-act="bill-learn" data-id="'+esc(it.id)+'" title="Match this bill by that merchant name from now on">Remember it</button>':'')+'<button class="btn small" data-act="bill-undo" data-id="'+esc(it.id)+'">'+(st.manual?'Undo':'Not paid?')+'</button>':'<button class="btn small primary" data-act="bill-paid" data-id="'+esc(it.id)+'">Mark paid</button>';
     var more=it.source==='auto'?'<button class="btn small" data-act="bill-keep" data-id="'+esc(it.id)+'" title="Save it as your own bill so you can edit it">Keep</button><button class="btn small" data-act="bill-ignore" data-id="'+esc(it.id)+'" aria-label="Not a bill" title="This is not a bill. Stop showing it.">Not a bill</button>':it.source==='bill'?'<button class="btn small" data-act="bill-edit" data-id="'+esc(it.id)+'">Edit</button><button class="btn small" data-act="bill-del" data-id="'+esc(it.id)+'" aria-label="Remove">&times;</button>':'<span class="sub muted" style="font-size:12px">from your '+(it.kind==='credit'?'card':'loan')+'</span>';
     if(it.source==='bill'||it.source==='loan')more='<button class="btn small'+(it.autopay?' primary':'')+'" data-act="bill-autopay" data-id="'+esc(it.id)+'" aria-pressed="'+(it.autopay?'true':'false')+'" title="'+(it.autopay?'On autopay. Press to turn off.':'Press if this comes out automatically.')+'">'+(it.autopay?'Autopay on':'Autopay')+'</button>'+more;
+    if(it.source==='fuel')more='<button class="btn small" data-view="energy">Open</button>';
     if(it.source==='maint'){act='<button class="btn small primary" data-act="maint-done" data-id="'+esc(it.id)+'">Done</button>';more='<button class="btn small" data-view="assets">Open</button>'}
     var paidNote=(st.state==='paid'&&st.found&&Math.abs(st.found.amount-it.amount)>=1?' · paid '+money(st.found.amount):'')+(it.source==='loan'&&it.raw.pastDue>0?' · <span class="bad">past due '+money(it.raw.pastDue)+'</span>':'');
     var hid=isHiddenName(it.name,S.hideWords);
     if(it.source==='bill'||it.source==='loan'||it.source==='auto')more='<button class="btn small" data-act="'+(hid?'bill-unhide':'bill-hide')+'" data-id="'+esc(it.id)+'" title="'+(hid?'Show this name again':'Keep this name out of sight. The amount still counts.')+'">'+(hid?'Unhide':'Hide')+'</button>'+more;
-    return '<div class="row wrap">'+logo(billName(it.name))+'<div class="grow" style="flex-basis:200px"><div class="nm">'+esc(billName(it.name))+(hid&&showHidden?' <span class="pill mute" style="font-size:11px">hidden</span>':'')+'</div><div class="sub">'+(it.dueDay?(it.dayGuessed?'Usually paid around the ':'Due on the ')+it.dueDay+ordinal(it.dueDay):'No due day')+(it.source==='auto'?' · <span class="pill good" style="font-size:11px">Found in your transactions</span>':'')+(it.cat?' · '+esc(it.cat)+(it.sub?' › '+esc(it.sub):''):'')+paidNote+'</div>'+(it.source==='bill'||it.source==='loan'?'<div style="margin-top:6px">'+payBtn(it.id.indexOf('loan:')===0||it.source==='bill'?(it.source==='bill'?'bill:'+it.id:it.id):it.id)+'</div>':'')+'</div>'+billPill(st)+'<div class="amt num">'+money(it.amount)+'</div><div class="actions" style="flex:none;flex-wrap:nowrap">'+act+more+'</div></div>';
+    return '<div class="row wrap">'+logo(billName(it.name))+'<div class="grow" style="flex-basis:200px"><div class="nm">'+esc(billName(it.name))+(hid&&showHidden?' <span class="pill mute" style="font-size:11px">hidden</span>':'')+'</div><div class="sub">'+(it.dueDay?(it.dayGuessed?'Usually paid around the ':'Due on the ')+it.dueDay+ordinal(it.dueDay):'No due day')+(it.source==='auto'?' · <span class="pill good" style="font-size:11px">Found in your transactions</span>':'')+(it.source==='fuel'?' · <span class="pill mute" style="font-size:11px" title="Worked out from your past deliveries and the weather. It turns into a real bill when you record the delivery.">Estimate</span>':'')+(it.cat?' · '+esc(it.cat)+(it.sub?' › '+esc(it.sub):''):'')+paidNote+'</div>'+(it.source==='bill'||it.source==='loan'?'<div style="margin-top:6px">'+payBtn(it.id.indexOf('loan:')===0||it.source==='bill'?(it.source==='bill'?'bill:'+it.id:it.id):it.id)+'</div>':'')+'</div>'+billPill(st)+'<div class="amt num">'+money(it.amount)+'</div><div class="actions" style="flex:none;flex-wrap:nowrap">'+act+more+'</div></div>';
   }).join('');
   var list='<section class="panel"><h2>'+monthLabel(month)+'<small>'+sum.paidCount+' of '+sum.count+' paid</small></h2>'+(rows||'<div class="empty">No bills yet. Add rent, electricity, internet, insurance and anything else due every month.</div>')+
     '<div class="actions" style="justify-content:flex-start;margin-top:10px"><button class="btn small primary" data-act="bill-add">Add a bill</button></div>'+(billUI.adding?billForm(null):'')+
@@ -4761,8 +4795,8 @@ function receiptSave(id){
   if(S.sample){toast('You are still on the example data. Press Start fresh first, then add your receipts.');return}
   r.total=tot;var t=txnFromReceipt(r,{today:iso(TODAY),guess:guessCat,cash:it.paid==='cash'});
   t.id=uid();if(r.category)t.cat=r.category;var sb=subFor(t.cat,t.name,'');if(sb)t.sub=sb;
+  if(it.paid==='cash'&&it.fromWallet&&walletAcct()){t.fromWallet=true;walletAdd(t.amount)}
   S.txns.push(t);S.txns.sort(function(x,y){return x.date<y.date?1:-1});
-  if(it.paid==='cash'&&it.fromWallet&&walletAcct())walletAdd(t.amount);
   rcpt.items=rcpt.items.filter(function(x){return x.id!==id});save();render();toast('Added '+money(Math.abs(t.amount))+(it.paid==='cash'?' in cash':'')+'.');
 }
 function cashPanel(){
@@ -4938,7 +4972,7 @@ function energyCtx(){
     var l12=er.slice(-12),kw=l12.reduce(function(a,r){return a+r.kwh},0),cs=l12.reduce(function(a,r){return a+(r.cost||0)},0);c.kwhPrice=kw>0&&cs>0?cs/kw:0}
   Object.keys(FUELS).forEach(function(f){
     var recs=(S.fuel||[]).filter(function(r){return r.fuel===f});if(!recs.length)return;
-    var months=fuelMonths(S.fuel,f),prices=fuelPrices(S.fuel,f),per=fuelPeriods(S.fuel,f).map(function(p){return {date:fqIso(p.to),qty:p.qty,perDay:p.qty/p.days}});
+    var months=fuelMonths(S.fuel,f),prices=fuelPrices(S.fuel,f),per=fuelPeriods(S.fuel,f).map(function(p){return {date:fqIso(p.to),qty:p.qty,perDay:p.qty/p.days,cost:p.cost}});
     c.fuels.push({fuel:f,label:FUELS[f].label,recs:recs,months:months,prices:prices,spend:fuelSpend(S.fuel,f),deliveries:per,model:months.length?weatherModel(months.map(function(m){return {month:m.month,perDay:m.perDay}}),W,false):null});
   });
   c.tips=energyTips({fuels:c.fuels,elec:c.elec,weather:W,normals:c.normals,cop:cop,kwhPrice:c.kwhPrice||0,todayISO:iso(TODAY)});
@@ -5631,7 +5665,7 @@ function cleanCustomCats(c){
 function cleanBackup(j){
   var d=j&&j.data?j.data:j,dre=/^\d{4}-\d{2}-\d{2}$/,custom=cleanCustomCats(d&&d.customCats),allowed=BASECATS.concat(custom.map(function(c){return c.name}),['Other','Income']);
   if(!d||!Array.isArray(d.txns)||!Array.isArray(d.subs)||!Array.isArray(d.goals)||!d.budgets||typeof d.budgets!=='object')return null;
-  var cleanTx=function(x){var t={id:String(x.id||uid()),date:x.date,name:String(x.name).slice(0,120),amount:+x.amount,cat:allowed.indexOf(x.cat)>-1?x.cat:'Other'};if(typeof x.plaidId==='string'&&x.plaidId)t.plaidId=x.plaidId.slice(0,100);if(dre.test(x.asideAt||''))t.asideAt=x.asideAt;if(x.transfer===true||x.transfer===false)t.transfer=x.transfer;if(x.cardPay===true)t.cardPay=true;if(typeof x.acct==='string'&&x.acct&&x.acct.length<=100)t.acct=x.acct;if(x.cash===true)t.cash=true;if(/^[\w-]{1,20}$/.test(x.imp||''))t.imp=x.imp;if(typeof x.note==='string'&&x.note)t.note=x.note.slice(0,200);if(x.cashback===true||x.cashback===false)t.cashback=x.cashback;var sb=cleanSubName(x.sub);if(sb)t.sub=sb;return t};
+  var cleanTx=function(x){var t={id:String(x.id||uid()),date:x.date,name:String(x.name).slice(0,120),amount:+x.amount,cat:allowed.indexOf(x.cat)>-1?x.cat:'Other'};if(typeof x.plaidId==='string'&&x.plaidId)t.plaidId=x.plaidId.slice(0,100);if(dre.test(x.asideAt||''))t.asideAt=x.asideAt;if(x.transfer===true||x.transfer===false)t.transfer=x.transfer;if(x.cardPay===true)t.cardPay=true;if(typeof x.acct==='string'&&x.acct&&x.acct.length<=100)t.acct=x.acct;if(x.cash===true)t.cash=true;if(x.fromWallet===true&&x.cash===true)t.fromWallet=true;if(/^[\w-]{1,20}$/.test(x.imp||''))t.imp=x.imp;if(typeof x.note==='string'&&x.note)t.note=x.note.slice(0,200);if(x.cashback===true||x.cashback===false)t.cashback=x.cashback;var sb=cleanSubName(x.sub);if(sb)t.sub=sb;return t};
   var okTx=function(x){return x&&dre.test(x.date)&&isFinite(x.amount)&&x.name};
   var txns=d.txns.filter(okTx).map(cleanTx);
   var setAside=(Array.isArray(d.setAside)?d.setAside:[]).filter(okTx).slice(0,5000).map(cleanTx);
@@ -5669,7 +5703,7 @@ function bindView(){
   if((f=$('#goalform',m)))f.onsubmit=function(e){e.preventDefault();S.goals.push({id:uid(),name:$('#gf-name').value.trim(),target:parseFloat($('#gf-target').value),saved:parseFloat($('#gf-saved').value)||0});save();render()};
   m.querySelectorAll('.goalform').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();var g=S.goals.filter(function(x){return x.id===fm.dataset.id})[0];var was=g.saved;g.saved+=parseFloat(fm.querySelector('input').value);save();render();toast('Nice. Added to '+g.name+'.');if(g.target>0&&was<g.target&&g.saved>=g.target){confetti();toast('Goal reached: '+g.name+'!')}}});
   m.querySelectorAll('[data-budget]').forEach(function(i){i.onchange=function(){var v=parseFloat(i.value);if(v>0)S.budgets[i.dataset.budget]=v;else delete S.budgets[i.dataset.budget];save();render()}});
-  m.querySelectorAll('[data-cat]').forEach(function(s){s.onchange=function(){S.txns.filter(function(x){return x.id===s.dataset.cat})[0].cat=s.value;save();toast('Category updated.')}});
+  m.querySelectorAll('[data-cat]').forEach(function(s){s.onchange=function(){editTxn(s.dataset.cat,{cat:s.value},false);save();toast('Category updated.')}});
   var q=$('#q',m);if(q)q.oninput=function(){filter.q=q.value;var pos=q.selectionStart;render();var n=$('#q');n.focus();n.setSelectionRange(pos,pos)};
   m.querySelectorAll('[data-f]').forEach(function(el){el.onchange=function(){var k=el.dataset.f;if(k==='bulkkind'){filter.bulkKind=el.value;if(el.value)filter.bulkCat='';filter.bulk='';filter.bulkOpen=true;render();return}if(k==='bulkCat'){filter.bulkCat=el.value;if(el.value)filter.bulkKind='';filter.bulk='';filter.bulkOpen=true;render();return}filter[k]=el.value;filter.limit=150;filter.bulk='';filter.bulkOpen=false;filter.open=true;render()}});
   m.querySelectorAll('[data-photo]').forEach(function(inp){inp.onchange=function(){var f=inp.files[0],k=String(inp.dataset.photo).split(':');if(!f)return;photoToData(f,function(url){if(!url){toast('That photo could not be read or is too large.');return}if(k[0]==='home')S.home.photo=url;else{var pa=S.accounts.filter(function(x){return x.id===k[1]})[0];if(pa)pa.photo=url}save();render();toast('Photo saved on this device.')});inp.value=''}});
@@ -5715,7 +5749,7 @@ function bindView(){
     if(S.sample){toast('You are still on the example data. Press Start fresh first.');return}
     var amt=parseFloat(fm.elements['amt'].value),nm=fm.elements['name'].value.trim(),d=fm.elements['date'].value;if(!(amt>0)||!nm||!d)return;
     var t={id:uid(),date:d,name:nm,amount:-Math.round(amt*100)/100,cat:fm.elements['cat'].value,cash:true},sb=subFor(t.cat,nm,'');if(sb)t.sub=sb;
-    S.txns.push(t);S.txns.sort(function(x,y){return x.date<y.date?1:-1});if(walletAcct())walletAdd(t.amount);save();render();toast('Added '+money(amt)+' in cash.')}});
+    if(walletAcct()){t.fromWallet=true;walletAdd(t.amount)}S.txns.push(t);S.txns.sort(function(x,y){return x.date<y.date?1:-1});save();render();toast('Added '+money(amt)+' in cash.')}});
   m.querySelectorAll('.rc-file').forEach(function(i){i.onchange=function(){var fl=Array.prototype.slice.call(i.files);i.value='';fl.slice(0,6).forEach(function(f){shotToData(f,function(url){if(url)receiptRead(url);else toast('That file could not be opened as a picture.')})})}});
   m.querySelectorAll('[data-rc]').forEach(function(i){i.onchange=function(){var q=i.dataset.rc.split(':'),it=rcpt.items.filter(function(x){return x.id===q[0]})[0];if(!it||!it.rec)return;
     if(q[1]==='paid'){it.paid=i.value;render()}else if(q[1]==='fromWallet')it.fromWallet=i.checked;else if(q[1]==='total')it.rec.total=parseFloat(i.value)||0;else it.rec[q[1]]=i.value}});
@@ -5790,7 +5824,7 @@ function bindView(){
   if(view==='look'){secBind(m);if(T&&!aiSt)loadAi();if(T&&T.bio&&!BIO.loaded)bioLoad(function(){if(view==='look')render()})}
 }
 document.addEventListener('click',function(e){
-  var v=e.target.closest('[data-view]');if(v){view=v.dataset.view;if(view==='carloan'||view==='student'||view==='cashback'){loanFilter=view==='student'?'student':view==='cashback'?'credit':'auto';view='loans'}pendingImport=null;pendingEnc=null;secMsg='';payUI.edit='';editTx='';render();window.scrollTo(0,0);return}
+  var v=e.target.closest('[data-view]');if(v){view=v.dataset.view;if(view!=='bills'&&month>NOWKEY)month=NOWKEY;if(view==='carloan'||view==='student'||view==='cashback'){loanFilter=view==='student'?'student':view==='cashback'?'credit':'auto';view='loans'}pendingImport=null;pendingEnc=null;secMsg='';payUI.edit='';editTx='';render();window.scrollTo(0,0);return}
   var pl=e.target.closest('a[data-pay]');if(pl){toast('Opening '+pl.dataset.host+' in your browser. Come back and mark it paid when you are done.');return}
   var b=e.target.closest('[data-act]');if(!b)return;
   var a=b.dataset.act,id=b.dataset.id,s=S.subs.filter(function(x){return x.id===id})[0];
@@ -5803,14 +5837,14 @@ document.addEventListener('click',function(e){
   else if(a==='asst-stop'){if(ASSIST.busy&&window.tally&&window.tally.localAi)window.tally.localAi.cancel(ASSIST.id);return}
   else if(a==='asst-ask'){assistSend(ASSIST_IDEAS[+b.dataset.i]);return}
   else if(a==='dash-full'){if(document.fullscreenElement)document.exitFullscreen();else if(document.documentElement.requestFullscreen)document.documentElement.requestFullscreen().catch(function(){toast('Full screen is not available here.')});return}
-  else if(a==='mnext'){if(month<NOWKEY)month=shiftMonth(month,1)}
+  else if(a==='mnext'){if(month<monthLimit())month=shiftMonth(month,1)}
   else if(a==='clear'){S={sample:false,txns:[],subs:[],budgets:{},goals:[],accounts:[],extraPay:0,plaidIgnored:[],credit:defCredit(),holdings:[],customCats:[]};migrate();syncCats();save();toast('Cleared. Add transactions or import a CSV.')}
   else if(a==='sub-cancel'){s.status='cancelled';save();toast('Nice. '+money(perMonth(s))+'/mo saved.')}
   else if(a==='sub-active'){s.status='active'}
   else if(a==='sub-flag'){s.status=s.status==='flagged'?'active':'flagged'}
   else if(a==='sub-del'){S.subs=S.subs.filter(function(x){return x.id!==id})}
   else if(a==='sub-adddet'){var d=detect()[+b.dataset.i];if(d)S.subs.push({id:uid(),name:d.name,amount:d.amount,cycle:d.cycle,next:d.next,status:'active'})}
-  else if(a==='tx-del'){S.txns=S.txns.filter(function(x){return x.id!==id})}
+  else if(a==='tx-del'){var dtx=S.txns.filter(function(x){return x.id===id})[0];if(dtx&&dtx.fromWallet&&walletAcct()){walletAdd(-dtx.amount);toast('Deleted. The cash went back into your wallet.')}S.txns=S.txns.filter(function(x){return x.id!==id})}
   else if(a==='exp'){exportData();return}
   else if(a==='imp-ok'){S={sample:false,customCats:pendingImport.customCats,txns:pendingImport.txns,subs:pendingImport.subs,budgets:pendingImport.budgets,goals:pendingImport.goals,accounts:pendingImport.accounts,extraPay:pendingImport.extraPay,plaidIgnored:pendingImport.plaidIgnored,credit:pendingImport.credit,holdings:pendingImport.holdings,setAside:pendingImport.setAside||[],merchantCats:pendingImport.merchantCats||{},subCats:pendingImport.subCats||{},merchantSubs:pendingImport.merchantSubs||{},bills:pendingImport.bills||[],fuel:pendingImport.fuel||[],weather:pendingImport.weather||{},energyCfg:pendingImport.energyCfg||{},xferLearn:pendingImport.xferLearn||{},imports:pendingImport.imports||[],hideWords:pendingImport.hideWords||[],billMarks:pendingImport.billMarks||{},energy:pendingImport.energy||[],home:pendingImport.home||{},debtMonthly:pendingImport.debtMonthly||0,billIgnore:pendingImport.billIgnore||{},cardPay:pendingImport.cardPay||'auto',apple:pendingImport.apple||{},payLinks:pendingImport.payLinks||{}};pendingImport=null;migrate();syncCats();Object.keys(PL.items).forEach(function(k){PL.items[k].cursor=''});savePL();toast('Backup restored.')}
   else if(a==='imp-no'){pendingImport=null;pendingEnc=null;secMsg=''}
@@ -5909,7 +5943,7 @@ document.addEventListener('click',function(e){
   else if(a==='cat-apply'){var mv=moveByRules(b.dataset.c);toast(mv?'Moved '+mv+' past transaction'+(mv===1?'':'s')+' into '+b.dataset.c+'.':'No past transactions match those keywords.')}
   else if(a==='cat-del'){budDel=b.dataset.c}
   else if(a==='cat-cancel'){budDel=''}
-  else if(a==='cat-del-yes'){var dc=b.dataset.c;S.txns.forEach(function(x){if(x.cat===dc)x.cat='Other'});delete S.budgets[dc];S.customCats=S.customCats.filter(function(c){return c.name!==dc});syncCats();budDel='';budSel=''}
+  else if(a==='cat-del-yes'){var dc=b.dataset.c;S.txns.forEach(function(x){if(x.cat===dc){x.cat='Other';delete x.sub}});S.bills.forEach(function(x){if(x.cat===dc){x.cat='Other';x.sub=''}});delete S.budgets[dc];S.customCats=S.customCats.filter(function(c){return c.name!==dc});syncCats();budDel='';budSel=''}
   else if(a==='tx-edit'){editTx=id;render();return}
   else if(a==='tx-cancel'){editTx=''}
   else if(a==='tx-cb'){var cx=S.txns.filter(function(x){return x.id===id})[0];if(cx)cx.cashback=!isCashback(cx)}
@@ -6082,7 +6116,7 @@ function thClick(a,b){
   saveTheme();applyTheme();render();return true;
 }
 function thBind(m){
-  m.querySelectorAll('.txedit').forEach(function(fm){var cs=fm.elements['c'],us=fm.elements['u'];if(cs&&us)cs.onchange=function(){us.innerHTML=subOptions(cs.value,'')};fm.onsubmit=function(e){e.preventDefault();var g=function(n){return fm.elements[n]};var r=editTxn(fm.dataset.id,{date:g('d').value,name:g('n').value,amount:parseFloat(g('a').value),cat:g('c').value,sub:g('u').value},g('s').checked);if(r)r.changed+=editTxnExtras(fm.dataset.id,g('k').value,g('ac').value,g('nt').value,g('s').checked);editTx='';catMsg='';save();render();toast(r?(r.changed?'Saved. Also updated '+r.changed+' similar transaction'+(r.changed===1?'':'s')+'.':'Saved.'):'Could not save.')}});
+  m.querySelectorAll('.txedit').forEach(function(fm){var cs=fm.elements['c'],us=fm.elements['u'];if(cs&&us)cs.onchange=function(){us.innerHTML=subOptions(cs.value,'')};fm.onsubmit=function(e){e.preventDefault();var g=function(n){return fm.elements[n]};var wt=S.txns.filter(function(x){return x.id===fm.dataset.id})[0],wOld=wt&&wt.fromWallet?wt.amount:null;var r=editTxn(fm.dataset.id,{date:g('d').value,name:g('n').value,amount:parseFloat(g('a').value),cat:g('c').value,sub:g('u').value},g('s').checked);if(wOld!==null&&walletAcct()&&wt.amount!==wOld)walletAdd(wt.amount-wOld);if(r)r.changed+=editTxnExtras(fm.dataset.id,g('k').value,g('ac').value,g('nt').value,g('s').checked);editTx='';catMsg='';save();render();toast(r?(r.changed?'Saved. Also updated '+r.changed+' similar transaction'+(r.changed===1?'':'s')+'.':'Saved.'):'Could not save.')}});
   m.querySelectorAll('[data-subs]').forEach(function(i){i.onchange=function(){var l=parseSubList(i.value);if(!S.subCats)S.subCats={};if(l.length)S.subCats[i.dataset.subs]=l;else delete S.subCats[i.dataset.subs];save();render();toast('Sub-categories for '+i.dataset.subs+' saved.')}});
   m.querySelectorAll('[data-loanfile]').forEach(function(inp){inp.onchange=function(){
     var kind=inp.dataset.loanfile,how=inp.dataset.how||'ai',f=inp.files[0];if(!f)return;
