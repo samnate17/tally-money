@@ -2044,3 +2044,78 @@ test('docGuess files documents by name', () => {
   assert.equal(g('Chase statement 2026-03.pdf').kind, 'Bank and card statements');
   assert.equal(g('random.pdf').kind, 'Other');
 });
+
+// ---------- Taxes: federal estimate, state guide, inputs from pay statements and forms ----------
+function taxWorld() { return new Function(srcBlock('/*PAY-START*/', '/*PAY-END*/') + srcBlock('/*TAX-START*/', '/*TAX-END*/') + '\nreturn {taxBrackets, taxEstimate, taxInputs, taxDeadlines, taxSaving, cleanTaxState, payYear, cleanPayStub};')(); }
+test('taxEstimate: 2026 single, standard deduction, brackets, child credit and payroll tax', () => {
+  const X = taxWorld();
+  const e = X.taxEstimate({ year: 2026, status: 'single', wages: 100000, grossForFica: 100000, withheldFed: 12000, state: 'TX' });
+  assert.equal(e.deduction, 16100);
+  assert.equal(e.taxable, 83900);
+  assert.equal(Math.round(e.income), 13170);
+  assert.equal(Math.round(e.balance), 1170);
+  assert.equal(e.marginal, 0.22);
+  assert.equal(Math.round(e.ss), 6200);
+  assert.equal(Math.round(e.medicare), 1450);
+  assert.equal(e.state.none, true);
+  const k = X.taxEstimate({ year: 2026, status: 'single', wages: 100000, grossForFica: 100000, kids: 2, withheldFed: 12000 });
+  assert.equal(Math.round(k.income), 8770);
+  assert.ok(k.balance < 0);                       // a refund
+  assert.equal(X.taxEstimate({ year: 2026, status: 'single', wages: 10000, kids: 1 }).income, 0);   // credit cannot go below zero tax
+});
+test('taxEstimate: itemizing wins only when it beats the standard deduction; the SALT cap applies', () => {
+  const X = taxWorld();
+  const base = { year: 2026, status: 'single', wages: 150000, grossForFica: 150000 };
+  const small = X.taxEstimate(Object.assign({}, base, { itemized: { salt: 9000, mortgageInterest: 4000, charity: 1000, medical: 0 } }));
+  assert.equal(small.usedItemized, false);
+  assert.equal(small.deduction, 16100);
+  const big = X.taxEstimate(Object.assign({}, base, { itemized: { salt: 60000, mortgageInterest: 12000, charity: 3000, medical: 0 } }));
+  assert.equal(big.usedItemized, true);
+  assert.equal(big.itemized, 40400 + 12000 + 3000);
+});
+test('taxEstimate: self-employment income adds self-employment tax and halves into AGI; state uses a rate you can override', () => {
+  const X = taxWorld();
+  const e = X.taxEstimate({ year: 2026, status: 'single', wages: 60000, grossForFica: 60000, seIncome: 20000, withheldFed: 5000, state: 'MA', withheldState: 2500 });
+  assert.equal(Math.round(e.seTax), Math.round(20000 * 0.9235 * 0.153));
+  assert.ok(e.agi < 60000 + 20000);
+  assert.equal(e.state.rate, 5);
+  assert.equal(Math.round(e.state.tax), Math.round((80000 - e.seTax / 2) * 0.05));
+  assert.equal(X.taxEstimate({ year: 2026, status: 'single', wages: 80000, state: 'MA', stateRate: 3 }).state.rate, 3);
+  assert.equal(X.taxEstimate({ year: 2026, status: 'single', wages: 80000 }).state, undefined);
+  assert.ok(X.taxSaving(e, 1000) > 200);
+});
+test('taxInputs: uses W-2s when you added them, otherwise projects the year from pay statements', () => {
+  const X = taxWorld(), today = new Date(2026, 6, 1);
+  const mk = (date, i) => X.cleanPayStub({ payDate: date, gross: 4000, net: 3000, ytdGross: 4000 * (13 + i), lines: [{ section: 'earnings', name: 'Regular', amount: 4000 }, { section: 'tax', name: 'Federal Income Tax', amount: 500 }, { section: 'tax', name: 'State Income Tax', amount: 200 }, { section: 'retirement', name: '401k', amount: 200 }, { section: 'benefit', name: 'Health', amount: 100 }] }, () => 'i' + date);
+  const stubs = ['2026-06-05', '2026-06-19', '2026-07-03'].map(mk);
+  const p = X.taxInputs({ status: 'single', state: 'MA' }, 2026, stubs, [], [], today);
+  assert.equal(p.source, 'pay');
+  assert.ok(p.gross > 105000 && p.gross < 120000);
+  assert.ok(p.wages < p.gross);                                   // retirement and benefits come off
+  assert.ok(p.periodsLeft >= 12);
+  assert.ok(p.withheldFed > 500 * 14);
+  const f = X.taxInputs({ status: 'single' }, 2026, stubs, [{ id: 'a', form: 'W-2', year: 2026, state: 'MA', wages: 90000, ssWages: 98000, fedWithheld: 9000, stateWithheld: 4000 }], [], today);
+  assert.equal(f.source, 'forms');
+  assert.equal(f.wages, 90000);
+  assert.equal(f.withheldFed, 9000);
+  const m = X.taxInputs({ status: 'single', manualWages: 50000, manualWithheld: 4000 }, 2026, [], [], [], today);
+  assert.equal(m.source, 'manual');
+  assert.equal(X.taxInputs({ status: 'single' }, 2026, [], [], [], today).source, 'none');
+  const donate = X.taxInputs({ status: 'single', manualWages: 50000 }, 2026, [], [], [{ date: '2026-03-01', amount: -250, sub: 'Donations' }, { date: '2025-03-01', amount: -999, sub: 'Donations' }], today);
+  assert.equal(donate.charity, 250);
+});
+test('taxDeadlines and cleanTaxState', () => {
+  const X = taxWorld();
+  const d = X.taxDeadlines(2026, new Date(2027, 1, 1));
+  assert.equal(d.find((x) => /File your 2026/.test(x.label)).date, '2027-04-15');
+  assert.equal(d.find((x) => /File your 2026/.test(x.label)).days, 73);
+  assert.equal(d[0].past, true);
+  const c = X.cleanTaxState({ state: 'ZZ', status: 'nope', kids: 99, otherIncome: -5, rate: 'x', manualWages: '60000', forms: [{ form: 'W-2', year: 2025, wages: 1000, state: 'ma' }, { form: 'bad', year: 2025 }] });
+  assert.equal(c.state, undefined);
+  assert.equal(c.status, 'single');
+  assert.equal(c.kids, 0);
+  assert.equal(c.otherIncome, undefined);
+  assert.equal(c.manualWages, 60000);
+  assert.equal(c.forms.length, 1);
+  assert.equal(c.forms[0].wages, 1000);
+});
