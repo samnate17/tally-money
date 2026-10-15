@@ -2226,7 +2226,7 @@ test('assets: modifications are cleaned and recouped at a share of their cost', 
 });
 
 test('tab layout: order is kept, new tabs go last, moves and steps work, bad saved data is cleaned', () => {
-  const N = new Function(srcBlock('/*NAV-START*/', '/*NAV-END*/') + '\nreturn {navOrdered, navMove, navStep, cleanNavPref};')();
+  const N = new Function(srcBlock('/*NAV-START*/', '/*NAV-END*/') + '\nreturn {navOrdered, navMove, navStep, cleanNavPref, navVisible};')();
   const tabs = [['a', 'A'], ['b', 'B'], ['c', 'C'], ['d', 'D']];
   assert.deepEqual(N.navOrdered(tabs, ['c', 'a']).map((t) => t[0]), ['c', 'a', 'b', 'd']);
   assert.deepEqual(N.navOrdered(tabs, ['zzz', 'c', 'c']).map((t) => t[0]), ['c', 'a', 'b', 'd']);
@@ -2238,7 +2238,11 @@ test('tab layout: order is kept, new tabs go last, moves and steps work, bad sav
   assert.deepEqual(N.navStep(['a', 'b', 'c'], 'a', -1), ['a', 'b', 'c']);
   assert.deepEqual(N.navStep(['a', 'b', 'c'], 'c', 1), ['a', 'b', 'c']);
   const c = N.cleanNavPref({ layout: 'bogus', order: ['b', 'x', 'b', 5, 'a'] }, ['a', 'b']);
-  assert.deepEqual(c, { layout: 'side', order: ['b', 'a'] });
+  assert.deepEqual(c, { layout: 'side', order: ['b', 'a'], hidden: [] });
   assert.equal(N.cleanNavPref({ layout: 'top' }, ['a']).layout, 'top');
-  assert.deepEqual(N.cleanNavPref(null, ['a']), { layout: 'side', order: [] });
+  assert.deepEqual(N.cleanNavPref(null, ['a']), { layout: 'side', order: [], hidden: [] });
+  const h = N.cleanNavPref({ hidden: ['b', 'look', 'b', 'nope', 7, 'c'] }, ['a', 'b', 'c', 'look']);
+  assert.deepEqual(h.hidden, ['b', 'c']);                                            // Settings can never be hidden
+  const tabs2 = [['a', 'A'], ['b', 'B'], ['look', 'Settings']];
+  assert.deepEqual(N.navVisible(tabs2, ['look', 'b', 'a'], ['b', 'look']).map((t) => t[0]), ['look', 'a']);
 });

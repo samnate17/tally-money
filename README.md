@@ -533,3 +533,4 @@ A vehicle's rate of value loss is now worked out from your recorded values and w
 
 ### Tab layout
 Drag any tab in the navigation to move it; the order is remembered on this device (like the theme). Settings > Tabs also has up and down arrows (for a phone or the keyboard), a reset, and a Side or Top switch that puts the tabs in a bar across the top instead of down the side (the mouse wheel scrolls the bar sideways and the open tab is kept in view). Phones keep the bar at the bottom, in the same order.
+Tabs can also be hidden: Settings > Tabs has a Hide/Show button for each one (Settings itself is always shown) and a Show all tabs button. Hiding only removes a tab from the navigation on this device; its data stays and links to it elsewhere still open it.

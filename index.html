@@ -630,10 +630,12 @@ function navOrdered(tabs,order){
 function navMove(ids,id,before){var a=ids.filter(function(x){return x!==id}),i=before?a.indexOf(before):-1;if(i<0)a.push(id);else a.splice(i,0,id);return a}
 function navStep(ids,id,d){var i=ids.indexOf(id),j=i+d;if(i<0||j<0||j>=ids.length)return ids;var a=ids.slice();a.splice(i,1);a.splice(j,0,id);return a}
 function cleanNavPref(raw,validIds){
-  var o={layout:raw&&raw.layout==='top'?'top':'side',order:[]},seen={};
+  var o={layout:raw&&raw.layout==='top'?'top':'side',order:[],hidden:[]},seen={},hs={};
   (raw&&Array.isArray(raw.order)?raw.order:[]).forEach(function(id){if(typeof id==='string'&&validIds.indexOf(id)>-1&&!seen[id]){seen[id]=1;o.order.push(id)}});
+  (raw&&Array.isArray(raw.hidden)?raw.hidden:[]).forEach(function(id){if(typeof id==='string'&&id!=='look'&&validIds.indexOf(id)>-1&&!hs[id]){hs[id]=1;o.hidden.push(id)}});   // Settings can never be hidden, or there would be no way back
   return o;
 }
+function navVisible(tabs,order,hidden){return navOrdered(tabs,order).filter(function(t){return t[0]==='look'||(hidden||[]).indexOf(t[0])<0})}
 /*NAV-END*/
 var NAVP=cleanNavPref(null,[]);
 try{NAVP=cleanNavPref(JSON.parse(localStorage.getItem('tally-nav-v1')||'null'),TABS.map(function(t){return t[0]}))}catch(e){}
@@ -641,7 +643,7 @@ function saveNav(){try{localStorage.setItem('tally-nav-v1',JSON.stringify(NAVP))
 function navIds(){return navOrdered(TABS,NAVP.order).map(function(t){return t[0]})}
 function nav(){
   document.documentElement.setAttribute('data-nav',NAVP.layout);
-  function items(short){return navOrdered(TABS,NAVP.order).map(function(t){return '<button class="nav" data-view="'+t[0]+'"'+(short?'':' draggable="true" title="Drag to move this tab"')+(view===t[0]?' aria-current="page"':'')+'>'+ICON[t[0]]+'<span>'+(short&&t[2]||t[1])+'</span></button>'}).join('')}
+  function items(short){return navVisible(TABS,NAVP.order,NAVP.hidden).map(function(t){return '<button class="nav" data-view="'+t[0]+'"'+(short?'':' draggable="true" title="Drag to move this tab"')+(view===t[0]?' aria-current="page"':'')+'>'+ICON[t[0]]+'<span>'+(short&&t[2]||t[1])+'</span></button>'}).join('')}
   var h=items(false);
   $('#rail').innerHTML='<div class="brand"><svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="tl-bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1B2470"/><stop offset="1" stop-color="#05061A"/></linearGradient><linearGradient id="tl-bar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#8FA2FF"/></linearGradient></defs><rect width="24" height="24" fill="url(#tl-bg)"/><g fill="url(#tl-bar)"><rect x="5.2" y="5.4" width="2.1" height="13.2" rx="1.05"/><rect x="8.9" y="5.4" width="2.1" height="13.2" rx="1.05"/><rect x="12.6" y="5.4" width="2.1" height="13.2" rx="1.05"/><rect x="16.3" y="5.4" width="2.1" height="13.2" rx="1.05"/></g><path d="M4.6 17.2 19.4 7.4" stroke="#FFB45A" stroke-width="1.9" stroke-linecap="round" fill="none"/></svg>Tally</div>'+h+'<div class="railfoot"><span>'+(window.tally?'Your data stays on this computer. Bank sync and AI analysis send data only when you use them.':HOSTED?'Signed in as '+esc(AUTH.email)+'. Your data is encrypted before it leaves this browser.':'Your data stays in this browser. Nothing is uploaded.')+'</span></div>';
   $('#tabbar').innerHTML=items(true);
@@ -7026,8 +7028,8 @@ function glassPanel(){
 function navPanel(){
   var ids=navIds(),byId={};TABS.forEach(function(t){byId[t[0]]=t});
   return '<section class="panel"><h2>Tabs<small>where they sit and in what order</small></h2><div class="lookrow"><span class="lbl">Placement<small>Down the side, or in a bar across the top. Phones always use the bar at the bottom.</small></span><span class="ctl">'+seg('th-nav-layout',NAVP.layout,[['side','Side'],['top','Top']])+'</span></div>'+
-    '<p class="sub" style="margin:10px 0 6px;white-space:normal">Drag any tab in the '+(NAVP.layout==='top'?'top bar':'side list')+' to move it, or use the arrows here (also works on a phone or with the keyboard).</p><div class="navlist">'+ids.map(function(id,i){return '<div class="row"><div class="grow"><span class="nm">'+esc(byId[id][1])+'</span></div><div class="actions" style="flex:none;flex-wrap:nowrap"><button class="btn small" data-act="th-nav-up" data-id="'+id+'"'+(i===0?' disabled':'')+' aria-label="Move '+esc(byId[id][1])+' up">&uarr;</button><button class="btn small" data-act="th-nav-down" data-id="'+id+'"'+(i===ids.length-1?' disabled':'')+' aria-label="Move '+esc(byId[id][1])+' down">&darr;</button></div></div>'}).join('')+'</div>'+
-    '<div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn small" data-act="th-nav-reset">Put the tabs back in the original order</button></div></section>';
+    '<p class="sub" style="margin:10px 0 6px;white-space:normal">Drag any tab in the '+(NAVP.layout==='top'?'top bar':'side list')+' to move it, or use the arrows here (also works on a phone or with the keyboard).</p><div class="navlist">'+ids.map(function(id,i){var hid=NAVP.hidden.indexOf(id)>-1;return '<div class="row"><div class="grow"><span class="nm"'+(hid?' style="opacity:.55"':'')+'>'+esc(byId[id][1])+'</span>'+(hid?' <span class="pill mute">Hidden</span>':'')+'</div><div class="actions" style="flex:none;flex-wrap:nowrap">'+(id==='look'?'<span class="sub" style="align-self:center">Always shown</span>':'<button class="btn small" data-act="th-nav-hide" data-id="'+id+'" aria-pressed="'+hid+'">'+(hid?'Show':'Hide')+'</button>')+'<button class="btn small" data-act="th-nav-up" data-id="'+id+'"'+(i===0?' disabled':'')+' aria-label="Move '+esc(byId[id][1])+' up">&uarr;</button><button class="btn small" data-act="th-nav-down" data-id="'+id+'"'+(i===ids.length-1?' disabled':'')+' aria-label="Move '+esc(byId[id][1])+' down">&darr;</button></div></div>'}).join('')+'</div>'+
+    '<div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn small" data-act="th-nav-showall"'+(NAVP.hidden.length?'':' disabled')+'>Show all tabs</button><button class="btn small" data-act="th-nav-reset">Put the tabs back in the original order</button></div><p class="sub muted" style="margin:8px 0 0;font-size:12px;white-space:normal">A hidden tab is only taken out of the navigation. Its data is untouched, and links to it elsewhere in the app (a card on the Overview, say) still open it.</p></section>';
 }
 function vLook(){
   var sw=PRESETS.map(function(p){return '<button type="button" class="sw'+(TH.preset===p.id?' on':'')+'" data-act="th-preset" data-v="'+p.id+'" style="--sw:'+p.accent+'" aria-pressed="'+(TH.preset===p.id)+'">'+p.name+'</button>'}).join('');
@@ -7080,6 +7082,8 @@ function thClick(a,b){
   if(a==='th-nav-layout'){NAVP.layout=b.dataset.v==='top'?'top':'side';saveNav();render();return true}
   if(a==='th-nav-up'||a==='th-nav-down'){NAVP.order=navStep(navIds(),b.dataset.id,a==='th-nav-up'?-1:1);saveNav();render();return true}
   if(a==='th-nav-reset'){NAVP.order=[];saveNav();render();return true}
+  if(a==='th-nav-hide'){var hid=b.dataset.id,hi=NAVP.hidden.indexOf(hid);if(hid!=='look'){if(hi<0)NAVP.hidden.push(hid);else NAVP.hidden.splice(hi,1)}saveNav();render();return true}
+  if(a==='th-nav-showall'){NAVP.hidden=[];saveNav();render();return true}
   if(a==='th-preset'){var p=PRESETS.filter(function(x){return x.id===b.dataset.v})[0];if(p){TH.preset=p.id;TH.accent=p.accent}}
   else if(a==='th-look'){if(b.dataset.v==='studio'){TH.bg='studio';TH.mode='dark';TH.preset='tesla';TH.accent='#3e6ae1';TH.frost=15;TH.radius=14;TH.font='system'}else{TH.bg='aurora';TH.mode='auto';TH.preset='indigo';TH.accent='#3b4cf0';TH.frost=60;TH.radius=16;TH.font='modern'}try{localStorage.setItem('tally-look-offer','1')}catch(e){}}
   else if(a==='th-reset'){TH=cleanTheme(null)}
@@ -7097,8 +7101,8 @@ function thClick(a,b){
   rail.addEventListener('drop',function(e){
     if(!dragId)return;var b=navOf(e);if(!b||b.dataset.view===dragId){clear();dragId='';return}
     e.preventDefault();
-    var ids=[].map.call(rail.querySelectorAll('.nav[data-view]'),function(n){return n.dataset.view}),t=b.dataset.view,before=t;
-    if(after(b,e)){var i=ids.indexOf(t);before=ids[i+1]===dragId?ids[i+2]:ids[i+1]}
+    var vis=[].map.call(rail.querySelectorAll('.nav[data-view]'),function(n){return n.dataset.view}),ids=navIds(),t=b.dataset.view,before=t;
+    if(after(b,e)){var i=vis.indexOf(t);before=vis[i+1]===dragId?vis[i+2]:vis[i+1]}
     NAVP.order=navMove(ids,dragId,before||'');saveNav();clear();dragId='';nav();
   });
   rail.addEventListener('dragend',function(){clear();dragId=''});
