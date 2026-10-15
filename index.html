@@ -651,7 +651,71 @@ function col(c){if(CCOL[c])return 'var('+CCOL[c]+')';var h=0,i;for(i=0;i<c.lengt
 var TODAY=new Date(); TODAY.setHours(0,0,0,0);
 var NOWKEY=monthKey(iso(TODAY));
 var toastT;
-function toast(m){var t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(function(){t.hidden=true},2600)}
+
+/* ---------- Sound: small synthesized effects (no audio files). Off with one switch in Settings. ---------- */
+var SND={on:true,vol:60,ctx:null,master:null,noise:null,last:{}};
+(function(){try{var o=JSON.parse(localStorage.getItem('tally-sound-v1')||'null');if(o&&typeof o==='object'){SND.on=o.on!==false;SND.vol=Math.max(0,Math.min(100,Math.round(+o.vol)||0))}}catch(e){}})();
+function sndSave(){try{localStorage.setItem('tally-sound-v1',JSON.stringify({on:SND.on,vol:SND.vol}))}catch(e){}}
+function sndCtx(){
+  if(!SND.ctx){var AC=window.AudioContext||window.webkitAudioContext;if(!AC)return null;try{SND.ctx=new AC();SND.master=SND.ctx.createGain();SND.master.connect(SND.ctx.destination)}catch(e){SND.ctx=null;return null}}
+  try{if(SND.ctx.state==='suspended')SND.ctx.resume()}catch(e){}
+  SND.master.gain.value=SND.vol/100*0.85;return SND.ctx;
+}
+// One short note: frequency, length (seconds), wave, loudness, start delay, and an optional slide to another pitch.
+function sTone(c,f,d,type,v,delay,to){
+  var t=c.currentTime+(delay||0),o=c.createOscillator(),g=c.createGain();
+  o.type=type||'sine';o.frequency.setValueAtTime(f,t);if(to)o.frequency.exponentialRampToValueAtTime(to,t+d);
+  g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(Math.max(0.0002,v||0.08),t+0.006);g.gain.exponentialRampToValueAtTime(0.0001,t+d);
+  o.connect(g);g.connect(SND.master);o.start(t);o.stop(t+d+0.03);
+}
+// A burst of filtered noise: a whoosh, a paper rustle or the crackle in a zap.
+function sNoise(c,d,v,f0,f1,type,delay){
+  if(!SND.noise){var n=c.sampleRate,b=c.createBuffer(1,n,c.sampleRate),a=b.getChannelData(0),i;for(i=0;i<n;i++)a[i]=Math.random()*2-1;SND.noise=b}
+  var t=c.currentTime+(delay||0),s=c.createBufferSource(),fl=c.createBiquadFilter(),g=c.createGain();
+  s.buffer=SND.noise;fl.type=type||'bandpass';fl.frequency.setValueAtTime(f0,t);if(f1)fl.frequency.exponentialRampToValueAtTime(f1,t+d);fl.Q.value=1.2;
+  g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(Math.max(0.0002,v),t+0.01);g.gain.exponentialRampToValueAtTime(0.0001,t+d);
+  s.connect(fl);fl.connect(g);g.connect(SND.master);s.start(t);s.stop(t+d+0.03);
+}
+var SND_PENT=[523.25,587.33,659.25,783.99,880,1046.5];
+var SFX={
+  click:function(c){sTone(c,950,0.05,'triangle',0.06,0,520)},
+  tick:function(c){sTone(c,2700,0.02,'sine',0.025)},
+  pop:function(c){sTone(c,520,0.09,'sine',0.08,0,780)},
+  ok:function(c){sTone(c,659.25,0.12,'sine',0.08);sTone(c,987.77,0.2,'sine',0.08,0.09)},
+  bad:function(c){sTone(c,200,0.2,'sawtooth',0.05,0,140)},
+  on:function(c){sTone(c,523.25,0.1,'sine',0.08);sTone(c,784,0.16,'sine',0.08,0.07)},
+  off:function(c){sTone(c,784,0.1,'sine',0.07);sTone(c,392,0.16,'sine',0.07,0.07)},
+  undo:function(c){sTone(c,720,0.15,'sine',0.07,0,360)},
+  blip:function(c){sTone(c,880,0.07,'sine',0.06,0,1040)},
+  tourstart:function(c){[523.25,659.25,783.99].forEach(function(f,i){sTone(c,f,0.14,'sine',0.07,i*0.07)})},
+  finish:function(c){[523.25,659.25,783.99,1046.5].forEach(function(f,i){sTone(c,f,0.22,'sine',0.07,i*0.08)})},
+  tab:function(c,v){
+    var k=helpKey(v||''),ids=TABS.map(function(t){return t[0]}),ix=Math.max(0,ids.indexOf(k)),f=SND_PENT[ix%6]*(ix>=12?1:ix>=6?0.5:0.5);
+    if(k==='energy'){sNoise(c,0.2,0.07,300,5200,'bandpass');sTone(c,95,0.18,'sawtooth',0.035,0,520);sTone(c,1800,0.08,'square',0.025,0.06,3200);return}   // a short electric zap
+    if(k==='pay'){sTone(c,1318.5,0.09,'sine',0.07);sTone(c,1760,0.22,'sine',0.07,0.07);return}                                                         // a coin
+    if(k==='tax'){sTone(c,110,0.14,'triangle',0.12,0,70);sNoise(c,0.05,0.04,1500,600,'bandpass');return}                                              // a stamp
+    if(k==='bills'||k==='docs'){sNoise(c,0.09,0.05,4000,1800,'highpass');sTone(c,f*2,0.05,'triangle',0.04,0.02);return}                               // paper
+    if(k==='goals'||k==='afford'){sTone(c,1568,0.14,'sine',0.06);sTone(c,2093,0.26,'sine',0.05,0.08);return}                                            // a ding
+    if(k==='invest'||k==='report'){[0,1,2].forEach(function(n){sTone(c,f*[1,1.25,1.5][n],0.1,'sine',0.055,n*0.05)});return}                           // rising notes
+    sNoise(c,0.1,0.025,600,2400,'bandpass');sTone(c,f*2,0.12,'sine',0.06,0.01,f*2.25);
+  }
+};
+function snd(name,arg){
+  if(!SND.on||SND.vol<=0)return;
+  var now=Date.now(),th={click:45,tick:60,tab:120,blip:60}[name]||0;
+  if(th&&SND.last[name]&&now-SND.last[name]<th)return;SND.last[name]=now;
+  var c=sndCtx();if(!c||!SFX[name])return;
+  try{SFX[name](c,arg)}catch(e){}
+}
+// Which sound a message deserves: a problem, a finished job, or nothing special.
+function sndForToast(m){
+  m=String(m||'');
+  if(/^(undone|redone)/i.test(m)||/^undid|^redid/i.test(m))return 'undo';
+  if(/could not|cannot|can.t |failed|not the same|at least|enter |type |nothing to|no longer|wrong|error|did not|use at least/i.test(m))return 'bad';
+  if(/saved|added|removed|updated|updated to|done|created|imported|restored|copied|backed up|protection is on|is on|set\.|ready|drawn|skipped|hidden|remembered/i.test(m))return 'ok';
+  return 'pop';
+}
+function toast(m){snd(sndForToast(m));var t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(function(){t.hidden=true},2600)}
 
 /* ---------- sample data ---------- */
 function rng(seed){return function(){seed=(seed*1664525+1013904223)%4294967296;return seed/4294967296}}
@@ -757,6 +821,12 @@ function undoTrack(j){
   }
   UNDO.cur=j;
 }
+document.addEventListener('click',function(e){
+  var t=e.target;if(!t||!t.closest)return;
+  if(t.closest('[data-view],#tourcard,#helpfab,.walknav,[data-act^="snd-"],input,select,textarea'))return;
+  var b=t.closest('button,.btn,label.btn,[role=link],[role=tab]');if(!b||b.disabled||b.getAttribute('aria-disabled')==='true')return;
+  snd('click');
+},true);
 function undoStep(dir){
   var from=dir==='undo'?UNDO.stack:UNDO.redo,to=dir==='undo'?UNDO.redo:UNDO.stack;
   if(!from.length){toast(dir==='undo'?'Nothing to undo.':'Nothing to redo.');return}
@@ -4455,7 +4525,7 @@ var HELP={
   loans:{t:'Loans',what:'Your car, student and other loans in one place, with plans to pay them off faster.',how:['Add a loan with its balance, rate, payment and due day.','Read The order to pay them and Debt-free by a date.','Import a statement from your lender to update a loan.','Try Would one new loan help? to compare consolidating or refinancing.'],tip:'A loan with a payment and a due day shows up on Bills.'},
   mortgage:{t:'Mortgage',what:'Your home loan: payment, interest, what you would save by paying extra and how it fits your budget.',how:['Press Edit details and enter your home value, loan, rate and payment.','Read My read for a plain explanation of your numbers.','Change the assumptions to test extra payments.'],tip:'Property tax and insurance are included in the monthly picture.'},
   assist:{t:'Assistant',what:'A private chat assistant that runs on this computer and answers questions about your money.',how:['Follow Set up the assistant once (about five minutes).','Ask a question in plain words, such as how much I spent on food last month.','Press Clear chat to start over.'],tip:'It runs on your computer, so your questions never leave it.'},
-  look:{t:'Settings',what:'How the app looks and works: appearance, tabs, security, backups and updates.',how:['Pick a look, colour and mode under Appearance.','Drag tabs to reorder them, hide the ones you do not use, or put them across the top. You can protect hiding with a password, fingerprint or face.','Set an app password or Touch ID under Security.','Back up or restore your data, and check for app updates.'],tip:'Press Reset appearance to undo your styling.'}
+  look:{t:'Settings',what:'How the app looks and works: appearance, tabs, security, backups and updates.',how:['Turn sound effects on or off, and set the volume, under Sound.','Pick a look, colour and mode under Appearance.','Drag tabs to reorder them, hide the ones you do not use, or put them across the top. You can protect hiding with a password, fingerprint or face.','Set an app password or Touch ID under Security.','Back up or restore your data, and check for app updates.'],tip:'Press Reset appearance to undo your styling.'}
 };
 var HELP_FINISH={t:'You are set',what:'That is the whole app. You can reopen this walkthrough any time from Settings, then Help.',how:['Search with Ctrl+K or / to jump anywhere.','Tap the ? button on any tab for a quick reminder.','Back up your data from Settings now and then.'],tip:'Start with Transactions and Accounts. Everything else fills in from them.'};
 function helpKey(v){return ({carloan:'loans',student:'loans'})[v]||v}
@@ -4576,6 +4646,7 @@ var TOURS={
   {f:[],t:'Ask in plain words',x:'The assistant runs on this computer. Set it up once (about five minutes), then ask questions such as how much you spent on food last month.'}],
  look:[
   {f:['h2','Help'],t:'Help',x:'Start this tour again, read the guide, or press ? on any tab.'},
+  {f:['h2','Sound'],t:'Sound',x:'Soft sound effects when you switch tabs, press buttons or save something. Turn them off here, or lower the volume.'},
   {f:['h2','Tabs'],t:'Your tabs',x:'Drag tabs to reorder them, hide the ones you do not use, or put them across the top. You can protect hiding with a password, fingerprint or face.'},
   {f:['h2','Look'],t:'Look and colour',x:'One tap changes the whole app. Pick a colour, light or dark, and how much glass.'},
   {f:['h2','Security'],t:'Security',x:'Set an app password or Touch ID.',opt:true},
@@ -7090,7 +7161,7 @@ function helpPopOpen(){
   var h=helpFor(view),el=document.createElement('div');el.id='helppop';el.className='helppop';el.setAttribute('role','dialog');el.setAttribute('aria-label','Help for this tab');
   el.innerHTML=h?'<h3>'+tabChip(view)+esc(h.t)+'</h3><p>'+esc(h.what)+'</p><p style="margin:0 0 4px"><b>How to use it</b></p>'+helpList(h.how)+(h.tip?'<div class="tipline">'+esc(h.tip)+'</div>':'')+'<div class="actions" style="justify-content:flex-start;flex-wrap:wrap"><button type="button" class="btn small primary" data-w="tour">Tour this tab</button><button type="button" class="btn small" data-w="walk">Read the guide</button><button type="button" class="btn small" data-w="close">Close</button></div>':'<h3>Help</h3><p>Open the full walkthrough for a tour of the whole app.</p><div class="actions" style="justify-content:flex-start"><button type="button" class="btn small primary" data-w="tour">Start the tour</button><button type="button" class="btn small" data-w="close">Close</button></div>';
   el.onclick=function(e){var b=e.target.closest&&e.target.closest('[data-w]');if(!b)return;if(b.dataset.w==='close')helpPopClose();else if(b.dataset.w==='walk'){var k=helpKey(view);helpPopClose();walkOpen(k)}else if(b.dataset.w==='tour'){var tv=view;helpPopClose();tourStart(tv)}};
-  document.body.appendChild(el);helpUI.pop=true;helpUI.popView=view;
+  document.body.appendChild(el);helpUI.pop=true;helpUI.popView=view;snd('pop');
   var f=document.getElementById('helpfab');if(f)f.setAttribute('aria-expanded','true');
   var first=el.querySelector('button');if(first)first.focus();
 }
@@ -7136,14 +7207,16 @@ document.addEventListener('click',function(e){if(!helpUI.pop)return;var t=e.targ
 
 
 /* ---------- Scenes, dock and parallax ---------- */
-var DOCK={v:0,raf:0,drag:false};
+var DOCK={v:0,raf:0,drag:false,last:-1};
 function tabBgSync(){
   var r=document.documentElement,k=helpKey(view),el=document.getElementById('tabbg');if(!el)return;
   if(r.getAttribute('data-tab')!==k){r.setAttribute('data-tab',k);el.classList.remove('in');void el.offsetWidth;el.classList.add('in')}
 }
 function dockMove(rail,e){
   var horiz=document.documentElement.getAttribute('data-nav')==='top',navs=rail.querySelectorAll('.nav'),p=horiz?e.clientX:e.clientY,sg=horiz?62:58,i,rr=rail.getBoundingClientRect();
-  for(i=0;i<navs.length;i++){var r=navs[i].getBoundingClientRect(),c=horiz?r.left+r.width/2:r.top+r.height/2,d=p-c,f=Math.exp(-(d*d)/(2*sg*sg));navs[i].style.setProperty('--dk',f.toFixed(3))}
+  var best=-1,bf=0;
+  for(i=0;i<navs.length;i++){var r=navs[i].getBoundingClientRect(),c=horiz?r.left+r.width/2:r.top+r.height/2,d=p-c,f=Math.exp(-(d*d)/(2*sg*sg));navs[i].style.setProperty('--dk',f.toFixed(3));if(f>bf){bf=f;best=i}}
+  if(best>-1&&bf>0.55&&DOCK.last!==best){DOCK.last=best;snd('tick')}
   // near the end of the list: scroll it, faster the closer the pointer is to the edge
   var edge=70,pos=horiz?e.clientX-rr.left:e.clientY-rr.top,len=horiz?rr.width:rr.height,v=0;
   if(pos<edge)v=-(edge-pos)/edge;else if(pos>len-edge)v=(pos-(len-edge))/edge;
@@ -7152,7 +7225,7 @@ function dockMove(rail,e){
     if(horiz)rail.scrollLeft+=DOCK.v*12;else rail.scrollTop+=DOCK.v*12;
     DOCK.raf=requestAnimationFrame(tick)});
 }
-function dockReset(rail){DOCK.v=0;var navs=rail.querySelectorAll('.nav'),i;for(i=0;i<navs.length;i++)navs[i].style.setProperty('--dk','0')}
+function dockReset(rail){DOCK.v=0;DOCK.last=-1;var navs=rail.querySelectorAll('.nav'),i;for(i=0;i<navs.length;i++)navs[i].style.setProperty('--dk','0')}
 function dockInit(){
   var rail=document.getElementById('rail');if(!rail||rail._dock)return;rail._dock=1;
   rail.addEventListener('pointermove',function(e){if(DOCK.drag||(e.pointerType&&e.pointerType!=='mouse'))return;dockMove(rail,e)});
@@ -7200,7 +7273,7 @@ function tourStart(fromView){
   c.onclick=function(e){var bt=e.target.closest&&e.target.closest('[data-tk]');if(!bt)return;var a=bt.dataset.tk;
     if(a==='next')tourGo(1);else if(a==='back')tourGo(-1);else if(a==='play')tourPlay(!TOUR.play);else if(a==='skip')tourSkipTab();else if(a==='exit')tourClose(true);else if(a==='done')tourClose(false)};
   window.addEventListener('resize',tourReplace);window.addEventListener('scroll',tourReplace,true);document.addEventListener('keydown',tourKey,true);
-  tourShow(TOUR.i,1);
+  snd('tourstart');tourShow(TOUR.i,1);
 }
 function tourKey(e){
   if(!TOUR.on)return;
@@ -7212,9 +7285,9 @@ function tourKey(e){
 function tourGo(d){
   clearTimeout(TOUR.timer);
   var n=TOUR.i+d;
-  if(n>=TOUR.steps.length){tourClose(false);return}
+  if(n>=TOUR.steps.length){snd('finish');tourClose(false);return}
   if(n<0)n=0;
-  tourShow(n,d||1);
+  snd('blip');tourShow(n,d||1);
 }
 function tourSkipTab(){
   var cur=TOUR.steps[TOUR.i].tab,n=TOUR.i;
@@ -8208,6 +8281,8 @@ document.addEventListener('click',function(e){
   else if(a==='en-apply'&&energyUI.imp){var em=energyMerge(S.energy,energyUI.imp.records);S.energy=em.records;energyUI.imp=null;toast('Added '+em.added+' month'+(em.added===1?'':'s')+(em.updated?', updated '+em.updated:'')+'.')}
   else if(a==='en-del'){S.energy=S.energy.filter(function(r){return r.month!==id})}
   else if(a==='en-clear'){if(confirm('Remove all electricity data from this app?'))S.energy=[]}
+  else if(a==='snd-on'){var want=b.dataset.v==='on';if(!want)snd('off');SND.on=want;sndSave();if(want)setTimeout(function(){snd('on')},30)}
+  else if(a==='snd-test'){setTimeout(function(){snd('ok')},0)}
   else if(a==='help-walk'){setTimeout(function(){tourStart()},0)}
   else if(a==='help-guide'){setTimeout(function(){walkOpen(0)},0)}
   else if(a==='help-here'){setTimeout(helpPopOpen,0)}
@@ -8372,6 +8447,7 @@ function vLook(){
   var sw=PRESETS.map(function(p){return '<button type="button" class="sw'+(TH.preset===p.id?' on':'')+'" data-act="th-preset" data-v="'+p.id+'" style="--sw:'+p.accent+'" aria-pressed="'+(TH.preset===p.id)+'">'+p.name+'</button>'}).join('');
   return '<div class="top"><h1>Settings</h1><button class="btn small" data-act="th-reset">Reset appearance</button></div>'+
   '<h2 class="setsec">Help</h2><section class="panel"><h2>Help<small>how to use the app</small></h2><p class="sub" style="margin:0 0 10px;white-space:normal">A guided tour that opens every tab for you, scrolls to what matters and lights it up (press Play to let it run by itself). You can also tap the <b>?</b> button at the bottom right of any tab for a short guide to just that tab.</p><div class="actions" style="justify-content:flex-start;flex-wrap:wrap"><button class="btn primary" data-act="help-walk">Start the walkthrough</button><button class="btn" data-act="help-guide">Read the guide</button><button class="btn" data-act="help-here">What does this tab do?</button></div><p class="sub muted" style="margin:10px 0 0;font-size:12px;white-space:normal">Shortcuts: Ctrl+K (Cmd+K on a Mac) or / opens search and questions. Undo is at the top of each page.</p></section>'+
+  '<h2 class="setsec">Sound</h2><section class="panel"><h2>Sound<small>clicks, chimes and whooshes</small></h2><div class="lookrow"><span class="lbl">Sound effects<small>Soft sounds when you switch tabs, press buttons, save something or take the tour. Each tab has its own.</small></span><span class="ctl">'+seg('snd-on',SND.on?'on':'off',[['on','On'],['off','Off']])+'</span></div><div class="lookrow"><span class="lbl">Volume</span><span class="ctl"><input id="snd-vol" type="range" min="0" max="100" value="'+SND.vol+'" aria-label="Sound volume"'+(SND.on?'':' disabled')+'></span></div><div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn small" data-act="snd-test"'+(SND.on?'':' disabled')+'>Play a test sound</button></div></section>'+
   '<h2 class="setsec">Appearance</h2>'+navPanel()+
   '<section class="panel"><h2>Look<small>one tap changes the whole app</small></h2><div class="lookcards"><button type="button" class="lookcard'+(TH.bg==='studio'?' on':'')+'" data-act="th-look" data-v="studio"><div class="pv" style="background:radial-gradient(120px 60px at 50% 0%,#3e6ae155,transparent),#0a0c10;border:1px solid #1e222a"></div><b>Studio</b><div class="sub">Dark and cinematic, like a car app. Big light numbers, a lit stage for your car and home.</div></button><button type="button" class="lookcard'+(TH.bg!=='studio'?' on':'')+'" data-act="th-look" data-v="glass"><div class="pv" style="background:linear-gradient(135deg,#c7d2ff,#f3c6ff);border:1px solid #fff8"></div><b>Glass</b><div class="sub">Light, frosted and colourful.</div></button></div></section>'+
   glassPanel()+'<section class="panel"><h2>Colour<small>pick a preset or make your own</small></h2><div class="swatches">'+sw+'</div>'+
@@ -8453,6 +8529,7 @@ function thClick(a,b){
   rail.addEventListener('wheel',function(e){if(NAVP.layout!=='top'||Math.abs(e.deltaY)<=Math.abs(e.deltaX))return;rail.scrollLeft+=e.deltaY;e.preventDefault()},{passive:false});   // the mouse wheel scrolls the top bar sideways
 })();
 function thBind(m){
+  var sv=$('#snd-vol',m);if(sv){sv.oninput=function(){SND.vol=clampN(sv.value,0,100,60);sndSave()};sv.onchange=function(){snd('pop')}}
   m.querySelectorAll('.navprotform').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();var p1=fm.elements['p1'].value,p2=fm.elements['p2'].value,wantBio=!!(fm.elements['bio']&&fm.elements['bio'].checked);
     if(p1.length<6){toast('Use at least 6 characters.');return}if(p1!==p2){toast('The two passwords are not the same.');return}
     navLockMake(p1).then(function(rec){try{localStorage.setItem('tally-nav-lock-v1',JSON.stringify(rec))}catch(x){toast('This browser would not save it.');return}NAVP.protect='own';NAVAUTH.until=Date.now()+120000;saveNav();
@@ -8579,7 +8656,7 @@ function countUp(root){
 }
 function afterRender(){
   if(view===lastView)return;
-  lastView=view;var m=$('#main');m.classList.remove('enter');void m.offsetWidth;m.classList.add('enter');countUp(m);
+  snd('tab',view);lastView=view;var m=$('#main');m.classList.remove('enter');void m.offsetWidth;m.classList.add('enter');countUp(m);
 }
 document.addEventListener('pointermove',function(e){
   var t=e.target.closest&&e.target.closest('.panel,.tile');if(!t||e.pointerType==='touch')return;
