@@ -371,6 +371,8 @@ canvas.confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:non
 .searchbtn .kbd{margin-left:auto;font-size:11px;color:var(--muted);border:1px solid var(--line);border-radius:6px;padding:1px 6px;font-family:inherit}
 :root[data-nav="top"] .rail .searchbtn{margin:0 8px 0 0}
 
+.updflash{animation:updflash 1.6s ease-out 1}
+@keyframes updflash{0%{box-shadow:0 0 0 0 var(--accent)}20%{box-shadow:0 0 0 6px var(--accent-soft,rgba(59,76,240,.25)),0 0 0 2px var(--accent)}100%{box-shadow:0 0 0 0 transparent}}
 .helpfab{position:fixed;right:18px;bottom:20px;z-index:40;width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:var(--accent);color:var(--accent-ink);font-size:20px;font-weight:800;line-height:1;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.28);display:flex;align-items:center;justify-content:center}
 .helpfab:hover{transform:translateY(-1px)}.helpfab:focus-visible{outline:3px solid var(--accent-soft);outline-offset:2px}.helpfab[hidden]{display:none}
 .helppop{position:fixed;right:18px;bottom:74px;z-index:41;width:min(380px,calc(100vw - 32px));max-height:min(70vh,560px);overflow:auto;background:var(--surface-solid,var(--bg));color:var(--ink);border:1px solid var(--line);border-radius:16px;box-shadow:0 24px 70px rgba(0,0,0,.35);padding:16px 18px}
@@ -7857,7 +7859,7 @@ document.addEventListener('click',function(e){
   else if(a==='up-check'){updCheck(false);return}
   else if(a==='up-install'){updInstall();return}
   else if(a==='up-later'){UP.hide=true}
-  else if(a==='up-open'){view='look';pendingImport=null}
+  else if(a==='up-open'){view='look';pendingImport=null;goToUpdates()}
   else if(a==='up-cleartoken'){window.tally.update.clearToken().then(function(){UP.st.hasToken=false;UP.info=null;UP.msg='';render()});return}
   else if(a==='gl-on'||a==='gl-off'){window.tally.glass.set(a==='gl-on');toast('Restarting…');return}
   else if(a.indexOf('th-')===0){thClick(a,b);return}
@@ -8288,7 +8290,7 @@ function updInit(){
     if(b)b.style.width=(p.total?Math.min(100,p.received/p.total*100):0)+'%';
     if(t)t.textContent='Downloading '+mb(p.received||0)+' of '+mb(p.total||0);
   });
-  if(window.tally.onNav)window.tally.onNav(function(w){if(w==='update'){view='look';render();updCheck(false)}});
+  if(window.tally.onNav)window.tally.onNav(function(w){if(w==='update'){view='look';render();updCheck(false);goToUpdates()}});
   u.status().then(function(r){
     if(!r||!r.ok)return;
     UP.st=r.data;
@@ -8315,6 +8317,16 @@ function updInstall(){
     if(r&&r.ok)return;               // the app is about to quit and reopen
     UP.busy='';UP.msg=(r&&r.error)||'The update could not be installed.';render();
   },function(){UP.busy='';UP.msg='The update could not be installed.';render()});
+}
+// Opens Settings and brings the App updates section into view, highlighted. Tries a few times in case the section is still loading.
+function goToUpdates(){
+  var tries=0;
+  (function go(){
+    var el=document.getElementById('updpanel');
+    if(el){var d=el.parentNode;while(d&&d!==document.body){if(d.tagName==='DETAILS')d.open=true;d=d.parentNode}
+      el.scrollIntoView({block:'start',behavior:'smooth'});el.classList.remove('updflash');void el.offsetWidth;el.classList.add('updflash');return}
+    if(tries++<12)setTimeout(go,120);
+  })();
 }
 function updBanner(){
   var i=UP.info;if(!(i&&i.newer)||UP.hide||UP.busy==='install')return '';
