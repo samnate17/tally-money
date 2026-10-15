@@ -370,6 +370,23 @@ canvas.confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:non
 .searchbtn{border:1px solid var(--line);margin:0 0 8px}
 .searchbtn .kbd{margin-left:auto;font-size:11px;color:var(--muted);border:1px solid var(--line);border-radius:6px;padding:1px 6px;font-family:inherit}
 :root[data-nav="top"] .rail .searchbtn{margin:0 8px 0 0}
+
+.helpfab{position:fixed;right:18px;bottom:20px;z-index:40;width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:var(--accent);color:var(--accent-ink);font-size:20px;font-weight:800;line-height:1;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.28);display:flex;align-items:center;justify-content:center}
+.helpfab:hover{transform:translateY(-1px)}.helpfab:focus-visible{outline:3px solid var(--accent-soft);outline-offset:2px}.helpfab[hidden]{display:none}
+.helppop{position:fixed;right:18px;bottom:74px;z-index:41;width:min(380px,calc(100vw - 32px));max-height:min(70vh,560px);overflow:auto;background:var(--surface-solid,var(--bg));color:var(--ink);border:1px solid var(--line);border-radius:16px;box-shadow:0 24px 70px rgba(0,0,0,.35);padding:16px 18px}
+.helppop h3{margin:0 0 6px;font-size:17px}.helppop p{margin:0 0 8px;font-size:14px;line-height:1.45}.helppop ol{margin:0 0 8px;padding-left:20px;font-size:14px;line-height:1.5}.helppop li{margin:3px 0}
+.helppop .tipline{font-size:13px;color:var(--muted);background:var(--accent-soft,rgba(59,76,240,.12));padding:8px 10px;border-radius:10px;margin:0 0 10px}
+.walkwrap{position:fixed;inset:0;z-index:70;background:rgba(10,12,20,.5);display:flex;align-items:center;justify-content:center;padding:12px;backdrop-filter:blur(3px)}
+.walkbox{width:min(900px,100%);height:min(640px,calc(100vh - 24px));background:var(--surface-solid,var(--bg));color:var(--ink);border:1px solid var(--line);border-radius:18px;box-shadow:0 24px 70px rgba(0,0,0,.4);display:flex;flex-direction:column;overflow:hidden}
+.walkhead{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line)}.walkhead .grow{flex:1}
+.walkbody{display:flex;flex:1;min-height:0}
+.walknav{width:210px;flex:none;overflow:auto;border-right:1px solid var(--line);padding:8px}
+.walknav button{display:block;width:100%;text-align:left;background:none;border:0;border-radius:9px;padding:7px 10px;font-size:13px;color:var(--ink);cursor:pointer}
+.walknav button.on{background:var(--accent-soft,rgba(59,76,240,.12));font-weight:700}.walknav button.done{color:var(--muted)}
+.walkmain{flex:1;overflow:auto;padding:18px 22px}.walkmain h2{margin:0 0 8px;font-size:22px}.walkmain p{font-size:15px;line-height:1.5;margin:0 0 12px}.walkmain ol{padding-left:22px;font-size:15px;line-height:1.55}.walkmain li{margin:5px 0}
+.walkfoot{display:flex;gap:8px;align-items:center;padding:12px 16px;border-top:1px solid var(--line);flex-wrap:wrap}.walkfoot .grow{flex:1}
+.walkbar{height:4px;background:var(--line);flex:none}.walkbar i{display:block;height:100%;background:var(--accent)}
+@media (max-width:760px){.helpfab{bottom:calc(76px + env(safe-area-inset-bottom,0px));right:14px}.helppop{bottom:calc(130px + env(safe-area-inset-bottom,0px));right:14px}.walknav{display:none}.walkmain{padding:14px 16px}}
 .spotwrap{position:fixed;inset:0;z-index:60;background:rgba(10,12,20,.45);display:flex;align-items:flex-start;justify-content:center;padding:10vh 12px 0;backdrop-filter:blur(3px)}
 .spotbox{width:min(680px,100%);background:var(--surface-solid,var(--bg));color:var(--ink);border:1px solid var(--line);border-radius:18px;box-shadow:0 24px 70px rgba(0,0,0,.35);overflow:hidden}
 .spotbox input{width:100%;border:0;border-bottom:1px solid var(--line);background:transparent;padding:16px 18px;font-size:17px;outline:none}
@@ -720,7 +737,7 @@ function render(){
   body=body.replace(/(<div class="top"><h1>[^<]*<\/h1>)/,'$1'+undoButtons());
   if(body.indexOf('class="undo"')<0)body='<div style="display:flex;justify-content:flex-end;margin:0 0 8px">'+undoButtons()+'</div>'+body;
   $('#main').innerHTML=banner+body;
-  bindView();thBind($('#main'));afterRender();
+  bindView();thBind($('#main'));afterRender();helpFabSync();
 }
 function monthNav(){return '<div class="monthnav"><button class="btn small" data-act="mprev" aria-label="Previous month">&larr;</button><b>'+monthLabel(month)+'</b><button class="btn small" data-act="mnext" aria-label="Next month"'+(month>=monthLimit()?' disabled':'')+'>&rarr;</button></div>'}
 // Bills can be looked at a few months ahead (maintenance and fills due later); other tabs stop at this month.
@@ -4115,6 +4132,45 @@ function vAfford(){
 
 /* ---------- Bills ---------- */
 var billUI={edit:'',adding:false,adj:''};
+
+/*HELP-START*/
+// What each tab is for and how to use it. Shown by the ? button on every tab and in the walkthrough (Settings, then Help).
+var HELP_START={t:'Welcome',what:'Tally Money keeps your money in one place on this computer: accounts, spending, bills, pay, taxes, goals and more. Your data stays on this computer; nothing is sent anywhere unless you choose an AI feature and give it your own key.',how:['Bring in your data. On Transactions, import a bank or card statement (a CSV or a PDF). On Accounts, add your accounts and balances.','The example data you see at first is made up so you can try everything. Clear it when you are ready to use your own.','Press Ctrl+K (Cmd+K on a Mac) or / to search or ask anything, such as next paycheck, bills due or tax refund.','If you change something by mistake, use Undo at the top of the page.','Open Settings to change how the app looks, reorder or hide tabs, set a password or Touch ID, back up your data and update the app.','Tap the ? button at the bottom right of any tab for a short guide to that tab.'],tip:'Nothing here moves money. The app only reads what you give it.'};
+var HELP={
+  overview:{t:'Overview',what:'A summary of the month: where your money went, income against spending over six months, your budgets and the bills coming up.',how:['Use the month arrows at the top to look at another month.','Read Where it went to see which categories took the most.','Budgets are listed most used first, so the ones you are close to overspending show at the top.','Bills coming up lists what is due in the next two weeks.'],tip:'This is the page to glance at each morning. Open the other tabs for detail.'},
+  dash:{t:'Dashboard',what:'A live view of your net worth, bills, loan payoff, goals and spending in one screen.',how:['Read the cards for your headline numbers.','Click a card to open the tab behind it.','Leave it open: it updates on its own.'],tip:'Add accounts and balances first so the net worth card is accurate.'},
+  accounts:{t:'Accounts',what:'Everything you own and owe, and your net worth (assets minus debts).',how:['Add an account with the form at the bottom: checking, savings, a card, a loan, a vehicle or a property.','Keep balances current: edit them, or import a statement on Transactions.','Assets and Debts show what adds to and what takes from your net worth.'],tip:'The more accounts you add, the more the rest of the app can connect (bills from loans, payoff plans, net worth).'},
+  pay:{t:'My pay',what:'Your paychecks: when the next one arrives, what comes out of each one and what changed since the last.',how:['Press Add a pay statement and choose the PDF from your payroll site (such as ADP). The app reads it on your computer.','Check the numbers it found, then save. Or press Add by hand to type them in.','Where your paycheck goes splits each check into taxes, benefits, retirement and take-home, with a chart and notes.','Add a statement each pay period so What changed and the yearly projection stay accurate.'],tip:'A copy of each statement is filed in Documents for you.'},
+  tax:{t:'Taxes',what:'An estimate of whether you will owe or get a refund this year, built from your pay statements or your W-2.',how:['Choose your state, filing status and number of children under Your tax situation.','Press Add a tax form and choose your W-2 or 1099 PDF. Check what it read before you save it.','Read What to expect at tax time and How it adds up to see the estimate and where it comes from.','Use Update the estimate after you change anything.'],tip:'This is an estimate, not tax advice. Compare it with your real return.'},
+  docs:{t:'Documents',what:'A folder on your computer for statements and records, sorted by kind and year.',how:['Press Choose files and pick one or more documents.','Leave File under on Sort automatically, or pick the folder yourself.','Open a folder or a file from the list, or press Open my Documents folder.'],tip:'Pay statements, tax forms and service records you add elsewhere in the app are filed here too.'},
+  assets:{t:'Assets',what:'Your vehicles and other valuable things: what they are worth, how fast they lose value, upkeep and modifications.',how:['Add the asset on Accounts, or open it here.','Keep its value current, or use the value lookup if you have set up AI.','Add maintenance so Upkeep coming up shows what to budget for.','Add modifications you installed; they add value.','Link a car loan to its vehicle.'],tip:'Upkeep that is due also shows up on the Bills tab.'},
+  subscriptions:{t:'Subscriptions',what:'Your recurring charges (streaming, apps, memberships) and what they cost you a year.',how:['Add a subscription by hand, or press Track on one the app spotted in your transactions.','Press Cancelled it when you cancel one, and Restore if you change your mind.','Look at the yearly total to decide what is worth keeping.'],tip:'Import a few months of transactions so the app can spot the recurring ones for you.'},
+  bills:{t:'Bills',what:'What is due this month, what you have paid and what is still pending.',how:['A bill turns Paid when a matching payment shows up in your transactions, or when you press Mark paid.','Press Edit to change the amount or due day, enter what you have paid so far (the rest shows as left), or skip a month you are not expecting.','Turn on Autopay for bills that come out by themselves.','Press Add a bill for anything missing. Car loans, student loans and cards appear on their own.','Add a pay link to open your lender\'s payment page.'],tip:'Use the arrows to look ahead a few months.'},
+  energy:{t:'Energy',what:'What electricity, gas and heating fuel cost you, by month, with weather and delivery history.',how:['Press Add a delivery for propane or heating oil (gallons and price per gallon), or Add a bill for gas or electric.','Import your utility\'s usage file, or press Add a month by hand.','Read What energy costs you to compare months.','Load the weather for your area to see how cold months drive your use.','The estimate for your next fuel delivery shows on Bills until you record it.'],tip:'If you have set up your Anthropic key, you can add a fuel invoice (PDF) and the app reads the gallons and price for you.'},
+  budgets:{t:'Budgets',what:'A monthly limit for each spending category, and how close you are to it.',how:['Set an amount for a category.','Click a category to see its past months, top merchants and a forecast.','Add auto-sort keywords so matching transactions land in the right category, including on the built-in ones.','Use the suggestion buttons to adopt a budget based on your history.'],tip:'Create your own categories when the built-in ones do not fit.'},
+  report:{t:'Monthly report',what:'A plain look back at a month: income, where it went, top merchants, biggest purchases and how you could save.',how:['Use the month arrows to choose a month.','Read Where your income came from and Where it went.','Look at How you can save and the 50/30/20 check for ideas.'],tip:'Look at it at the end of each month and set next month\'s budgets from it.'},
+  afford:{t:'Can I afford it?',what:'Tell the app what you want to buy and it checks it against your money and shows a plan to get there.',how:['Enter what it is and what it costs.','Choose how soon you want it with the time buttons.','Read whether it fits now, and what to cut or earn to afford it.','Tick or untick the suggested cuts to see how the plan changes.'],tip:'It uses your real income, bills and goals, so keep those up to date.'},
+  credit:{t:'Credit score',what:'Your credit scores over time, with what affects them graded from your own accounts.',how:['Type your scores from TransUnion, Equifax and Experian under Add your scores. Once a month is plenty.','Read For you for what the app noticed.','Look at What affects your score to see what to work on.'],tip:'The app cannot fetch your scores for you; you type them in.'},
+  cards:{t:'Credit cards',what:'Each credit card on its own: progress paying it down, spending habits, cash back and interest and fees.',how:['Add a card on Accounts or here, with its limit, rate and minimum payment.','Open a card to see its balance trend, spending by category and cash back.','Use Pay it off faster to see what extra payments save.','Import a card statement on Transactions to keep it current.'],tip:'All your cards compare side by side at the top.'},
+  invest:{t:'Investments',what:'Your holdings, how they are spread out and how much they swing.',how:['Add a holding with its symbol, shares and cost.','See Allocation and By topic to check you are not too concentrated.','Volatility watch shows which ones move the most.'],tip:'Prices are for information only.'},
+  transactions:{t:'Transactions',what:'Every deposit and purchase. This is where you bring in your data.',how:['Import a statement (CSV or PDF) from your bank or card.','Use the filters and the search to find what you want.','Change a transaction\'s category, or fix many at once.','Transfers between your own accounts and card payments are left out of your spending so nothing counts twice.'],tip:'Import regularly. Most other tabs are built from what is here.'},
+  goals:{t:'Goals',what:'Things you are saving for, with progress and a date.',how:['Create a goal with a name, a target and a date.','Link a goal to an account so progress follows its balance.','Turn on auto to put money toward it on a schedule.'],tip:'Pick the goal that matters most and fund it first.'},
+  loans:{t:'Loans',what:'Your car, student and other loans in one place, with plans to pay them off faster.',how:['Add a loan with its balance, rate, payment and due day.','Read The order to pay them and Debt-free by a date.','Import a statement from your lender to update a loan.','Try Would one new loan help? to compare consolidating or refinancing.'],tip:'A loan with a payment and a due day shows up on Bills.'},
+  mortgage:{t:'Mortgage',what:'Your home loan: payment, interest, what you would save by paying extra and how it fits your budget.',how:['Press Edit details and enter your home value, loan, rate and payment.','Read My read for a plain explanation of your numbers.','Change the assumptions to test extra payments.'],tip:'Property tax and insurance are included in the monthly picture.'},
+  assist:{t:'Assistant',what:'A private chat assistant that runs on this computer and answers questions about your money.',how:['Follow Set up the assistant once (about five minutes).','Ask a question in plain words, such as how much I spent on food last month.','Press Clear chat to start over.'],tip:'It runs on your computer, so your questions never leave it.'},
+  look:{t:'Settings',what:'How the app looks and works: appearance, tabs, security, backups and updates.',how:['Pick a look, colour and mode under Appearance.','Drag tabs to reorder them, hide the ones you do not use, or put them across the top. You can protect hiding with a password, fingerprint or face.','Set an app password or Touch ID under Security.','Back up or restore your data, and check for app updates.'],tip:'Press Reset appearance to undo your styling.'}
+};
+var HELP_FINISH={t:'You are set',what:'That is the whole app. You can reopen this walkthrough any time from Settings, then Help.',how:['Search with Ctrl+K or / to jump anywhere.','Tap the ? button on any tab for a quick reminder.','Back up your data from Settings now and then.'],tip:'Start with Transactions and Accounts. Everything else fills in from them.'};
+function helpKey(v){return ({carloan:'loans',student:'loans'})[v]||v}
+function helpFor(v){var k=helpKey(v);return Object.prototype.hasOwnProperty.call(HELP,k)?HELP[k]:null}
+// The walkthrough: a welcome, one step per tab in the order of the tab list, then a closing step.
+function helpSteps(tabs){
+  var out=[{id:'start',view:'',info:HELP_START}];
+  (tabs||[]).forEach(function(t){var h=helpFor(t[0]);if(h)out.push({id:t[0],view:t[0],info:h})});
+  out.push({id:'finish',view:'',info:HELP_FINISH});
+  return out;
+}
+/*HELP-END*/
 /*PAYLINK-START*/
 // Pay now: the app never moves money. It opens the lender's own payment page, using an https address you saved once.
 function cleanPayUrl(t){
@@ -6417,7 +6473,7 @@ function taxRead(inp){
 }
 /* ---------- Search: one box for everything in the app (Ctrl or Cmd + K, or press /) ---------- */
 var SPOT_KW={overview:'home summary today',dash:'live dashboard net worth',accounts:'banks balance checking savings',pay:'paycheck paystub salary adp gross net take-home',tax:'taxes refund owe w-2 1099 irs state withholding',docs:'documents folder files statements pdf',assets:'car vehicle motorcycle boat value depreciation maintenance modification',subscriptions:'subs recurring netflix streaming',bills:'due paid autopay upcoming',energy:'electric propane gas heating oil weather usage',budgets:'budget category limit keywords auto-sort',report:'monthly report income spending',afford:'can i afford purchase buy',credit:'credit score fico',cards:'credit card utilization cash back interest',invest:'stocks portfolio investments',transactions:'activity import csv filter edit expenses',goals:'savings goal target',loans:'debt student auto car loan payoff',mortgage:'house home rent buy',assist:'assistant chat ai ask',look:'settings appearance theme password backup security touch id hide tabs layout'};
-var SPOT_FEATURES=[['Hide or show tabs','look','navigation layout order drag top bar sidebar'],['Change the theme or colours','look','appearance dark mode light glass'],['Set an app password or Touch ID','look','security lock unlock encrypt'],['Back up or restore your data','look','backup export import file'],['Add a transaction','transactions','new expense income cash manually'],['Import transactions (CSV, PDF)','transactions','statement upload bank file'],['Auto-sort keywords for a budget','budgets','rules categorize merchant keyword'],['Hidden bills','look','hide bill keyword'],['Set a monthly budget','budgets','limit category'],['Credit card statement','cards','pdf import add card']];
+var SPOT_FEATURES=[['Help and walkthrough','look','help tutorial guide how to use walkthrough tour learn question mark'],['Hide or show tabs','look','navigation layout order drag top bar sidebar'],['Change the theme or colours','look','appearance dark mode light glass'],['Set an app password or Touch ID','look','security lock unlock encrypt'],['Back up or restore your data','look','backup export import file'],['Add a transaction','transactions','new expense income cash manually'],['Import transactions (CSV, PDF)','transactions','statement upload bank file'],['Auto-sort keywords for a budget','budgets','rules categorize merchant keyword'],['Hidden bills','look','hide bill keyword'],['Set a monthly budget','budgets','limit category'],['Credit card statement','cards','pdf import add card']];
 var SPOT_ORDER=['Pages','Budgets','Transactions','Bills','Accounts','Vehicles and assets','Goals','Subscriptions','Pay and taxes','Documents'];
 var spot={open:false,q:'',sel:0,res:[]};
 function spotMonthNames(){var o={},i;for(i=0;i<12;i++){var d=new Date(2000,i,1);o['0'.concat(i+1).slice(-2)]=d.toLocaleDateString('en-US',{month:'short'}).toLowerCase()+' '+d.toLocaleDateString('en-US',{month:'long'}).toLowerCase()}return o}
@@ -6541,6 +6597,71 @@ document.addEventListener('keydown',function(e){
   if((e.metaKey||e.ctrlKey)&&!e.altKey&&k==='k'){e.preventDefault();if(spot.open)spotClose();else spotOpen();return}
   if(k==='/'&&!typing&&!e.metaKey&&!e.ctrlKey&&!e.altKey&&!spot.open){e.preventDefault();spotOpen()}
 });
+
+/* ---------- Help: the ? button on every tab and the walkthrough ---------- */
+var helpUI={pop:false,walk:false,i:0,steps:[],popView:''};
+function helpList(a){return '<ol>'+(a||[]).map(function(x){return '<li>'+esc(x)+'</li>'}).join('')+'</ol>'}
+function helpFabInit(){
+  if(document.getElementById('helpfab'))return;
+  var b=document.createElement('button');b.id='helpfab';b.type='button';b.className='helpfab';b.setAttribute('aria-label','Help for this tab');b.setAttribute('aria-expanded','false');b.title='What is this tab? How do I use it?';b.textContent='?';
+  b.onclick=function(){if(helpUI.pop)helpPopClose();else helpPopOpen()};
+  document.body.appendChild(b);
+}
+function helpFabSync(){
+  helpFabInit();
+  var f=document.getElementById('helpfab');if(!f)return;
+  f.hidden=!!(VLT&&VLT.locked)||!!document.querySelector('.gate');
+  if(helpUI.pop&&helpUI.popView!==view)helpPopClose();
+}
+function helpPopClose(){var el=document.getElementById('helppop');if(el&&el.parentNode)el.parentNode.removeChild(el);helpUI.pop=false;var f=document.getElementById('helpfab');if(f)f.setAttribute('aria-expanded','false')}
+function helpPopOpen(){
+  helpPopClose();
+  var h=helpFor(view),el=document.createElement('div');el.id='helppop';el.className='helppop';el.setAttribute('role','dialog');el.setAttribute('aria-label','Help for this tab');
+  el.innerHTML=h?'<h3>'+esc(h.t)+'</h3><p>'+esc(h.what)+'</p><p style="margin:0 0 4px"><b>How to use it</b></p>'+helpList(h.how)+(h.tip?'<div class="tipline">'+esc(h.tip)+'</div>':'')+'<div class="actions" style="justify-content:flex-start;flex-wrap:wrap"><button type="button" class="btn small primary" data-w="walk">Full walkthrough</button><button type="button" class="btn small" data-w="close">Close</button></div>':'<h3>Help</h3><p>Open the full walkthrough for a tour of the whole app.</p><div class="actions" style="justify-content:flex-start"><button type="button" class="btn small primary" data-w="walk">Full walkthrough</button><button type="button" class="btn small" data-w="close">Close</button></div>';
+  el.onclick=function(e){var b=e.target.closest&&e.target.closest('[data-w]');if(!b)return;if(b.dataset.w==='close')helpPopClose();else if(b.dataset.w==='walk'){var k=helpKey(view);helpPopClose();walkOpen(k)}};
+  document.body.appendChild(el);helpUI.pop=true;helpUI.popView=view;
+  var f=document.getElementById('helpfab');if(f)f.setAttribute('aria-expanded','true');
+  var first=el.querySelector('button');if(first)first.focus();
+}
+function walkOpen(at){
+  helpPopClose();spotClose();
+  if(VLT.locked)return;
+  helpUI.steps=helpSteps(navVisibleTabsAll());helpUI.i=0;
+  if(typeof at==='string'){var ix=helpUI.steps.map(function(x){return x.id}).indexOf(at);if(ix>-1)helpUI.i=ix}
+  else if(typeof at==='number')helpUI.i=Math.max(0,Math.min(helpUI.steps.length-1,at));
+  var el=document.getElementById('walk');if(el&&el.parentNode)el.parentNode.removeChild(el);
+  el=document.createElement('div');el.id='walk';el.className='walkwrap';document.body.appendChild(el);helpUI.walk=true;
+  el.onclick=function(e){
+    if(e.target===el){walkClose();return}
+    var b=e.target.closest&&e.target.closest('[data-w]');if(!b)return;var w=b.dataset.w;
+    if(w==='close')walkClose();
+    else if(w==='prev'){helpUI.i=Math.max(0,helpUI.i-1);walkDraw()}
+    else if(w==='next'){if(helpUI.i>=helpUI.steps.length-1)walkClose();else{helpUI.i++;walkDraw()}}
+    else if(w==='go'){helpUI.i=+b.dataset.i||0;walkDraw()}
+    else if(w==='open'){var st=helpUI.steps[helpUI.i];walkClose();if(st&&st.view)goTo(st.view)}
+  };
+  el.onkeydown=function(e){
+    if(e.key==='Escape'){e.preventDefault();walkClose()}
+    else if(e.key==='ArrowRight'&&!(e.target&&/INPUT|TEXTAREA|SELECT/.test(e.target.tagName))){e.preventDefault();if(helpUI.i<helpUI.steps.length-1){helpUI.i++;walkDraw()}}
+    else if(e.key==='ArrowLeft'&&!(e.target&&/INPUT|TEXTAREA|SELECT/.test(e.target.tagName))){e.preventDefault();helpUI.i=Math.max(0,helpUI.i-1);walkDraw()}
+  };
+  walkDraw();
+}
+// Every tab, so the tour covers the whole app even if you hid some tabs.
+function navVisibleTabsAll(){return TABS}
+function walkDraw(){
+  var el=document.getElementById('walk');if(!el)return;
+  var st=helpUI.steps[helpUI.i],n=helpUI.steps.length,h=st.info,last=helpUI.i>=n-1;
+  el.innerHTML='<div class="walkbox" role="dialog" aria-modal="true" aria-label="Walkthrough of the app"><div class="walkhead"><b>Walkthrough</b><span class="sub grow">Step '+(helpUI.i+1)+' of '+n+'</span><button type="button" class="btn small" data-w="close" aria-label="Close the walkthrough">Close</button></div><div class="walkbar"><i style="width:'+((helpUI.i+1)/n*100)+'%"></i></div>'+
+    '<div class="walkbody"><nav class="walknav" aria-label="Steps">'+helpUI.steps.map(function(x,i){return '<button type="button" data-w="go" data-i="'+i+'" class="'+(i===helpUI.i?'on':i<helpUI.i?'done':'')+'"'+(i===helpUI.i?' aria-current="step"':'')+'>'+esc(x.info.t)+'</button>'}).join('')+'</nav>'+
+    '<div class="walkmain" tabindex="-1"><h2>'+esc(h.t)+'</h2><p>'+esc(h.what)+'</p><p style="margin:0 0 4px"><b>'+(st.view?'How to use it':'What to do')+'</b></p>'+helpList(h.how)+(h.tip?'<div class="tipline" style="font-size:14px;color:var(--muted);background:var(--accent-soft,rgba(59,76,240,.12));padding:10px 12px;border-radius:10px">'+esc(h.tip)+'</div>':'')+'</div></div>'+
+    '<div class="walkfoot"><button type="button" class="btn" data-w="prev"'+(helpUI.i===0?' disabled':'')+'>Back</button>'+(st.view?'<button type="button" class="btn" data-w="open" title="Close the walkthrough and open this tab">Open this tab</button>':'')+'<span class="grow"></span><button type="button" class="btn primary" data-w="next" id="walk-next">'+(last?'Done':'Next')+'</button></div></div>';
+  var nx=el.querySelector('#walk-next');if(nx)nx.focus();
+  var on=el.querySelector('.walknav .on');if(on&&on.scrollIntoView)on.scrollIntoView({block:'nearest'});
+}
+function walkClose(){var el=document.getElementById('walk');if(el&&el.parentNode)el.parentNode.removeChild(el);helpUI.walk=false;var f=document.getElementById('helpfab');if(f&&!f.hidden)f.focus()}
+document.addEventListener('keydown',function(e){if(e.key==='Escape'&&helpUI.pop&&!helpUI.walk){helpPopClose()}});
+document.addEventListener('click',function(e){if(!helpUI.pop)return;var t=e.target;if(t.closest&&(t.closest('#helppop')||t.closest('#helpfab')))return;helpPopClose()});
 // ---------- Credit score tab ----------
 var creditShot={msg:'',rows:null,busy:false};
 // A screenshot of a score screen, shrunk to a size the API takes, as a JPEG data URL.
@@ -7447,6 +7568,8 @@ document.addEventListener('click',function(e){
   else if(a==='en-apply'&&energyUI.imp){var em=energyMerge(S.energy,energyUI.imp.records);S.energy=em.records;energyUI.imp=null;toast('Added '+em.added+' month'+(em.added===1?'':'s')+(em.updated?', updated '+em.updated:'')+'.')}
   else if(a==='en-del'){S.energy=S.energy.filter(function(r){return r.month!==id})}
   else if(a==='en-clear'){if(confirm('Remove all electricity data from this app?'))S.energy=[]}
+  else if(a==='help-walk'){setTimeout(function(){walkOpen(0)},0)}
+  else if(a==='help-here'){setTimeout(helpPopOpen,0)}
   else if(a==='bill-add'){billUI.adding=true;billUI.edit=''}
   else if(a==='bill-cancel'){billUI.adding=false;billUI.edit=''}
   else if(a==='bill-adj'){billUI.adj=id;billUI.edit='';billUI.adding=false}
@@ -7606,6 +7729,7 @@ function navPanel(){
 function vLook(){
   var sw=PRESETS.map(function(p){return '<button type="button" class="sw'+(TH.preset===p.id?' on':'')+'" data-act="th-preset" data-v="'+p.id+'" style="--sw:'+p.accent+'" aria-pressed="'+(TH.preset===p.id)+'">'+p.name+'</button>'}).join('');
   return '<div class="top"><h1>Settings</h1><button class="btn small" data-act="th-reset">Reset appearance</button></div>'+
+  '<h2 class="setsec">Help</h2><section class="panel"><h2>Help<small>how to use the app</small></h2><p class="sub" style="margin:0 0 10px;white-space:normal">A guided tour of every tab, step by step. You can also tap the <b>?</b> button at the bottom right of any tab for a short guide to just that tab.</p><div class="actions" style="justify-content:flex-start;flex-wrap:wrap"><button class="btn primary" data-act="help-walk">Start the walkthrough</button><button class="btn" data-act="help-here">What does this tab do?</button></div><p class="sub muted" style="margin:10px 0 0;font-size:12px;white-space:normal">Shortcuts: Ctrl+K (Cmd+K on a Mac) or / opens search and questions. Undo is at the top of each page.</p></section>'+
   '<h2 class="setsec">Appearance</h2>'+navPanel()+
   '<section class="panel"><h2>Look<small>one tap changes the whole app</small></h2><div class="lookcards"><button type="button" class="lookcard'+(TH.bg==='studio'?' on':'')+'" data-act="th-look" data-v="studio"><div class="pv" style="background:radial-gradient(120px 60px at 50% 0%,#3e6ae155,transparent),#0a0c10;border:1px solid #1e222a"></div><b>Studio</b><div class="sub">Dark and cinematic, like a car app. Big light numbers, a lit stage for your car and home.</div></button><button type="button" class="lookcard'+(TH.bg!=='studio'?' on':'')+'" data-act="th-look" data-v="glass"><div class="pv" style="background:linear-gradient(135deg,#c7d2ff,#f3c6ff);border:1px solid #fff8"></div><b>Glass</b><div class="sub">Light, frosted and colourful.</div></button></div></section>'+
   glassPanel()+'<section class="panel"><h2>Colour<small>pick a preset or make your own</small></h2><div class="swatches">'+sw+'</div>'+

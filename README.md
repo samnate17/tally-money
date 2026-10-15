@@ -554,3 +554,6 @@ Energy records for propane and oil now keep **gallons**, the **price per gallon*
 
 ## Editing bills
 Every bill on the Bills tab can be changed, whatever its source (a bill you added, a loan or card, one found in your transactions, or a fuel estimate). **Edit** (or **This month** on bills you added) lets you set the amount (for this month or every month), the due day, what you have **paid so far** (the bill then shows what is left and counts as paid when the rest is covered), the months you expect it in (a seasonal bill such as propane), or skip it for the month (**Not expecting it this month**, which takes it out of the totals and the overdue count). **Back to automatic** undoes your changes. Changes are stored per bill in `billAdj` and do not touch the loan, card or fuel record the bill came from.
+
+## Help
+A round **?** button sits at the bottom right of every tab. It opens a short guide to that tab: what it does and how to use it. **Settings, then Help** has **Start the walkthrough**, a step-by-step tour of the whole app (a welcome, every tab in order, and a closing step) with Back, Next, **Open this tab** and a list to jump to any step; arrow keys and Esc work. The text lives in the `HELP` block in `index.html`, and a test fails if a tab is added without a guide.

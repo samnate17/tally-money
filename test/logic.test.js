@@ -2500,3 +2500,18 @@ test('cleanBillAdj keeps only sane edits and refuses prototype keys', () => {
   assert.strictEqual(({}).amount, undefined);
   assert.deepStrictEqual(B.cleanBillAdj(null), {});
 });
+
+test('help: every tab has a guide, the walkthrough covers all of them, and nothing is empty', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const tabsLine = /^var TABS=(\[\[.*\]\]);/m.exec(src)[1];
+  const TABS = new Function('return ' + tabsLine)();
+  const H = new Function(srcBlock('/*HELP-START*/', '/*HELP-END*/') + '\nreturn {HELP, HELP_START, HELP_FINISH, helpFor, helpSteps};')();
+  TABS.forEach((t) => { const h = H.helpFor(t[0]); assert.ok(h, 'no help for ' + t[0]); assert.ok(h.t && h.what.length > 20 && h.how.length >= 2, 'thin help for ' + t[0]); });
+  assert.strictEqual(H.helpFor('carloan').t, 'Loans'); assert.strictEqual(H.helpFor('student').t, 'Loans');
+  assert.strictEqual(H.helpFor('__proto__'), null); assert.strictEqual(H.helpFor('nope'), null);
+  const steps = H.helpSteps(TABS);
+  assert.strictEqual(steps.length, TABS.length + 2);
+  assert.strictEqual(steps[0].id, 'start'); assert.strictEqual(steps[steps.length - 1].id, 'finish');
+  assert.deepStrictEqual(steps.slice(1, -1).map((x) => x.view), TABS.map((t) => t[0]));
+  Object.keys(H.HELP).forEach((k) => assert.ok(TABS.some((t) => t[0] === k), 'help for a tab that does not exist: ' + k));
+});
