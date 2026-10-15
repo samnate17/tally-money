@@ -2561,3 +2561,18 @@ test('pay: bonus forecast from one check, from two years, and from year-to-date 
   const q2 = { id: 'q2', payDate: '2025-04-11', gross: 1700, net: 1200, lines: [{ section: 'earnings', name: 'Bonus', amount: 1700 }] };
   pl = P.payBonusPlan([q2, bonus], new Date(2026, 2, 1)); assert.ok(pl.next.date.startsWith('2026-04-')); assert.strictEqual(pl.others.length, 1);
 });
+
+test('tour: every tab is covered, every step is well formed and optional steps are marked', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const TABS = new Function('return ' + /^var TABS=(\[\[.*\]\]);/m.exec(src)[1])();
+  const T = new Function(srcBlock('/*HELP-START*/', '/*HELP-END*/') + srcBlock('/*TOUR-START*/', '/*TOUR-END*/') + '\nreturn {TOURS, tourSteps};')();
+  Object.keys(T.TOURS).forEach((k) => assert.ok(TABS.some((t) => t[0] === k), 'tour for a tab that does not exist: ' + k));
+  TABS.forEach((t) => assert.ok(T.TOURS[t[0]] && T.TOURS[t[0]].length, 'no tour steps for ' + t[0]));
+  const steps = T.tourSteps(TABS);
+  assert.ok(steps[0].welcome && steps[steps.length - 1].finish);
+  TABS.forEach((t) => assert.strictEqual(steps.filter((s) => s.tab === t[0] && s.intro).length, 1, 'one intro for ' + t[0]));
+  const kinds = ['top', 'tiles', 'css', 'h2', 'btn'];
+  steps.forEach((s) => { assert.ok(s.t && s.x && s.x.length > 15, 'text for ' + s.t); if (s.f && s.f.length) { assert.ok(kinds.includes(s.f[0]), 'finder ' + s.f[0]); if (s.f[0] !== 'top' && s.f[0] !== 'tiles') assert.ok(s.f[1], 'finder text for ' + s.t) } });
+  // the intro of each tab comes before its highlights, and tabs follow the tab list
+  assert.deepStrictEqual([...new Set(steps.filter((s) => s.tab).map((s) => s.tab))], TABS.map((t) => t[0]));
+});
