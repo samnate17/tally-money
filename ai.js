@@ -293,6 +293,60 @@ function cleanScoreShot(raw) {
   return out;
 }
 
+const ENERGY_FUELS = ['propane', 'oil', 'gas', 'electric', 'wood'];
+const ENERGY_UNITS = ['gal', 'therm', 'ccf', 'mcf', 'kwh', 'cord'];
+const ENERGY_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    records: { type: 'array', items: { type: 'object', additionalProperties: false, properties: {
+      fuel: { type: 'string', enum: ENERGY_FUELS }, date: { type: 'string' }, days: { type: 'number' }, quantity: { type: 'number' }, unit: { type: 'string', enum: ENERGY_UNITS }, cost: { type: 'number' }, note: { type: 'string' },
+    }, required: ['fuel', 'date', 'days', 'quantity', 'unit', 'cost', 'note'] } },
+    notes: { type: 'string' },
+  },
+  required: ['records', 'notes'],
+};
+const ENERGY_SYSTEM = [
+  'You read a delivery history, usage history or bill statement for home heating or energy (propane, heating oil, natural gas, electricity, wood) for a personal-finance app.',
+  'Return one record per delivery or per billing period. fuel: propane, oil (heating oil or kerosene), gas (natural gas), electric, or wood. date: the delivery date, or the last day of the billing period, as YYYY-MM-DD.',
+  'days: the number of days a billing period covers (0 for a delivery). quantity: gallons for propane and oil, therms or ccf or mcf for natural gas, kWh for electricity, cords for wood; unit must match. cost: the total charged for that delivery or period in dollars including taxes and fees, 0 if not shown.',
+  'Never guess a number you cannot read. Skip payments, balances and totals. Never repeat account numbers, names or addresses. If the document is not an energy history, return no records and say why in notes.',
+].join(' ');
+function cleanEnergyDocs(raw, wanted) {
+  const out = { records: [], notes: '' };
+  if (!raw || typeof raw !== 'object') return out;
+  const per = { propane: ['gal'], oil: ['gal'], gas: ['therm', 'ccf', 'mcf'], electric: ['kwh'], wood: ['cord'] };
+  for (const r of Array.isArray(raw.records) ? raw.records : []) {
+    if (!r || !ENERGY_FUELS.includes(r.fuel) || !/^\d{4}-\d{2}-\d{2}$/.test(String(r.date || ''))) continue;
+    const q = Math.round(Number(r.quantity) * 100) / 100, c = Math.round(Number(r.cost) * 100) / 100, d = Math.round(Number(r.days) || 0);
+    if (!(q > 0 && q <= 1e6) || !per[r.fuel].includes(r.unit)) continue;
+    out.records.push({ fuel: r.fuel, date: r.date, days: d >= 0 && d <= 400 ? d : 0, quantity: q, unit: r.unit, cost: Number.isFinite(c) && c > 0 && c <= 1e6 ? c : 0, note: String(r.note || '').replace(/\s+/g, ' ').trim().slice(0, 80) });
+    if (out.records.length >= 300) break;
+  }
+  if (wanted && ENERGY_FUELS.includes(wanted)) out.records = out.records.filter((r) => r.fuel === wanted);
+  out.notes = String(raw.notes || '').replace(/\s+/g, ' ').trim().slice(0, 300);
+  return out;
+}
+const ADVICE_SCHEMA = {
+  type: 'object', additionalProperties: false,
+  properties: { bullets: { type: 'array', items: { type: 'object', additionalProperties: false, properties: { title: { type: 'string' }, detail: { type: 'string' } }, required: ['title', 'detail'] } } },
+  required: ['bullets'],
+};
+const ADVICE_SYSTEM = [
+  'You give practical, honest advice on cutting a household home-energy bill, using only the monthly numbers the user sends: usage and cost by month for each fuel, heating and cooling degree days, and prices.',
+  'Give at most 7 bullets, most valuable first. Each title is one short sentence; each detail is one to three plain sentences that point at the user\'s own numbers (months, prices, usage per degree day) and, where you can, a rough yearly dollar figure that you mark as an estimate.',
+  'Do not invent numbers that are not in the data and do not claim certainty. Mention upfront costs and payback when you suggest equipment (heat pump, insulation, a new boiler). Do not give financial, legal or safety-critical instructions beyond common sense.',
+].join(' ');
+function cleanAdvice(raw) {
+  const out = [];
+  for (const b of raw && Array.isArray(raw.bullets) ? raw.bullets : []) {
+    const title = String((b && b.title) || '').replace(/\s+/g, ' ').trim().slice(0, 140), detail = String((b && b.detail) || '').replace(/\s+/g, ' ').trim().slice(0, 500);
+    if (title && detail) out.push({ title, detail });
+    if (out.length >= 7) break;
+  }
+  return out;
+}
+
 const ASSET_SCHEMA = {
   type: 'object',
   additionalProperties: false,
@@ -631,7 +685,56 @@ function createAI({ store, clientFactory }) {
     return cleanAssetValue(parsed);
   }
 
-  return { status, saveKey, clearKey, analyze, categorize, loansFromText, statement, statementPdf, testKey, carArt, creditShot, receipt, assetValue };
+  // Delivery or usage history (a PDF or text the user chose) to energy records. The page shows them for checking before anything is saved.
+  async function energyFromText(text, fuel) {
+    const apiKey = store.get('anthropicKey');
+    if (!apiKey) throw new Error('Add your Anthropic API key first.');
+    const t = String(text || '').trim();
+    if (!t) throw new Error('There is no text to read in this file.');
+    if (t.length > 120000) throw new Error('This document is too long to send in one request.');
+    let msg;
+    try {
+      const stream = make(apiKey).messages.stream({
+        model: MODEL, max_tokens: 8000, system: ENERGY_SYSTEM,
+        output_config: { effort: 'low', format: { type: 'json_schema', schema: ENERGY_SCHEMA } },
+        messages: [{ role: 'user', content: JSON.stringify({ expected: ENERGY_FUELS.includes(fuel) ? fuel : 'any', text: t }) }],
+      });
+      msg = await stream.finalMessage();
+    } catch (err) {
+      throw new Error(friendlyError(err));
+    }
+    if (msg.stop_reason === 'refusal') throw new Error('Claude declined to read this document. Nothing was changed.');
+    if (msg.stop_reason === 'max_tokens') throw new Error('The answer was cut off. Try a shorter document.');
+    const body = (msg.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('');
+    let parsed;
+    try { parsed = JSON.parse(body); } catch (e) { throw new Error('Claude returned an answer the app could not read. Try again.'); }
+    return cleanEnergyDocs(parsed, fuel);
+  }
+  // Written advice from the monthly numbers only (no names, addresses or account details).
+  async function energyAdvice(summary) {
+    const apiKey = store.get('anthropicKey');
+    if (!apiKey) throw new Error('Add your Anthropic API key first.');
+    const body0 = JSON.stringify(summary || {});
+    if (body0.length > 60000) throw new Error('That is too much data to send at once.');
+    let msg;
+    try {
+      const stream = make(apiKey).messages.stream({
+        model: MODEL, max_tokens: 3000, system: ADVICE_SYSTEM,
+        output_config: { effort: 'medium', format: { type: 'json_schema', schema: ADVICE_SCHEMA } },
+        messages: [{ role: 'user', content: body0 }],
+      });
+      msg = await stream.finalMessage();
+    } catch (err) {
+      throw new Error(friendlyError(err));
+    }
+    if (msg.stop_reason === 'refusal') throw new Error('Claude declined to answer.');
+    const body = (msg.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('');
+    let parsed;
+    try { parsed = JSON.parse(body); } catch (e) { throw new Error('Claude returned an answer the app could not read. Try again.'); }
+    return cleanAdvice(parsed);
+  }
+
+  return { status, saveKey, clearKey, analyze, categorize, loansFromText, statement, statementPdf, testKey, carArt, creditShot, receipt, assetValue, energyFromText, energyAdvice };
 }
 
 // For a model running on this computer: the same job as the Claude version, but it must answer with plain JSON text.
@@ -645,4 +748,4 @@ function parseLocalLoans(reply) {
   return cleanLoans(parsed);
 }
 module.exports = {
-  LOANS_LOCAL_SYSTEM, parseLocalLoans, cleanLoans, cleanScoreShot, cleanReceipt, cleanAssetValue, createAI, cleanResult, cleanStatement, friendlyError, detailOf, MODEL, SCHEMA, schemaFor, SYSTEM, MAX_STATEMENT_CHARS };
+  LOANS_LOCAL_SYSTEM, parseLocalLoans, cleanLoans, cleanScoreShot, cleanReceipt, cleanAssetValue, cleanEnergyDocs, cleanAdvice, createAI, cleanResult, cleanStatement, friendlyError, detailOf, MODEL, SCHEMA, schemaFor, SYSTEM, MAX_STATEMENT_CHARS };

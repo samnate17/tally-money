@@ -1662,3 +1662,69 @@ test('transaction filters: text, kind, dates, amounts, account, order and totals
   const tot = X.filterTotals(rows, inf); assert.deepStrictEqual([tot.n, tot.inn, tot.out, tot.skipped], [6, 2000, 134.5, 2]);                // the payment and the cash back are not counted
   const R = X.rangeDates('month', new Date(2026, 9, 14)); assert.deepStrictEqual(R, { from: '2026-10-01', to: '2026-10-31' }); assert.deepStrictEqual(X.rangeDates('last', new Date(2026, 9, 14)), { from: '2026-09-01', to: '2026-09-30' }); assert.deepStrictEqual(X.rangeDates('all', new Date()), { from: '', to: '' });
 });
+
+function fuelWorld() { return new Function(srcBlock('/*FUEL-START*/', '/*FUEL-END*/') + '\nreturn {FUELS, cleanFuel, fuelPeriods, fuelMonths, fuelSpend, fuelPrices, leastSquares, weatherModel, weatherNormals, projectYear, heatCosts, energyTips, seasonOf, annualOf};')(); }
+test('fuel: deliveries are spread over the days they cover, gas bills over their period, spend by payment date', () => {
+  const F = fuelWorld(), R = [{ id: 'a', fuel: 'propane', date: '2025-10-01', qty: 100, unit: 'gal', cost: 300 }, { id: 'b', fuel: 'propane', date: '2025-11-30', qty: 120, unit: 'gal', cost: 384 }, { id: 'c', fuel: 'propane', date: '2026-01-29', qty: 180, unit: 'gal', cost: 630 }];
+  const m = F.fuelMonths(R, 'propane'); assert.deepStrictEqual(m.map((x) => [x.month, Math.round(x.qty), Math.round(x.cost), x.days]), [['2025-10', 60, 192, 30], ['2025-11', 60, 192, 30], ['2025-12', 93, 326, 31], ['2026-01', 87, 305, 29]]);
+  assert.strictEqual(Math.round(m.reduce((a, x) => a + x.qty, 0)), 300);                                        // the first fill has no earlier fill to measure from, so 120 + 180 gallons are attributed
+  assert.deepStrictEqual(F.fuelSpend(R, 'propane'), [{ month: '2025-10', cost: 300 }, { month: '2025-11', cost: 384 }, { month: '2026-01', cost: 630 }]);
+  const pr = F.fuelPrices(R, 'propane'); assert.deepStrictEqual(pr.map((p) => +p.price.toFixed(2)), [3, 3.2, 3.5]);
+  const G = [{ id: 'g1', fuel: 'gas', date: '2026-02-10', days: 30, qty: 60, unit: 'ccf', cost: 90 }];
+  const gm = F.fuelMonths(G, 'gas'); assert.strictEqual(gm.length, 2); assert.ok(Math.abs(gm.reduce((a, x) => a + x.qty, 0) - 60 * 1.037) < 1e-6); assert.ok(Math.abs(gm.reduce((a, x) => a + x.cost, 0) - 90) < 1e-6);
+  assert.deepStrictEqual(F.fuelMonths([R[0]], 'propane'), []);                                                   // one delivery cannot tell you how much you use
+  assert.strictEqual(F.fuelMonths([{ id: 'x', fuel: 'propane', date: '2025-10-01', qty: 0, unit: 'gal', cost: 300 }, { id: 'y', fuel: 'propane', date: '2025-11-01', qty: 0, unit: 'gal', cost: 300 }], 'propane').length, 0);   // cost-only records count as spend, not usage
+});
+test('fuel: records are cleaned, the weather model finds base use and use per degree day, and projections follow normal weather', () => {
+  const F = fuelWorld(); let n = 0;
+  const c = F.cleanFuel([{ id: 'ok', fuel: 'propane', date: '2026-01-01', qty: 100.456, unit: 'therm', cost: 300, note: '<b>x</b>' }, { fuel: 'coal', date: '2026-01-01', qty: 1 }, { fuel: 'gas', date: 'bad', qty: 1 }, { fuel: 'gas', date: '2026-01-01', qty: -3, unit: 'therm' }, { fuel: 'gas', date: '2026-02-01', qty: 5, unit: 'ccf', cost: 8, days: 31, tx: 'bad id' }], () => 'n' + (++n));
+  assert.deepStrictEqual(c.map((x) => [x.id, x.fuel, x.qty, x.unit, x.note || '', x.days, x.tx || '']), [['ok', 'propane', 100.46, 'gal', 'bx/b', 0, ''], ['n1', 'gas', 5, 'ccf', '', 31, '']]);
+  const ls = F.leastSquares([[1], [2], [3], [4], [5]], [3, 5, 7, 9, 11]); assert.ok(Math.abs(ls.coef[0] - 1) < 1e-9 && Math.abs(ls.coef[1] - 2) < 1e-9 && ls.r2 > 0.999999); assert.strictEqual(F.leastSquares([[1], [2]], [1, 2]), null);
+  // usage = 1 + 0.5 * degree days per day, over a year of weather
+  const hdd = [30, 28, 22, 12, 4, 0, 0, 0, 3, 11, 20, 27], weather = {}, rows = [];
+  hdd.forEach((h, i) => { const k = '2025-' + ('0' + (i + 1)).slice(-2); weather[k] = { hdd: h * 30, cdd: 0, days: 30, avgF: 60 }; rows.push({ month: k, perDay: 1 + 0.5 * h }); });
+  const m = F.weatherModel(rows, weather, false); assert.ok(Math.abs(m.base - 1) < 1e-6 && Math.abs(m.perHdd - 0.5) < 1e-6); assert.strictEqual(m.reliable, true); assert.strictEqual(m.n, 12);
+  assert.strictEqual(F.weatherModel(rows.slice(0, 4), weather, false), null);                                      // too few months to say
+  assert.strictEqual(F.weatherModel(rows.map((r) => ({ month: r.month, perDay: 5 })), weather, false).reliable, false);   // flat use: the weather explains nothing
+  const norms = F.weatherNormals(weather); assert.ok(Math.abs(norms['01'].hddPerDay - 30) < 1e-9);
+  const proj = F.projectYear(m, norms, 3, '2026-01'); assert.strictEqual(proj.months.length, 12); assert.strictEqual(proj.months[0].month, '2026-01'); assert.ok(Math.abs(proj.months[0].qty - (1 + 15) * 31) < 1e-6); assert.ok(Math.abs(proj.cost - proj.qty * 3) < 1e-9);
+  assert.strictEqual(F.projectYear(m, { '01': norms['01'] }, 3, '2026-01'), null);
+  const hc = F.heatCosts({ propane: 3.5, oil: 3.8, gas: 1.6, kwh: 0.28, cop: 2.5 }); assert.deepStrictEqual(hc.map((x) => x.id), ['gas', 'heatpump', 'oil', 'propane', 'resist']); assert.ok(Math.abs(hc[1].perMMBtu - 0.28 * 1e6 / (3412 * 2.5)) < 1e-6);
+});
+test('fuel: advice quotes your own numbers and flags a heat pump only when it saves money', () => {
+  const F = fuelWorld(), hdd = [30, 28, 22, 12, 4, 0, 0, 0, 3, 11, 20, 27], weather = {}, months = [], deliveries = [];
+  for (const y of ['2024', '2025']) hdd.forEach((h, i) => { const k = y + '-' + ('0' + (i + 1)).slice(-2); weather[k] = { hdd: h * 30, cdd: 0, days: 30 }; const q = (1 + 0.5 * h) * 30 * (y === '2025' ? 1.2 : 1); months.push({ month: k, qty: q, cost: q * 3.5, days: 30, perDay: q / 30 }); });
+  const rows = months.slice(12).map((r) => ({ month: r.month, perDay: r.perDay })), model = F.weatherModel(months.map((r) => ({ month: r.month, perDay: r.perDay })), weather, false);
+  const prices = [{ date: '2025-01-10', price: 3.2 }, { date: '2025-04-10', price: 3.0 }, { date: '2025-07-10', price: 2.8 }, { date: '2025-12-10', price: 4.1 }];
+  [['2025-09-01', 100], ['2025-11-01', 120], ['2026-01-05', 150]].forEach(([d, q], i) => deliveries.push({ date: d, qty: q, perDay: i === 2 ? 2.5 : 2 }));
+  const tips = F.energyTips({ fuels: [{ fuel: 'propane', label: 'Propane', months, prices, model, deliveries }], elec: null, weather, normals: F.weatherNormals(weather), cop: 2.5, kwhPrice: 0.2, todayISO: '2026-01-10' });
+  const titles = tips.map((t) => t.title).join(' | ');
+  assert.match(titles, /Last 12 months: about/); assert.match(titles, /of your propane use follows the weather/); assert.match(titles, /thermostat down 1 degree/); assert.match(titles, /Propane use is up 20% on the previous 12 months/);
+  assert.match(titles, /You paid the least in summer/); assert.match(titles, /above your recent average/); assert.match(titles, /heat pump could cut your heating cost/); assert.match(titles, /Next propane fill: around 2026-/);
+  const late = F.energyTips({ fuels: [{ fuel: 'propane', label: 'Propane', months, prices, model, deliveries }], elec: null, weather, normals: F.weatherNormals(weather), cop: 2.5, kwhPrice: 0.2, todayISO: '2027-01-01' }).map((x) => x.title).join('|'); assert.match(late, /fill is probably due now/);
+  // two fills a few days apart are one top-up
+  const near = F.fuelMonths([{ id: 'a', fuel: 'propane', date: '2025-10-01', qty: 100, unit: 'gal', cost: 300 }, { id: 'b', fuel: 'propane', date: '2025-11-30', qty: 120, unit: 'gal', cost: 384 }, { id: 'c', fuel: 'propane', date: '2025-12-03', qty: 20, unit: 'gal', cost: 70 }], 'propane'); assert.strictEqual(Math.round(near.reduce((a, x) => a + x.qty, 0)), 140);
+  const cheapElec = F.energyTips({ fuels: [{ fuel: 'propane', label: 'Propane', months, prices, model, deliveries }], elec: null, weather, normals: F.weatherNormals(weather), cop: 2.5, kwhPrice: 0.9 }).map((t) => t.title).join('|');
+  assert.doesNotMatch(cheapElec, /heat pump could cut/); assert.match(cheapElec, /cheaper than a heat pump/);
+  assert.deepStrictEqual(F.energyTips({ fuels: [], elec: null }), []);
+});
+
+test('fuel import: a supplier CSV, pasted lines, and merging without doubles', () => {
+  const W = new Function(srcBlock('/*ENERGY-START*/', '/*ENERGY-END*/') + srcBlock('/*FUEL-START*/', '/*FUEL-END*/') + srcBlock('/*FUELIMPORT-START*/', '/*FUELIMPORT-END*/') + '\nreturn {parseFuelText, fuelMerge};')();
+  const csv = 'Delivery Date,Gallons Delivered,Price per Gallon,Total\n01/12/2025,152.3,3.359,$511.60\n03/02/2025,98.0,3.10,$303.80\nTotals,250.3,,';
+  const r = W.parseFuelText(csv, 'propane'); assert.strictEqual(r.ok, true); assert.deepStrictEqual(r.records.map((x) => [x.date, x.qty, x.cost, x.unit]), [['2025-01-12', 152.3, 511.6, 'gal'], ['2025-03-02', 98, 303.8, 'gal']]); assert.strictEqual(r.skipped, 1);
+  const noTotal = W.parseFuelText('Date,Gallons,Price\n2025-01-12,100,3.50', 'oil'); assert.strictEqual(noTotal.records[0].cost, 350);                        // total worked out from the price
+  const gas = W.parseFuelText('Bill End Date,Bill Start Date,Usage (CCF),Charges\n02/10/2026,01/12/2026,64,$98.50', 'gas'); assert.deepStrictEqual([gas.records[0].date, gas.records[0].days, gas.records[0].unit, gas.records[0].qty, gas.records[0].cost], ['2026-02-10', 29, 'ccf', 64, 98.5]);
+  const txt = W.parseFuelText('Ferrellgas delivery 01/12/2025 152.3 gallons $3.36/gal total $511.60\nDelivery on Oct 5, 2025 - 120 gal - $402.00\nnothing here but words about a bill', 'propane');
+  assert.deepStrictEqual(txt.records.map((x) => [x.date, x.qty, x.cost]), [['2025-01-12', 152.3, 511.6], ['2025-10-05', 120, 402]]); assert.strictEqual(txt.skipped, 0);
+  assert.strictEqual(W.parseFuelText('hello world', 'propane').ok, false); assert.strictEqual(W.parseFuelText('', 'propane').ok, false);
+  let n = 0; const m1 = W.fuelMerge([], r.records, () => 'i' + (++n)); assert.strictEqual(m1.added, 2);
+  const m2 = W.fuelMerge(m1.records, r.records.concat([{ fuel: 'propane', date: '2024-12-01', qty: 90, unit: 'gal', cost: 300 }]), () => 'i' + (++n)); assert.deepStrictEqual([m2.added, m2.dups, m2.records[0].date], [1, 2, '2024-12-01']);
+});
+
+test('weather and energy settings are cleaned for backups', () => {
+  const F = fuelWorld(); const W = new Function(srcBlock('/*FUEL-START*/', '/*FUEL-END*/') + '\nreturn {cleanWeather};')();
+  assert.strictEqual(W.cleanWeather(null), null); assert.strictEqual(W.cleanWeather({ lat: 'x', lon: 1 }), null); assert.strictEqual(W.cleanWeather({ place: 'x' }), null);
+  const w = W.cleanWeather({ place: 'Troy <b>NY', lat: 42.7312345, lon: -73.69, fetched: '2026-10-15', months: { '2026-01': { hdd: 1200, cdd: 0, avgF: 22.44, days: 31 }, '2026-02': { hdd: -5, cdd: 0, avgF: 30, days: 28 }, bad: { hdd: 1 }, '2026-03': { hdd: 900, cdd: 0, avgF: 'x', days: 31 } } });
+  assert.deepStrictEqual(w, { place: 'Troy bNY', lat: 42.7312, lon: -73.69, fetched: '2026-10-15', months: { '2026-01': { hdd: 1200, cdd: 0, avgF: 22.4, days: 31 } } });
+});

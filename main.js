@@ -7,6 +7,7 @@ const { createAI } = require('./ai');
 const { parsePdf, maskText } = require('./statement');
 const { createMarket, SYMBOL } = require('./market');
 const { createFundamentals } = require('./fundamentals');
+const { createWeather } = require('./weather');
 const { createWidget } = require('./widget');
 const glassLib = require('./glass');
 const { createUpdater } = require('./updater');
@@ -301,6 +302,15 @@ function wireIpc() {
   handle('ai:creditShot', (r) => ai.creditShot(r));
   handle('ai:receipt', (r) => ai.receipt(r));
   handle('ai:assetValue', (r) => ai.assetValue(r));
+  handle('ai:energy', (textId, fuel) => {
+    const text = statementText.get(String(textId));
+    if (!text) throw new Error('That file is no longer in memory. Choose it again.');
+    return ai.energyFromText(text, fuel);
+  });
+  handle('ai:energyAdvice', (summary) => ai.energyAdvice(summary));
+  const weatherSvc = createWeather();
+  handle('weather:search', (q) => weatherSvc.search(q));
+  handle('weather:months', (r) => weatherSvc.months(r));
   handle('ai:statementPdf', (textId, type) => {
     const buf = statementBytes.get(String(textId));
     if (!buf) throw new Error('That statement is no longer in memory. Choose the file again.');

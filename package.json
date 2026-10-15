@@ -25,6 +25,7 @@
       "plaid.js",
       "package.json",
       "ai.js",
+      "weather.js",
       "statement.js",
       "market.js",
       "widget.js",

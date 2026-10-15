@@ -10,6 +10,10 @@ contextBridge.exposeInMainWorld('tally', {
   theme: {
     mode: inv('theme:mode'),
   },
+  weather: {
+    search: inv('weather:search'),
+    months: inv('weather:months'),
+  },
   phone: {
     start: inv('phone:start'),
     stop: inv('phone:stop'),
@@ -68,6 +72,8 @@ contextBridge.exposeInMainWorld('tally', {
     creditShot: inv('ai:creditShot'),
     receipt: inv('ai:receipt'),
     assetValue: inv('ai:assetValue'),
+    energy: inv('ai:energy'),
+    energyAdvice: inv('ai:energyAdvice'),
     test: inv('ai:test'),
     categorize: inv('ai:categorize'),
     loans: inv('ai:loans'),

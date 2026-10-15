@@ -486,7 +486,7 @@ try{var _lk=JSON.parse(localStorage.getItem('tally-lock-v1')||'{}');if(_lk&&_lk.
 function load(){try{if(localStorage.getItem('tally-vault-v1')){VLT.on=true;VLT.locked=true;S=sample();migrate();syncCats();return}}catch(e){}try{var j=localStorage.getItem('tally-money-v1');if(j){S=JSON.parse(j);migrate();syncCats();undoInit();return}}catch(e){}S=sample();migrate();syncCats();undoInit()}
 function defCredit(){return {scores:[],profile:{late:'unknown',inq:'unknown',oldest:'',derog:'unknown'}}}
 function syncXfer(){setXferContext(S.accounts.filter(function(a){return a.type==='credit'}).map(function(a){return a.id}),S.xferLearn)}
-function migrate(){if(!S.xferLearn||typeof S.xferLearn!=='object'||Array.isArray(S.xferLearn))S.xferLearn={};S.hideWords=cleanHideWords(S.hideWords);if(!Array.isArray(S.imports))S.imports=[];if(!S.payLinks||typeof S.payLinks!=='object'||Array.isArray(S.payLinks))S.payLinks={};if(!S.apple||typeof S.apple!=='object'||Array.isArray(S.apple))S.apple={};if(!S.billIgnore||typeof S.billIgnore!=='object'||Array.isArray(S.billIgnore))S.billIgnore={};if(S.cardPay!=='skip'&&S.cardPay!=='count')S.cardPay='auto';if(!S.home||typeof S.home!=='object'||Array.isArray(S.home))S.home={};if(!(S.debtMonthly>=0))S.debtMonthly=0;if(!Array.isArray(S.customCats))S.customCats=[];if(!Array.isArray(S.setAside))S.setAside=[];if(!S.merchantCats||typeof S.merchantCats!=='object'||Array.isArray(S.merchantCats))S.merchantCats={};if(!Array.isArray(S.energy))S.energy=[];if(!Array.isArray(S.bills))S.bills=[];if(!S.billMarks||typeof S.billMarks!=='object'||Array.isArray(S.billMarks))S.billMarks={};if(!S.subCats||typeof S.subCats!=='object'||Array.isArray(S.subCats))S.subCats={};if(!S.merchantSubs||typeof S.merchantSubs!=='object'||Array.isArray(S.merchantSubs))S.merchantSubs={};if(!Array.isArray(S.holdings))S.holdings=S.sample?sampleHoldings():[];if(!S.credit||!Array.isArray(S.credit.scores))S.credit=S.sample?sampleCredit():defCredit();if(!Array.isArray(S.plaidIgnored))S.plaidIgnored=[];if(!Array.isArray(S.accounts))S.accounts=S.sample?sampleAccounts():[];if(typeof S.extraPay!=='number')S.extraPay=S.sample?100:0}
+function migrate(){if(!Array.isArray(S.fuel))S.fuel=[];S.fuel=cleanFuel(S.fuel,uid);if(!S.energyCfg||typeof S.energyCfg!=='object'||Array.isArray(S.energyCfg))S.energyCfg={};if(S.weather&&!cleanWeather(S.weather))delete S.weather;if(!S.weather)S.weather={};if(!S.xferLearn||typeof S.xferLearn!=='object'||Array.isArray(S.xferLearn))S.xferLearn={};S.hideWords=cleanHideWords(S.hideWords);if(!Array.isArray(S.imports))S.imports=[];if(!S.payLinks||typeof S.payLinks!=='object'||Array.isArray(S.payLinks))S.payLinks={};if(!S.apple||typeof S.apple!=='object'||Array.isArray(S.apple))S.apple={};if(!S.billIgnore||typeof S.billIgnore!=='object'||Array.isArray(S.billIgnore))S.billIgnore={};if(S.cardPay!=='skip'&&S.cardPay!=='count')S.cardPay='auto';if(!S.home||typeof S.home!=='object'||Array.isArray(S.home))S.home={};if(!(S.debtMonthly>=0))S.debtMonthly=0;if(!Array.isArray(S.customCats))S.customCats=[];if(!Array.isArray(S.setAside))S.setAside=[];if(!S.merchantCats||typeof S.merchantCats!=='object'||Array.isArray(S.merchantCats))S.merchantCats={};if(!Array.isArray(S.energy))S.energy=[];if(!Array.isArray(S.bills))S.bills=[];if(!S.billMarks||typeof S.billMarks!=='object'||Array.isArray(S.billMarks))S.billMarks={};if(!S.subCats||typeof S.subCats!=='object'||Array.isArray(S.subCats))S.subCats={};if(!S.merchantSubs||typeof S.merchantSubs!=='object'||Array.isArray(S.merchantSubs))S.merchantSubs={};if(!Array.isArray(S.holdings))S.holdings=S.sample?sampleHoldings():[];if(!S.credit||!Array.isArray(S.credit.scores))S.credit=S.sample?sampleCredit():defCredit();if(!Array.isArray(S.plaidIgnored))S.plaidIgnored=[];if(!Array.isArray(S.accounts))S.accounts=S.sample?sampleAccounts():[];if(typeof S.extraPay!=='number')S.extraPay=S.sample?100:0}
 function ledger(){return ledgerOf(S.txns,S.cardPay)}
 function billCatOf(n){var c=guessCat(n);return {cat:c,sub:c==='Other'?'':(guessSub(c,n)||'')}}
 var showHidden=false;
@@ -564,6 +564,7 @@ var ICON={
  assist:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>',
  dash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18a8 8 0 1 1 16 0"/><path d="M12 18l4-6"/><circle cx="12" cy="18" r="1.2"/></svg>',
  assets:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 16V11l2-5h10l2 5v5"/><path d="M3 16h18v3H3z"/><path d="M8 12h8"/><circle cx="7.5" cy="19" r="1"/><circle cx="16.5" cy="19" r="1"/></svg>',
+ energy:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>',
  bills:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg>',
  carloan:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 16V11l2-5h10l2 5v5"/><path d="M3 16h18v3H3z"/><circle cx="7.5" cy="19" r="1.2"/><circle cx="16.5" cy="19" r="1.2"/><path d="M5 11h14"/></svg>',
  student:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m2 9 10-5 10 5-10 5z"/><path d="M6 11v5c0 1.5 3 3 6 3s6-1.5 6-3v-5"/><path d="M22 9v6"/></svg>',
@@ -578,7 +579,7 @@ var ICON={
  budgets:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v9h9"/><path d="M20.5 15A9 9 0 1 1 9 3.5"/></svg>',
  transactions:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h13M13 3l4 4-4 4M20 17H7M11 13l-4 4 4 4"/></svg>',
  goals:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg>'};
-var TABS=[['overview','Overview'],['dash','Dashboard','Live'],['accounts','Accounts'],['assets','Assets'],['subscriptions','Subscriptions','Subs'],['bills','Bills','Bills'],['budgets','Budgets'],['report','Monthly report','Report'],['afford','Can I afford it?','Afford'],['credit','Credit score','Score'],['invest','Investments','Invest'],['transactions','Transactions','Activity'],['goals','Goals'],['loans','Loans'],['mortgage','Mortgage','Home'],['assist','Assistant','Chat'],['look','Settings','Settings']];
+var TABS=[['overview','Overview'],['dash','Dashboard','Live'],['accounts','Accounts'],['assets','Assets'],['subscriptions','Subscriptions','Subs'],['bills','Bills','Bills'],['energy','Energy'],['budgets','Budgets'],['report','Monthly report','Report'],['afford','Can I afford it?','Afford'],['credit','Credit score','Score'],['invest','Investments','Invest'],['transactions','Transactions','Activity'],['goals','Goals'],['loans','Loans'],['mortgage','Mortgage','Home'],['assist','Assistant','Chat'],['look','Settings','Settings']];
 function nav(){
   function items(short){return TABS.map(function(t){return '<button class="nav" data-view="'+t[0]+'"'+(view===t[0]?' aria-current="page"':'')+'>'+ICON[t[0]]+'<span>'+(short&&t[2]||t[1])+'</span></button>'}).join('')}
   var h=items(false);
@@ -600,7 +601,7 @@ function refreshAll(){
 }
 function render(){
   syncXfer();nav();
-  var f={bills:vBills,loans:vLoansHub,mortgage:vMortgage,carloan:function(){loanFilter='auto';return vLoansHub()},student:function(){loanFilter='student';return vLoansHub()},look:vLook,overview:vOverview,dash:vDash,assist:vAssist,accounts:vAccounts,assets:vAssets,afford:vAfford,credit:vCredit,invest:vInvest,report:vReport,subscriptions:vSubs,budgets:vBudgets,transactions:vTx,goals:vGoals}[view];
+  var f={energy:vEnergy,bills:vBills,loans:vLoansHub,mortgage:vMortgage,carloan:function(){loanFilter='auto';return vLoansHub()},student:function(){loanFilter='student';return vLoansHub()},look:vLook,overview:vOverview,dash:vDash,assist:vAssist,accounts:vAccounts,assets:vAssets,afford:vAfford,credit:vCredit,invest:vInvest,report:vReport,subscriptions:vSubs,budgets:vBudgets,transactions:vTx,goals:vGoals}[view];
   var cb=HOSTED&&AUTH.conflict?'<div class="banner" id="conflict"><span><b>This account changed on another device.</b> Choose which version to keep.</span><span style="flex:0 0 auto;display:flex;gap:8px"><button class="btn small" data-act="cf-remote">Use the other version</button><button class="btn small primary" data-act="cf-local">Keep this device\'s version</button></span></div>':'';
   var banner=cb+updBanner()+(S.sample?'<div class="banner"><span><b>Example data.</b> These accounts and transactions are made up so you can try everything. Clear them to start with your own, or import a CSV from your bank.</span><button class="btn primary small" data-act="clear">Start fresh</button></div>':'');
   var body=f();
@@ -783,7 +784,7 @@ function vDash(){
   var bills='<section class="panel"><h2>Bills<small>'+monthLabel(mk)+'</small></h2>'+(bs.rows.length?bs.rows.slice(0,7).map(function(r){return '<div class="row">'+logo(billName(r.item.name))+'<div class="grow"><div class="nm">'+esc(billName(r.item.name))+'</div></div>'+billPill(r.st)+'<div class="amt num">'+money0(r.item.amount)+'</div></div>'}).join(''):'<div class="empty">Add your bills on the Bills tab.</div>')+'</section>';
   var debts='<section class="panel"><h2>Loan payoff</h2>'+(loans.length?loans.map(function(l){var a=amortize(l.balance,l.apr,l.minPay),pct=l.origBalance>0?Math.max(0,Math.min(100,(1-l.balance/l.origBalance)*100)):null;
     return '<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;gap:8px"><b>'+esc(l.name)+'</b><span class="num">'+money0(l.balance)+'</span></div><div class="sub">'+l.apr+'% · '+money0(l.minPay)+'/mo · '+(a.ok&&a.months?'paid off '+monthYear(addMonths(TODAY,a.months)):a.ok?'paid off':'check the payment')+'</div>'+(pct!==null?'<div class="bar" style="margin-top:6px"><i style="width:'+pct.toFixed(0)+'%"></i></div>':'')+'</div>'}).join(''):'<div class="empty">Add a loan on the Car loan or Student loans tab.</div>')+'</section>';
-  var ser=energySeries(S.energy),l12=ser.slice(-12),en='<section class="panel"><h2>Electricity'+(ser.length?'<small>'+monthTitle(ser[ser.length-1].month)+': '+(ser[ser.length-1].cost!==null?money0(ser[ser.length-1].cost)+' · ':'')+Math.round(ser[ser.length-1].kwh)+' kWh</small>':'')+'</h2>'+(ser.length?barChart(l12.map(function(r){return r.kwh}),l12.map(function(r){return new Date(+r.month.slice(0,4),+r.month.slice(5)-1,1).toLocaleDateString('en-US',{month:'short'})}),{label:'Electricity used per month',fmt:function(v){return Math.round(v)}}):'<div class="empty">Import your Eversource usage on the Bills tab.</div>')+'</section>';
+  var ser=energySeries(S.energy),l12=ser.slice(-12),en='<section class="panel"><h2>Electricity'+(ser.length?'<small>'+monthTitle(ser[ser.length-1].month)+': '+(ser[ser.length-1].cost!==null?money0(ser[ser.length-1].cost)+' · ':'')+Math.round(ser[ser.length-1].kwh)+' kWh</small>':'')+'</h2>'+(ser.length?barChart(l12.map(function(r){return r.kwh}),l12.map(function(r){return new Date(+r.month.slice(0,4),+r.month.slice(5)-1,1).toLocaleDateString('en-US',{month:'short'})}),{label:'Electricity used per month',fmt:function(v){return Math.round(v)}}):'<div class="empty">Import your usage on the Energy tab.</div>')+'</section>';
   var goals='<section class="panel"><h2>Goals</h2>'+(S.goals.length?S.goals.slice(0,5).map(function(g){var p=Math.min(100,g.saved/g.target*100);return '<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;gap:8px"><b>'+esc(g.name)+'</b><span class="num muted">'+money0(g.saved)+' of '+money0(g.target)+'</span></div><div class="bar" style="margin-top:6px"><i style="width:'+p.toFixed(0)+'%"></i></div></div>'}).join(''):'<div class="empty">No goals yet.</div>')+'</section>';
   var canSync=!!(T&&PL&&PL.items&&Object.keys(PL.items).length);
   var head='<div class="top"><h1>Dashboard</h1><div class="actions"><span class="pill good" title="This page updates itself">&#9679; Live</span><span class="sub muted" id="dashclock">Updated '+dashTime()+'</span>'+
@@ -1474,6 +1475,280 @@ function rangeDates(r,today){
   return {from:'',to:''};
 }
 /*TXFILTER-END*/
+/*FUEL-START*/
+// Heating fuel (propane, oil, natural gas, wood) records, how much was used in each month, what the weather explains, and what it costs per unit of heat.
+var FUELS={
+  propane:{label:'Propane',unit:'gal',units:['gal'],btu:91500,eff:0.85,delivered:true},
+  oil:{label:'Heating oil',unit:'gal',units:['gal'],btu:138500,eff:0.83,delivered:true},
+  gas:{label:'Natural gas',unit:'therm',units:['therm','ccf','mcf'],btu:100000,eff:0.9,delivered:false},
+  wood:{label:'Wood',unit:'cord',units:['cord'],btu:20000000,eff:0.6,delivered:true}};
+var GAS_TO_THERMS={therm:1,ccf:1.037,mcf:10.37};
+function fqDate(s){var m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s||''));return m?Date.UTC(+m[1],+m[2]-1,+m[3]):null}
+function fqIso(ms){var d=new Date(ms);return d.getUTCFullYear()+'-'+('0'+(d.getUTCMonth()+1)).slice(-2)+'-'+('0'+d.getUTCDate()).slice(-2)}
+function fuelQty(r){return r.fuel==='gas'?r.qty*(GAS_TO_THERMS[r.unit]||1):r.qty}
+function fuelUnitLabel(r){return r.fuel==='gas'?'therms':FUELS[r.fuel].unit==='gal'?'gal':FUELS[r.fuel].unit}
+function cleanFuel(raw,newId){
+  return (Array.isArray(raw)?raw:[]).slice(0,600).map(function(r){
+    if(!r||!FUELS[r.fuel]||fqDate(r.date)===null)return null;
+    var q=Math.round((+r.qty||0)*100)/100,c=Math.round((+r.cost||0)*100)/100,d=Math.round(+r.days||0);
+    if(!(q>=0&&q<=1e6)||!(c>=0&&c<=1e6))return null;
+    var u=FUELS[r.fuel].units.indexOf(r.unit)>-1?r.unit:FUELS[r.fuel].unit;
+    var o={id:/^[\w-]{1,40}$/.test(r.id||'')?r.id:newId(),fuel:r.fuel,date:r.date,days:d>0&&d<=400?d:0,qty:q,unit:u,cost:c};
+    var n=String(r.note||'').replace(/[<>"]/g,'').replace(/\s+/g,' ').trim().slice(0,80);if(n)o.note=n;
+    if(/^[\w-]{1,40}$/.test(r.tx||''))o.tx=r.tx;
+    return o;
+  }).filter(Boolean);
+}
+function cleanWeather(raw){
+  var o={place:'',lat:0,lon:0,fetched:'',months:{}};if(!raw||typeof raw!=='object')return null;
+  var lat=+raw.lat,lon=+raw.lon;if(!isFinite(lat)||!isFinite(lon)||Math.abs(lat)>90||Math.abs(lon)>180||raw.lat===undefined)return null;
+  o.lat=Math.round(lat*1e4)/1e4;o.lon=Math.round(lon*1e4)/1e4;o.place=String(raw.place||'').replace(/[<>"]/g,'').slice(0,80);
+  if(/^\d{4}-\d{2}-\d{2}$/.test(raw.fetched||''))o.fetched=raw.fetched;
+  var ks=raw.months&&typeof raw.months==='object'?Object.keys(raw.months).filter(function(k){return /^\d{4}-\d{2}$/.test(k)}).sort().slice(-240):[];
+  ks.forEach(function(k){var m=raw.months[k],h=+m.hdd,c=+m.cdd,a=+m.avgF,d=Math.round(+m.days);if(h>=0&&h<=2000&&c>=0&&c<=2000&&isFinite(a)&&d>=1&&d<=31)o.months[k]={hdd:Math.round(h),cdd:Math.round(c),avgF:Math.round(a*10)/10,days:d}});
+  return o;
+}
+// Spread each period's quantity and cost over its days, then add the days up per month. Natural gas bills cover the days before their date.
+// Deliveries (propane, oil, wood) refill what was used since the last fill, so each delivery is attributed to the days between the previous delivery and itself.
+function fuelPeriods(records,fuel){
+  var rs=(records||[]).filter(function(r){return r.fuel===fuel&&fqDate(r.date)!==null}).sort(function(a,b){return a.date<b.date?-1:a.date>b.date?1:0}),out=[],i;
+  if(FUELS[fuel].delivered){
+    var merged=[];   // two fills within 10 days are one top-up spread over the period before them, not a day of enormous use
+    rs.forEach(function(r){var p=merged[merged.length-1];if(p&&r.qty>0&&p.qty>0&&(fqDate(r.date)-fqDate(p.date))/864e5<10)merged[merged.length-1]={id:r.id,fuel:r.fuel,date:r.date,qty:p.qty+r.qty,unit:r.unit,cost:p.cost+r.cost};else merged.push(r)});
+    rs=merged;
+    for(i=1;i<rs.length;i++){var span=Math.round((fqDate(rs[i].date)-fqDate(rs[i-1].date))/864e5);if(span>=1&&span<=800&&rs[i].qty>0)out.push({from:fqDate(rs[i-1].date)+864e5,to:fqDate(rs[i].date),days:span,qty:fuelQty(rs[i]),cost:rs[i].cost,rec:rs[i]})}
+  }else{
+    rs.forEach(function(r){if(!(r.qty>0))return;var d=r.days>0?r.days:30;out.push({from:fqDate(r.date)-(d-1)*864e5,to:fqDate(r.date),days:d,qty:fuelQty(r),cost:r.cost,rec:r})});
+  }
+  return out;
+}
+function fuelMonths(records,fuel){
+  var by={};
+  fuelPeriods(records,fuel).forEach(function(p){
+    for(var t=p.from;t<=p.to;t+=864e5){var k=fqIso(t).slice(0,7),m=by[k]||(by[k]={month:k,qty:0,cost:0,days:0});m.qty+=p.qty/p.days;m.cost+=p.cost/p.days;m.days++}
+  });
+  return Object.keys(by).sort().map(function(k){var m=by[k];return {month:k,qty:m.qty,cost:m.cost,days:m.days,perDay:m.qty/m.days,price:m.qty>0&&m.cost>0?m.cost/m.qty:null}});
+}
+// What you paid and when (by payment date), for budgeting.
+function fuelSpend(records,fuel){
+  var by={};
+  (records||[]).forEach(function(r){if(r.fuel!==fuel||!(r.cost>0)||fqDate(r.date)===null)return;var k=r.date.slice(0,7);by[k]=(by[k]||0)+r.cost});
+  return Object.keys(by).sort().map(function(k){return {month:k,cost:by[k]}});
+}
+function fuelPrices(records,fuel){
+  return (records||[]).filter(function(r){return r.fuel===fuel&&r.qty>0&&r.cost>0&&fqDate(r.date)!==null}).sort(function(a,b){return a.date<b.date?-1:1}).map(function(r){return {date:r.date,price:r.cost/fuelQty(r),qty:fuelQty(r),cost:r.cost}});
+}
+// Ordinary least squares with a small number of columns (an intercept is added): [[x1,x2],...], [y,...] -> {coef:[a,b,c], r2, n} or null.
+function leastSquares(X,y){
+  var n=y.length,k=(X[0]||[]).length+1,A=[],i,j,l;
+  if(n<k+2)return null;
+  for(i=0;i<k;i++){A.push([]);for(j=0;j<=k;j++)A[i].push(0)}
+  for(l=0;l<n;l++){var row=[1].concat(X[l]);for(i=0;i<k;i++){for(j=0;j<k;j++)A[i][j]+=row[i]*row[j];A[i][k]+=row[i]*y[l]}}
+  for(i=0;i<k;i++){
+    var p=i;for(j=i+1;j<k;j++)if(Math.abs(A[j][i])>Math.abs(A[p][i]))p=j;
+    if(Math.abs(A[p][i])<1e-9)return null;
+    var tmp=A[i];A[i]=A[p];A[p]=tmp;
+    for(j=i+1;j<k;j++){var f=A[j][i]/A[i][i];for(l=i;l<=k;l++)A[j][l]-=f*A[i][l]}
+  }
+  var c=[];for(i=k-1;i>=0;i--){var s=A[i][k];for(j=i+1;j<k;j++)s-=A[i][j]*c[j];c[i]=s/A[i][i]}
+  var mean=y.reduce(function(a,b){return a+b},0)/n,ssT=0,ssR=0;
+  for(l=0;l<n;l++){var pr=c[0];for(j=1;j<k;j++)pr+=c[j]*X[l][j-1];ssT+=(y[l]-mean)*(y[l]-mean);ssR+=(y[l]-pr)*(y[l]-pr)}
+  return {coef:c,r2:ssT>0?1-ssR/ssT:0,n:n};
+}
+// How usage per day follows the weather. rows: [{month, perDay}], weather: {month:{hdd,cdd,days}}. cooling: also use cooling degree days (electricity).
+// base = use with no heating or cooling needed; perHdd = extra use per heating degree day; reliable only when the fit is decent and the slopes make sense.
+function weatherModel(rows,weather,cooling){
+  var pts=[];
+  (rows||[]).forEach(function(r){var w=weather&&weather[r.month];if(!w||!(w.days>=20)||!(r.perDay>=0))return;pts.push({month:r.month,y:r.perDay,h:w.hdd/w.days,c:w.cdd/w.days})});
+  if(pts.length<6)return null;
+  var hs=pts.map(function(p){return p.h}),spread=Math.max.apply(null,hs)-Math.min.apply(null,hs);
+  if(spread<1)return null;
+  var X=pts.map(function(p){return cooling?[p.h,p.c]:[p.h]}),fit=leastSquares(X,pts.map(function(p){return p.y}));
+  if(!fit)return null;
+  var m={base:Math.max(0,fit.coef[0]),perHdd:Math.max(0,fit.coef[1]),perCdd:cooling?Math.max(0,fit.coef[2]):0,r2:fit.r2,n:fit.n,points:pts,cooling:!!cooling};
+  m.reliable=fit.r2>=0.5&&fit.coef[1]>0;
+  return m;
+}
+function modelPredict(m,hddPerDay,cddPerDay){return m.base+m.perHdd*hddPerDay+m.perCdd*(cddPerDay||0)}
+// Average degree days per day for each calendar month (01..12) across the years of weather you have.
+function weatherNormals(weather){
+  var by={};
+  Object.keys(weather||{}).forEach(function(k){var w=weather[k];if(!(w.days>=20))return;var m=k.slice(5),g=by[m]||(by[m]={h:0,c:0,n:0});g.h+=w.hdd/w.days;g.c+=w.cdd/w.days;g.n++});
+  var out={};Object.keys(by).forEach(function(m){out[m]={hddPerDay:by[m].h/by[m].n,cddPerDay:by[m].c/by[m].n}});return out;
+}
+// A year ahead under normal weather: quantity and cost, from the weather model and your recent unit price.
+function projectYear(m,normals,price,fromMonth){
+  var out=[],y=+fromMonth.slice(0,4),mo=+fromMonth.slice(5),i,qty=0;
+  for(i=0;i<12;i++){
+    var mm=mo+i,yy=y+Math.floor((mm-1)/12),mon=((mm-1)%12)+1,key=('0'+mon).slice(-2),n=normals[key];
+    if(!n)return null;
+    var days=new Date(yy,mon,0).getDate(),perDay=modelPredict(m,n.hddPerDay,n.cddPerDay),q=perDay*days;
+    out.push({month:yy+'-'+key,qty:q,cost:price>0?q*price:null});qty+=q;
+  }
+  return {months:out,qty:qty,cost:price>0?qty*price:null};
+}
+// Dollars per million BTU of heat actually delivered into the house.
+function heatCosts(o){
+  var out=[],cop=o.cop>0?o.cop:2.5,add=function(id,label,price,btuPerUnit,eff,note){if(price>0)out.push({id:id,label:label,perMMBtu:price/(btuPerUnit*eff/1e6),note:note||''})};
+  add('propane','Propane',o.propane,FUELS.propane.btu,FUELS.propane.eff);
+  add('oil','Heating oil',o.oil,FUELS.oil.btu,FUELS.oil.eff);
+  add('gas','Natural gas',o.gas,FUELS.gas.btu,FUELS.gas.eff);
+  add('resist','Electric baseboard',o.kwh,3412,1,'every kWh becomes heat');
+  add('heatpump','Heat pump',o.kwh,3412,cop,'assumes '+cop.toFixed(1)+' units of heat per unit of electricity; cold winters lower it');
+  return out.sort(function(a,b){return a.perMMBtu-b.perMMBtu});
+}
+function seasonOf(month){var m=parseInt(String(month).slice(5,7),10);return m>=11||m<=3?'winter':m>=6&&m<=9?'summer':'shoulder'}
+
+// Walks forward day by day from the last fill, using the weather model and normal weather (else the recent daily rate), until a usual fill has been used.
+function nextFillDate(model,normals,last,avgFill){
+  var t=fqDate(last.date),used=0,i,useWeather=model&&model.reliable&&Object.keys(normals||{}).length>=12;
+  for(i=1;i<=420;i++){
+    var d=t+i*864e5,n=useWeather?normals[fqIso(d).slice(5,7)]:null;
+    used+=n?modelPredict(model,n.hddPerDay,n.cddPerDay):last.perDay;
+    if(used>=avgFill)return fqIso(d);
+  }
+  return null;
+}
+function annualOf(rows){
+  var d=0,q=0,c=0;rows.forEach(function(r){d+=r.days;q+=r.qty;c+=r.cost});
+  return d>=60?{qty:q*365/d,cost:c*365/d,days:d,price:q>0&&c>0?c/q:null}:null;
+}
+function fmtMoney0(v){return '$'+Math.round(v).toLocaleString('en-US')}
+function monthLabelLong(k){return new Date(+k.slice(0,4),+k.slice(5)-1,1).toLocaleDateString('en-US',{month:'long',year:'numeric'})}
+// Plain-language findings from your own numbers. c: {fuels:[{fuel,label,months,prices,model}], elec:{rows,model}|null, weather, normals, cop, kwhPrice, todayMonth}
+// Each item: {k:'good'|'warn'|'info', title, detail, saving: yearly dollars or null}. Estimates say so.
+function energyTips(c){
+  var out=[],weather=c.weather||{},normals=c.normals||{};
+  var annualHdd=0,nh=0;Object.keys(normals).forEach(function(m){annualHdd+=normals[m].hddPerDay*30.4;nh++});if(nh<12)annualHdd=0;
+  var prices={};
+  (c.fuels||[]).forEach(function(f){
+    var rows=f.months||[];if(rows.length<2)return;
+    var last12=rows.slice(-12),yr=annualOf(last12),u=FUELS[f.fuel].unit==='gal'?'gallons':FUELS[f.fuel].unit==='therm'?'therms':'cords';
+    if(!yr)return;
+    prices[f.fuel]=yr.price;
+    out.push({k:'info',title:'Last 12 months: about '+Math.round(yr.qty).toLocaleString('en-US')+' '+u+' of '+f.label.toLowerCase()+', '+fmtMoney0(yr.cost),detail:'That is about '+fmtMoney0(yr.cost/12)+' a month on average'+(yr.price?' at '+('$'+yr.price.toFixed(2))+' a '+(f.fuel==='gas'?'therm':FUELS[f.fuel].unit)+'.':'.'),saving:null});
+    var m=f.model;
+    if(m&&m.reliable){
+      var heat=annualHdd>0?Math.min(1,m.perHdd*annualHdd/yr.qty):null;
+      if(heat!==null&&yr.cost){
+        var heatCost=yr.cost*heat;
+        out.push({k:'info',title:Math.round(heat*100)+'% of your '+f.label.toLowerCase()+' use follows the weather',detail:'The weather explains '+Math.round(m.r2*100)+'% of the swings between your months. About '+m.base.toFixed(1)+' '+(f.fuel==='gas'?'therms':FUELS[f.fuel].unit)+' a day is use that does not depend on temperature (hot water, cooking, a dryer) and each extra degree day adds about '+m.perHdd.toFixed(2)+'.',saving:null});
+        out.push({k:'info',title:'Turning the thermostat down 1 degree for 8 hours a day saves roughly '+fmtMoney0(heatCost*0.01)+' a year',detail:'A common rule of thumb (US Department of Energy) is about 1% of heating cost per degree for each 8 hours. Your heating costs about '+fmtMoney0(heatCost)+' a year, so 7 to 10 degrees lower at night could save up to about '+fmtMoney0(heatCost*0.1)+'. This is an estimate, and it depends on how tight the house is.',saving:Math.round(heatCost*0.01)});
+      }
+      var recent=m.points.slice(-6).filter(function(p){var pred=modelPredict(m,p.h,p.c);return p.y>pred*1.25&&p.y-pred>0.3});
+      if(recent.length){var p=recent[recent.length-1],pr=modelPredict(m,p.h,p.c);out.push({k:'warn',title:monthLabelLong(p.month)+' used '+Math.round((p.y/pr-1)*100)+'% more '+f.label.toLowerCase()+' than the weather explains',detail:'Given how cold it was, your usual pattern predicts about '+pr.toFixed(1)+' a day and you used '+p.y.toFixed(1)+'. Things that cause this: a door or window left open, a new heat source, guests, a thermostat set higher, a leak or a delivery that was not a full fill.',saving:null})}
+    }
+    // prices
+    var pr=(f.prices||[]).slice(-12);
+    if(pr.length>=3){
+      var avg=pr.reduce(function(a,p){return a+p.price},0)/pr.length,latest=pr[pr.length-1],bySeason={};
+      pr.forEach(function(p){var s=seasonOf(p.date);(bySeason[s]=bySeason[s]||[]).push(p.price)});
+      var seas=Object.keys(bySeason).map(function(s){return {s:s,p:bySeason[s].reduce(function(a,b){return a+b},0)/bySeason[s].length,n:bySeason[s].length}}).sort(function(a,b){return a.p-b.p});
+      if(latest.price>avg*1.1)out.push({k:'warn',title:'Your latest '+f.label.toLowerCase()+' price, $'+latest.price.toFixed(2)+', is '+Math.round((latest.price/avg-1)*100)+'% above your recent average',detail:'Your average is $'+avg.toFixed(2)+'. Prices differ a lot between dealers: call two or three for a quote before the next fill, and ask about a price lock or a "will call" discount.',saving:Math.round(yr.qty*(latest.price-avg)*0.5)});
+      if(seas.length>1&&seas[0].p<seas[seas.length-1].p*0.92&&FUELS[f.fuel].delivered)out.push({k:'info',title:'You paid the least in '+seas[0].s+' ($'+seas[0].p.toFixed(2)+') and the most in '+seas[seas.length-1].s+' ($'+seas[seas.length-1].p.toFixed(2)+')',detail:'Filling the tank up in the cheaper season, if your tank can hold it, and enrolling in a price-cap or pre-buy plan can move part of your yearly '+f.label.toLowerCase()+' to the lower price. Moving half of it would save about '+fmtMoney0(yr.qty*0.5*(seas[seas.length-1].p-seas[0].p))+' (an estimate that assumes prices behave the same next year).',saving:Math.round(yr.qty*0.5*(seas[seas.length-1].p-seas[0].p))});
+    }
+    // last year compared, weather-adjusted
+    if(rows.length>=24){
+      var cur=rows.slice(-12),prev=rows.slice(-24,-12),wsum=function(rs){var h=0,d=0;rs.forEach(function(r){var w=weather[r.month];if(w&&w.days>=20){h+=w.hdd;d++}});return d===rs.length?h:null};
+      var qc=cur.reduce(function(a,r){return a+r.qty},0),qp=prev.reduce(function(a,r){return a+r.qty},0),hc=wsum(cur),hp=wsum(prev);
+      if(qp>0){
+        var chg=(qc/qp-1)*100,line=(chg>=0?'up ':'down ')+Math.abs(Math.round(chg))+'%';
+        var det='Compared with the 12 months before.';
+        if(hc!==null&&hp>0){var wch=(hc/hp-1)*100,adj=((qc/hc)/(qp/hp)-1)*100;det='The weather was '+Math.abs(Math.round(wch))+'% '+(wch>=0?'colder':'milder')+'. Per degree day you used '+Math.abs(Math.round(adj))+'% '+(adj>=0?'more':'less')+', which is the fairer way to judge the house.'}
+        out.push({k:chg>8?'warn':chg<-8?'good':'info',title:f.label+' use is '+line+' on the previous 12 months',detail:det,saving:null});
+      }
+    }
+    // next fill for delivered fuels
+    if(FUELS[f.fuel].delivered&&f.deliveries&&f.deliveries.length>=3){
+      var ds=f.deliveries,lastD=ds[ds.length-1],avgFill=ds.slice(-6).reduce(function(a,d){return a+d.qty},0)/Math.min(6,ds.length),nd=nextFillDate(f.model,normals,lastD,avgFill);
+      if(nd){var late=c.todayISO&&nd<c.todayISO;out.push({k:late?'warn':'info',title:late?'A '+f.label.toLowerCase()+' fill is probably due now':'Next '+f.label.toLowerCase()+' fill: around '+nd,detail:'Your last fill was on '+lastD.date+'. A usual fill of about '+Math.round(avgFill)+' '+(f.fuel==='gas'?'therms':FUELS[f.fuel].unit)+' lasts until about '+nd+(f.model&&f.model.reliable&&Object.keys(normals).length>=12?', following typical weather for each month.':' at your recent rate of '+lastD.perDay.toFixed(1)+' a day.')+' Check the tank gauge: this is an estimate, not a reading.',saving:null})}
+    }
+  });
+  // electricity
+  var el=c.elec;
+  if(el&&el.model&&el.model.reliable){
+    var em=el.model,eAnnual=annualOf(el.rows.slice(-12).map(function(r){return {days:r.days,qty:r.kwh,cost:r.cost||0}}));
+    if(eAnnual){
+      var heatKwh=annualHdd>0?em.perHdd*annualHdd:0,coolKwh=em.cooling&&nh>=12?em.perCdd*Object.keys(normals).reduce(function(a,m){return a+normals[m].cddPerDay*30.4},0):0;
+      out.push({k:'info',title:'Weather explains '+Math.round(em.r2*100)+'% of the swings in your electricity use',detail:'Your use with no heating or cooling needed is about '+em.base.toFixed(1)+' kWh a day'+(heatKwh>0?'. Heating adds roughly '+Math.round(heatKwh/eAnnual.qty*100)+'% of a year\'s kWh':'')+(coolKwh>0?(heatKwh>0?' and cooling about '+Math.round(coolKwh/eAnnual.qty*100)+'%':'. Cooling adds roughly '+Math.round(coolKwh/eAnnual.qty*100)+'% of a year\'s kWh'):'')+'.',saving:null});
+    }
+  }
+  // fuel against electricity heat pumps
+  var costs=heatCosts({propane:prices.propane,oil:prices.oil,gas:prices.gas,kwh:c.kwhPrice,cop:c.cop});
+  var heatPump=costs.filter(function(x){return x.id==='heatpump'})[0],main=null;
+  (c.fuels||[]).forEach(function(f){if(f.fuel!=='wood'&&f.model&&f.model.reliable&&prices[f.fuel]){var x=costs.filter(function(y){return y.id===f.fuel})[0];if(x&&(!main||(annualOf(f.months.slice(-12))||{qty:0}).qty*FUELS[f.fuel].btu>main.btu))main={x:x,fuel:f,btu:(annualOf(f.months.slice(-12))||{qty:0}).qty*FUELS[f.fuel].btu}}});
+  if(heatPump&&main&&annualHdd>0){
+    var y2=annualOf(main.fuel.months.slice(-12)),heatQty=y2.qty*Math.min(1,main.fuel.model.perHdd*annualHdd/y2.qty),mm=heatQty*FUELS[main.fuel.fuel].btu*FUELS[main.fuel.fuel].eff/1e6,diff=(main.x.perMMBtu-heatPump.perMMBtu)*mm;
+    if(diff>150)out.push({k:'info',title:'A heat pump could cut your heating cost by about '+fmtMoney0(diff)+' a year',detail:'Heat from '+main.fuel.label.toLowerCase()+' costs you about $'+main.x.perMMBtu.toFixed(0)+' per million BTU against about $'+heatPump.perMMBtu.toFixed(0)+' from a heat pump at your electricity price. This leaves out the equipment cost (often thousands of dollars before incentives), assumes '+(c.cop>0?c.cop:2.5).toFixed(1)+' units of heat per unit of electricity, and gets worse in very cold weather. Get a quote and ask about rebates before deciding.',saving:Math.round(diff)});
+    else if(diff<-150)out.push({k:'good',title:'Your '+main.fuel.label.toLowerCase()+' heat is cheaper than a heat pump at today\'s prices',detail:'About $'+main.x.perMMBtu.toFixed(0)+' per million BTU against about $'+heatPump.perMMBtu.toFixed(0)+' for a heat pump (assuming '+(c.cop>0?c.cop:2.5).toFixed(1)+' units of heat per unit of electricity).',saving:null});
+  }
+  return out.sort(function(a,b){return (b.saving||0)-(a.saving||0)});
+}
+/*FUEL-END*/
+/*FUELIMPORT-START*/
+// A propane, oil or gas history from your supplier: a CSV with a date and a quantity column, or lines of text such as "01/12/2025 152.3 gal $512.40".
+function ymdIso(o){return o.y+'-'+('0'+o.m).slice(-2)+'-'+('0'+o.d).slice(-2)}
+function parseFuelText(text,fuel){
+  var f=FUELS[fuel]?fuel:'propane',t=String(text||'').trim();
+  if(!t)return {ok:false,error:'The file is empty.'};
+  var recs=[],skipped=0,csv=parseFuelCsv(t,f);
+  if(csv.ok)return csv;
+  t.split(/\r?\n/).forEach(function(line){
+    var d=null,m,rx=[/\b(\d{4}-\d{2}-\d{2})\b/,/\b(\d{1,2}\/\d{1,2}\/\d{2,4})\b/,/\b((?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.? \d{1,2},? \d{4})\b/i],i;
+    for(i=0;i<rx.length&&!d;i++){m=rx[i].exec(line);if(m)d=dateOf(m[1])}
+    var q=/(\d[\d,]*\.?\d*)\s*(gal(?:lons?)?|therms?|ccf|mcf)\b/i.exec(line);
+    if(!d||!q){if(/\d/.test(line)&&line.trim().length>8)skipped++;return}
+    var unit=/^g/i.test(q[2])?'gal':/^t/i.test(q[2])?'therm':q[2].toLowerCase(),costs=[],re=/\$\s*([\d,]+(?:\.\d+)?)/g,mm;
+    while((mm=re.exec(line)))costs.push(numOf(mm[1]));
+    var cost=costs.length?Math.max.apply(null,costs):0,qty=numOf(q[1]);
+    if(qty===null||!(qty>0))return;
+    if(costs.length>1&&Math.min.apply(null,costs)<20&&qty>20)cost=Math.max.apply(null,costs);
+    var u=FUELS[f].units.indexOf(unit)>-1?unit:FUELS[f].unit;
+    recs.push({fuel:f,date:ymdIso(d),days:0,qty:qty,unit:u,cost:cost>0?cost:0});
+  });
+  return recs.length?{ok:true,records:recs,skipped:skipped,format:'text'}:{ok:false,error:'I could not find lines with a date and a quantity (for example "01/12/2025 152.3 gal $512.40"). A PDF can be read by Claude instead if you have an API key.'};
+}
+function parseFuelCsv(text,fuel){
+  var rows=splitCsv(text),hi=-1,i;
+  for(i=0;i<rows.length&&i<30;i++){var r=rows[i].map(function(c){return c.toLowerCase()});if(r.some(function(c){return /date|delivered|ship|period|bill|from|start|end/.test(c)})&&r.some(function(c){return /gallon|gal\b|therm|ccf|mcf|quantity|qty|usage|volume|units/.test(c)})){hi=i;break}}
+  if(hi<0)return {ok:false};
+  var h=rows[hi].map(function(c){return c.trim().toLowerCase()}),col={};
+  h.forEach(function(c,j){
+    if(col.qty===undefined&&/gallon|gal\b|therm|ccf|mcf|quantity|qty|usage|volume|units/.test(c)&&!/price|rate|cost|\$|amount/.test(c))col.qty=j;
+    else if(col.price===undefined&&/price|rate|per (gal|therm|unit)|\/gal/.test(c))col.price=j;
+    else if(col.cost===undefined&&/total|amount|cost|charge|\$|bill/.test(c)&&!/price|rate|qty|quantity|date|period|start|end|from|through/.test(c))col.cost=j;
+    if(col.end===undefined&&/(end|to|through)\b/.test(c)&&/date|period|to|end|through/.test(c)&&!/start|from|begin/.test(c)&&!/^date$/.test(c))col.end=j;
+    else if(col.start===undefined&&/(start|from|begin)/.test(c))col.start=j;
+    if(col.days===undefined&&/\bdays\b/.test(c))col.days=j;
+  });
+  h.forEach(function(c,j){if(col.date===undefined&&/date|delivered|ship/.test(c)&&j!==col.start&&j!==col.end)col.date=j});
+  var dj=col.end!==undefined?col.end:col.date!==undefined?col.date:col.start;
+  if(col.qty===undefined||dj===undefined)return {ok:false};
+  var unitText=h[col.qty],u0=/ccf/.test(unitText)?'ccf':/mcf/.test(unitText)?'mcf':/therm/.test(unitText)?'therm':/gal/.test(unitText)?'gal':FUELS[fuel].unit;
+  var unit=FUELS[fuel].units.indexOf(u0)>-1?u0:FUELS[fuel].unit,out=[],skipped=0;
+  rows.slice(hi+1).forEach(function(r){
+    var d=dateOf(r[dj]),q=numOf(r[col.qty]);
+    if(!d||q===null||!(q>0)){skipped++;return}
+    var cost=col.cost!==undefined?numOf(r[col.cost]):null,pr=col.price!==undefined?numOf(r[col.price]):null;
+    if(!(cost>0)&&pr>0)cost=Math.round(pr*q*100)/100;
+    var days=0;if(col.days!==undefined){var dd=numOf(r[col.days]);if(dd>0&&dd<=400)days=Math.round(dd)}
+    else if(col.start!==undefined&&col.end!==undefined){var st=dateOf(r[col.start]);if(st){var sp=dayDiffYmd(st,d);if(sp>=2&&sp<=400)days=sp}}
+    out.push({fuel:fuel,date:ymdIso(d),days:days,qty:q,unit:unit,cost:cost>0?cost:0});
+  });
+  return out.length?{ok:true,records:out,skipped:skipped,format:'csv'}:{ok:false};
+}
+// Add new records; one with the same fuel, date and quantity is the same delivery and is not added twice.
+function fuelMerge(existing,incoming,newId){
+  var out=(existing||[]).slice(),added=0,dups=0;
+  incoming.forEach(function(r){
+    var same=out.some(function(x){return x.fuel===r.fuel&&x.date===r.date&&Math.abs(x.qty-r.qty)<0.01});
+    if(same){dups++;return}
+    var o={id:newId(),fuel:r.fuel,date:r.date,days:r.days||0,qty:r.qty,unit:r.unit,cost:r.cost||0};if(r.note)o.note=r.note;out.push(o);added++;
+  });
+  out.sort(function(a,b){return a.date<b.date?-1:a.date>b.date?1:0});
+  return {records:out,added:added,dups:dups};
+}
+/*FUELIMPORT-END*/
 /*CASH-START*/
 // Cash and receipts: spending paid in cash, a wallet balance, and the checks that stop a receipt being counted twice.
 var ATM_RE=/\b(atm|cash withdrawal|withdrawal at|cash wd|cash out)\b/i;
@@ -3035,7 +3310,7 @@ function vBills(){
     '<div class="actions" style="justify-content:flex-start;margin-top:10px"><button class="btn small primary" data-act="bill-add">Add a bill</button></div>'+(billUI.adding?billForm(null):'')+
     '<p class="sub muted" style="margin:10px 0 0;font-size:12px">Car loans, student loans and credit cards appear here automatically once they have a minimum payment and a due day (set the due day on the loan or on the card in Accounts). A bill counts as paid when a payment with a matching name and a similar amount shows up in your transactions that month, or when you mark it.</p></section>';
   var sugg='';
-  return head+tiles+list+hiddenPanel()+sugg+energyPanel();
+  return head+tiles+list+sugg;
 }
 function hiddenPanel(){
   var words=S.hideWords||[],n=allBillItems(month).filter(function(it){return isHiddenName(it.name,words)}).length;
@@ -4582,6 +4857,199 @@ function asAiRun(id){
   var a=asById(id);if(!a||asUI.busy)return;asUI.busy=id;asUI.msg='';asUI.ai=null;render();
   tcall(T.ai.assetValue({kind:a.asset.kind,year:a.asset.year||'',make:a.asset.make||'',model:a.asset.model||'',trim:a.asset.trim||'',mileage:a.asset.meter||'',condition:'',today:iso(TODAY)})).then(function(r){asUI.busy='';asUI.ai={id:id,res:r};render()}).catch(function(e){asUI.busy='';asUI.msg=(e&&e.message)||'Could not get an estimate.';asUI.msgId=id;render()});
 }
+// ---------- Energy tab: electricity, heating fuel, weather and savings ----------
+var enUI={fuel:'propane',adding:false,imp:null,msg:'',busy:'',pasteOpen:false,txOpen:false,place:'',places:null,wmsg:'',wbusy:false,wtried:false,advice:null,adviceBusy:false,adviceMsg:''};
+var FUEL_COL={electric:'var(--accent)',propane:'var(--c6)',oil:'var(--c4)',gas:'var(--c2)',wood:'var(--c8)'};
+var FUEL_TX={propane:/propane|amerigas|ferrellgas|suburban propane|star gas|blue rhino|heritage propane/i,oil:/heating oil|fuel oil|oil delivery|kerosene|irving oil|crowley|petro|bottini|sun oil/i,gas:/national grid|eversource gas|nstar gas|columbia gas|natural gas|piedmont|atmos|spire|southwest gas|dominion energy|peoples gas|nicor|con ?ed gas|gas co\b/i,wood:/firewood|cord of wood|wood delivery|pellet/i};
+function enShortMonth(k){return new Date(+k.slice(0,4),+k.slice(5)-1,1).toLocaleDateString('en-US',{month:'short'})+(k.slice(5)==='01'?" '"+k.slice(2,4):'')}
+function enStack(months,series,o){
+  o=o||{};var n=months.length;if(!n)return '';
+  var W=520,H=200,pl=8,pr=8,pt=14,pb=26,tot=months.map(function(m,i){return series.reduce(function(a,s){return a+(s.vals[i]||0)},0)}),mx=Math.max.apply(null,tot.concat([1]))*1.1,step=(W-pl-pr)/n,bw=Math.min(30,step*0.66),out='',g,i;
+  for(g=0;g<3;g++){var gv=mx*g/2.2,gy=pt+(mx-gv)/mx*(H-pt-pb);out+='<line x1="0" x2="'+W+'" y1="'+gy+'" y2="'+gy+'" stroke="var(--line)"/><text x="2" y="'+(gy-3)+'" font-size="10">'+money0(gv)+'</text>'}
+  months.forEach(function(m,i){var x=pl+step*i+(step-bw)/2,y0=H-pb;series.forEach(function(s){var v=s.vals[i]||0,h=v/mx*(H-pt-pb);if(h>0.3){y0-=h;out+='<rect x="'+x+'" y="'+y0+'" width="'+bw+'" height="'+h+'" fill="'+s.col+'" opacity=".9"><title>'+esc(s.name+' '+enShortMonth(m)+': '+money0(v))+'</title></rect>'}});
+    if(n<=14||i%2===0)out+='<text x="'+(x+bw/2)+'" y="'+(H-9)+'" text-anchor="middle" font-size="10">'+esc(enShortMonth(m))+'</text>'});
+  var leg='<div class="sub" style="display:flex;gap:12px;flex-wrap:wrap;margin-top:4px">'+series.map(function(s){return '<span><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:'+s.col+';margin-right:5px"></span>'+esc(s.name)+'</span>'}).join('')+'</div>';
+  return '<svg viewBox="0 0 '+W+' '+H+'" width="100%" style="max-width:700px" role="img" aria-label="'+esc(o.label||'Energy cost by month')+'">'+out+'</svg>'+leg;
+}
+// bars = use per day, line = heating degree days per day (right-hand scale)
+function enUsageWeather(rows,o){
+  o=o||{};var n=rows.length;if(n<2)return '';
+  var W=520,H=210,pl=34,pr=34,pt=14,pb=26,mxB=Math.max.apply(null,rows.map(function(r){return r.v}).concat([0.01]))*1.15,mxL=Math.max.apply(null,rows.map(function(r){return r.h}).concat([1]))*1.1,step=(W-pl-pr)/n,bw=Math.min(28,step*0.62),out='',pts=[];
+  var yB=function(v){return pt+(mxB-v)/mxB*(H-pt-pb)},yL=function(v){return pt+(mxL-v)/mxL*(H-pt-pb)},g;
+  for(g=0;g<3;g++){var gy=pt+(H-pt-pb)*g/2.2;out+='<line x1="'+pl+'" x2="'+(W-pr)+'" y1="'+gy+'" y2="'+gy+'" stroke="var(--line)"/><text x="2" y="'+(gy+3)+'" font-size="10">'+(o.fmt?o.fmt(mxB*(1-g/2.2)):(mxB*(1-g/2.2)).toFixed(1))+'</text><text x="'+(W-2)+'" y="'+(gy+3)+'" text-anchor="end" font-size="10" style="fill:var(--warn)">'+Math.round(mxL*(1-g/2.2))+'</text>'}
+  rows.forEach(function(r,i){var x=pl+step*i+(step-bw)/2;out+='<rect class="growbar" style="animation-delay:'+(i*0.05)+'s" x="'+x+'" y="'+yB(r.v)+'" width="'+bw+'" height="'+(H-pb-yB(r.v))+'" rx="3" fill="'+(o.col||'var(--accent)')+'" opacity=".8"><title>'+esc(enShortMonth(r.m)+': '+(o.fmt?o.fmt(r.v):r.v.toFixed(1))+' a day, '+Math.round(r.h)+' degree days a day')+'</title></rect>';pts.push((x+bw/2)+','+yL(r.h));
+    if(n<=14||i%2===0)out+='<text x="'+(x+bw/2)+'" y="'+(H-9)+'" text-anchor="middle" font-size="10">'+esc(enShortMonth(r.m))+'</text>'});
+  out+='<polyline points="'+pts.join(' ')+'" fill="none" stroke="var(--warn)" stroke-width="2.2" stroke-linejoin="round"/>'+pts.map(function(p){var c=p.split(',');return '<circle cx="'+c[0]+'" cy="'+c[1]+'" r="3" fill="var(--warn)"/>'}).join('');
+  return '<svg viewBox="0 0 '+W+' '+H+'" width="100%" style="max-width:700px" role="img" aria-label="'+esc(o.label||'Use against weather')+'">'+out+'</svg><div class="sub" style="margin-top:4px"><span style="color:'+(o.col||'var(--accent)')+'">&#9632;</span> '+esc(o.legend||'use per day')+' &nbsp; <span style="color:var(--warn)">&#9679;</span> heating degree days per day (colder is higher)</div>';
+}
+function enScatter(model,o){
+  if(!model||!model.points||model.points.length<4)return '';
+  var W=420,H=230,pl=40,pr=10,pt=10,pb=30,pts=model.points,mxX=Math.max.apply(null,pts.map(function(p){return p.h}))*1.1+0.5,mxY=Math.max.apply(null,pts.map(function(p){return p.y}).concat([model.base+model.perHdd*mxX]))*1.15,out='';
+  var X=function(v){return pl+v/mxX*(W-pl-pr)},Y=function(v){return pt+(mxY-v)/mxY*(H-pt-pb)},g;
+  for(g=0;g<3;g++){var gy=pt+(H-pt-pb)*g/2.2;out+='<line x1="'+pl+'" x2="'+(W-pr)+'" y1="'+gy+'" y2="'+gy+'" stroke="var(--line)"/><text x="2" y="'+(gy+3)+'" font-size="10">'+(mxY*(1-g/2.2)).toFixed(1)+'</text>'}
+  out+='<line x1="'+X(0)+'" y1="'+Y(model.base)+'" x2="'+X(mxX)+'" y2="'+Y(model.base+model.perHdd*mxX)+'" stroke="var(--good)" stroke-width="2" stroke-dasharray="5 4"/>';
+  pts.forEach(function(p){out+='<circle cx="'+X(p.h)+'" cy="'+Y(p.y)+'" r="4.5" fill="var(--accent)" opacity=".85"><title>'+esc(enShortMonth(p.month)+': '+p.y.toFixed(1)+' a day at '+p.h.toFixed(1)+' degree days a day')+'</title></circle>'});
+  out+='<text x="'+(W/2)+'" y="'+(H-6)+'" text-anchor="middle" font-size="10">colder &rarr; (heating degree days per day)</text>';
+  return '<svg viewBox="0 0 '+W+' '+H+'" width="100%" style="max-width:520px" role="img" aria-label="'+esc(o&&o.label||'Use against temperature')+'">'+out+'</svg>';
+}
+function enYoY(rows,o){
+  // rows: [{month,v}] sorted; compares the latest 12 calendar months with the 12 before
+  var cur=rows.slice(-12),prev=rows.slice(-24,-12);if(cur.length<3||prev.length<3)return '';
+  var by={};prev.forEach(function(r){by[r.month.slice(5)]=r.v});
+  var W=520,H=190,pl=8,pr=8,pt=14,pb=24,n=cur.length,mx=Math.max.apply(null,cur.map(function(r){return r.v}).concat(prev.map(function(r){return r.v}),[0.01]))*1.15,step=(W-pl-pr)/n,bw=Math.min(14,step*0.34),out='';
+  var Y=function(v){return pt+(mx-v)/mx*(H-pt-pb)};
+  cur.forEach(function(r,i){var x=pl+step*i+step/2,p=by[r.month.slice(5)];
+    if(p!==undefined)out+='<rect x="'+(x-bw-1)+'" y="'+Y(p)+'" width="'+bw+'" height="'+(H-pb-Y(p))+'" rx="3" fill="var(--muted)" opacity=".55"><title>'+esc(enShortMonth(r.month)+' a year earlier: '+(o.fmt?o.fmt(p):p.toFixed(1)))+'</title></rect>';
+    out+='<rect x="'+(x+1)+'" y="'+Y(r.v)+'" width="'+bw+'" height="'+(H-pb-Y(r.v))+'" rx="3" fill="var(--accent)" opacity=".9"><title>'+esc(enShortMonth(r.month)+': '+(o.fmt?o.fmt(r.v):r.v.toFixed(1)))+'</title></rect><text x="'+x+'" y="'+(H-9)+'" text-anchor="middle" font-size="10">'+esc(enShortMonth(r.month))+'</text>'});
+  return '<svg viewBox="0 0 '+W+' '+H+'" width="100%" style="max-width:700px" role="img" aria-label="'+esc(o.label||'This year and last year')+'">'+out+'</svg><div class="sub" style="margin-top:4px"><span style="color:var(--accent)">&#9632;</span> latest 12 months &nbsp; <span style="color:var(--muted)">&#9632;</span> the same month a year earlier</div>';
+}
+function enPlace(){var w=S.weather||{};return w.lat!==undefined&&w.lon!==undefined?w:null}
+// Everything the Energy tab and its advice use, worked out once per render.
+function energyCtx(){
+  var W=(S.weather&&S.weather.months)||{},c={weather:W,normals:weatherNormals(W),fuels:[],elec:null},cop=S.energyCfg&&S.energyCfg.cop>0?S.energyCfg.cop:2.5;
+  c.cop=cop;
+  var er=energySeries(S.energy);
+  if(er.length){c.elec={rows:er,model:weatherModel(er.map(function(r){return {month:r.month,perDay:r.perDay}}),W,true)};
+    var l12=er.slice(-12),kw=l12.reduce(function(a,r){return a+r.kwh},0),cs=l12.reduce(function(a,r){return a+(r.cost||0)},0);c.kwhPrice=kw>0&&cs>0?cs/kw:0}
+  Object.keys(FUELS).forEach(function(f){
+    var recs=(S.fuel||[]).filter(function(r){return r.fuel===f});if(!recs.length)return;
+    var months=fuelMonths(S.fuel,f),prices=fuelPrices(S.fuel,f),per=fuelPeriods(S.fuel,f).map(function(p){return {date:fqIso(p.to),qty:p.qty,perDay:p.qty/p.days}});
+    c.fuels.push({fuel:f,label:FUELS[f].label,recs:recs,months:months,prices:prices,spend:fuelSpend(S.fuel,f),deliveries:per,model:months.length?weatherModel(months.map(function(m){return {month:m.month,perDay:m.perDay}}),W,false):null});
+  });
+  c.tips=energyTips({fuels:c.fuels,elec:c.elec,weather:W,normals:c.normals,cop:cop,kwhPrice:c.kwhPrice||0,todayISO:iso(TODAY)});
+  return c;
+}
+function enAdviceSummary(c){
+  var rows=function(a){return a.slice(-24)};
+  return {note:'Monthly home energy numbers for one household; degree days are heating (hdd) and cooling (cdd) days at a 65 degree base.',
+    electricity:c.elec?rows(c.elec.rows).map(function(r){return {month:r.month,kwh:Math.round(r.kwh),cost:r.cost,days:r.days}}):[],
+    fuels:c.fuels.map(function(f){return {fuel:f.fuel,unit:FUELS[f.fuel].unit,usageByMonth:rows(f.months).map(function(m){return {month:m.month,qty:Math.round(m.qty*10)/10,cost:Math.round(m.cost)}}),prices:f.prices.slice(-12).map(function(p){return {date:p.date,price:Math.round(p.price*100)/100}}),weatherFit:f.model?{base:Math.round(f.model.base*100)/100,perDegreeDay:Math.round(f.model.perHdd*1000)/1000,r2:Math.round(f.model.r2*100)/100}:null}}),
+    weather:Object.keys(c.weather).slice(-24).map(function(k){return {month:k,hdd:c.weather[k].hdd,cdd:c.weather[k].cdd,avgF:c.weather[k].avgF}}),
+    findings:c.tips.slice(0,8).map(function(t){return t.title})};
+}
+function enTiles(c){
+  var last12=function(rows){return rows.slice(-12)},sumC=function(rows){return last12(rows).reduce(function(a,r){return a+(r.cost||0)},0)};
+  var elecCost=c.elec?sumC(c.elec.rows):0,fuelCost=0,n=0;
+  c.fuels.forEach(function(f){var yr=annualOf(last12(f.months));if(yr){fuelCost+=yr.cost;n++}});
+  var total=elecCost+fuelCost,h='<div class="grid tiles">';
+  h+=tile('Energy, last 12 months',money0(total),(c.elec?'electricity '+money0(elecCost):'')+(c.elec&&n?' · ':'')+(n?'heating fuel '+money0(fuelCost):'')||'Add data below');
+  h+=tile('Per month',total?money0(total/12):'n/a','on average');
+  var next=c.tips.filter(function(t){return /Next .* fill/.test(t.title)})[0];
+  h+=tile('Next fill',next?next.title.replace(/^Next [a-z ]+ fill: around /i,''):'n/a',next?'estimate from your deliveries':'needs 3 or more deliveries');
+  var fc=null;
+  if(c.fuels.length&&Object.keys(c.normals).length>=12){var tot=0,ok=0;c.fuels.forEach(function(f){var yr=annualOf(f.months.slice(-12));if(f.model&&f.model.reliable&&yr&&yr.price){var p=projectYear(f.model,c.normals,yr.price,iso(TODAY).slice(0,7));if(p&&p.cost){tot+=p.cost;ok++}}});if(ok)fc=tot}
+  h+=tile('Next 12 months',fc!==null?money0(fc):'n/a',fc!==null?'heating fuel under normal weather':'needs weather and a year of fuel history');
+  return h+'</div>';
+}
+function enWeatherPanel(c){
+  var pl=enPlace(),has=Object.keys(c.weather).length,canW=!!(T&&T.weather);
+  var h='<section class="panel" id="enweather"><h2>Weather<small>'+(pl?esc(pl.place||'your place'):'so use can be compared with the cold')+'</small></h2>';
+  if(!canW)return h+'<p class="sub muted" style="margin:0">Weather lookups are available in the desktop app.</p></section>';
+  h+='<p class="sub muted" style="margin:0 0 10px;font-size:13px;white-space:normal">Energy use follows the temperature. Tell the app where you live and it loads the past daily temperatures from Open-Meteo, a free weather service, and turns them into heating and cooling degree days (how far each day was below or above 65 degrees). Only the town or ZIP you type and the dates are sent. Nothing about your accounts or energy use is.</p>';
+  h+='<form class="form enplace" style="align-items:flex-end"><label>Town or ZIP code<input name="q" required maxlength="60" placeholder="e.g. Peterborough NH or 03458" value="'+esc(enUI.place)+'" style="width:230px"></label><button class="btn small primary"'+(enUI.wbusy?' disabled':'')+'>'+(enUI.wbusy?'Searching…':'Find')+'</button>'+(pl?'<button type="button" class="btn small" data-act="en-wload"'+(enUI.wbusy?' disabled':'')+'>Refresh weather</button>':'')+'</form>';
+  if(enUI.places)h+='<div style="margin-top:8px">'+enUI.places.map(function(p,i){return '<div class="row"><div class="grow"><div class="nm">'+esc(p.name)+'</div></div><button class="btn small" data-act="en-wpick" data-i="'+i+'">Use this</button></div>'}).join('')+'</div>';
+  if(enUI.wmsg)h+='<div class="sub '+(/^Loaded|^Weather/.test(enUI.wmsg)?'good':'bad')+'" role="status" style="margin-top:8px;white-space:normal">'+esc(enUI.wmsg)+'</div>';
+  if(has){var ks=Object.keys(c.weather).sort(),last=ks[ks.length-1];h+='<p class="sub" style="margin:10px 0 0">Weather loaded for '+ks.length+' months, up to '+monthTitle(last)+(S.weather.fetched?' (fetched '+esc(S.weather.fetched)+')':'')+'.</p>'}
+  return h+'</section>';
+}
+function enElecPanel(c){
+  var e=c.elec,h='';
+  if(!e||!c.weather||!Object.keys(c.weather).length)return '';
+  var rows=e.rows.filter(function(r){var w=c.weather[r.month];return w&&w.days>=20}).slice(-14).map(function(r){var w=c.weather[r.month];return {m:r.month,v:r.perDay,h:w.hdd/w.days}});
+  if(rows.length<3)return '';
+  h='<section class="panel"><h2>Electricity and the weather<small>kWh a day against the cold</small></h2>'+enUsageWeather(rows,{fmt:function(v){return v.toFixed(0)},legend:'kWh used per day',label:'Electricity per day against heating degree days'});
+  var m=e.model;
+  if(m)h+='<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-top:10px"><div>'+enScatter(m,{label:'Electricity use per day against heating degree days'})+'</div><div class="sub" style="white-space:normal;align-self:center">'+(m.reliable?'The dashed line is what your pattern predicts. With no heating or cooling needed you use about <b>'+m.base.toFixed(1)+' kWh a day</b>; each heating degree day adds about <b>'+m.perHdd.toFixed(2)+' kWh</b>'+(m.perCdd>0?' and each cooling degree day about <b>'+m.perCdd.toFixed(2)+' kWh</b>':'')+'. The weather explains '+Math.round(m.r2*100)+'% of the ups and downs.':'The weather does not explain your electricity use well ('+Math.round(m.r2*100)+'%), so most of it is the same all year round.')+'</div></div>';
+  return h+'</section>';
+}
+function enFuelPanel(c){
+  var f=enUI.fuel,F=FUELS[f],rec=c.fuels.filter(function(x){return x.fuel===f})[0],h='<section class="panel" id="enfuel"><h2>Heating fuel<small>propane, oil, natural gas and wood</small></h2>';
+  h+='<div class="actions" style="justify-content:flex-start;flex-wrap:wrap;margin:0 0 10px">'+Object.keys(FUELS).map(function(k){var n=(S.fuel||[]).filter(function(r){return r.fuel===k}).length;return '<button class="btn small'+(f===k?' primary':'')+'" data-act="en-fuel" data-f="'+k+'">'+FUELS[k].label+(n?' ('+n+')':'')+'</button>'}).join('')+'</div>';
+  var unitName=f==='gas'?'therms':F.unit==='gal'?'gallons':'cords';
+  var recs=(S.fuel||[]).filter(function(r){return r.fuel===f}).slice().sort(function(a,b){return a.date<b.date?1:-1});
+  if(!recs.length)h+='<p class="sub muted" style="margin:0 0 10px;font-size:13px;white-space:normal">'+(F.delivered?'Add each delivery with its date, how many '+unitName+' and what it cost. Two or more deliveries are enough to work out how much you use between fills.':'Add each bill with the date it ends, the '+unitName+' or CCF used and what it cost.')+' You can also upload your supplier\'s history, paste it in, or pull the costs from your transactions.</p>';
+  if(rec){
+    var yr=annualOf(rec.months.slice(-12));
+    h+='<div class="grid tiles">'+tile('Last 12 months',yr?Math.round(yr.qty).toLocaleString('en-US')+' '+unitName:'n/a',yr?money0(yr.cost)+' · '+money0(yr.cost/12)+'/mo':'')+tile('Price',rec.prices.length?'$'+rec.prices[rec.prices.length-1].price.toFixed(2)+'<span class="muted" style="font-size:14px">/'+(f==='gas'?'therm':F.unit)+'</span>':'n/a',rec.prices.length?'latest · average $'+(rec.prices.slice(-12).reduce(function(a,p){return a+p.price},0)/Math.min(12,rec.prices.length)).toFixed(2):'')+tile('Use per day',rec.months.length?rec.months[rec.months.length-1].perDay.toFixed(1)+' <span class="muted" style="font-size:14px">'+(f==='gas'?'therms':F.unit)+'</span>':'n/a',rec.months.length?monthTitle(rec.months[rec.months.length-1].month):'')+'</div>';
+    var l12=rec.months.slice(-14);
+    if(l12.length>=2){
+      var cm=l12.map(function(m){return m.month});
+      h+='<h3 style="font-size:15px;margin:14px 0 6px">Cost by month</h3>'+enStack(cm,[{name:F.label,col:FUEL_COL[f],vals:l12.map(function(m){return m.cost})}],{label:F.label+' cost by month'});
+      var wrows=l12.filter(function(m){var w=c.weather[m.month];return w&&w.days>=20}).map(function(m){var w=c.weather[m.month];return {m:m.month,v:m.perDay,h:w.hdd/w.days}});
+      h+='<h3 style="font-size:15px;margin:14px 0 6px">Use against the weather</h3>'+(wrows.length>=3?enUsageWeather(wrows,{col:FUEL_COL[f],legend:unitName+' used per day',label:F.label+' per day against heating degree days'}):barChart(l12.map(function(m){return m.perDay}),l12.map(function(m){return enShortMonth(m.month)}),{label:F.label+' used per day',fmt:function(v){return v.toFixed(1)}})+'<p class="sub muted" style="margin:6px 0 0;font-size:12px">Set your town under Weather above to see the weather alongside.</p>');
+      if(rec.model)h+='<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-top:10px"><div>'+enScatter(rec.model,{label:F.label+' use against degree days'})+'</div><div class="sub" style="white-space:normal;align-self:center">'+(rec.model.reliable?'Even on a mild day you use about <b>'+rec.model.base.toFixed(1)+' '+(f==='gas'?'therms':F.unit)+' a day</b> (hot water, cooking). Each heating degree day adds about <b>'+rec.model.perHdd.toFixed(2)+'</b>. The weather explains '+Math.round(rec.model.r2*100)+'% of the ups and downs, so the rest is you, not the weather.':'The weather does not explain this fuel well yet ('+Math.round(rec.model.r2*100)+'%). It needs about a year of deliveries.')+'</div></div>';
+      var yy=enYoY(rec.months.map(function(m){return {month:m.month,v:m.perDay}}),{fmt:function(v){return v.toFixed(1)}});
+      if(yy)h+='<h3 style="font-size:15px;margin:14px 0 6px">This year against last year</h3>'+yy;
+    }
+    if(rec.prices.length>=2)h+='<h3 style="font-size:15px;margin:14px 0 6px">Price you paid</h3>'+lineChart(rec.prices.map(function(p){return [parseD(p.date).getTime(),p.price]}),{h:150,fmt:function(v){return '$'+v.toFixed(2)},label:F.label+' price per '+(f==='gas'?'therm':F.unit)});
+  }
+  // records
+  if(recs.length){
+    var gaps={};fuelPeriods(S.fuel,f).forEach(function(p){gaps[p.rec.id]=p});
+    h+='<h3 style="font-size:15px;margin:14px 0 6px">Your '+(F.delivered?'deliveries':'bills')+' ('+recs.length+')</h3><div style="max-height:340px;overflow:auto">'+recs.slice(0,60).map(function(r){var p=gaps[r.id],q=r.qty>0?r.qty+' '+(r.fuel==='gas'?r.unit:F.unit):'quantity not set';return '<div class="row wrap"><div class="grow" style="flex-basis:200px"><div class="nm">'+shortDate(r.date)+' '+r.date.slice(0,4)+' · '+esc(q)+(r.cost>0?' · '+money(r.cost):'')+'</div><div class="sub">'+(r.qty>0&&r.cost>0?'$'+(r.cost/fuelQty(r)).toFixed(2)+' per '+(f==='gas'?'therm':F.unit):'')+(p?(r.qty>0&&r.cost>0?' · ':'')+'covers '+p.days+' days, '+(p.qty/p.days).toFixed(1)+' a day':'')+(r.note?' · '+esc(r.note):'')+'</div></div><button class="btn small" data-act="en-fdel" data-id="'+esc(r.id)+'" aria-label="Remove">&times;</button></div>'}).join('')+'</div>';
+  }
+  // add / import
+  h+='<div class="actions" style="justify-content:flex-start;margin-top:12px;flex-wrap:wrap"><button class="btn small primary" data-act="en-fadd">Add '+(F.delivered?'a delivery':'a bill')+'</button><label class="btn small" style="cursor:pointer">Upload my history<input type="file" data-fuelfile="1" accept=".csv,.txt,.tsv,.pdf,text/csv,text/plain,application/pdf" hidden></label><button class="btn small" data-act="en-fpaste">Paste text</button><button class="btn small" data-act="en-ftx">From my transactions</button></div>';
+  if(enUI.busy)h+='<div class="sub" role="status" style="margin-top:8px">'+esc(enUI.busy)+'</div>';
+  if(enUI.msg)h+='<div class="sub bad" role="alert" style="margin-top:8px;white-space:normal">'+esc(enUI.msg)+'</div>';
+  if(enUI.adding)h+='<form class="form enfuelform panel" style="margin:10px 0;align-items:flex-end"><label>'+(F.delivered?'Delivered on':'Bill ends on')+'<input name="d" type="date" required value="'+iso(TODAY)+'"></label><label>'+unitName[0].toUpperCase()+unitName.slice(1)+'<input name="q" type="number" min="0" step="0.01" required style="width:100px"></label>'+(f==='gas'?'<label>Unit<select name="u"><option value="therm">therms</option><option value="ccf">CCF</option><option value="mcf">MCF</option></select></label><label>Days in bill<input name="n" type="number" min="1" max="400" placeholder="30" style="width:80px"></label>':'')+'<label>Total cost $<input name="c" type="number" min="0" step="0.01" style="width:110px"></label><label>Note<input name="t" maxlength="60" style="width:130px"></label><button class="btn small primary">Save</button><button type="button" class="btn small" data-act="en-fcancel">Cancel</button></form>';
+  if(enUI.pasteOpen)h+='<form class="enpasteform panel" style="margin:10px 0"><label class="sub" style="display:block;margin-bottom:6px">Paste lines from your supplier\'s statement or website, one delivery per line, for example <code>01/12/2025 152.3 gal $512.40</code></label><textarea name="t" rows="6" style="width:100%" required></textarea><div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn small primary">Read it</button><button type="button" class="btn small" data-act="en-fcancel">Cancel</button></div></form>';
+  if(enUI.txOpen){
+    var linked={};(S.fuel||[]).forEach(function(r){if(r.tx)linked[r.tx]=1});
+    var re=FUEL_TX[f],cands=S.txns.filter(function(x){return x.amount<0&&!linked[x.id]&&(re.test(x.name)||((f==='propane'||f==='oil')&&x.sub==='Propane and heating oil'))}).slice(0,25);
+    h+='<div class="panel" style="margin:10px 0"><h3 style="font-size:15px;margin:0 0 6px">Payments that look like '+F.label.toLowerCase()+'</h3>'+(cands.length?cands.map(function(x){return '<form class="row wrap entxform" data-id="'+esc(x.id)+'"><div class="grow" style="flex-basis:200px"><div class="nm">'+esc(x.name)+'</div><div class="sub">'+shortDate(x.date)+' '+x.date.slice(0,4)+' · '+money(-x.amount)+'</div></div><input name="q" type="number" min="0" step="0.01" placeholder="'+unitName+'" aria-label="'+unitName+' delivered" style="width:100px"><button class="btn small primary">Add</button></form>'}).join('')+'<p class="sub muted" style="margin:6px 0 0;font-size:12px">Type how many '+unitName+' the delivery was if you know it (it is on your receipt); leave it empty to record only the cost.</p>':'<div class="sub muted">No matching payments found in your transactions.</div>')+'<div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn small" data-act="en-fcancel">Close</button></div></div>';
+  }
+  if(enUI.imp){
+    var im=enUI.imp;
+    h+='<div class="panel" style="margin:10px 0"><h3 style="margin:0 0 6px;font-size:15px">Found '+im.records.length+' record'+(im.records.length===1?'':'s')+(im.file?' in '+esc(im.file):'')+'</h3><div style="max-height:260px;overflow:auto"><table class="maptable" style="width:100%"><thead><tr><th>Date</th><th>Fuel</th><th class="num">Quantity</th><th class="num">Cost</th></tr></thead><tbody>'+im.records.slice(0,200).map(function(r){return '<tr><td>'+esc(r.date)+'</td><td>'+esc(FUELS[r.fuel].label)+'</td><td class="num">'+r.qty+' '+esc(r.unit)+'</td><td class="num">'+(r.cost>0?money(r.cost):'n/a')+'</td></tr>'}).join('')+'</tbody></table></div>'+(im.notes?'<p class="sub muted" style="margin:6px 0 0;font-size:12px;white-space:normal">'+esc(im.notes)+'</p>':'')+'<div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn small primary" data-act="en-fapply">Add them</button><button class="btn small" data-act="en-fdiscard">Discard</button></div></div>';
+  }
+  return h+'</section>';
+}
+function enSavePanel(c){
+  var h='<section class="panel" id="ensave"><h2>How to save<small>from your own numbers</small></h2>';
+  var tips=c.tips;
+  if(!tips.length)h+='<p class="sub muted" style="margin:0 0 10px;white-space:normal">Add at least two propane, oil or gas deliveries or a few months of electricity and advice appears here. A year of data and your weather make it much sharper.</p>';
+  else h+=tips.map(function(x){return '<div class="row wrap" style="align-items:flex-start"><span class="pill '+(x.k==='warn'?'warn':x.k==='good'?'good':'mute')+'">'+(x.k==='warn'?'Look at':x.k==='good'?'Good':'Note')+'</span><div class="grow" style="flex-basis:240px"><div class="nm" style="white-space:normal">'+esc(x.title)+'</div><div class="sub" style="white-space:normal">'+esc(x.detail)+'</div></div>'+(x.saving>0?'<div class="amt num good">~'+money0(x.saving)+'/yr</div>':'')+'</div>'}).join('');
+  // cost of a unit of heat
+  var pr={};c.fuels.forEach(function(f){var y=annualOf(f.months.slice(-12));if(y&&y.price)pr[f.fuel]=y.price});
+  var hc=heatCosts({propane:pr.propane,oil:pr.oil,gas:pr.gas,kwh:c.kwhPrice,cop:c.cop});
+  if(hc.length>=2){var mx=Math.max.apply(null,hc.map(function(x){return x.perMMBtu}));
+    h+='<h3 style="font-size:15px;margin:16px 0 6px">What a unit of heat costs you</h3><p class="sub muted" style="margin:0 0 8px;font-size:12px;white-space:normal">Dollars per million BTU of heat into the house, from the prices you actually paid. Furnace efficiency is assumed (about 83 to 90%).</p>'+hc.map(function(x,i){return '<div style="margin:6px 0"><div style="display:flex;justify-content:space-between;gap:8px"><span>'+esc(x.label)+(i===0?' <span class="pill good" style="font-size:11px">cheapest</span>':'')+'</span><b class="num">$'+x.perMMBtu.toFixed(0)+'</b></div><div style="height:8px;border-radius:6px;background:var(--line);overflow:hidden"><div style="height:100%;width:'+Math.round(x.perMMBtu/mx*100)+'%;background:'+(i===0?'var(--good)':'var(--accent)')+';opacity:.85"></div></div>'+(x.note?'<div class="sub" style="font-size:11px">'+esc(x.note)+'</div>':'')+'</div>'}).join('')+'<form class="form encop" style="margin-top:8px;align-items:flex-end"><label>Heat pump efficiency (units of heat per unit of electricity)<input name="cop" type="number" min="1" max="6" step="0.1" value="'+c.cop+'" style="width:90px"></label><button class="btn small">Update</button></form>';
+  }
+  var canAi=!!(T&&T.ai&&T.ai.energyAdvice),key=!!(aiSt&&aiSt.hasKey);
+  if(canAi){
+    h+='<h3 style="font-size:15px;margin:16px 0 6px">Advice from Claude</h3>'+(enUI.advice?enUI.advice.map(function(b){return '<div class="row wrap" style="align-items:flex-start"><div class="grow" style="flex-basis:240px"><div class="nm" style="white-space:normal">'+esc(b.title)+'</div><div class="sub" style="white-space:normal">'+esc(b.detail)+'</div></div></div>'}).join('')+'<p class="sub muted" style="margin:6px 0 0;font-size:12px">Written by AI from your monthly numbers. Treat dollar figures as rough, and check big decisions with a professional.</p>':'<p class="sub muted" style="margin:0 0 8px;font-size:13px;white-space:normal">'+(key?'Sends your monthly energy numbers and the weather (no name, address or account details) to Claude with your API key, about 5 to 15 cents.':'Needs your Anthropic API key (Transactions tab).')+'</p>');
+    if(enUI.adviceMsg)h+='<div class="sub bad" role="alert" style="margin-bottom:6px;white-space:normal">'+esc(enUI.adviceMsg)+'</div>';
+    h+='<div class="actions" style="justify-content:flex-start"><button class="btn small" data-act="en-advice"'+(key&&!enUI.adviceBusy&&(c.fuels.length||c.elec)?'':' disabled')+'>'+(enUI.adviceBusy?'Asking Claude…':(enUI.advice?'Ask again':'Get advice from Claude'))+'</button></div>';
+  }
+  return h+'</section>';
+}
+function vEnergy(){
+  var c=energyCtx();
+  if(T&&T.weather&&enPlace()&&!enUI.wtried){enUI.wtried=true;var w=S.weather;if(!w.fetched||w.fetched<iso(TODAY))enLoadWeather(true)}
+  var head='<div class="top"><h1>Energy</h1></div>';
+  var stack='';
+  var all={};c.fuels.forEach(function(f){f.months.forEach(function(m){all[m.month]=1})});if(c.elec)c.elec.rows.forEach(function(r){all[r.month]=1});
+  var ms=Object.keys(all).sort().slice(-14);
+  if(ms.length>=2){
+    var series=[];
+    if(c.elec)series.push({name:'Electricity',col:FUEL_COL.electric,vals:ms.map(function(m){var r=c.elec.rows.filter(function(x){return x.month===m})[0];return r&&r.cost?r.cost:0})});
+    c.fuels.forEach(function(f){series.push({name:f.label,col:FUEL_COL[f.fuel],vals:ms.map(function(m){var r=f.months.filter(function(x){return x.month===m})[0];return r?r.cost:0})})});
+    stack='<section class="panel"><h2>What energy costs you<small>by month, all fuels</small></h2>'+enStack(ms,series,{label:'Energy cost by month'})+'</section>';
+  }
+  return head+enTiles(c)+stack+enWeatherPanel(c)+energyPanel()+enElecPanel(c)+enFuelPanel(c)+enSavePanel(c);
+}
+function enLoadWeather(quiet){
+  var p=enPlace();if(!p||!T||!T.weather||enUI.wbusy)return;
+  enUI.wbusy=true;if(!quiet){enUI.wmsg='';render()}
+  var first=null;(S.fuel||[]).forEach(function(r){if(!first||r.date<first)first=r.date});(S.energy||[]).forEach(function(r){var d=r.month+'-01';if(!first||d<first)first=d});
+  var from=first?iso(new Date(+first.slice(0,4)-1,+first.slice(5,7)-1,1)):'';
+  tcall(T.weather.months({lat:p.lat,lon:p.lon,from:from})).then(function(r){S.weather.months=r.months;S.weather.fetched=r.fetched;enUI.wbusy=false;enUI.wmsg='Loaded '+Object.keys(r.months).length+' months of weather.';save({noUndo:true});if(view==='energy')render()}).catch(function(e){enUI.wbusy=false;enUI.wmsg=(e&&e.message)||'Could not load the weather.';if(view==='energy')render()});
+}
+function enAfterRead(r,fileName,fuel){
+  if(!r.ok){enUI.msg=r.error||'Nothing found.';enUI.imp=null;enUI.busy='';render();return}
+  enUI.imp={records:r.records.filter(function(x){return FUELS[x.fuel]}),file:fileName,notes:r.notes||'',skipped:r.skipped||0};enUI.busy='';enUI.msg='';render();
+}
 // ---------- Credit score tab ----------
 var creditShot={msg:'',rows:null,busy:false};
 // A screenshot of a score screen, shrunk to a size the API takes, as a JPEG data URL.
@@ -4721,7 +5189,7 @@ function lineChart(pts,opts){
   var W=520,H=opts.h||190,pl=8,pr=8,pt=14,pb=22,vals=pts.map(function(p){return p[1]}),extra=opts.base!==undefined?[opts.base]:[];
   var mn=Math.min.apply(null,vals.concat(extra)),mx=Math.max.apply(null,vals.concat(extra)),pad=(mx-mn||1)*0.1;mn-=pad;mx+=pad;
   var up=vals[vals.length-1]>=vals[0],col=up?'var(--good)':'var(--bad)',out='',g;
-  for(g=0;g<3;g++){var gv=mn+(mx-mn)*g/2,gy=pt+(mx-gv)/(mx-mn)*(H-pt-pb);out+='<line x1="0" x2="'+W+'" y1="'+gy+'" y2="'+gy+'" stroke="var(--line)"/><text x="2" y="'+(gy-3)+'" font-size="10">'+(opts.money?money0(gv):gv.toFixed(2))+'</text>'}
+  for(g=0;g<3;g++){var gv=mn+(mx-mn)*g/2,gy=pt+(mx-gv)/(mx-mn)*(H-pt-pb);out+='<line x1="0" x2="'+W+'" y1="'+gy+'" y2="'+gy+'" stroke="var(--line)"/><text x="2" y="'+(gy-3)+'" font-size="10">'+(opts.fmt?opts.fmt(gv):opts.money?money0(gv):gv.toFixed(2))+'</text>'}
   if(opts.base!==undefined){var by=pt+(mx-opts.base)/(mx-mn)*(H-pt-pb);out+='<line x1="0" x2="'+W+'" y1="'+by+'" y2="'+by+'" stroke="var(--accent)" stroke-dasharray="4 4"/><text x="'+(W-4)+'" y="'+(by-4)+'" text-anchor="end" font-size="10" style="fill:var(--accent)">'+(opts.baseLabel||'')+'</text>'}
   var pl2=linePath(pts,W,H,pl,pr,pt,pb,mn,mx);
   out+='<polygon class="fade" points="'+pl+','+(H-pb)+' '+pl2+' '+(W-pr)+','+(H-pb)+'" fill="'+col+'" opacity=".10"/><polyline class="draw" pathLength="1000" points="'+pl2+'" fill="none" stroke="'+col+'" stroke-width="2.2" stroke-linejoin="round"/>';
@@ -4979,7 +5447,7 @@ function backupPanel(){
   return '<section class="panel"><h2>Backup<small>save or restore everything</small></h2><div class="actions" style="justify-content:flex-start"><button class="btn primary" data-act="exp">Download backup</button><label class="btn" style="cursor:pointer">Restore from file<input id="bk" type="file" accept=".json,application/json" hidden></label></div><p class="sub muted" style="margin:10px 0 0;font-size:13px">Your data lives only on this computer. Download a backup now and then, and use it to recover after clearing site data. To move to another computer, use <b>Move to another computer</b> above, which can protect the file with a password.</p>'+pendBanner()+'</section>';
 }
 function backupPayload(){
-  return {app:'tally-money',version:1,exported:new Date().toISOString(),data:{txns:S.txns,subs:S.subs,budgets:S.budgets,goals:S.goals,accounts:S.accounts,extraPay:S.extraPay,plaidIgnored:S.plaidIgnored,credit:S.credit,holdings:S.holdings,customCats:S.customCats,setAside:S.setAside,merchantCats:S.merchantCats,subCats:S.subCats,merchantSubs:S.merchantSubs,bills:S.bills,billMarks:S.billMarks,xferLearn:S.xferLearn,imports:S.imports,hideWords:S.hideWords,energy:S.energy,home:S.home,debtMonthly:S.debtMonthly,billIgnore:S.billIgnore,cardPay:S.cardPay,apple:S.apple,payLinks:S.payLinks}};
+  return {app:'tally-money',version:1,exported:new Date().toISOString(),data:{txns:S.txns,subs:S.subs,budgets:S.budgets,goals:S.goals,accounts:S.accounts,extraPay:S.extraPay,plaidIgnored:S.plaidIgnored,credit:S.credit,holdings:S.holdings,customCats:S.customCats,setAside:S.setAside,merchantCats:S.merchantCats,subCats:S.subCats,merchantSubs:S.merchantSubs,bills:S.bills,billMarks:S.billMarks,fuel:S.fuel,weather:S.weather,energyCfg:S.energyCfg,xferLearn:S.xferLearn,imports:S.imports,hideWords:S.hideWords,energy:S.energy,home:S.home,debtMonthly:S.debtMonthly,billIgnore:S.billIgnore,cardPay:S.cardPay,apple:S.apple,payLinks:S.payLinks}};
 }
 // Saves a file: through the desktop app's Save dialog when there is one (reliable on both Mac and Windows), else as a normal download.
 function saveFile(name,text,done){
@@ -5157,7 +5625,7 @@ function cleanBackup(j){
     if(!hist.length)hist=[{date:iso(TODAY),balance:+x.balance}];
     var ac={id:String(x.id||uid()),name:String(x.name).slice(0,120),type:x.type,balance:+x.balance,apr:DEBT_TYPES[x.type]?Math.max(0,+x.apr||0):0,minPay:DEBT_TYPES[x.type]?Math.max(0,+x.minPay||0):0,history:hist};if(x.type==='credit'&&+x.limit>0)ac.limit=+x.limit;if(x.type==='credit'&&x.closed===true)ac.closed=true;if(DEBT_TYPES[x.type]&&x.contract){var cc=cleanContract(x.contract);if(cc)ac.contract=cc}if(DEBT_TYPES[x.type]){if(photoOk(x.photo))ac.photo=x.photo;if(/^#[0-9a-f]{6}$/i.test(x.carColor||''))ac.carColor=x.carColor;if(CAR_TYPES[x.carType])ac.carType=x.carType;if(/^\d{4}-\d{2}(-\d{2})?$/.test(x.opened||''))ac.opened=x.opened;if(/^\d{4}$/.test(x.last4||''))ac.last4=x.last4;if(typeof x.carSvg==='string'){var csv=cleanCarSvg(x.carSvg);if(csv)ac.carSvg=csv}if(x.showPhoto===true)ac.showPhoto=true}if(DEBT_TYPES[x.type]){var dd=Math.round(+x.dueDay);if(dd>=1&&dd<=31)ac.dueDay=dd;if(+x.origBalance>0)ac.origBalance=+x.origBalance;if(typeof x.lender==='string'&&x.lender)ac.lender=cleanSubName(x.lender).slice(0,40);var stm=cleanStmt(x);Object.keys(stm).forEach(function(k){ac[k]=stm[k]})}if(x.plaid&&typeof x.plaid.accountId==='string')ac.plaid={itemId:String(x.plaid.itemId||'').slice(0,100),accountId:x.plaid.accountId.slice(0,100)};if(x.wallet===true&&x.type==='cash')ac.wallet=true;if(x.autopay===true&&DEBT_TYPES[x.type])ac.autopay=true;if(x.type==='property'&&x.asset){var as1=cleanAsset(x.asset,uid);if(as1)ac.asset=as1}return ac});
   var home={};if(d.home&&typeof d.home==='object'&&!Array.isArray(d.home)){['purchasePrice','down','closing','origLoan','termYears','taxYear','insYear','hoaMonth','pmiMonth','maintPct','mgmtPct','vacancyPct','appreciation','ret','sellPct','rentGrowth','costGrowth','rentMonth','extra'].forEach(function(k){var n=parseFloat(d.home[k]);if(isFinite(n)&&n>=0&&n<1e9)home[k]=n});['purchaseDate','startDate'].forEach(function(k){if(/^\d{4}-\d{2}-\d{2}$/.test(d.home[k]||''))home[k]=d.home[k]});['mortId','valueId'].forEach(function(k){if(typeof d.home[k]==='string'&&/^[\w-]{1,40}$/.test(d.home[k])&&accounts.some(function(a){return a.id===d.home[k]}))home[k]=d.home[k]});if(d.home.setup===true&&home.valueId)home.setup=true;if(photoOk(d.home.photo))home.photo=d.home.photo}
-  return {xferLearn:cleanXferLearn(d.xferLearn),hideWords:cleanHideWords(d.hideWords),imports:cleanImports(d.imports,uid),txns:txns,subs:subs,budgets:budgets,goals:goals,accounts:accounts,extraPay:Math.max(0,+d.extraPay||0),plaidIgnored:(Array.isArray(d.plaidIgnored)?d.plaidIgnored:[]).filter(function(x){return typeof x==='string'}).slice(0,200),credit:cleanCredit(d.credit),holdings:cleanHoldings(d.holdings),customCats:custom,setAside:setAside,merchantCats:merchantCats,subCats:subCats,merchantSubs:merchantSubs,bills:bills,billMarks:billMarks,energy:energy,home:home,debtMonthly:Math.max(0,+d.debtMonthly||0),billIgnore:(function(){var o={};if(d.billIgnore&&typeof d.billIgnore==='object'&&!Array.isArray(d.billIgnore))Object.keys(d.billIgnore).slice(0,500).forEach(function(k){if(k.length<=120&&k!=='__proto__')o[k]=1});return o})(),cardPay:d.cardPay==='skip'||d.cardPay==='count'?d.cardPay:'auto',apple:(function(){var a=d.apple||{},o={};if(typeof a.acct==='string'&&a.acct.length<=40)o.acct=a.acct;if(/^\d{4}-\d{2}-\d{2}$/.test(a.last||''))o.last=a.last;if(+a.count>=0)o.count=Math.min(1e6,Math.round(+a.count));return o})(),payLinks:cleanPayLinks(d.payLinks)};
+  return {fuel:cleanFuel(d.fuel,uid),weather:cleanWeather(d.weather)||{},energyCfg:(function(){var o={},c=d.energyCfg&&+d.energyCfg.cop;if(c>=1&&c<=6)o.cop=c;return o})(),xferLearn:cleanXferLearn(d.xferLearn),hideWords:cleanHideWords(d.hideWords),imports:cleanImports(d.imports,uid),txns:txns,subs:subs,budgets:budgets,goals:goals,accounts:accounts,extraPay:Math.max(0,+d.extraPay||0),plaidIgnored:(Array.isArray(d.plaidIgnored)?d.plaidIgnored:[]).filter(function(x){return typeof x==='string'}).slice(0,200),credit:cleanCredit(d.credit),holdings:cleanHoldings(d.holdings),customCats:custom,setAside:setAside,merchantCats:merchantCats,subCats:subCats,merchantSubs:merchantSubs,bills:bills,billMarks:billMarks,energy:energy,home:home,debtMonthly:Math.max(0,+d.debtMonthly||0),billIgnore:(function(){var o={};if(d.billIgnore&&typeof d.billIgnore==='object'&&!Array.isArray(d.billIgnore))Object.keys(d.billIgnore).slice(0,500).forEach(function(k){if(k.length<=120&&k!=='__proto__')o[k]=1});return o})(),cardPay:d.cardPay==='skip'||d.cardPay==='count'?d.cardPay:'auto',apple:(function(){var a=d.apple||{},o={};if(typeof a.acct==='string'&&a.acct.length<=40)o.acct=a.acct;if(/^\d{4}-\d{2}-\d{2}$/.test(a.last||''))o.last=a.last;if(+a.count>=0)o.count=Math.min(1e6,Math.round(+a.count));return o})(),payLinks:cleanPayLinks(d.payLinks)};
 }
 
 /* ---------- Goals ---------- */
@@ -5193,6 +5661,28 @@ function bindView(){
   var cssel=$('#cs-sel',m);if(cssel)cssel.onchange=function(){cardStmt.sel=cssel.value;var a=S.accounts.filter(function(x){return x.id===cssel.value})[0];if(a&&cardStmt.card){cardStmt.card.name=a.name;cardPrefill(cardStmt.card,a)}render()};
   var cstx=$('#cs-tx',m);if(cstx)cstx.onchange=function(){cardStmt.importTx=cstx.checked};
   asBind(m);
+  m.querySelectorAll('.enplace').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();var q=fm.elements['q'].value;enUI.place=q;enUI.wbusy=true;enUI.wmsg='';enUI.places=null;render();
+    tcall(T.weather.search(q)).then(function(r){enUI.places=r;enUI.wbusy=false;render()}).catch(function(er){enUI.wbusy=false;enUI.wmsg=(er&&er.message)||'Could not search.';render()})}});
+  m.querySelectorAll('.enfuelform').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();if(asGuard())return;var g=function(n){return fm.elements[n]?fm.elements[n].value:''},f=enUI.fuel;
+    var rc=cleanFuel([{fuel:f,date:g('d'),qty:parseFloat(g('q')),unit:g('u')||FUELS[f].unit,cost:parseFloat(g('c'))||0,days:parseInt(g('n'),10)||0,note:g('t')}],uid)[0];if(!rc){toast('Check the date and quantity.');return}
+    var mg=fuelMerge(S.fuel,[rc],uid);if(!mg.added){toast('That one is already in the list.');return}S.fuel=mg.records;enUI.adding=false;save();render();toast('Saved.')}});
+  m.querySelectorAll('.enpasteform').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();enAfterRead(parseFuelText(fm.elements['t'].value,enUI.fuel),'pasted text',enUI.fuel);enUI.pasteOpen=false;render()}});
+  m.querySelectorAll('.entxform').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();if(asGuard())return;var x=S.txns.filter(function(t){return t.id===fm.dataset.id})[0];if(!x)return;var q=parseFloat(fm.elements['q'].value)||0,f=enUI.fuel;
+    var rc=cleanFuel([{fuel:f,date:x.date,qty:q,unit:FUELS[f].unit,cost:-x.amount,tx:x.id}],uid)[0];if(rc){S.fuel.push(rc);S.fuel.sort(function(a,b){return a.date<b.date?-1:1});save();render();toast(q>0?'Added.':'Added the cost. Add the quantity later to measure use.')}}});
+  m.querySelectorAll('.encop').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();var v=parseFloat(fm.elements['cop'].value);if(v>=1&&v<=6){S.energyCfg.cop=v;save();render()}}});
+  m.querySelectorAll('[data-fuelfile]').forEach(function(inp){inp.onchange=function(){
+    var f=inp.files[0];inp.value='';if(!f)return;if(f.size>25e6){enUI.msg='Choose a file under 25 MB.';render();return}
+    var fuel=enUI.fuel,rd=new FileReader();
+    rd.onload=function(){
+      var buf=rd.result,isPdf=/\.pdf$/i.test(f.name),text='';
+      if(!isPdf){try{text=new TextDecoder('utf-8').decode(new Uint8Array(buf))}catch(e){text=''}var fr=parseFuelText(text,fuel);if(fr.ok){enAfterRead(fr,f.name,fuel);return}}
+      var canAi=!!(T&&T.loan&&T.loan.readFile&&T.ai&&T.ai.energy&&aiSt&&aiSt.hasKey);
+      if(!canAi){enUI.msg=isPdf?'Reading a PDF needs the desktop app and your Anthropic API key (Transactions tab). A CSV or pasted text works without one.':(parseFuelText(text,fuel).error||'Nothing found in that file.');enUI.busy='';render();return}
+      enUI.busy='Asking Claude to read '+f.name+'… (a few cents, about a minute)';enUI.msg='';render();
+      tcall(T.loan.readFile(buf,f.name)).then(function(r){return tcall(T.ai.energy(r.textId,fuel))}).then(function(r){enAfterRead({ok:r.records.length>0,error:r.notes||'Claude did not find any deliveries or bills in that file.',records:r.records,notes:r.notes},f.name,fuel)}).catch(function(e){enUI.busy='';enUI.msg=(e&&e.message)||'Could not read that file.';render()});
+    };
+    rd.readAsArrayBuffer(f);
+  }});
   m.querySelectorAll('.hideform').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();var add=cleanHideWords(fm.elements['w'].value);if(!add.length){toast('Type at least one word (two letters or more).');return}S.hideWords=cleanHideWords((S.hideWords||[]).concat(add));save();render();toast(add.length+' keyword'+(add.length===1?'':'s')+' added.')}});
   m.querySelectorAll('.walletform').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();var v=parseFloat(fm.elements['v'].value);if(!(v>=0))return;if(S.sample){toast('Press Start fresh first, then set your wallet cash.');return}walletSet(v);save();render();toast('Wallet cash set to '+money(v)+'.')}});
   m.querySelectorAll('.walletadd').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();var v=parseFloat(fm.elements['v'].value);if(!(v>0))return;walletAdd(v);save();render();toast('Added '+money(v)+' to your wallet.')}});
@@ -5297,7 +5787,7 @@ document.addEventListener('click',function(e){
   else if(a==='sub-adddet'){var d=detect()[+b.dataset.i];if(d)S.subs.push({id:uid(),name:d.name,amount:d.amount,cycle:d.cycle,next:d.next,status:'active'})}
   else if(a==='tx-del'){S.txns=S.txns.filter(function(x){return x.id!==id})}
   else if(a==='exp'){exportData();return}
-  else if(a==='imp-ok'){S={sample:false,customCats:pendingImport.customCats,txns:pendingImport.txns,subs:pendingImport.subs,budgets:pendingImport.budgets,goals:pendingImport.goals,accounts:pendingImport.accounts,extraPay:pendingImport.extraPay,plaidIgnored:pendingImport.plaidIgnored,credit:pendingImport.credit,holdings:pendingImport.holdings,setAside:pendingImport.setAside||[],merchantCats:pendingImport.merchantCats||{},subCats:pendingImport.subCats||{},merchantSubs:pendingImport.merchantSubs||{},bills:pendingImport.bills||[],xferLearn:pendingImport.xferLearn||{},imports:pendingImport.imports||[],hideWords:pendingImport.hideWords||[],billMarks:pendingImport.billMarks||{},energy:pendingImport.energy||[],home:pendingImport.home||{},debtMonthly:pendingImport.debtMonthly||0,billIgnore:pendingImport.billIgnore||{},cardPay:pendingImport.cardPay||'auto',apple:pendingImport.apple||{},payLinks:pendingImport.payLinks||{}};pendingImport=null;migrate();syncCats();Object.keys(PL.items).forEach(function(k){PL.items[k].cursor=''});savePL();toast('Backup restored.')}
+  else if(a==='imp-ok'){S={sample:false,customCats:pendingImport.customCats,txns:pendingImport.txns,subs:pendingImport.subs,budgets:pendingImport.budgets,goals:pendingImport.goals,accounts:pendingImport.accounts,extraPay:pendingImport.extraPay,plaidIgnored:pendingImport.plaidIgnored,credit:pendingImport.credit,holdings:pendingImport.holdings,setAside:pendingImport.setAside||[],merchantCats:pendingImport.merchantCats||{},subCats:pendingImport.subCats||{},merchantSubs:pendingImport.merchantSubs||{},bills:pendingImport.bills||[],fuel:pendingImport.fuel||[],weather:pendingImport.weather||{},energyCfg:pendingImport.energyCfg||{},xferLearn:pendingImport.xferLearn||{},imports:pendingImport.imports||[],hideWords:pendingImport.hideWords||[],billMarks:pendingImport.billMarks||{},energy:pendingImport.energy||[],home:pendingImport.home||{},debtMonthly:pendingImport.debtMonthly||0,billIgnore:pendingImport.billIgnore||{},cardPay:pendingImport.cardPay||'auto',apple:pendingImport.apple||{},payLinks:pendingImport.payLinks||{}};pendingImport=null;migrate();syncCats();Object.keys(PL.items).forEach(function(k){PL.items[k].cursor=''});savePL();toast('Backup restored.')}
   else if(a==='imp-no'){pendingImport=null;pendingEnc=null;secMsg=''}
   else if(a==='undo'){undoStep('undo');return}
   else if(a==='redo'){undoStep('redo');return}
@@ -5338,6 +5828,21 @@ document.addEventListener('click',function(e){
     if(ba.indexOf('kind:')===0){var bk=ba.slice(5);bl.forEach(function(t){if(txKind(t,transferInfo(S.txns,S.cardPay))!==bk){applyKind(t,bk);bn++}})}
     else if(ba.indexOf('cat:')===0){var bc=ba.slice(4);if(CATS.indexOf(bc)>-1)bl.forEach(function(t){if(t.cat!==bc){t.cat=bc;var sb=subFor(bc,t.name,'');if(sb)t.sub=sb;else delete t.sub;bn++}})}
     filter.bulk='';filter.bulkKind='';filter.bulkCat='';filter.bulkOpen=false;syncXfer();toast(bn?bn+' transaction'+(bn===1?'':'s')+' changed. Undo is at the top if that was a mistake.':'Nothing needed changing.');
+  }
+  else if(a==='en-fuel'){enUI.fuel=FUELS[b.dataset.f]?b.dataset.f:'propane';enUI.adding=false;enUI.pasteOpen=false;enUI.txOpen=false;enUI.imp=null;enUI.msg=''}
+  else if(a==='en-fadd'){enUI.adding=true;enUI.pasteOpen=false;enUI.txOpen=false;enUI.msg=''}
+  else if(a==='en-fpaste'){enUI.pasteOpen=true;enUI.adding=false;enUI.txOpen=false;enUI.msg=''}
+  else if(a==='en-ftx'){enUI.txOpen=true;enUI.adding=false;enUI.pasteOpen=false;enUI.msg=''}
+  else if(a==='en-fcancel'){enUI.adding=false;enUI.pasteOpen=false;enUI.txOpen=false}
+  else if(a==='en-fdel'){S.fuel=S.fuel.filter(function(x){return x.id!==id})}
+  else if(a==='en-fdiscard'){enUI.imp=null}
+  else if(a==='en-fapply'&&enUI.imp){var fm2=fuelMerge(S.fuel,enUI.imp.records,uid);S.fuel=fm2.records;enUI.imp=null;toast('Added '+fm2.added+' record'+(fm2.added===1?'':'s')+(fm2.dups?' ('+fm2.dups+' already there)':'')+'.');if(enPlace()){enUI.wtried=false}}
+  else if(a==='en-wpick'){var pk=enUI.places&&enUI.places[+b.dataset.i];if(pk){S.weather={place:pk.name,lat:pk.lat,lon:pk.lon,fetched:'',months:{}};enUI.places=null;enUI.wmsg='';enUI.wtried=true;save();enLoadWeather();return}}
+  else if(a==='en-wload'){enLoadWeather();return}
+  else if(a==='en-advice'){
+    if(enUI.adviceBusy)return;enUI.adviceBusy=true;enUI.adviceMsg='';render();
+    tcall(T.ai.energyAdvice(enAdviceSummary(energyCtx()))).then(function(r){enUI.advice=r;enUI.adviceBusy=false;if(!r.length)enUI.adviceMsg='Claude had nothing to add.';render()}).catch(function(e){enUI.adviceBusy=false;enUI.adviceMsg=(e&&e.message)||'Could not get advice.';render()});
+    return;
   }
   else if(a==='cs-save'){cardStmtSave();return}
   else if(a==='cs-cancel'){cardStmt={stage:'idle',msg:'',err:'',card:null,sel:'',rows:[],importTx:true}}
@@ -5505,7 +6010,7 @@ function vLook(){
   '<section class="panel"><h2>Type and motion</h2>'+
     '<div class="lookrow"><span class="lbl">Text size</span><span class="ctl">'+seg('th-size',TH.size,[['s','Small'],['m','Normal'],['l','Large']])+'</span></div>'+
     '<div class="lookrow"><span class="lbl">Font</span><span class="ctl">'+seg('th-font',TH.font,[['modern','Modern'],['system','System'],['rounded','Rounded'],['serif','Serif']])+'</span></div>'+
-    '<div class="lookrow"><span class="lbl">Motion<small>Page transitions, count-ups, the drifting background and confetti. Your system "reduce motion" setting always wins.</small></span><span class="ctl">'+seg('th-motion',TH.motion,[['full','Full'],['reduced','Calm']])+'</span></div></section>'+'<h2 class="setsec">Your car</h2>'+carAiPanel()+'<h2 class="setsec">Security and moving to another computer</h2>'+secPanels()+'<h2 class="setsec">App and data</h2>'+updatesPanel()+widgetPanel()+backupPanel();
+    '<div class="lookrow"><span class="lbl">Motion<small>Page transitions, count-ups, the drifting background and confetti. Your system "reduce motion" setting always wins.</small></span><span class="ctl">'+seg('th-motion',TH.motion,[['full','Full'],['reduced','Calm']])+'</span></div></section>'+'<h2 class="setsec">Bills</h2>'+hiddenPanel()+'<h2 class="setsec">Your car</h2>'+carAiPanel()+'<h2 class="setsec">Security and moving to another computer</h2>'+secPanels()+'<h2 class="setsec">App and data</h2>'+updatesPanel()+widgetPanel()+backupPanel();
 }
 var carAI={busy:'',err:'',desc:{}};
 function carAiPanel(){
