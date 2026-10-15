@@ -1,7 +1,7 @@
 'use strict';
 // Reads an earnings statement (pay stub) from its text without any AI: labelled lines, signed deductions and an arithmetic check.
 // Built around ADP's layout, where the period dot and thousands comma often come out as spaces ("3 451 50" is 3,451.50).
-// It never returns names, addresses or account numbers; only dates, labels and amounts. When a layout is not recognised it returns no stub
+// It never returns personal names, addresses or account numbers; only dates, labels, amounts and the employer's business name (so several jobs can be told apart). When a layout is not recognised it returns no stub
 // and the caller falls back to the AI reader (if a key is saved) or to typing the numbers in.
 
 const SECTIONS = ['earnings', 'tax', 'benefit', 'retirement', 'deduction', 'other'];
@@ -60,6 +60,17 @@ const EARN_RE = /^(regular|reg\b|overtime|ot\b|double|bonus|holiday|retro|vacati
 
 function cleanName(s) {
   return String(s).replace(/[<>"]/g, '').replace(/[^A-Za-z0-9&()'%\/. +-]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60);
+}
+
+// The employer's name: on ADP layouts it is the left column of the line that carries "Period Beginning"; else a labelled "Employer:" / "Company:" line.
+function employerOf(lines) {
+  let cand = '';
+  const i = lines.findIndex((l) => /Period\s+Beginning/i.test(l));
+  if (i >= 0) cand = lines[i].split(/Period\s+Beginning/i)[0];
+  if (!cand.trim()) for (const l of lines) { const m = /^(?:Employer|Company)(?:\s+Name)?\s*:\s*(.+)$/i.exec(l); if (m) { cand = m[1]; break; } }
+  cand = cleanName(cand.replace(/\d{3}[-. ]\d{3}[-. ]\d{4}/g, ' '));
+  if (cand.length < 3 || /\d{4,}/.test(cand) || /earnings|statement|pay date|period|employee/i.test(cand)) return '';
+  return cand.slice(0, 60);
 }
 
 function parsePayStub(text) {
@@ -140,6 +151,8 @@ function parsePayStub(text) {
   const earn = items.filter((x) => x.section === 'earnings');
   const REG = /regular|salary|hourly|wage|base pay|straight|overtime|holiday|vacation|pto|sick|personal|float|bereavement|jury/i, BON = /bonus|commission|incentive|award|payout|spot|retention|signing|severance/i;
   stub.kind = earn.length && !earn.some((x) => REG.test(x.name)) && earn.some((x) => BON.test(x.name)) ? 'bonus' : 'regular';
+  const emp = employerOf(lines);
+  if (emp) stub.employer = emp;
   if (ytdOnly.length) stub.ytdLines = ytdOnly.slice(0, 20);
   if (periodStart) stub.periodStart = periodStart;
   if (periodEnd) stub.periodEnd = periodEnd;
@@ -156,4 +169,4 @@ function parsePayStub(text) {
   return out;
 }
 
-module.exports = { parsePayStub, moneyOnLine, toNum, sectionOf };
+module.exports = { parsePayStub, moneyOnLine, toNum, sectionOf, employerOf };

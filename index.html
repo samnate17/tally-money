@@ -363,6 +363,21 @@ canvas.confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:non
 :root[data-motion="full"] .hcard:nth-child(n+5){animation-delay:.32s}
 @media (max-width:700px){.hhero{grid-template-columns:1fr}.hspark{justify-self:stretch}.hbig{font-size:44px}.hcard{flex-basis:78%}}
 :root[data-nav="top"] .app{grid-template-columns:minmax(0,1fr);gap:12px}
+/* Bottom placement: the tabs become a floating dock along the bottom edge (the side list is hidden; Search sits at the dock's start). */
+:root[data-nav="bottom"] .app{grid-template-columns:minmax(0,1fr)}
+:root[data-nav="bottom"] .rail{display:none}
+:root[data-nav="bottom"] .tabbar{display:flex;position:fixed;left:50%;right:auto;transform:translateX(-50%);bottom:calc(12px + env(safe-area-inset-bottom,0px));width:max-content;max-width:calc(100vw - 24px);border-radius:26px;border:1px solid var(--edge-soft,var(--line));padding:12px 8px 6px;gap:2px;z-index:20;scrollbar-width:none}
+:root[data-nav="bottom"] .tabbar::-webkit-scrollbar{display:none}
+:root[data-nav="bottom"] .tabbar .nav{flex:0 0 auto;min-width:62px;flex-direction:column;gap:2px;font-size:11px;padding:6px 8px;align-items:center;text-align:center;border-radius:16px;transform:translateY(calc(var(--dk,0)*-3px));transition:transform .16s ease-out,background .2s,color .2s}
+:root[data-nav="bottom"] .tabbar .nav[aria-current="page"]{box-shadow:none;background:var(--accent-soft);color:var(--accent)}
+:root[data-nav="bottom"] .tabbar .nav .ni{transform:scale(calc(1 + var(--dk,0)*.35));transform-origin:center bottom;transition:transform .16s ease-out}
+:root[data-nav="bottom"] .tabbar .searchbtn{border:0;margin:0;color:var(--muted)}
+:root[data-nav="bottom"] .tabbar .searchbtn svg{width:22px;height:22px}
+:root[data-nav="bottom"] .toast{bottom:calc(112px + env(safe-area-inset-bottom,0px))}
+:root[data-nav="bottom"] .helpfab{bottom:calc(92px + env(safe-area-inset-bottom,0px))}
+:root[data-nav="bottom"] .helppop{bottom:calc(146px + env(safe-area-inset-bottom,0px))}
+:root[data-nav="bottom"] body{padding-block-end:120px}
+@media (hover:none){:root[data-nav="bottom"] .tabbar .nav,:root[data-nav="bottom"] .tabbar .nav .ni{transform:none!important}}
 :root[data-nav="top"] .rail{position:sticky;top:8px;z-index:15;flex-direction:row;align-items:center;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;max-height:none;padding:6px 10px;gap:2px}
 :root[data-nav="top"] .rail .brand{padding:2px 12px 2px 4px;flex:none}
 :root[data-nav="top"] .rail .nav{flex:none;white-space:nowrap;padding:8px 12px}
@@ -994,7 +1009,7 @@ function navOrdered(tabs,order){
 function navMove(ids,id,before){var a=ids.filter(function(x){return x!==id}),i=before?a.indexOf(before):-1;if(i<0)a.push(id);else a.splice(i,0,id);return a}
 function navStep(ids,id,d){var i=ids.indexOf(id),j=i+d;if(i<0||j<0||j>=ids.length)return ids;var a=ids.slice();a.splice(i,1);a.splice(j,0,id);return a}
 function cleanNavPref(raw,validIds){
-  var o={layout:raw&&raw.layout==='top'?'top':'side',order:[],hidden:[],protect:raw&&(raw.protect==='app'||raw.protect==='own')?raw.protect:''},seen={},hs={};
+  var o={layout:raw&&(raw.layout==='top'||raw.layout==='bottom')?raw.layout:'side',order:[],hidden:[],protect:raw&&(raw.protect==='app'||raw.protect==='own')?raw.protect:''},seen={},hs={};
   (raw&&Array.isArray(raw.order)?raw.order:[]).forEach(function(id){if(typeof id==='string'&&validIds.indexOf(id)>-1&&!seen[id]){seen[id]=1;o.order.push(id)}});
   (raw&&Array.isArray(raw.hidden)?raw.hidden:[]).forEach(function(id){if(typeof id==='string'&&id!=='look'&&validIds.indexOf(id)>-1&&!hs[id]){hs[id]=1;o.hidden.push(id)}});   // Settings can never be hidden, or there would be no way back
   return o;
@@ -1010,7 +1025,8 @@ function nav(){
   function items(short){return navVisible(TABS,NAVP.order,NAVP.hidden).map(function(t){return '<button class="nav" data-view="'+t[0]+'"'+(short?'':' draggable="true" title="Drag to move this tab"')+(view===t[0]?' aria-current="page"':'')+'>'+tabChip(t[0])+'<span>'+(short&&t[2]||t[1])+'</span></button>'}).join('')}
   var h=items(false);
   $('#rail').innerHTML='<div class="brand"><svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="tl-bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1B2470"/><stop offset="1" stop-color="#05061A"/></linearGradient><linearGradient id="tl-bar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#8FA2FF"/></linearGradient></defs><rect width="24" height="24" fill="url(#tl-bg)"/><g fill="url(#tl-bar)"><rect x="5.2" y="5.4" width="2.1" height="13.2" rx="1.05"/><rect x="8.9" y="5.4" width="2.1" height="13.2" rx="1.05"/><rect x="12.6" y="5.4" width="2.1" height="13.2" rx="1.05"/><rect x="16.3" y="5.4" width="2.1" height="13.2" rx="1.05"/></g><path d="M4.6 17.2 19.4 7.4" stroke="#FFB45A" stroke-width="1.9" stroke-linecap="round" fill="none"/></svg>Tally</div><button class="nav searchbtn" data-act="spot-open" aria-label="Search the app" title="Search (Ctrl or Cmd + K)">'+ICON.search+'<span>Search</span><kbd class="kbd">'+(/Mac|iP(hone|ad)/.test(navigator.platform||'')?'\u2318K':'Ctrl K')+'</kbd></button>'+h+'<div class="railfoot"><span>'+(window.tally?'Your data stays on this computer. Bank sync and AI analysis send data only when you use them.':HOSTED?'Signed in as '+esc(AUTH.email)+'. Your data is encrypted before it leaves this browser.':'Your data stays in this browser. Nothing is uploaded.')+'</span></div>';
-  $('#tabbar').innerHTML=items(true);
+  $('#tabbar').innerHTML=(NAVP.layout==='bottom'?'<button class="nav searchbtn" data-act="spot-open" aria-label="Search the app" title="Search (Ctrl or Cmd + K)">'+ICON.search+'<span>Search</span></button>':'')+items(true);
+  if(NAVP.layout==='bottom'){var tb=$('#tabbar'),tc=tb&&tb.querySelector('.nav[aria-current="page"]');if(tc){var tl=tc.offsetLeft,tr=tl+tc.offsetWidth;if(tl<tb.scrollLeft||tr>tb.scrollLeft+tb.clientWidth)tb.scrollLeft=Math.max(0,tl-60)}}
   if(NAVP.layout==='top'){var rl=$('#rail'),cur=rl&&rl.querySelector('.nav[aria-current="page"]');if(cur){var l=cur.offsetLeft,r=l+cur.offsetWidth;if(l<rl.scrollLeft||r>rl.scrollLeft+rl.clientWidth)rl.scrollLeft=Math.max(0,l-60)}}   // keep the open tab visible in the top bar
 }
 var refreshing=false;
@@ -1301,7 +1317,7 @@ function homeScreen(sp,inc,nw){
   var cser=scoreSeries(S.credit.scores);
   if(cser.length){cards.push(hcard('credit','Credit score',cser.map(function(x){return '<div class="hrow"><span>'+esc(x.name)+'</span><b class="num '+x.band.k+'">'+x.last.score+'</b></div>'}).join('')+'<div class="sub" style="margin-top:6px">'+(cser[0].diff!==null?(cser[0].diff>=0?'Up ':'Down ')+Math.abs(cser[0].diff)+' since last time':'Latest scores')+'</div>'))}
   // next paycheck
-  var pnx=payNext(payStubs(),TODAY);
+  var pnx=payNextAll(payStubs(),TODAY,S.pay);
   if(pnx)cards.push(hcard('pay','Next paycheck','<div class="hnum num good">~'+money0(pnx.net)+'</div><div class="sub">'+(pnx.days===0?'today':pnx.days===1?'tomorrow':'in '+pnx.days+' days')+' \u00b7 '+shortDate(pnx.date)+'</div>'+(pnx.overdue?'<div class="sub warn" style="margin-top:6px">Expected earlier. Check it arrived.</div>':'')))
   // vehicle upkeep
   var upk=maintSavings(assetAccts(),TODAY,12);
@@ -2450,6 +2466,8 @@ function cleanPayStub(raw,newId){
   var yg=payNum(raw.ytdGross),yn=payNum(raw.ytdNet);if(yg!==null&&yg>0)o.ytdGross=yg;if(yn!==null&&yn>0)o.ytdNet=yn;
   if(/^[\w-]{1,20}$/.test(raw.doc||''))o.doc=raw.doc;
   if(raw.kind==='bonus'||raw.kind==='regular')o.kind=raw.kind;
+  var em=payStr(raw.employer,60);if(em)o.employer=em;
+  if(/^[emu]:[\w .&'()+-]{1,60}$/.test(raw.job||''))o.job=raw.job;
   var yl=[];(Array.isArray(raw.ytdLines)?raw.ytdLines:[]).slice(0,20).forEach(function(l){var nm=l&&payStr(l.name,40),y=l&&payNum(l.ytd);if(nm&&y!==null&&y>0)yl.push({name:nm,ytd:y})});if(yl.length)o.ytdLines=yl;
   (Array.isArray(raw.lines)?raw.lines:[]).slice(0,60).forEach(function(l){
     if(!l||!PAY_SECTIONS[l.section])return;var nm=payStr(l.name,60),a=payNum(l.amount);if(!nm||a===null)return;
@@ -2601,7 +2619,8 @@ function payYear(stubs,year,today){
     retirementPerPeriod:per.retirement,benefitPerPeriod:per.benefit};
 }
 function cleanPayState(raw,newId){
-  var out={stubs:[]},seen={};
+  var out={stubs:[],jobNames:{},single:!!(raw&&raw.single)},seen={};
+  if(raw&&raw.jobNames&&typeof raw.jobNames==='object'&&!Array.isArray(raw.jobNames))Object.keys(raw.jobNames).slice(0,20).forEach(function(k){var v=payStr(raw.jobNames[k],40);if(/^[emu]:[\w .&'()+-]{1,60}$/.test(k)&&v)out.jobNames[k]=v});
   (raw&&Array.isArray(raw.stubs)?raw.stubs:[]).slice(0,400).forEach(function(r){var st=cleanPayStub(r,newId);if(!st)return;var k=st.payDate+'|'+st.net;if(seen[k])return;seen[k]=1;out.stubs.push(st)});
   out.stubs.sort(function(a,b){return a.payDate<b.payDate?-1:1});out.stubs=out.stubs.slice(-200);
   return out;
@@ -2669,6 +2688,93 @@ function payBonusPlan(stubs,today){
   }).sort(function(a,b){return a.date<b.date?-1:1});
   out.next=cands[0]||null;out.others=cands.slice(1);
   return out;
+}
+
+/* ---- Several jobs: told apart by the employer's name on each statement, or by statements that overlap in time ---- */
+function payEmpKey(n){return String(n||'').toLowerCase().replace(/[^a-z0-9 ]+/g,' ').replace(/\b(inc|llc|ltd|corp|corporation|co|company|incorporated|plc|lp|llp)\b/g,' ').replace(/\s+/g,' ').trim().slice(0,50)}
+function payTitle(n){return /[a-z]/.test(n)?n:String(n).toLowerCase().replace(/(^|[\s(&-])([a-z])/g,function(m,a,b){return a+b.toUpperCase()}).replace(/\b(Llc|Lp|Llp)\b/g,function(x){return x.toUpperCase()})}
+function paySig(s){var o={};(s.lines||[]).forEach(function(l){if(l.section==='tax')return;o[payCanon(l.name)]=1});return o}
+function paySim(a,b){var ka=Object.keys(a),kb=Object.keys(b);if(!ka.length&&!kb.length)return 1;var n=0;ka.forEach(function(k){if(b[k])n++});var u=ka.length+kb.length-n;return u?n/u:1}
+// Two regular statements that cover the same time are two different jobs, unless they look like the same paycheck (same deductions, similar amount).
+function payConflict(a,b){
+  if(payKind(a)==='bonus'||payKind(b)==='bonus')return false;
+  var over=a.periodStart&&a.periodEnd&&b.periodStart&&b.periodEnd?(a.periodStart<=b.periodEnd&&b.periodStart<=a.periodEnd):Math.abs(payDays(a.payDate,b.payDate))<=2;
+  if(!over)return false;
+  var ratio=a.gross>0&&b.gross>0?a.gross/b.gross:1;
+  return paySim(paySig(a),paySig(b))<0.75||ratio<0.8||ratio>1.25;
+}
+function payScore(s,c){var r=c.gross>0&&s.gross>0?Math.min(s.gross,c.gross)/Math.max(s.gross,c.gross):0.5;return paySim(paySig(s),c.sig)*0.6+r*0.4}
+function payJobs(stubs,cfg){
+  var all=(stubs||[]).slice().sort(payByDate),names=(cfg&&cfg.jobNames)||{},groups=[],byKey={},loose=[];
+  var add=function(k,s,src){var g=byKey[k];if(!g){g={key:k,stubs:[],source:src,sig:{},gross:0};byKey[k]=g;groups.push(g)}g.stubs.push(s)};
+  if(cfg&&cfg.single){return {jobs:payJobFinish([{key:'u:1',stubs:all,source:'single'}],names),multi:false,reason:'single'}}
+  all.forEach(function(s){var k=s.job||(s.employer&&payEmpKey(s.employer)?'e:'+payEmpKey(s.employer):'');if(k)add(k,s,s.job&&s.job[0]!=='e'?'manual':'employer');else loose.push(s)});
+  var refresh=function(g){var r=payRegulars(g.stubs),sig={},gs=0;r.slice(-6).forEach(function(s){var q=paySig(s);Object.keys(q).forEach(function(k){sig[k]=1});gs+=s.gross});g.sig=sig;g.gross=r.length?gs/Math.min(6,r.length):0};
+  groups.forEach(refresh);
+  // statements with no employer name: join the job they resemble most, if that job has no overlapping paycheck; else they form their own group
+  var rest=[];
+  loose.forEach(function(s){
+    var cands=groups.filter(function(g){return !g.stubs.some(function(x){return payConflict(x,s)})});
+    if(!cands.length){rest.push(s);return}
+    var best=null,bs=-1;cands.forEach(function(g){var sc=payScore(s,g);if(sc>bs){bs=sc;best=g}});
+    if(groups.length>1&&payKind(s)!=='bonus'&&bs<0.45){rest.push(s);return}
+    best.stubs.push(s);refresh(best)});
+  var made=0;
+  rest.forEach(function(s){
+    var cands=groups.filter(function(g){return g.source==='pattern'&&!g.stubs.some(function(x){return payConflict(x,s)})});
+    var best=null,bs=-1;cands.forEach(function(g){var sc=payScore(s,g);if(sc>bs){bs=sc;best=g}});
+    if(best&&(payKind(s)==='bonus'||bs>=0.45)){best.stubs.push(s);refresh(best);return}
+    var g={key:'u:'+(++made),stubs:[s],source:'pattern',sig:{},gross:0};groups.push(g);byKey[g.key]=g;refresh(g)});
+  // a group made only of statements nobody could place (typically the first one) merges into a lone neighbour
+  groups.sort(function(a,b){return a.stubs[0].payDate<b.stubs[0].payDate?-1:1});
+  var jobs=payJobFinish(groups,names);
+  return {jobs:jobs,multi:jobs.length>1,reason:jobs.length>1?(jobs.every(function(j){return j.source==='employer'||j.source==='manual'})?'employer':'overlap'):''};
+}
+function payJobFinish(groups,names){
+  var out=groups.map(function(g){
+    g.stubs.sort(payByDate);var cnt={},best='',bn=0;g.stubs.forEach(function(s){if(s.employer){cnt[s.employer]=(cnt[s.employer]||0)+1;if(cnt[s.employer]>bn){bn=cnt[s.employer];best=s.employer}}});
+    return {key:g.key,source:g.source,stubs:g.stubs,employer:best?payTitle(best):'',regular:payRegulars(g.stubs).length,latest:g.stubs[g.stubs.length-1].payDate};
+  });
+  out.sort(function(a,b){return a.latest<b.latest?1:a.latest>b.latest?-1:0});
+  out.forEach(function(j,i){j.name=names[j.key]||j.employer||('Job '+(i+1))});
+  return out;
+}
+// What one job pays: usual paycheck, schedule, year so far and projection, and whether it still looks active.
+function payJobStats(job,today){
+  var st=job.stubs,regs=payRegulars(st),f=payFreqOf(st),nx=payNext(st,today),yr=payYear(st,today.getFullYear(),today),bp=payBonusPlan(st,today);
+  var last3=regs.slice(-3),prev3=regs.slice(-6,-3),avg=function(a,k){return a.length?a.reduce(function(n,s){return n+s[k]},0)/a.length:0};
+  var trend=prev3.length&&avg(prev3,'gross')>0?(avg(last3,'gross')/avg(prev3,'gross')-1)*100:null;
+  var stale=nx?nx.staleDays:(regs.length?Math.round((new Date(today.getFullYear(),today.getMonth(),today.getDate())-payParse(regs[regs.length-1].payDate))/864e5):9999);
+  var active=!!regs.length&&stale<=Math.max(30,((f&&f.days)||30)*2.2);
+  var perYear=f?f.perYear:0,gross=nx?nx.gross:avg(last3,'gross'),net=nx?nx.net:avg(last3,'net');
+  var hrs=last3.filter(function(s){return s.hours>0}),hourly=hrs.length?avg(hrs.map(function(s){return {g:s.gross,h:s.hours}}).map(function(x){return {v:x.g/x.h}}),'v'):0;
+  var bonusYtd=yr?yr.bonusYtd:0;
+  return {name:job.name,key:job.key,count:st.length,regular:regs.length,freq:f,next:nx,usualGross:gross,usualNet:net,keepPct:gross>0?net/gross*100:0,
+    annualGross:active&&perYear?gross*perYear+(bp.next?bp.next.amount:0):0,annualNet:active&&perYear?net*perYear+(bp.next?bp.next.net:0):0,monthlyNet:active&&perYear?net*perYear/12:0,
+    year:yr,bonusYtd:bonusYtd,bonusNext:bp.next,trend:trend,hourly:hourly,active:active,staleDays:stale,lastDate:regs.length?regs[regs.length-1].payDate:job.latest,only:regs.length?'':'bonus'};
+}
+// The soonest next paycheck across all jobs (or the only job's).
+function payNextAll(stubs,today,cfg){
+  var J=payJobs(stubs,cfg);if(J.jobs.length<2)return payNext(stubs,today);
+  var best=null,fallback=null;
+  J.jobs.forEach(function(j){var n=payNext(j.stubs,today);if(!n)return;n.job=j.name;if(!fallback||n.lastDate>fallback.lastDate)fallback=n;
+    if(n.staleDays>Math.max(30,n.freq.days*2.2))return;if(!best||n.date<best.date)best=n});
+  return best||fallback;
+}
+// The year's pay across jobs: each job is projected on its own schedule and the results added, expressed so the tax estimate can use it like a single job.
+function payYearAll(stubs,year,today,cfg){
+  var J=payJobs(stubs,cfg);if(J.jobs.length<2)return payYear(stubs,year,today);
+  var ys=J.jobs.map(function(j){return payYear(j.stubs,year,today)}).filter(Boolean);
+  if(!ys.length)return null;if(ys.length===1)return ys[0];
+  var sum=function(k){return ys.reduce(function(n,y){return n+(+y[k]||0)},0)},py=ys.reduce(function(n,y){return n+y.freq.perYear},0),pl=ys.reduce(function(n,y){return n+y.periodsLeft},0);
+  var wf=ys.reduce(function(n,y){return n+y.fedPerPeriod*y.periodsLeft},0),ws=ys.reduce(function(n,y){return n+y.statePerPeriod*y.periodsLeft},0);
+  var ben=ys.reduce(function(n,y){return n+y.benefitPerPeriod*y.freq.perYear},0),ret=ys.reduce(function(n,y){return n+y.retirementPerPeriod*y.freq.perYear},0);
+  var per=ys.reduce(function(n,y){return n+y.perPeriod.gross*y.periodsLeft},0),pn=ys.reduce(function(n,y){return n+y.perPeriod.net*y.periodsLeft},0),pt=ys.reduce(function(n,y){return n+y.perPeriod.tax*y.periodsLeft},0);
+  var last=ys.reduce(function(a,y){return y.lastDate>a.lastDate?y:a},ys[0]);
+  return {year:year,lastDate:last.lastDate,staleDays:Math.min.apply(null,ys.map(function(y){return y.staleDays})),count:sum('count'),regularCount:sum('regularCount'),sumGross:sum('sumGross'),ytdGross:sum('ytdGross'),ytdFactor:sum('sumGross')>0?sum('ytdGross')/sum('sumGross'):1,
+    perPeriod:{gross:pl?per/pl:0,net:pl?pn/pl:0,tax:pl?pt/pl:0,retirement:py?ret/py:0,benefit:py?ben/py:0},periodsLeft:pl,freq:{perYear:py,label:'across '+ys.length+' jobs',key:'multi'},bonusYtd:sum('bonusYtd'),estimated:ys.some(function(y){return y.estimated}),latestRegular:last.latestRegular,
+    projGross:sum('projGross'),projNet:sum('projNet'),withheldFed:sum('withheldFed'),withheldState:sum('withheldState'),withheldSS:sum('withheldSS'),withheldMed:sum('withheldMed'),
+    fedPerPeriod:pl?wf/pl:0,statePerPeriod:pl?ws/pl:0,retirementPerPeriod:py?ret/py:0,benefitPerPeriod:py?ben/py:0,jobs:ys.length};
 }
 /*PAY-END*/
 /*TAX-START*/
@@ -2753,8 +2859,8 @@ function taxEstimate(inp){
 function taxSaving(est,amount){return Math.round(amount*(est.marginal+((est.state&&est.state.rate>0)?est.state.rate/100:0)))}
 // Pulls the numbers a tax estimate needs from pay statements, tax forms you added, transactions and your settings.
 // cfg: {state,status,kids,otherIncome,seIncome,otherCredits,rate,manualWages,manualWithheld,useForms,mortgageInterest,propertyTax,medical}
-function taxInputs(cfg,year,stubs,forms,txns,today){
-  var yr=+year,py=payYear(stubs,yr,today),f=(forms||[]).filter(function(x){return +x.year===yr}),w2=f.filter(function(x){return x.form==='W-2'}),src='none';
+function taxInputs(cfg,year,stubs,forms,txns,today,payCfg){
+  var yr=+year,py=payYearAll(stubs,yr,today,payCfg),f=(forms||[]).filter(function(x){return +x.year===yr}),w2=f.filter(function(x){return x.form==='W-2'}),src='none';
   var wages=0,sec125=0,withheldFed=0,withheldState=0,gross=0,periodsLeft=0,fedPer=0;
   var sum=function(k,list){return list.reduce(function(n,x){return n+(+x[k]||0)},0)};
   var interest=sum('interest',f.filter(function(x){return x.form==='1099-INT'})),div=sum('ordinaryDividends',f.filter(function(x){return x.form==='1099-DIV'})),nec=sum('nonemployeeComp',f),unemp=sum('unemployment',f.filter(function(x){return x.form==='1099-G'})),retDist=sum('retirementDistribution',f);
@@ -3743,7 +3849,7 @@ var DEFAULT_SUBS={
  Travel:['Lodging','Flights and trains','Food and local transport'],
  'Cash and transfers':['ATM cash','Sent to people','Remittances'],
  'Debt and loans':['Car loan','Student loan','Credit card'],
- Income:['Salary','Bonus','Overtime and commission','Side income','Interest and dividends','Tax refund','Refunds and reimbursements','Rental income','Government benefits','Gifts received']};
+ Income:['Salary','Bonus','Overtime and commission','Side income','Interest and dividends','Tax refund','Refunds and reimbursements','Rental income','Government benefits','Gifts received','Friends and family','Selling things']};
 var SUBRULES=[
  ['Fees and taxes','Vehicle registration',/registration|\bdmv\b|\brmv\b|motor vehicle/i],['Fees and taxes','Licenses and permits',/licen[sc]e|permit|inspection|passport|notary/i],['Fees and taxes','Property tax',/property tax|tax collector|excise/i],['Fees and taxes','Late fees',/late fee|penalty/i],['Fees and taxes','Bank and card fees',/overdraft|service charge|annual fee|monthly fee/i],
  ['Repairs and maintenance','Car parts',/autozone|o'?reilly|advance auto|napa/i],['Repairs and maintenance','Motorcycle and boat',/harley|motorcycle|marine|boat/i],['Repairs and maintenance','Appliance and HVAC',/hvac|appliance|furnace|heating|air cond/i],['Repairs and maintenance','Yard and pool',/landscap|\blawn\b|\btree\b|\bpool\b|snow/i],['Repairs and maintenance','Pest and cleaning',/pest|exterminat|cleaning|\bmaid\b/i],['Repairs and maintenance','Home repair',/plumb|electrician|roofing|roofer|handyman|contractor|locksmith|gutter|chimney|restoration|garage door/i],['Repairs and maintenance','Car repair and service',/auto|\btires?\b|oil change|jiffy|valvoline|firestone|pep boys|meineke|midas|\bbrakes?\b|collision|body shop|mechanic|\bsmog\b|garage/i],
@@ -4515,7 +4621,7 @@ var HELP={
   overview:{t:'Overview',what:'A summary of the month: where your money went, income against spending over six months, your budgets and the bills coming up.',how:['Use the month arrows at the top to look at another month.','Read Where it went to see which categories took the most.','Budgets are listed most used first, so the ones you are close to overspending show at the top.','Bills coming up lists what is due in the next two weeks.'],tip:'This is the page to glance at each morning. Open the other tabs for detail.'},
   dash:{t:'Dashboard',what:'A live view of your net worth, bills, loan payoff, goals and spending in one screen.',how:['Read the cards for your headline numbers.','Click a card to open the tab behind it.','Leave it open: it updates on its own.'],tip:'Add accounts and balances first so the net worth card is accurate.'},
   accounts:{t:'Accounts',what:'Everything you own and owe, and your net worth (assets minus debts).',how:['Add an account with the form at the bottom: checking, savings, a card, a loan, a vehicle or a property.','Keep balances current: edit them, or import a statement on Transactions.','Assets and Debts show what adds to and what takes from your net worth.'],tip:'The more accounts you add, the more the rest of the app can connect (bills from loans, payoff plans, net worth).'},
-  pay:{t:'My pay',what:'Your paychecks: when the next one arrives, what comes out of each one and what changed since the last.',how:['Press Add a pay statement and choose the PDF from your payroll site (such as ADP). The app reads it on your computer.','Check the numbers it found, then save. Or press Add by hand to type them in.','Where your paycheck goes splits each check into taxes, benefits, retirement and take-home, with a chart and notes.','Add a statement each pay period so What changed and the yearly projection stay accurate.'],tip:'A copy of each statement is filed in Documents for you.'},
+  pay:{t:'My pay',what:'Your paychecks: when the next one arrives, what comes out of each one and what changed since the last.',how:['Press Add a pay statement and choose the PDF from your payroll site (such as ADP). The app reads it on your computer.','Check the numbers it found, then save. Or press Add by hand to type them in.','Where your paycheck goes splits each check into taxes, benefits, retirement and take-home, with a chart and notes.','Add a statement each pay period so What changed and the yearly projection stay accurate.','With more than one job, the app tells them apart by the employer on each statement and shows each one: what it pays, when the next check comes and how it is doing.','Other income at the bottom is for gigs, payments from friends and gifts.'],tip:'A copy of each statement is filed in Documents for you.'},
   tax:{t:'Taxes',what:'An estimate of whether you will owe or get a refund this year, built from your pay statements or your W-2.',how:['Choose your state, filing status and number of children under Your tax situation.','Press Add a tax form and choose your W-2 or 1099 PDF. Check what it read before you save it.','Read What to expect at tax time and How it adds up to see the estimate and where it comes from.','Use Update the estimate after you change anything.'],tip:'This is an estimate, not tax advice. Compare it with your real return.'},
   docs:{t:'Documents',what:'A folder on your computer for statements and records, sorted by kind and year.',how:['Press Choose files and pick one or more documents.','Leave File under on Sort automatically, or pick the folder yourself.','Open a folder or a file from the list, or press Open my Documents folder.'],tip:'Pay statements, tax forms and service records you add elsewhere in the app are filed here too.'},
   assets:{t:'Assets',what:'Your vehicles and other valuable things: what they are worth, how fast they lose value, upkeep and modifications.',how:['Add the asset on Accounts, or open it here.','Keep its value current, or use the value lookup if you have set up AI.','Add maintenance so Upkeep coming up shows what to budget for.','Add modifications you installed; they add value.','Link a car loan to its vehicle.'],tip:'Upkeep that is due also shows up on the Bills tab.'},
@@ -6756,15 +6862,15 @@ function enAfterRead(r,fileName,fuel){
   enUI.imp={records:r.records.filter(function(x){return FUELS[x.fuel]}),file:fileName,notes:r.notes||'',skipped:r.skipped||0};enUI.busy='';enUI.msg='';render();
 }
 /* ---------- My pay: pay statements, the next paycheck and what changed ---------- */
-var mypayUI={sel:'',adding:false,manual:false,imp:null,impBuf:null,impName:'',busy:'',msg:'',hist:[],redo:[],confirmClear:false};
+var mypayUI={job:'all',rename:'',oiDup:'',sel:'',adding:false,manual:false,imp:null,impBuf:null,impName:'',busy:'',msg:'',hist:[],redo:[],confirmClear:false};
 // Undo for pay statements only: every change to your statements (adding, removing, marking a bonus, clearing) can be taken back, in order,
 // without touching anything else you did in the app. Kept while the app is open; the Undo at the top of the page also covers it.
-function payMark(label){mypayUI.hist.push({label:label,stubs:JSON.stringify(S.pay.stubs)});if(mypayUI.hist.length>40)mypayUI.hist.shift();mypayUI.redo=[]}
+function payMark(label){mypayUI.hist.push({label:label,stubs:JSON.stringify(S.pay.stubs),meta:JSON.stringify({jobNames:S.pay.jobNames||{},single:!!S.pay.single})});if(mypayUI.hist.length>40)mypayUI.hist.shift();mypayUI.redo=[]}
 function payRestore(dir){
   var from=dir==='undo'?mypayUI.hist:mypayUI.redo,to=dir==='undo'?mypayUI.redo:mypayUI.hist;
   if(!from.length)return;
-  var e=from.pop(),now=JSON.stringify(S.pay.stubs),ns;try{ns=JSON.parse(e.stubs)}catch(x){return}
-  to.push({label:e.label,stubs:now});S.pay.stubs=cleanPayState({stubs:ns},uid).stubs;mypayUI.sel='';mypayUI.imp=null;mypayUI.confirmClear=false;
+  var e=from.pop(),now=JSON.stringify(S.pay.stubs),nowMeta=JSON.stringify({jobNames:S.pay.jobNames||{},single:!!S.pay.single}),ns,nm={};try{ns=JSON.parse(e.stubs);nm=e.meta?JSON.parse(e.meta):{}}catch(x){return}
+  to.push({label:e.label,stubs:now,meta:nowMeta});var cs=cleanPayState({stubs:ns,jobNames:nm.jobNames,single:nm.single},uid);S.pay.stubs=cs.stubs;S.pay.jobNames=cs.jobNames;S.pay.single=cs.single;mypayUI.sel='';mypayUI.imp=null;mypayUI.confirmClear=false;
   toast((dir==='undo'?'Undid: ':'Redid: ')+e.label+'.');
 }
 function payStubs(){return (S.pay&&S.pay.stubs||[]).slice().sort(function(a,b){return a.payDate<b.payDate?-1:1})}
@@ -6861,11 +6967,13 @@ function payImpPreview(){
   return '<section class="panel"><h2>Check this before saving<small>read from '+esc(mypayUI.impName)+'</small></h2><p class="sub" style="margin:0 0 8px;white-space:normal">'+(mypayUI.impSrc==='ai'?'Claude':'The app')+' read these numbers; compare them with your statement. Nothing is saved until you press Save.</p>'+
     '<div class="grid tiles">'+tile('Pay date',payDateLabel(im.payDate),im.periodStart&&im.periodEnd?shortDate(im.periodStart)+' to '+shortDate(im.periodEnd):'')+tile('Gross',money(im.gross),im.hours?im.hours+' hours':'')+tile('Taxes',money(t.tax),'')+tile('Net',money(im.net),Math.abs(t.unexplained)>Math.max(2,im.gross*0.01)?'<span class="warn">items differ by '+money(Math.abs(t.unexplained))+'</span>':'adds up')+'</div>'+
     ['earnings','tax','benefit','retirement','deduction','other'].map(function(sec){var ls=im.lines.filter(function(l){return l.section===sec});return ls.length?'<div class="sub" style="margin-top:8px"><b>'+PAY_SECTIONS[sec]+'</b>: '+ls.map(function(l){return esc(l.name)+' '+money(l.amount)}).join(' · ')+'</div>':''}).join('')+
-    '<label style="display:flex;gap:8px;align-items:center;margin-top:8px;font-size:13px"><input type="checkbox" data-paykind'+(payKind(im)==='bonus'?' checked':'')+'> This is a bonus check (it is left out of your usual paycheck and pay dates)</label>'+(dup?'<p class="sub warn" style="margin:8px 0 0">You already have a statement with this date and take-home. Saving replaces it.</p>':'')+(payOldNote(im)?'<p class="sub warn" style="margin:8px 0 0;white-space:normal">'+payOldNote(im)+'</p>':'')+
+    (im.employer?'<p class="sub" style="margin:8px 0 0;white-space:normal">Employer: <b>'+esc(payTitle(im.employer))+'</b>. Statements from the same employer are grouped as one job.</p>':'')+'<label style="display:flex;gap:8px;align-items:center;margin-top:8px;font-size:13px"><input type="checkbox" data-paykind'+(payKind(im)==='bonus'?' checked':'')+'> This is a bonus check (it is left out of your usual paycheck and pay dates)</label>'+(dup?'<p class="sub warn" style="margin:8px 0 0">You already have a statement with this date and take-home. Saving replaces it.</p>':'')+(payOldNote(im)?'<p class="sub warn" style="margin:8px 0 0;white-space:normal">'+payOldNote(im)+'</p>':'')+
     '<div class="actions" style="justify-content:flex-start;margin-top:10px"><button class="btn primary small" data-act="pay-imp-save">Save this statement</button><button class="btn small" data-act="pay-imp-no">Discard</button></div></section>';
 }
 function vPay(){
-  var stubs=payStubs(),head='<div class="top"><h1>My pay</h1></div>';
+  var allStubs=payStubs(),J=payJobs(allStubs,S.pay),jsel=mypayUI.job||'all',jobObj=null;
+  if(J.multi&&jsel!=='all'){jobObj=J.jobs.filter(function(j){return j.key===jsel})[0]||null;if(!jobObj)jsel='all'}
+  var allMode=J.multi&&!jobObj,stubs=jobObj?jobObj.stubs:allStubs,head='<div class="top"><h1>My pay</h1></div>';
   var canAi=!!(T&&T.loan&&T.loan.readFile&&((T.pay&&T.pay.parse)||(T.ai&&T.ai.payStub))),key=true;
   var actions='<div class="actions" style="justify-content:flex-end;margin:0 0 10px;flex-wrap:wrap"><label class="btn small primary'+(canAi&&key&&!mypayUI.busy?'':' disabled')+'" style="cursor:'+(canAi&&key?'pointer':'not-allowed')+'" title="'+(canAi?'':'Needs the desktop app')+'">'+(mypayUI.busy?'Reading…':'Add a pay statement (PDF)')+'<input type="file" data-payfile accept=".pdf,.txt,application/pdf,text/plain" hidden'+(canAi&&key&&!mypayUI.busy?'':' disabled')+'></label><button class="btn small" data-act="pay-manual">Add by hand</button><a class="btn small" href="https://my.adp.com" target="_blank" rel="noopener noreferrer">Open ADP</a></div>'+(canAi?'':'<p class="sub muted" style="margin:0 0 10px;font-size:12px;white-space:normal;text-align:right">Reading a PDF needs the desktop app. Use Add by hand here.</p>');
   var hb=mypayUI.hist.length?mypayUI.hist[mypayUI.hist.length-1]:null,rb=mypayUI.redo.length?mypayUI.redo[mypayUI.redo.length-1]:null;
@@ -6873,8 +6981,8 @@ function vPay(){
   actions+=undoBar;
   var msg=mypayUI.msg?'<div class="banner" role="alert"><span>'+esc(mypayUI.msg)+'</span></div>':'';
   var note='<p class="sub muted" style="margin:0 0 12px;font-size:12px;white-space:normal">ADP does not let apps connect to a personal account (its connections are for employers and approved partners), so there is no way to link it. Download your pay statement as a PDF from ADP (Pay, then Pay statements) and add it here: the app reads it on your computer (nothing is sent anywhere), you check the numbers, and a copy goes into your Documents folder. If a statement has a layout the app does not know and you have saved an Anthropic API key, Claude reads it instead; names, addresses and account numbers are masked first.</p>';
-  if(!stubs.length)return head+actions+msg+payImpPreview()+(mypayUI.manual?payForm():'')+'<section class="panel"><div class="empty" style="white-space:normal">Add your latest pay statement to see what you earn, what comes out, when your next paycheck should arrive and what changed since the last one. Add a few and the app learns your pay schedule.</div></section>'+note;
-  var last=stubs[stubs.length-1],sel=stubs.filter(function(s){return s.id===mypayUI.sel})[0]||last,nx=payNext(stubs,TODAY),arr=payArrived(stubs,S.txns,TODAY),ch=payChanges(stubs.slice(0,stubs.indexOf(sel)+1)),yr=payYear(stubs,TODAY.getFullYear(),TODAY);
+  if(!stubs.length)return head+actions+msg+payImpPreview()+(mypayUI.manual?payForm():'')+'<section class="panel"><div class="empty" style="white-space:normal">Add your latest pay statement to see what you earn, what comes out, when your next paycheck should arrive and what changed since the last one. Add a few and the app learns your pay schedule.</div></section>'+otherIncomePanel()+note;
+  var last=stubs[stubs.length-1],sel=stubs.filter(function(s){return s.id===mypayUI.sel})[0]||last,nx=payNext(stubs,TODAY),arr=payArrived(stubs,S.txns,TODAY),ch=payChanges(stubs.slice(0,stubs.indexOf(sel)+1)),yr=allMode?payYearAll(allStubs,TODAY.getFullYear(),TODAY,S.pay):payYear(stubs,TODAY.getFullYear(),TODAY);
   var hero='';
   var staleNote=nx&&nx.staleDays>Math.max(30,nx.freq.days*2.2)?'<p class="sub warn" style="margin:8px 0 0;white-space:normal">Your latest regular statement is from '+payDateLabel(nx.lastDate)+' ('+nx.staleDays+' days ago), so this date and amount are estimates. Add a recent statement to make them accurate.</p>':'';
   if(nx)hero='<section class="panel"><h2>Next paycheck</h2><div class="row wrap" style="border:0;padding:0;align-items:flex-end"><div class="grow"><div class="num" style="font-size:28px;font-weight:700">'+payLongDate(nx.date)+'</div><div class="sub">'+(nx.days===0?'Today':nx.days===1?'Tomorrow':'In '+nx.days+' days')+' · paid '+nx.freq.label+'</div></div><div style="text-align:right"><div class="num good" style="font-size:26px;font-weight:700">~'+money0(nx.net)+'</div><div class="sub">take-home, from '+money0(nx.gross)+' gross</div></div></div>'+
@@ -6882,8 +6990,99 @@ function vPay(){
     (arr&&arr.found?'<p class="sub good" style="margin:8px 0 0">The paycheck expected around '+shortDate(arr.expected)+' arrived: '+money(arr.found.amount)+' on '+shortDate(arr.found.date)+'. Add its statement to keep this accurate.</p>':'')+staleNote+'</section>';
   var chPanel='<section class="panel"><h2>What changed<small>'+(sel===last?'latest paycheck':'paycheck of '+shortDate(sel.payDate))+' compared with the one before</small></h2>'+(ch.length?insightRows(ch):'<div class="empty">Nothing changed. Your pay, taxes and deductions look the same as last time.</div>')+'</section>';
   var ytd=yr?'<section class="panel"><h2>'+yr.year+' so far<small>from your statements</small></h2><div class="grid tiles">'+tile('Gross so far',money0(yr.ytdGross),yr.ytdFactor>1.05||yr.count<2?'year-to-date from the latest statement':yr.count+' statements')+tile('Federal tax withheld',money0(yr.withheldFed),yr.ytdGross>0?(yr.withheldFed/yr.ytdGross*100).toFixed(1)+'% of gross':'')+tile('Retirement saved',money0(yr.retirementPerPeriod*yr.count*yr.ytdFactor),'about '+money0(yr.retirementPerPeriod)+' each paycheck')+tile('On track for',money0(yr.projGross),'gross this year, '+yr.periodsLeft+' paychecks to go')+'</div><p class="sub" style="margin:8px 0 0"><a href="#" data-view="tax">See what to expect at tax time</a></p></section>':'';
-  var hist='<section class="panel"><h2>Pay history</h2>'+payBars(stubs)+'<div style="overflow-x:auto;margin-top:8px"><table class="maptable" style="width:100%"><thead><tr><th>Paid</th><th>Gross</th><th>Taxes</th><th>Deductions</th><th>Net</th><th></th></tr></thead><tbody>'+stubs.slice().reverse().slice(0,26).map(function(s){var t=payTotals(s);return '<tr'+(s.id===sel.id?' style="font-weight:700"':'')+'><td>'+payDateLabel(s.payDate)+(payKind(s)==='bonus'?' <span class="pill warn" style="font-size:11px">Bonus</span>':'')+'</td><td class="num">'+money0(s.gross)+'</td><td class="num">'+money0(t.tax)+'</td><td class="num">'+money0(t.benefit+t.retirement+t.deduction)+'</td><td class="num good">'+money0(s.net)+'</td><td style="white-space:nowrap"><button class="btn small" data-act="pay-sel" data-id="'+esc(s.id)+'">View</button> <button class="btn small danger" data-act="pay-del" data-id="'+esc(s.id)+'" aria-label="Remove this statement" title="Remove this statement (Undo is at the top of the page)">&times;</button></td></tr>'}).join('')+'</tbody></table></div><div class="actions" style="justify-content:flex-end;margin-top:10px">'+(mypayUI.confirmClear?'<span class="sub warn">Remove all '+stubs.length+' statements? You can Undo it.</span><button class="btn small danger" data-act="pay-clear-yes">Yes, remove all</button><button class="btn small" data-act="pay-clear-no">Cancel</button>':'<button class="btn small" data-act="pay-clear" title="Clears every statement so you can add them again, for example after an update that reads them better">Remove all statements&hellip;</button>')+'</div></section>';
-  return head+actions+msg+payImpPreview()+(mypayUI.manual?payForm():'')+hero+bonusPanel(stubs)+chPanel+payStatement(sel)+payBreakdownPanel(stubs,sel)+ytd+hist+note;
+  var hist='<section class="panel"><h2>Pay history</h2>'+payBars(stubs)+'<div style="overflow-x:auto;margin-top:8px"><table class="maptable" style="width:100%"><thead><tr><th>Paid</th>'+(J.multi?'<th>Job</th>':'')+'<th>Gross</th><th>Taxes</th><th>Deductions</th><th>Net</th><th></th></tr></thead><tbody>'+stubs.slice().reverse().slice(0,26).map(function(s){var t=payTotals(s);return '<tr'+(s.id===sel.id?' style="font-weight:700"':'')+'><td>'+payDateLabel(s.payDate)+(payKind(s)==='bonus'?' <span class="pill warn" style="font-size:11px">Bonus</span>':'')+'</td>'+(J.multi?'<td>'+payJobPick(J,s)+'</td>':'')+'<td class="num">'+money0(s.gross)+'</td><td class="num">'+money0(t.tax)+'</td><td class="num">'+money0(t.benefit+t.retirement+t.deduction)+'</td><td class="num good">'+money0(s.net)+'</td><td style="white-space:nowrap"><button class="btn small" data-act="pay-sel" data-id="'+esc(s.id)+'">View</button> <button class="btn small danger" data-act="pay-del" data-id="'+esc(s.id)+'" aria-label="Remove this statement" title="Remove this statement (Undo is at the top of the page)">&times;</button></td></tr>'}).join('')+'</tbody></table></div><div class="actions" style="justify-content:flex-end;margin-top:10px">'+(mypayUI.confirmClear?'<span class="sub warn">Remove all '+stubs.length+' statements? You can Undo it.</span><button class="btn small danger" data-act="pay-clear-yes">Yes, remove all</button><button class="btn small" data-act="pay-clear-no">Cancel</button>':'<button class="btn small" data-act="pay-clear" title="Clears every statement so you can add them again, for example after an update that reads them better">Remove all statements&hellip;</button>')+'</div></section>';
+  var jobTabs=J.multi?payJobTabs(J,jsel):payJobsNote(),oi=otherIncomePanel();
+  if(allMode)return head+actions+msg+payImpPreview()+(mypayUI.manual?payForm():'')+jobTabs+payJobsPanel(J)+ytd+hist+oi+note;
+  return head+actions+msg+payImpPreview()+(mypayUI.manual?payForm():'')+jobTabs+hero+bonusPanel(stubs)+chPanel+payStatement(sel)+payBreakdownPanel(stubs,sel)+ytd+hist+oi+note;
+}
+
+/*OTHERINC-START*/
+// Income that is not a paycheck: gigs, payments from friends, gifts and the like. Each is an Income transaction with one of these types.
+var OI_TYPES=[['Side income','Gig or side work','Taxable: counts as self-employment income (rideshare, delivery, freelancing, odd jobs).'],['Friends and family','Payment from a friend or family','If it pays you back for something (a split bill, a loan) it is not income. If it is pay for work, it is.'],['Gifts received','Gift','Gifts are generally not taxable income for the person who receives them.'],['Selling things','Sold something','Usually not income when you sell for less than you paid. A profit, or reselling for a living, is.'],['Refunds and reimbursements','Reimbursement or refund','Money back for something you paid for. Not income.'],['Rental income','Rental','Taxable.']];
+var OI_PAY=/^(Salary|Bonus|Overtime and commission)$/;
+function oiIsOther(x){return x.amount>0&&x.cat==='Income'&&!!x.sub&&!OI_PAY.test(x.sub)&&!x.transfer}
+function oiDays(a,b){return Math.round((Date.parse(b)-Date.parse(a))/864e5)}
+function oiSummary(txns,year,mk){
+  var by={},tot={year:0,month:0,count:0};
+  txns.forEach(function(x){if(!oiIsOther(x)||x.date.slice(0,4)!==String(year))return;var b=by[x.sub]||(by[x.sub]={sub:x.sub,year:0,month:0,count:0});b.year+=x.amount;b.count++;tot.year+=x.amount;tot.count++;if(x.date.slice(0,7)===mk){b.month+=x.amount;tot.month+=x.amount}});
+  return {by:Object.keys(by).map(function(k){return by[k]}).sort(function(a,b){return b.year-a.year}),total:tot};
+}
+// An existing deposit that looks like the same money (same amount, within three days).
+function oiDup(txns,date,amount){for(var i=0;i<txns.length;i++){var x=txns[i];if(x.amount>0&&Math.abs(x.amount-amount)<0.005&&Math.abs(oiDays(x.date,date))<=3)return x}return null}
+// Deposits already in the accounts that could be tagged as other income: not a paycheck, not a transfer, in the last four months.
+function oiCandidates(txns,today){
+  var t0=Date.UTC(today.getFullYear(),today.getMonth(),today.getDate()),out=[];
+  txns.forEach(function(x){
+    if(!(x.amount>0)||x.transfer||x.cardPay||oiIsOther(x))return;
+    if(x.cat==='Income'&&(OI_PAY.test(x.sub||'')||/payroll|salary|direct dep|\badp\b|paychex|gusto/i.test(x.name||'')))return;
+    if(/payroll|direct dep|\badp\b|paychex|gusto/i.test(x.name||''))return;
+    var d=Date.parse(x.date);if(!(d<=t0+864e5)||t0-d>120*864e5)return;out.push(x)});
+  return out.sort(function(a,b){return a.date<b.date?1:a.date>b.date?-1:0}).slice(0,10);
+}
+/*OTHERINC-END*/
+function oiLabel(sub){for(var i=0;i<OI_TYPES.length;i++)if(OI_TYPES[i][0]===sub)return OI_TYPES[i][1];return sub}
+function oiOptions(sel){return OI_TYPES.map(function(t){return '<option value="'+esc(t[0])+'"'+(t[0]===sel?' selected':'')+'>'+esc(t[1])+'</option>'}).join('')}
+function otherIncomePanel(){
+  var yr=TODAY.getFullYear(),mk=iso(TODAY).slice(0,7),sm=oiSummary(S.txns,yr,mk),cand=oiCandidates(S.txns,TODAY);
+  var recent=S.txns.filter(oiIsOther).slice().sort(function(a,b){return a.date<b.date?1:-1}).slice(0,12);
+  var gig=0;S.txns.forEach(function(x){if(oiIsOther(x)&&x.sub==='Side income'&&x.date.slice(0,4)===String(yr))gig+=x.amount});
+  var form='<form class="form oiform" style="align-items:flex-end;margin-top:10px"><label>Amount ($)<input name="amt" type="number" min="0" step="0.01" required placeholder="e.g. 60" style="width:110px"></label><label>Date<input name="date" type="date" value="'+iso(TODAY)+'" max="'+iso(TODAY)+'" required></label><label>Kind<select name="type">'+oiOptions('Side income')+'</select></label><label>From or for (optional)<input name="note" maxlength="60" placeholder="e.g. DoorDash, Sam for dinner" style="width:190px"></label><label>It was<select name="where"><option value="cash">Cash I am holding</option><option value="bank">Paid to my bank or Venmo</option></select></label><button class="btn primary">Add income</button></form>';
+  var tiles=sm.total.count?'<div class="grid tiles" style="margin-top:10px">'+tile('This month',money0(sm.total.month),'other income')+tile(yr+' so far',money0(sm.total.year),sm.total.count+' payment'+(sm.total.count===1?'':'s'))+(gig>0?tile('Gig income',money0(gig),'taxable, '+yr):'')+'</div>':'';
+  var by=sm.by.length?'<div style="margin-top:10px">'+sm.by.map(function(b){var mx=sm.by[0].year||1;return '<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;gap:8px;font-size:14px"><span><b>'+esc(oiLabel(b.sub))+'</b></span><span class="num muted">'+money0(b.year)+' · '+b.count+'</span></div><div class="bar" style="margin-top:4px"><i style="width:'+Math.max(3,b.year/mx*100)+'%"></i></div></div>'}).join('')+'</div>':'';
+  var tax=gig>0?'<p class="sub" style="margin:8px 0 0;white-space:normal">Gig income is taxable, but your tax estimate leaves it out unless you add it. '+((+S.tax.seIncome||0)===Math.round(gig)?'<span class="good">It is already counted there.</span>':'<button class="btn small" data-act="oi-tax">Use '+money0(gig)+' in my tax estimate</button>'+((+S.tax.seIncome||0)>0?' <span class="muted">(replaces the '+money0(+S.tax.seIncome)+' now entered)</span>':''))+'</p>':'';
+  var rows=recent.length?'<h3 style="font-size:15px;margin:14px 0 4px">Recent</h3>'+recent.map(function(x){return '<div class="row wrap"><div class="grow" style="flex-basis:200px"><div class="nm">'+esc(x.name)+'</div><div class="sub">'+shortDate(x.date)+' · '+esc(oiLabel(x.sub))+(x.cash?' · cash':'')+'</div></div><div class="num good" style="font-weight:600">+'+money(x.amount)+'</div><button class="btn small" data-act="oi-del" data-id="'+esc(x.id)+'" aria-label="'+(x.manual?'Remove':'Untag')+' this income" title="'+(x.manual?'Remove this entry':'Stop counting this deposit as other income')+'">'+(x.manual?'&times;':'Untag')+'</button></div>'}).join(''):'';
+  var tag=cand.length?'<h3 style="font-size:15px;margin:14px 0 4px">Already in your accounts?</h3><p class="sub muted" style="margin:0 0 6px;font-size:12px;white-space:normal">Deposits that came in by bank, Venmo or Zelle are already counted as money in. Tag one to label it as a gig, gift or payment from a friend instead of adding it twice.</p>'+cand.map(function(x){return '<form class="oitag" data-id="'+esc(x.id)+'"><div class="row wrap" style="align-items:center"><div class="grow" style="flex-basis:180px"><div class="nm">'+esc(x.name)+'</div><div class="sub">'+shortDate(x.date)+'</div></div><div class="num good" style="font-weight:600">+'+money(x.amount)+'</div><select name="t" aria-label="Kind of income">'+oiOptions('')+'</select><button class="btn small">Tag</button></div></form>'}).join(''):'';
+  var notes='<p class="sub muted" style="margin:10px 0 0;font-size:12px;white-space:normal">Income you add here counts in your income totals, budgets and safe-to-spend. '+OI_TYPES.map(function(t){return '<b>'+esc(t[1])+'</b>: '+esc(t[2])}).join(' ')+' Not tax advice.</p>';
+  return '<section class="panel"><h2>Other income<small>gigs, payments from friends, gifts</small></h2><p class="sub" style="margin:0;white-space:normal">Money that is not from a paycheck. Add it here so your income and budgets are complete.</p>'+tiles+by+tax+form+rows+tag+notes+'</section>';
+}
+
+function payJobTabs(J,sel){
+  return '<div class="actions" style="justify-content:flex-start;margin:0 0 10px;flex-wrap:wrap" role="tablist" aria-label="Jobs"><button class="btn small'+(sel==='all'?' primary':'')+'" data-act="pay-job" data-k="all" role="tab" aria-selected="'+(sel==='all')+'">All jobs</button>'+J.jobs.map(function(j){return '<button class="btn small'+(sel===j.key?' primary':'')+'" data-act="pay-job" data-k="'+esc(j.key)+'" role="tab" aria-selected="'+(sel===j.key)+'">'+esc(j.name)+'</button>'}).join('')+'</div>';
+}
+function payJobsNote(){
+  if(!(S.pay&&S.pay.single)||payStubs().length<2)return '';
+  return '<p class="sub muted" style="margin:0 0 10px;white-space:normal">All your statements are being treated as one job. <button class="btn small" data-act="pay-job-auto">Look for several jobs again</button></p>';
+}
+function payJobPick(J,s){
+  var cur='';J.jobs.forEach(function(j){if(j.stubs.indexOf(s)>-1||j.stubs.some(function(x){return x.id===s.id}))cur=j.key});
+  return '<select class="jobpick" data-id="'+esc(s.id)+'" aria-label="Which job this statement is from" style="max-width:150px">'+J.jobs.map(function(j){return '<option value="'+esc(j.key)+'"'+(j.key===cur?' selected':'')+'>'+esc(j.name)+'</option>'}).join('')+'<option value="__new">New job…</option></select>';
+}
+function payJobsPanel(J){
+  var st=J.jobs.map(function(j){return payJobStats(j,TODAY)}),act=st.filter(function(x){return x.active}),mo=act.reduce(function(n,x){return n+x.monthlyNet},0),ag=act.reduce(function(n,x){return n+x.annualGross},0);
+  var ytd=st.reduce(function(n,x){return n+(x.year?x.year.ytdGross:0)},0),yr=TODAY.getFullYear();
+  var tiles='<div class="grid tiles">'+tile('Jobs',String(J.jobs.length),act.length+' paying now')+tile('Take-home a month',money0(mo),'from regular paychecks')+tile('Gross this year',money0(ytd),'so far, all jobs')+tile('On track for',money0(ag),'gross in '+yr+' incl. expected bonus')+'</div>';
+  var cards=st.map(function(x,i){
+    var j=J.jobs[i],src=j.source==='employer'?'by employer name':j.source==='manual'?'set by you':'matched by pattern',share=mo>0&&x.active?x.monthlyNet/mo*100:0;
+    var line=function(l,v){return '<div class="row" style="padding:5px 0"><div class="grow muted">'+l+'</div><div class="num" style="text-align:right;font-weight:600">'+v+'</div></div>'};
+    var nx=x.next;
+    var body=(x.regular?line('Usual paycheck',money0(x.usualNet)+' <span class="muted" style="font-weight:400">take-home of '+money0(x.usualGross)+' gross</span>')+(x.freq?line('Paid',esc(x.freq.label)):'')+(x.active&&nx?line('Next paycheck',shortDate(nx.date)+' <span class="muted" style="font-weight:400">about '+money0(nx.net)+(nx.days>=0?' · '+(nx.days===0?'today':'in '+nx.days+' day'+(nx.days===1?'':'s')):'')+'</span>'):'')+
+      (x.active?line('Per month',money0(x.monthlyNet)+' <span class="muted" style="font-weight:400">take-home</span>'):'')+
+      line('So far '+yr,x.year?money0(x.year.ytdGross)+' <span class="muted" style="font-weight:400">gross</span>':'<span class="muted">none</span>')+
+      (x.active?line('On track for',money0(x.annualGross)+' <span class="muted" style="font-weight:400">gross in '+yr+'</span>'):'')+
+      line('Keeps',x.keepPct.toFixed(0)+'% <span class="muted" style="font-weight:400">of gross after taxes and deductions</span>')+
+      (x.trend!==null&&Math.abs(x.trend)>=1?line('Trend','<span class="'+(x.trend>0?'good':'bad')+'">'+(x.trend>0?'+':'')+x.trend.toFixed(1)+'%</span> <span class="muted" style="font-weight:400">gross vs the three paychecks before</span>'):'')+
+      (x.hourly>0?line('Works out to','about '+money(x.hourly)+' <span class="muted" style="font-weight:400">an hour gross</span>'):'')+
+      (x.bonusYtd>0?line('Bonus '+yr,money0(x.bonusYtd)+(x.bonusNext?' <span class="muted" style="font-weight:400">next expected around '+shortDate(x.bonusNext.date)+'</span>':'')):''):'<p class="sub" style="margin:6px 0">Only bonus checks so far for this job.</p>');
+    var form=mypayUI.rename===j.key?'<form class="form jobname" data-k="'+esc(j.key)+'" style="align-items:flex-end;margin-top:8px"><label>Job name<input name="n" maxlength="40" value="'+esc(j.name)+'" required></label><button class="btn small primary">Save</button><button type="button" class="btn small" data-act="pay-job-rename" data-k="">Cancel</button></form>':'';
+    return '<section class="panel" style="margin:0 0 12px"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center"><div><b style="font-size:17px">'+esc(j.name)+'</b> <span class="pill '+(x.active?'good':'mute')+'" style="font-weight:400">'+(x.active?'Paying now':x.only?'Bonus only':'No recent pay')+'</span> <span class="pill mute" style="font-weight:400">'+src+'</span></div><div class="actions"><button class="btn small" data-act="pay-job-rename" data-k="'+esc(j.key)+'">Rename</button><button class="btn small primary" data-act="pay-job" data-k="'+esc(j.key)+'">Open</button></div></div>'+
+      (x.active&&mo>0?'<div class="bar" style="margin:8px 0 2px"><i style="width:'+Math.max(2,Math.round(share))+'%"></i></div><div class="sub muted" style="font-size:12px">'+Math.round(share)+'% of your take-home from jobs</div>':'')+form+'<div style="margin-top:6px">'+body+'</div>'+(!x.active&&x.regular?'<p class="sub warn" style="margin:6px 0 0;white-space:normal">Its latest regular statement is from '+payDateLabel(x.lastDate)+' ('+x.staleDays+' days ago), so it is left out of the monthly total and the year projection. Add a newer statement if you still work there.</p>':'')+'</section>'}).join('');
+  var why=J.reason==='employer'?'The statements name different employers, so each employer is its own job.':'Some statements cover the same pay period but have different deductions and amounts, so they look like two jobs. Without an employer name on the statements this is a best guess: check it, and use the Job column in Pay history to move any statement to the right job.';
+  return '<section class="panel"><h2>Your jobs<small>'+J.jobs.length+' found in your pay statements</small></h2>'+tiles+'<p class="sub" style="margin:10px 0 0;white-space:normal">'+why+' <button class="btn small" data-act="pay-job-single">Treat as one job</button></p></section>'+cards;
+}
+function payJobMaterialize(J,key){
+  var j=J.jobs.filter(function(x){return x.key===key})[0];if(!j)return key;
+  if(key[0]==='m')return key;
+  var nk='m:j'+Math.random().toString(36).slice(2,6),ids={};j.stubs.forEach(function(x){ids[x.id]=1});
+  S.pay.stubs.forEach(function(x){if(ids[x.id])x.job=nk});
+  if(S.pay.jobNames&&S.pay.jobNames[key]){S.pay.jobNames[nk]=S.pay.jobNames[key];delete S.pay.jobNames[key]}
+  if(mypayUI.job===key)mypayUI.job=nk;
+  return nk;
+}
+function payJobAssign(id,key){
+  var J=payJobs(payStubs(),S.pay),st=S.pay.stubs.filter(function(x){return x.id===id})[0];if(!st)return;
+  payMark('moved a statement to another job');
+  if(key==='__new'){var nk='m:j'+Math.random().toString(36).slice(2,6);if(!S.pay.jobNames)S.pay.jobNames={};S.pay.jobNames[nk]='Job '+(J.jobs.length+1);st.job=nk;mypayUI.job='all';mypayUI.rename=nk}
+  else{st.job=payJobMaterialize(J,key)}
 }
 function payRead(inp){
   var f=inp.files[0];inp.value='';if(!f)return;
@@ -6968,7 +7167,7 @@ function taxYearSel(){return taxUI.year||(S.tax&&S.tax.year)||TODAY.getFullYear(
 function taxField(n,l,v,ph,w){return '<label>'+l+'<input name="'+n+'" type="number" min="0" step="any" value="'+(v===undefined||v===null?'':v)+'" placeholder="'+(ph||'0')+'" style="width:'+(w||110)+'px"></label>'}
 function taxMoneyLine(v,owe,refund){return v>=0?'<span class="bad">'+(owe||'owe about ')+money0(v)+'</span>':'<span class="good">'+(refund||'refund of about ')+money0(-v)+'</span>'}
 function vTax(){
-  var cfg=S.tax,yr=taxYearSel(),stubs=payStubs(),est=taxInputs(cfg,yr,stubs,cfg.forms,S.txns,TODAY),head='<div class="top"><h1>Taxes</h1></div>';
+  var cfg=S.tax,yr=taxYearSel(),stubs=payStubs(),est=taxInputs(cfg,yr,stubs,cfg.forms,S.txns,TODAY,S.pay),head='<div class="top"><h1>Taxes</h1></div>';
   var years=[TODAY.getFullYear()-1,TODAY.getFullYear()],yb='<div class="actions" style="justify-content:flex-start;margin:0 0 12px">'+years.map(function(y){return '<button class="btn small'+(y===yr?' primary':'')+'" data-act="tax-year" data-y="'+y+'">'+y+' taxes'+(y===TODAY.getFullYear()?' (this year)':' (filed in '+(y+1)+')')+'</button>'}).join('')+'<button class="btn small" data-act="doc-open" data-cat="Tax documents" style="margin-left:auto">Tax documents folder</button></div>';
   var canAi=!!(T&&T.loan&&T.loan.readFile&&T.ai&&T.ai.taxDoc),key=!!(aiSt&&aiSt.hasKey),fileOk=!!(T&&T.loan&&T.loan.readFile&&((T.tax&&T.tax.parse)||(canAi&&key)));
   var settings='<section class="panel"><h2>Your tax situation</h2><form class="taxform"><div class="form" style="align-items:flex-end"><label>State<select name="state"><option value="">Choose…</option>'+Object.keys(STATE_TAX).sort(function(a,b){return STATE_TAX[a][0]<STATE_TAX[b][0]?-1:1}).map(function(k){return '<option value="'+k+'"'+(cfg.state===k?' selected':'')+'>'+esc(STATE_TAX[k][0])+'</option>'}).join('')+'</select></label><label>Filing status<select name="status">'+Object.keys(TAX_STATUS).map(function(k){return '<option value="'+k+'"'+(cfg.status===k?' selected':'')+'>'+TAX_STATUS[k]+'</option>'}).join('')+'</select></label>'+taxField('kids','Children under 17',cfg.kids||'','0',80)+taxField('rate','State tax rate % (optional)',cfg.rate,cfg.state&&STATE_TAX[cfg.state]?'about '+STATE_TAX[cfg.state][1]:'',120)+'</div>'+
@@ -6981,7 +7180,7 @@ function vTax(){
   var res='';
   if(est.source==='none')res='<section class="panel"><div class="empty" style="white-space:normal">To estimate your taxes, add your pay statements on the My pay tab, add your W-2 below, or type your yearly pay and what was withheld under "More" above. Pick your state and filing status first.</div></section>';
   else{
-    var srcText=est.source==='pay'?'Projected for the whole year from your pay statements ('+payYear(stubs,yr,TODAY).count+' added; '+est.periodsLeft+' paychecks after the latest one).'+(payYear(stubs,yr,TODAY).staleDays>45?' <span class="warn">Your latest statement is '+payYear(stubs,yr,TODAY).staleDays+' days old, so add a newer one for a better estimate.</span>':''):est.source==='forms'?'From the W-2'+(forms.filter(function(f){return f.form==='W-2'}).length>1?'s':'')+' you added.':'From the yearly pay you typed in.';
+    var srcText=est.source==='pay'?'Projected for the whole year from your pay statements ('+payYearAll(stubs,yr,TODAY,S.pay).count+' added; '+est.periodsLeft+' paychecks after the latest one).'+(payYear(stubs,yr,TODAY).staleDays>45?' <span class="warn">Your latest statement is '+payYear(stubs,yr,TODAY).staleDays+' days old, so add a newer one for a better estimate.</span>':''):est.source==='forms'?'From the W-2'+(forms.filter(function(f){return f.form==='W-2'}).length>1?'s':'')+' you added.':'From the yearly pay you typed in.';
     res='<section class="panel"><h2>What to expect at tax time<small>'+yr+'</small></h2><div class="grid tiles">'+tile('Federal income tax',taxMoneyLine(est.balance,'owe about ','refund of about '),'tax '+money0(est.totalFed)+' − '+money0(est.withheldFed)+' withheld')+
       (est.state?tile((STATE_TAX[est.state.code]?STATE_TAX[est.state.code][0]:'State')+' tax',est.state.none?'<span class="good">None</span>':taxMoneyLine(est.state.balance,'owe about ','refund of about '),est.state.none?'no state income tax':'rough: '+est.state.rate+'% of income, '+money0(est.state.withheld)+' withheld'):tile('State tax','—','pick your state above'))+
       tile('All together','<b>'+taxMoneyLine(est.total,'owe about ','refund of about ')+'</b>','federal plus state')+tile('Your tax rate',(est.effRate*100).toFixed(1)+'%','effective federal; '+Math.round(est.marginal*100)+'% on your next dollar')+'</div>'+
@@ -7096,10 +7295,10 @@ function spotAnswers(all,per){
     if(catHit){var cs0=spotSpend(r.from,r.to),bg=S.budgets[catHit]||0,cv=cs0.by[catHit]||0;A(catHit+': '+money0(cv)+' in '+r.label,(bg&&r.from.slice(0,7)===NOWKEY?money0(Math.abs(bg-cv))+(cv>bg?' over':' left')+' of the '+money0(bg)+' budget \u00b7 ':'')+'see it month by month',function(){budOpen=catHit;month=r.from.slice(0,7);goTo('budgets')})}
     else if(has('spent','spend','spending','expenses')||(has('left')&&!has('bills'))){var sp=spotSpend(r.from,r.to);A('Spent '+money0(sp.total)+' in '+r.label,(sp.income?'Income '+money0(sp.income)+' · ':'')+(sp.top.length?'most on '+sp.top.map(function(c){return c+' '+money0(sp.by[c])}).join(', '):'nothing recorded'),function(){month=r.from.slice(0,7);goTo('report')})}
     if(has('income','earned','earnings','salary')){var si=spotSpend(r.from,r.to);A('Income '+money0(si.income)+' in '+r.label,'Spent '+money0(si.total)+' · left '+money0(si.income-si.total),function(){month=r.from.slice(0,7);goTo('report')})}
-    if(has('paycheck','payday','paychecks')||(has('next')&&has('pay'))){var pn=payNext(payStubs(),TODAY);A(pn?'Next paycheck '+shortDate(pn.date)+', about '+money0(pn.net):'No pay statements yet',pn?(pn.days===0?'today':pn.days===1?'tomorrow':'in '+pn.days+' days')+' · paid '+pn.freq.label:'Add one on the My pay tab',function(){goTo('pay')})}
+    if(has('paycheck','payday','paychecks')||(has('next')&&has('pay'))){var pn=payNextAll(payStubs(),TODAY,S.pay);A(pn?'Next paycheck '+shortDate(pn.date)+', about '+money0(pn.net):'No pay statements yet',pn?(pn.days===0?'today':pn.days===1?'tomorrow':'in '+pn.days+' days')+' · paid '+pn.freq.label:'Add one on the My pay tab',function(){goTo('pay')})}
     if(has('bill','bills','due')){var bs=billsSummary(allBillItems(NOWKEY),NOWKEY,S.txns,S.billMarks,TODAY);A(bs.count?money0(bs.pending)+' of bills still to pay this month':'No bills set up',bs.count?bs.paidCount+' of '+bs.count+' paid'+(bs.overdue?' · '+bs.overdue+' overdue':'')+(bs.next?' · next: '+billName(bs.next.item.name)+' '+shortDate(iso(bs.next.st.due)):''):'Add bills on the Bills tab',function(){goTo('bills')})}
     if(has('debt','debts','owe','owed','loans','loan')){var dl=debtList(true),dt=dl.reduce(function(n,d){return n+d.balance},0),hi=dl.slice().sort(function(a,b){return b.apr-a.apr})[0];A('You owe '+money0(dt),dl.length?dl.length+' debt'+(dl.length===1?'':'s')+(hi&&hi.apr>0?' · highest rate '+hi.name+' at '+hi.apr+'%':''):'no debts recorded',function(){goTo('loans')})}
-    if(has('tax','taxes','refund')){var te=taxInputs(S.tax,TODAY.getFullYear(),payStubs(),S.tax.forms,S.txns,TODAY);if(te.source==='none')A('Tax estimate needs your pay','Add pay statements or your yearly pay on the Taxes tab',function(){goTo('tax')});else A((te.total>=0?'Expect to owe about ':'Expect a refund of about ')+money0(Math.abs(te.total)),'federal '+(te.balance>=0?'owe ':'refund ')+money0(Math.abs(te.balance))+(te.state?' · state '+(te.state.balance>=0?'owe ':'refund ')+money0(Math.abs(te.state.balance)):'')+' · estimate',function(){goTo('tax')})}
+    if(has('tax','taxes','refund')){var te=taxInputs(S.tax,TODAY.getFullYear(),payStubs(),S.tax.forms,S.txns,TODAY,S.pay);if(te.source==='none')A('Tax estimate needs your pay','Add pay statements or your yearly pay on the Taxes tab',function(){goTo('tax')});else A((te.total>=0?'Expect to owe about ':'Expect a refund of about ')+money0(Math.abs(te.total)),'federal '+(te.balance>=0?'owe ':'refund ')+money0(Math.abs(te.balance))+(te.state?' · state '+(te.state.balance>=0?'owe ':'refund ')+money0(Math.abs(te.state.balance)):'')+' · estimate',function(){goTo('tax')})}
     if(has('upkeep','maintenance','service')){var us=maintSavings(assetAccts(),TODAY,12);A(us.items.length?us.items[0].name+(us.items[0].overdue?' is overdue':' in '+us.items[0].days+' days')+' ('+money0(us.items[0].cost)+')':'No upkeep scheduled',us.monthly?'put aside about '+money0(us.monthly)+' a month':'Add maintenance items to a vehicle',function(){goTo('assets')})}
     if(has('cashback')||(has('cash')&&has('back'))){var cb=cashbackStats(S.txns,S.accounts,TODAY,S.cardPay);A('Cash back '+money0(cb.total.cb12)+' in 12 months',money0(cb.total.cost12)+' interest and fees · net '+(cb.total.net12>=0?'+':'-')+money0(Math.abs(cb.total.net12)),function(){goTo('cards')})}
     if(has('utilization','credit')&&!has('score')||has('cards')){var cl=cardsData();if(cl.length){var cs=cardsSummary(cl);A('Credit cards: you owe '+money0(cs.balance),(cs.pct!==null?Math.round(cs.pct)+'% of '+money0(cs.limit)+' used · ':'')+'minimums '+money0(cs.minPay)+' a month',function(){goTo('cards')})}}
@@ -7110,7 +7309,7 @@ function spotAnswers(all,per){
 function spotGlance(){
   var rows=[],g=function(t,sub,go){rows.push({group:'At a glance',title:t,sub:sub,go:go,answer:true})};
   try{
-    var nw=netWorth(),sp=spotSpend(NOWKEY+'-01',NOWKEY+'-31'),pn=payNext(payStubs(),TODAY),bs=billsSummary(allBillItems(NOWKEY),NOWKEY,S.txns,S.billMarks,TODAY),sb=spendBy(NOWKEY),ov=Object.keys(S.budgets).filter(function(c){return S.budgets[c]>0&&(sb.by[c]||0)>S.budgets[c]}),us=maintSavings(assetAccts(),TODAY,12);
+    var nw=netWorth(),sp=spotSpend(NOWKEY+'-01',NOWKEY+'-31'),pn=payNextAll(payStubs(),TODAY,S.pay),bs=billsSummary(allBillItems(NOWKEY),NOWKEY,S.txns,S.billMarks,TODAY),sb=spendBy(NOWKEY),ov=Object.keys(S.budgets).filter(function(c){return S.budgets[c]>0&&(sb.by[c]||0)>S.budgets[c]}),us=maintSavings(assetAccts(),TODAY,12);
     if(S.accounts.length)g('Net worth '+(nw.net<0?'-':'')+money0(Math.abs(nw.net)),money0(nw.assets)+' assets · '+money0(nw.debts)+' debts',function(){goTo('accounts')});
     g('Spent '+money0(sp.total)+' this month',(sp.income?'income '+money0(sp.income)+' · left '+money0(sp.income-sp.total):'no income recorded yet')+(sp.top.length?' · most on '+sp.top[0]:''),function(){goTo('report')});
     if(pn)g('Next paycheck '+shortDate(pn.date)+', about '+money0(pn.net),(pn.days===0?'today':pn.days===1?'tomorrow':'in '+pn.days+' days'),function(){goTo('pay')});
@@ -7244,7 +7443,7 @@ function tabBgSync(){
   if(r.getAttribute('data-tab')!==k){r.setAttribute('data-tab',k);el.classList.remove('in');void el.offsetWidth;el.classList.add('in')}
 }
 function dockMove(rail,e){
-  var horiz=document.documentElement.getAttribute('data-nav')==='top',navs=rail.querySelectorAll('.nav'),p=horiz?e.clientX:e.clientY,sg=horiz?62:58,i,rr=rail.getBoundingClientRect();
+  var horiz=rail.id==='tabbar'||document.documentElement.getAttribute('data-nav')==='top',navs=rail.querySelectorAll('.nav'),p=horiz?e.clientX:e.clientY,sg=horiz?62:58,i,rr=rail.getBoundingClientRect();
   var best=-1,bf=0;
   for(i=0;i<navs.length;i++){var r=navs[i].getBoundingClientRect(),c=horiz?r.left+r.width/2:r.top+r.height/2,d=p-c,f=Math.exp(-(d*d)/(2*sg*sg));navs[i].style.setProperty('--dk',f.toFixed(3));if(f>bf){bf=f;best=i}}
   if(best>-1&&bf>0.55&&DOCK.last!==best){DOCK.last=best;snd('tick')}
@@ -7263,6 +7462,10 @@ function dockInit(){
   rail.addEventListener('pointerleave',function(){dockReset(rail)});
   rail.addEventListener('dragstart',function(){DOCK.drag=true;dockReset(rail)});
   rail.addEventListener('dragend',function(){DOCK.drag=false});
+  var tb=document.getElementById('tabbar');
+  if(tb&&!tb._dock){tb._dock=1;
+    tb.addEventListener('pointermove',function(e){if(document.documentElement.getAttribute('data-nav')!=='bottom'||(e.pointerType&&e.pointerType!=='mouse'))return;dockMove(tb,e)});
+    tb.addEventListener('pointerleave',function(){dockReset(tb)})}
 }
 // A gentle parallax: the scene behind the page drifts a little with the pointer.
 (function(){
@@ -8067,6 +8270,20 @@ function bindView(){
   m.querySelectorAll('.hideform').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();var add=cleanHideWords(fm.elements['w'].value);if(!add.length){toast('Type at least one word (two letters or more).');return}S.hideWords=cleanHideWords((S.hideWords||[]).concat(add));save();render();toast(add.length+' keyword'+(add.length===1?'':'s')+' added.')}});
   m.querySelectorAll('.walletform').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();var v=parseFloat(fm.elements['v'].value);if(!(v>=0))return;if(S.sample){toast('Press Start fresh first, then set your wallet cash.');return}walletSet(v);save();render();toast('Wallet cash set to '+money(v)+'.')}});
   m.querySelectorAll('.walletadd').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();var v=parseFloat(fm.elements['v'].value);if(!(v>0))return;walletAdd(v);save();render();toast('Added '+money(v)+' to your wallet.')}});
+  m.querySelectorAll('.oiform').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();
+    if(S.sample){toast('You are still on the example data. Press Start fresh first.');return}
+    var amt=Math.round(parseFloat(fm.elements['amt'].value)*100)/100,d=fm.elements['date'].value,ty=fm.elements['type'].value,note=fm.elements['note'].value.trim(),wh=fm.elements['where'].value;
+    if(!(amt>0)||!d)return;
+    var dp=wh==='bank'?oiDup(S.txns,d,amt):null;
+    if(dp&&mypayUI.oiDup!==d+'|'+amt){mypayUI.oiDup=d+'|'+amt;toast('A deposit of '+money(amt)+' on '+shortDate(dp.date)+' is already in your accounts. Tag it under Already in your accounts, or press Add income again to add it anyway.');return}
+    mypayUI.oiDup='';
+    var t={id:uid(),date:d,name:note||oiLabel(ty),amount:amt,cat:'Income',sub:ty,manual:true};
+    if(wh==='cash'){t.cash=true;if(walletAcct()){t.fromWallet=true;walletAdd(t.amount)}}
+    S.txns.push(t);S.txns.sort(function(x,y){return x.date<y.date?1:-1});save();render();toast('Added '+money(amt)+' of '+oiLabel(ty).toLowerCase()+'.')}});
+  m.querySelectorAll('.oitag').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();var ty=fm.elements['t'].value,x=S.txns.filter(function(q){return q.id===fm.dataset.id})[0];if(!x||!ty)return;x.cat='Income';x.sub=ty;save();render();toast('Tagged as '+oiLabel(ty).toLowerCase()+'.')}});
+  m.querySelectorAll('.jobname').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();var nm=fm.elements['n'].value.replace(/[<>"]/g,'').trim().slice(0,40);if(!nm)return;
+    payMark('renamed a job');var J=payJobs(payStubs(),S.pay),nk=payJobMaterialize(J,fm.dataset.k);if(!S.pay.jobNames)S.pay.jobNames={};S.pay.jobNames[nk]=nm;mypayUI.rename='';save();render();toast('Job renamed.')}});
+  m.querySelectorAll('.jobpick').forEach(function(sl){sl.onchange=function(){payJobAssign(sl.dataset.id,sl.value);save();render()}});
   m.querySelectorAll('.cashform').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();
     if(S.sample){toast('You are still on the example data. Press Start fresh first.');return}
     var amt=parseFloat(fm.elements['amt'].value),nm=fm.elements['name'].value.trim(),d=fm.elements['date'].value;if(!(amt>0)||!nm||!d)return;
@@ -8199,6 +8416,12 @@ document.addEventListener('click',function(e){
   else if(a==='pay-sel'){mypayUI.sel=id}
   else if(a==='pay-del'){var pd0=S.pay.stubs.filter(function(x){return x.id===id})[0];payMark('removed the statement of '+(pd0?payDateLabel(pd0.payDate):''));S.pay.stubs=S.pay.stubs.filter(function(x){return x.id!==id});mypayUI.sel='';toast('Removed. Press Undo in the pay bar to bring it back.')}
   else if(a==='pay-undo'){payRestore('undo')}
+  else if(a==='pay-job'){mypayUI.job=b.dataset.k||'all';mypayUI.sel='';mypayUI.rename='';window.scrollTo(0,0)}
+  else if(a==='pay-job-rename'){mypayUI.rename=b.dataset.k&&mypayUI.rename!==b.dataset.k?b.dataset.k:''}
+  else if(a==='pay-job-single'){payMark('treated your statements as one job');S.pay.single=true;mypayUI.job='all';mypayUI.rename='';save();toast('Treating all your statements as one job.')}
+  else if(a==='pay-job-auto'){payMark('looked for several jobs again');S.pay.single=false;save();toast('Looking for several jobs again.')}
+  else if(a==='oi-tax'){var gg=0;S.txns.forEach(function(x){if(oiIsOther(x)&&x.sub==='Side income'&&x.date.slice(0,4)===String(TODAY.getFullYear()))gg+=x.amount});var was=+S.tax.seIncome||0;S.tax.seIncome=Math.round(gg);save();toast('Your tax estimate now includes '+money0(gg)+' of gig income'+(was>0?' (it was '+money0(was)+')':'')+'.')}
+  else if(a==='oi-del'){var ox=S.txns.filter(function(x){return x.id===b.dataset.id})[0];if(ox){if(ox.manual){if(ox.fromWallet&&walletAcct())walletAdd(-ox.amount);S.txns=S.txns.filter(function(x){return x!==ox});toast('Removed.')}else{ox.cat='Other';delete ox.sub;toast('That deposit is no longer counted as other income.')}save()}}
   else if(a==='pay-redo'){payRestore('redo')}
   else if(a==='pay-clear'){mypayUI.confirmClear=true}
   else if(a==='pay-clear-no'){mypayUI.confirmClear=false}
@@ -8479,8 +8702,8 @@ var navBioState={enabled:false,loaded:false};
 function navBioLoad(){if(!(T&&T.bio)||navBioState.loaded)return;navBioState.loaded=true;tcall(T.bio.status('tabs')).then(function(st){navBioState.enabled=!!st.enabled;if(view==='look')render()}).catch(function(){})}
 function navPanel(){
   var ids=navIds(),byId={};TABS.forEach(function(t){byId[t[0]]=t});
-  return '<section class="panel"><h2>Tabs<small>where they sit and in what order</small></h2><div class="lookrow"><span class="lbl">Placement<small>Down the side, or in a bar across the top. Phones always use the bar at the bottom.</small></span><span class="ctl">'+seg('th-nav-layout',NAVP.layout,[['side','Side'],['top','Top']])+'</span></div>'+
-    '<p class="sub" style="margin:10px 0 6px;white-space:normal">Drag any tab in the '+(NAVP.layout==='top'?'top bar':'side list')+' to move it, or use the arrows here (also works on a phone or with the keyboard).</p><div class="navlist">'+ids.map(function(id,i){var hid=NAVP.hidden.indexOf(id)>-1;return '<div class="row"><div class="grow"><span class="nm"'+(hid?' style="opacity:.55"':'')+'>'+esc(byId[id][1])+'</span>'+(hid?' <span class="pill mute">Hidden</span>':'')+'</div><div class="actions" style="flex:none;flex-wrap:nowrap">'+(id==='look'?'<span class="sub" style="align-self:center">Always shown</span>':'<button class="btn small" data-act="th-nav-hide" data-id="'+id+'" aria-pressed="'+hid+'">'+(hid?'Show':'Hide')+'</button>')+'<button class="btn small" data-act="th-nav-up" data-id="'+id+'"'+(i===0?' disabled':'')+' aria-label="Move '+esc(byId[id][1])+' up">&uarr;</button><button class="btn small" data-act="th-nav-down" data-id="'+id+'"'+(i===ids.length-1?' disabled':'')+' aria-label="Move '+esc(byId[id][1])+' down">&darr;</button></div></div>'}).join('')+'</div>'+
+  return '<section class="panel"><h2>Tabs<small>where they sit and in what order</small></h2><div class="lookrow"><span class="lbl">Placement<small>Down the side, in a bar across the top, or a dock along the bottom. Phones always use the bar at the bottom.</small></span><span class="ctl">'+seg('th-nav-layout',NAVP.layout,[['side','Side'],['top','Top'],['bottom','Bottom']])+'</span></div>'+
+    '<p class="sub" style="margin:10px 0 6px;white-space:normal">'+(NAVP.layout==='bottom'?'Use the arrows here':'Drag any tab in the '+(NAVP.layout==='top'?'top bar':'side list')+' to move it, or use the arrows here')+' (also works on a phone or with the keyboard).</p><div class="navlist">'+ids.map(function(id,i){var hid=NAVP.hidden.indexOf(id)>-1;return '<div class="row"><div class="grow"><span class="nm"'+(hid?' style="opacity:.55"':'')+'>'+esc(byId[id][1])+'</span>'+(hid?' <span class="pill mute">Hidden</span>':'')+'</div><div class="actions" style="flex:none;flex-wrap:nowrap">'+(id==='look'?'<span class="sub" style="align-self:center">Always shown</span>':'<button class="btn small" data-act="th-nav-hide" data-id="'+id+'" aria-pressed="'+hid+'">'+(hid?'Show':'Hide')+'</button>')+'<button class="btn small" data-act="th-nav-up" data-id="'+id+'"'+(i===0?' disabled':'')+' aria-label="Move '+esc(byId[id][1])+' up">&uarr;</button><button class="btn small" data-act="th-nav-down" data-id="'+id+'"'+(i===ids.length-1?' disabled':'')+' aria-label="Move '+esc(byId[id][1])+' down">&darr;</button></div></div>'}).join('')+'</div>'+
     '<div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn small" data-act="th-nav-showall"'+(NAVP.hidden.length?'':' disabled')+'>Show all tabs</button><button class="btn small" data-act="th-nav-reset">Put the tabs back in the original order</button></div><p class="sub muted" style="margin:8px 0 0;font-size:12px;white-space:normal">A hidden tab is only taken out of the navigation. Its data is untouched, and links to it elsewhere in the app (a card on the Overview, say) still open it.</p>'+navProtPanel()+'</section>';
 }
 function vLook(){
@@ -8533,7 +8756,7 @@ function carAiRun(id){
   }).catch(function(e){carAI.busy='';carAI.err=(e&&e.message)||'Could not draw the car.';render()});
 }
 function thClick(a,b){
-  if(a==='th-nav-layout'){NAVP.layout=b.dataset.v==='top'?'top':'side';saveNav();render();return true}
+  if(a==='th-nav-layout'){NAVP.layout=b.dataset.v==='top'||b.dataset.v==='bottom'?b.dataset.v:'side';saveNav();render();return true}
   if(a==='th-nav-up'||a==='th-nav-down'){NAVP.order=navStep(navIds(),b.dataset.id,a==='th-nav-up'?-1:1);saveNav();render();return true}
   if(a==='th-nav-reset'){NAVP.order=[];saveNav();render();return true}
   if(a==='th-nav-hide'||a==='th-nav-showall'){

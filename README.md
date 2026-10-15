@@ -592,3 +592,17 @@ Each holding in the list now shows an **Analysts** pill next to the volatility p
 ## Big windows and full screen
 
 The app used to stay in a 1120px column however large the window was, leaving wide empty sides in macOS full screen. It now grows with the window (up to 1440px from 1500px wide, 1760px from 1900px, 2080px from 2300px), and the six Overview tiles lay out as 3 + 3 (6 across on wide windows) instead of 5 + 1.
+
+## Bottom tab placement
+
+Settings → Tabs → Placement now has Side, Top and **Bottom**. Bottom turns the tabs into a floating dock along the bottom edge with the same hover magnification, and a Search button at its start.
+
+## Several jobs
+
+My pay now looks for more than one job. The pay-stub reader picks up the employer's name (on ADP layouts it is the left column of the "Period Beginning" line, or a labelled Employer/Company line), and statements are grouped by employer. When statements have no employer name, two regular statements that cover the same pay period but have different deductions and clearly different amounts are treated as two jobs. This is a best guess: the **Job** column in Pay history moves any statement to another job, **Rename** names a job, and **Treat as one job** turns detection off (with Undo for each change).
+
+With several jobs, My pay opens on **All jobs**: a comparison of take-home per month, year so far, year projection, paycheck schedule, next paycheck, trend and hourly rate for each job, plus whether it still looks active. Open a job to get the full My pay view (next paycheck, what changed, where it goes, bonus forecast) for that job alone. The next-paycheck card on Overview, the assistant and the tax estimate also add the jobs up instead of treating all statements as one schedule.
+
+## Other income
+
+My pay has an **Other income** section for money that is not a paycheck: gigs, payments from friends and family, gifts, things you sold, reimbursements and rental income. Add cash or a payment directly, or **tag a deposit that is already in your accounts** (so bank, Venmo or Zelle money is not counted twice). It shows this month and this year by kind, and for gig income offers to include it in your tax estimate. Gifts, reimbursements and repayments from friends are generally not taxable income, and the notes say so; this is not tax advice.

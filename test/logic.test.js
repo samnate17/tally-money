@@ -2242,6 +2242,7 @@ test('tab layout: order is kept, new tabs go last, moves and steps work, bad sav
   const c = N.cleanNavPref({ layout: 'bogus', order: ['b', 'x', 'b', 5, 'a'] }, ['a', 'b']);
   assert.deepEqual(c, { layout: 'side', order: ['b', 'a'], hidden: [], protect: '' });
   assert.equal(N.cleanNavPref({ layout: 'top' }, ['a']).layout, 'top');
+  assert.equal(N.cleanNavPref({ layout: 'bottom' }, ['a']).layout, 'bottom');
   assert.deepEqual(N.cleanNavPref(null, ['a']), { layout: 'side', order: [], hidden: [], protect: '' });
   const h = N.cleanNavPref({ hidden: ['b', 'look', 'b', 'nope', 7, 'c'] }, ['a', 'b', 'c', 'look']);
   assert.deepEqual(h.hidden, ['b', 'c']);                                            // Settings can never be hidden
@@ -2588,4 +2589,115 @@ test('year check: the span of a batch of dates and what is suspicious about it',
   assert.strictEqual(odd.old, 1); assert.strictEqual(odd.future, 1);
   const w = Y.dateSpanWarnings(odd).join(' '); assert.match(w, /1 date is in the future/); assert.match(w, /more than a year old/);
   assert.deepStrictEqual(Y.dateSpanWarnings(Y.dateSpan(['2026-10-01'], '2026-10-15')), []);
+});
+
+// ---------- several jobs ----------
+function jobWorld() { return new Function(srcBlock('/*PAY-START*/', '/*PAY-END*/') + '\nreturn {cleanPayStub, cleanPayState, payJobs, payJobStats, payNextAll, payYearAll, payYear, payNext, payEmpKey};')(); }
+function jobStub(P, date, gross, emp, extra) {
+  const lines = [{ section: 'earnings', name: 'Regular', amount: gross }, { section: 'tax', name: 'Federal Income Tax', amount: Math.round(gross * 0.12) }, { section: 'tax', name: 'Medicare', amount: Math.round(gross * 0.0145) }].concat((extra && extra.lines) || []);
+  const net = Math.round(gross * 0.8 * 100) / 100;
+  return P.cleanPayStub(Object.assign({ payDate: date, gross, net, lines, employer: emp }, extra && { periodStart: extra.periodStart, periodEnd: extra.periodEnd }), () => 'id' + date + (emp || '') + gross);
+}
+test('jobs: statements naming different employers are separate jobs; one employer stays one job', () => {
+  const P = jobWorld(), s = [];
+  for (const d of ['2026-08-07', '2026-08-21', '2026-09-04', '2026-09-18', '2026-10-02']) s.push(jobStub(P, d, 2000, 'ACME WIDGETS INC.'));
+  assert.equal(P.payJobs(s, {}).multi, false);
+  for (const d of ['2026-08-14', '2026-08-28', '2026-09-11', '2026-09-25', '2026-10-09']) s.push(jobStub(P, d, 900, 'Sample Foods LLC'));
+  const J = P.payJobs(s, {});
+  assert.equal(J.multi, true);
+  assert.equal(J.reason, 'employer');
+  assert.deepEqual(J.jobs.map((j) => j.stubs.length), [5, 5]);
+  assert.ok(J.jobs.some((j) => j.employer === 'Acme Widgets Inc.'), 'all-caps names are title-cased');
+  // "Acme Widgets Inc" and "ACME WIDGETS, INC." are one employer
+  assert.equal(P.payEmpKey('ACME WIDGETS, INC.'), P.payEmpKey('Acme Widgets Inc'));
+});
+test('jobs: without employer names, overlapping different statements split into jobs; a duplicate of the same check does not', () => {
+  const P = jobWorld(), s = [];
+  const ben = { lines: [{ section: 'benefit', name: 'Medical', amount: 80 }, { section: 'retirement', name: '401K', amount: 100 }] };
+  ['2026-08-07', '2026-08-21', '2026-09-04', '2026-09-18'].forEach((d, i) => s.push(jobStub(P, d, 2000, '', Object.assign({ periodStart: ['2026-07-25', '2026-08-08', '2026-08-22', '2026-09-05'][i], periodEnd: ['2026-08-07', '2026-08-21', '2026-09-04', '2026-09-18'][i] }, ben))));
+  assert.equal(P.payJobs(s, {}).multi, false, 'a single job never splits');
+  // a corrected copy of the same check (same deductions, similar gross) is not a second job
+  s.push(jobStub(P, '2026-09-18', 2010, '', Object.assign({ periodStart: '2026-09-05', periodEnd: '2026-09-18' }, ben)));
+  assert.equal(P.payJobs(s, {}).multi, false);
+  // a different job paid for the same period, with other deductions and a much smaller check
+  ['2026-08-14', '2026-08-28', '2026-09-11', '2026-09-25'].forEach((d, i) => s.push(jobStub(P, d, 600, '', { periodStart: ['2026-08-01', '2026-08-15', '2026-08-29', '2026-09-12'][i], periodEnd: ['2026-08-14', '2026-08-28', '2026-09-11', '2026-09-25'][i] })));
+  const J = P.payJobs(s, {});
+  assert.equal(J.multi, true);
+  assert.equal(J.reason, 'overlap');
+  assert.deepEqual(J.jobs.map((j) => j.stubs.length).sort(), [4 + 1, 4].sort());
+});
+test('jobs: "treat as one job" and manual assignment override detection; bonus checks follow their employer', () => {
+  const P = jobWorld(), s = [];
+  for (const d of ['2026-09-04', '2026-09-18', '2026-10-02']) s.push(jobStub(P, d, 2000, 'ACME WIDGETS INC.'));
+  for (const d of ['2026-09-11', '2026-09-25']) s.push(jobStub(P, d, 900, 'Sample Foods LLC'));
+  s.push(jobStub(P, '2026-10-05', 3000, 'ACME WIDGETS INC.', { lines: [] }));
+  assert.equal(P.payJobs(s, { single: true }).multi, false);
+  s[0].job = 'm:x1'; // moved by hand
+  const J = P.payJobs(s, {});
+  assert.equal(J.jobs.length, 3);
+  const names = P.payJobs(s, { jobNames: { 'm:x1': 'Side shift' } }).jobs.map((j) => j.name);
+  assert.ok(names.includes('Side shift'));
+  assert.equal(P.cleanPayState({ stubs: [], jobNames: { 'm:x1': 'A<b>', bad: 'x' }, single: 1 }, () => 'i').single, true);
+  assert.deepEqual(P.cleanPayState({ stubs: [], jobNames: { 'm:x1': 'A<b>', bad: 'x' } }, () => 'i').jobNames, { 'm:x1': 'Ab' });
+});
+test('jobs: per-job next paycheck and year projection add up, and the combined tax view sums them', () => {
+  const P = jobWorld(), s = [], today = new Date(2026, 9, 12);
+  for (const d of ['2026-08-07', '2026-08-21', '2026-09-04', '2026-09-18', '2026-10-02']) s.push(jobStub(P, d, 2000, 'ACME WIDGETS INC.'));
+  for (const d of ['2026-08-14', '2026-08-28', '2026-09-11', '2026-09-25', '2026-10-09']) s.push(jobStub(P, d, 900, 'Sample Foods LLC'));
+  const J = P.payJobs(s, {}), st = J.jobs.map((j) => P.payJobStats(j, today));
+  const acme = st.find((x) => x.name === 'Acme Widgets Inc.'), foods = st.find((x) => x.name === 'Sample Foods Llc' || /Sample Foods/i.test(x.name));
+  assert.equal(acme.freq.key, 'biweekly');
+  assert.equal(acme.usualGross, 2000);
+  assert.equal(foods.usualGross, 900);
+  assert.equal(acme.next.date, '2026-10-16');
+  assert.equal(foods.next.date, '2026-10-23');
+  assert.ok(acme.active && foods.active);
+  assert.ok(Math.abs(acme.monthlyNet - 1600 * 26 / 12) < 1);
+  const nx = P.payNextAll(s, today, {});
+  assert.equal(nx.date, '2026-10-16', 'the soonest of the two jobs');
+  const both = P.payYearAll(s, 2026, today, {}), a = P.payYear(J.jobs[0].stubs, 2026, today), b = P.payYear(J.jobs[1].stubs, 2026, today);
+  assert.ok(Math.abs(both.projGross - (a.projGross + b.projGross)) < 0.01);
+  assert.ok(Math.abs(both.withheldFed - (a.withheldFed + b.withheldFed)) < 0.01);
+  assert.ok(Math.abs(both.fedPerPeriod * both.periodsLeft - (a.fedPerPeriod * a.periodsLeft + b.fedPerPeriod * b.periodsLeft)) < 0.01);
+  assert.equal(both.count, a.count + b.count);
+  // one job: unchanged behaviour
+  assert.equal(P.payYearAll(J.jobs[0].stubs, 2026, today, {}).projGross, a.projGross);
+});
+test('jobs: a job with no recent regular pay is not counted as paying now', () => {
+  const P = jobWorld(), s = [], today = new Date(2026, 9, 12);
+  for (const d of ['2026-08-07', '2026-08-21', '2026-09-04', '2026-09-18', '2026-10-02']) s.push(jobStub(P, d, 2000, 'ACME WIDGETS INC.'));
+  for (const d of ['2026-01-09', '2026-01-23', '2026-02-06']) s.push(jobStub(P, d, 800, 'Old Job Co'));
+  const st = P.payJobs(s, {}).jobs.map((j) => P.payJobStats(j, today));
+  assert.deepEqual(st.map((x) => x.active).sort(), [false, true]);
+  assert.equal(P.payNextAll(s, today, {}).date, '2026-10-16');
+});
+
+// ---------- other income ----------
+function oiWorld() { return new Function(srcBlock('/*OTHERINC-START*/', '/*OTHERINC-END*/') + '\nreturn {oiIsOther, oiSummary, oiDup, oiCandidates};')(); }
+test('other income: gigs, friends and gifts are counted; paychecks and untyped deposits are not', () => {
+  const O = oiWorld();
+  const tx = [
+    { id: 'a', date: '2026-10-03', name: 'DoorDash', amount: 80, cat: 'Income', sub: 'Side income' },
+    { id: 'b', date: '2026-10-09', name: 'Sam', amount: 40, cat: 'Income', sub: 'Friends and family' },
+    { id: 'c', date: '2026-03-01', name: 'Gift', amount: 100, cat: 'Income', sub: 'Gifts received' },
+    { id: 'd', date: '2026-10-02', name: 'Payroll', amount: 1600, cat: 'Income', sub: 'Salary' },
+    { id: 'e', date: '2026-10-02', name: 'Mystery deposit', amount: 25, cat: 'Other' },
+    { id: 'f', date: '2025-10-02', name: 'Last year gig', amount: 500, cat: 'Income', sub: 'Side income' },
+    { id: 'g', date: '2026-10-04', name: 'Spend', amount: -20, cat: 'Dining' },
+  ];
+  const sm = O.oiSummary(tx, 2026, '2026-10');
+  assert.equal(sm.total.year, 220);
+  assert.equal(sm.total.month, 120);
+  assert.equal(sm.total.count, 3);
+  assert.ok(!O.oiIsOther(tx[3]) && !O.oiIsOther(tx[4]) && !O.oiIsOther(tx[6]));
+  // candidates: positive, recent, not a paycheck and not already tagged
+  const c = O.oiCandidates(tx, new Date(2026, 9, 12)).map((x) => x.id);
+  assert.deepEqual(c, ['e']);
+});
+test('other income: a deposit already in the accounts is found so it is not added twice', () => {
+  const O = oiWorld();
+  const tx = [{ id: 'z', date: '2026-10-08', name: 'Venmo from Sam', amount: 40, cat: 'Other' }];
+  assert.equal(O.oiDup(tx, '2026-10-09', 40).id, 'z');
+  assert.equal(O.oiDup(tx, '2026-10-20', 40), null);
+  assert.equal(O.oiDup(tx, '2026-10-09', 41), null);
 });

@@ -71,3 +71,10 @@ test('no names or addresses in the output', () => {
   const r = parsePayStub('JANE EXAMPLE 1 MAIN ST\n' + ADP);
   assert.ok(!/JANE|MAIN ST/i.test(JSON.stringify(r)));
 });
+
+test('employer name is read from the line that carries Period Beginning', () => {
+  const r = parsePayStub(ADP);
+  assert.equal(r.stub.employer, 'EXAMPLE WIDGETS INC.');
+  const lab = parsePayStub(ADP.replace('EXAMPLE WIDGETS INC. Period Beginning', 'Period Beginning').replace('Earnings Statement', 'Earnings Statement\nEmployer: Sample Foods LLC'));
+  assert.equal(lab.stub.employer, 'Sample Foods LLC');
+});
