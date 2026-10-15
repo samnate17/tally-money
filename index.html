@@ -6425,7 +6425,17 @@ function enAfterRead(r,fileName,fuel){
   enUI.imp={records:r.records.filter(function(x){return FUELS[x.fuel]}),file:fileName,notes:r.notes||'',skipped:r.skipped||0};enUI.busy='';enUI.msg='';render();
 }
 /* ---------- My pay: pay statements, the next paycheck and what changed ---------- */
-var mypayUI={sel:'',adding:false,manual:false,imp:null,impBuf:null,impName:'',busy:'',msg:''};
+var mypayUI={sel:'',adding:false,manual:false,imp:null,impBuf:null,impName:'',busy:'',msg:'',hist:[],redo:[],confirmClear:false};
+// Undo for pay statements only: every change to your statements (adding, removing, marking a bonus, clearing) can be taken back, in order,
+// without touching anything else you did in the app. Kept while the app is open; the Undo at the top of the page also covers it.
+function payMark(label){mypayUI.hist.push({label:label,stubs:JSON.stringify(S.pay.stubs)});if(mypayUI.hist.length>40)mypayUI.hist.shift();mypayUI.redo=[]}
+function payRestore(dir){
+  var from=dir==='undo'?mypayUI.hist:mypayUI.redo,to=dir==='undo'?mypayUI.redo:mypayUI.hist;
+  if(!from.length)return;
+  var e=from.pop(),now=JSON.stringify(S.pay.stubs),ns;try{ns=JSON.parse(e.stubs)}catch(x){return}
+  to.push({label:e.label,stubs:now});S.pay.stubs=cleanPayState({stubs:ns},uid).stubs;mypayUI.sel='';mypayUI.imp=null;mypayUI.confirmClear=false;
+  toast((dir==='undo'?'Undid: ':'Redid: ')+e.label+'.');
+}
 function payStubs(){return (S.pay&&S.pay.stubs||[]).slice().sort(function(a,b){return a.payDate<b.payDate?-1:1})}
 function payLongDate(d){return payParse(d).toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})}
 // The deposit in your accounts that matches a statement's take-home, if any.
@@ -6527,6 +6537,9 @@ function vPay(){
   var stubs=payStubs(),head='<div class="top"><h1>My pay</h1></div>';
   var canAi=!!(T&&T.loan&&T.loan.readFile&&((T.pay&&T.pay.parse)||(T.ai&&T.ai.payStub))),key=true;
   var actions='<div class="actions" style="justify-content:flex-end;margin:0 0 10px;flex-wrap:wrap"><label class="btn small primary'+(canAi&&key&&!mypayUI.busy?'':' disabled')+'" style="cursor:'+(canAi&&key?'pointer':'not-allowed')+'" title="'+(canAi?'':'Needs the desktop app')+'">'+(mypayUI.busy?'Reading…':'Add a pay statement (PDF)')+'<input type="file" data-payfile accept=".pdf,.txt,application/pdf,text/plain" hidden'+(canAi&&key&&!mypayUI.busy?'':' disabled')+'></label><button class="btn small" data-act="pay-manual">Add by hand</button><a class="btn small" href="https://my.adp.com" target="_blank" rel="noopener noreferrer">Open ADP</a></div>'+(canAi?'':'<p class="sub muted" style="margin:0 0 10px;font-size:12px;white-space:normal;text-align:right">Reading a PDF needs the desktop app. Use Add by hand here.</p>');
+  var hb=mypayUI.hist.length?mypayUI.hist[mypayUI.hist.length-1]:null,rb=mypayUI.redo.length?mypayUI.redo[mypayUI.redo.length-1]:null;
+  var undoBar=(hb||rb)?'<div class="sub" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 10px;justify-content:flex-end">'+(hb?'<button class="btn small" data-act="pay-undo" title="Takes back your last change to your pay statements">&#8630; Undo: '+esc(hb.label)+'</button>':'')+(rb?'<button class="btn small" data-act="pay-redo">&#8631; Redo: '+esc(rb.label)+'</button>':'')+'</div>':'';
+  actions+=undoBar;
   var msg=mypayUI.msg?'<div class="banner" role="alert"><span>'+esc(mypayUI.msg)+'</span></div>':'';
   var note='<p class="sub muted" style="margin:0 0 12px;font-size:12px;white-space:normal">ADP does not let apps connect to a personal account (its connections are for employers and approved partners), so there is no way to link it. Download your pay statement as a PDF from ADP (Pay, then Pay statements) and add it here: the app reads it on your computer (nothing is sent anywhere), you check the numbers, and a copy goes into your Documents folder. If a statement has a layout the app does not know and you have saved an Anthropic API key, Claude reads it instead; names, addresses and account numbers are masked first.</p>';
   if(!stubs.length)return head+actions+msg+payImpPreview()+(mypayUI.manual?payForm():'')+'<section class="panel"><div class="empty" style="white-space:normal">Add your latest pay statement to see what you earn, what comes out, when your next paycheck should arrive and what changed since the last one. Add a few and the app learns your pay schedule.</div></section>'+note;
@@ -6538,7 +6551,7 @@ function vPay(){
     (arr&&arr.found?'<p class="sub good" style="margin:8px 0 0">The paycheck expected around '+shortDate(arr.expected)+' arrived: '+money(arr.found.amount)+' on '+shortDate(arr.found.date)+'. Add its statement to keep this accurate.</p>':'')+staleNote+'</section>';
   var chPanel='<section class="panel"><h2>What changed<small>'+(sel===last?'latest paycheck':'paycheck of '+shortDate(sel.payDate))+' compared with the one before</small></h2>'+(ch.length?insightRows(ch):'<div class="empty">Nothing changed. Your pay, taxes and deductions look the same as last time.</div>')+'</section>';
   var ytd=yr?'<section class="panel"><h2>'+yr.year+' so far<small>from your statements</small></h2><div class="grid tiles">'+tile('Gross so far',money0(yr.ytdGross),yr.ytdFactor>1.05||yr.count<2?'year-to-date from the latest statement':yr.count+' statements')+tile('Federal tax withheld',money0(yr.withheldFed),yr.ytdGross>0?(yr.withheldFed/yr.ytdGross*100).toFixed(1)+'% of gross':'')+tile('Retirement saved',money0(yr.retirementPerPeriod*yr.count*yr.ytdFactor),'about '+money0(yr.retirementPerPeriod)+' each paycheck')+tile('On track for',money0(yr.projGross),'gross this year, '+yr.periodsLeft+' paychecks to go')+'</div><p class="sub" style="margin:8px 0 0"><a href="#" data-view="tax">See what to expect at tax time</a></p></section>':'';
-  var hist='<section class="panel"><h2>Pay history</h2>'+payBars(stubs)+'<div style="overflow-x:auto;margin-top:8px"><table class="maptable" style="width:100%"><thead><tr><th>Paid</th><th>Gross</th><th>Taxes</th><th>Deductions</th><th>Net</th><th></th></tr></thead><tbody>'+stubs.slice().reverse().slice(0,26).map(function(s){var t=payTotals(s);return '<tr'+(s.id===sel.id?' style="font-weight:700"':'')+'><td>'+payDateLabel(s.payDate)+(payKind(s)==='bonus'?' <span class="pill warn" style="font-size:11px">Bonus</span>':'')+'</td><td class="num">'+money0(s.gross)+'</td><td class="num">'+money0(t.tax)+'</td><td class="num">'+money0(t.benefit+t.retirement+t.deduction)+'</td><td class="num good">'+money0(s.net)+'</td><td><button class="btn small" data-act="pay-sel" data-id="'+esc(s.id)+'">View</button></td></tr>'}).join('')+'</tbody></table></div></section>';
+  var hist='<section class="panel"><h2>Pay history</h2>'+payBars(stubs)+'<div style="overflow-x:auto;margin-top:8px"><table class="maptable" style="width:100%"><thead><tr><th>Paid</th><th>Gross</th><th>Taxes</th><th>Deductions</th><th>Net</th><th></th></tr></thead><tbody>'+stubs.slice().reverse().slice(0,26).map(function(s){var t=payTotals(s);return '<tr'+(s.id===sel.id?' style="font-weight:700"':'')+'><td>'+payDateLabel(s.payDate)+(payKind(s)==='bonus'?' <span class="pill warn" style="font-size:11px">Bonus</span>':'')+'</td><td class="num">'+money0(s.gross)+'</td><td class="num">'+money0(t.tax)+'</td><td class="num">'+money0(t.benefit+t.retirement+t.deduction)+'</td><td class="num good">'+money0(s.net)+'</td><td style="white-space:nowrap"><button class="btn small" data-act="pay-sel" data-id="'+esc(s.id)+'">View</button> <button class="btn small danger" data-act="pay-del" data-id="'+esc(s.id)+'" aria-label="Remove this statement" title="Remove this statement (Undo is at the top of the page)">&times;</button></td></tr>'}).join('')+'</tbody></table></div><div class="actions" style="justify-content:flex-end;margin-top:10px">'+(mypayUI.confirmClear?'<span class="sub warn">Remove all '+stubs.length+' statements? You can Undo it.</span><button class="btn small danger" data-act="pay-clear-yes">Yes, remove all</button><button class="btn small" data-act="pay-clear-no">Cancel</button>':'<button class="btn small" data-act="pay-clear" title="Clears every statement so you can add them again, for example after an update that reads them better">Remove all statements&hellip;</button>')+'</div></section>';
   return head+actions+msg+payImpPreview()+(mypayUI.manual?payForm():'')+hero+bonusPanel(stubs)+chPanel+payStatement(sel)+payBreakdownPanel(stubs,sel)+ytd+hist+note;
 }
 function payRead(inp){
@@ -6562,6 +6575,7 @@ function payRead(inp){
   };rd.readAsArrayBuffer(f);
 }
 function paySave(st,buf,name){
+  payMark('added the statement of '+payDateLabel(st.payDate));
   S.pay.stubs=S.pay.stubs.filter(function(s){return !(s.payDate===st.payDate&&Math.abs(s.net-st.net)<0.5)});
   S.pay.stubs.push(st);S.pay.stubs.sort(function(a,b){return a.payDate<b.payDate?-1:1});S.pay.stubs=S.pay.stubs.slice(-200);
   var dep=payDeposit(st);if(dep&&!dep.sub&&subList('Income').indexOf('Salary')>-1)dep.sub='Salary';
@@ -7677,7 +7691,12 @@ document.addEventListener('click',function(e){
     taxUI.imp=null;taxUI.impBuf=null;toast('Saved '+tf.length+' form'+(tf.length===1?'':'s')+'.')}}
   else if(a==='tax-form-del'){S.tax.forms=S.tax.forms.filter(function(x){return x.id!==id});toast('Removed.')}
   else if(a==='pay-sel'){mypayUI.sel=id}
-  else if(a==='pay-del'){S.pay.stubs=S.pay.stubs.filter(function(x){return x.id!==id});mypayUI.sel='';toast('Removed. Undo is at the top if that was a mistake.')}
+  else if(a==='pay-del'){var pd0=S.pay.stubs.filter(function(x){return x.id===id})[0];payMark('removed the statement of '+(pd0?payDateLabel(pd0.payDate):''));S.pay.stubs=S.pay.stubs.filter(function(x){return x.id!==id});mypayUI.sel='';toast('Removed. Press Undo in the pay bar to bring it back.')}
+  else if(a==='pay-undo'){payRestore('undo')}
+  else if(a==='pay-redo'){payRestore('redo')}
+  else if(a==='pay-clear'){mypayUI.confirmClear=true}
+  else if(a==='pay-clear-no'){mypayUI.confirmClear=false}
+  else if(a==='pay-clear-yes'){if(S.pay.stubs.length){payMark('removed all '+S.pay.stubs.length+' statements');S.pay.stubs=[];mypayUI.sel='';toast('All statements removed. Add them again when you are ready; Undo brings them back.')}mypayUI.confirmClear=false}
   else if(a==='pay-imp-no'){mypayUI.imp=null;mypayUI.impBuf=null}
   else if(a==='pay-imp-save'){if(mypayUI.imp){paySave(mypayUI.imp,mypayUI.impBuf,mypayUI.impName);mypayUI.imp=null;mypayUI.impBuf=null;toast('Statement saved.')}}
   else if(a==='doc-open'){tcall(T.docs.open(b.dataset.cat||'',b.dataset.year||'',b.dataset.name||'')).catch(function(e){toast((e&&e.message)||'Could not open it.')});return}
@@ -7798,7 +7817,7 @@ document.addEventListener('click',function(e){
   else if(a==='en-clear'){if(confirm('Remove all electricity data from this app?'))S.energy=[]}
   else if(a==='help-walk'){setTimeout(function(){walkOpen(0)},0)}
   else if(a==='help-here'){setTimeout(helpPopOpen,0)}
-  else if(a==='pay-kind'){var pk=S.pay.stubs.filter(function(x){return x.id===id})[0];if(pk){pk.kind=payKind(pk)==='bonus'?'regular':'bonus'}}
+  else if(a==='pay-kind'){var pk=S.pay.stubs.filter(function(x){return x.id===id})[0];if(pk){payMark('changed '+payDateLabel(pk.payDate)+' to '+(payKind(pk)==='bonus'?'a regular paycheck':'a bonus check'));pk.kind=payKind(pk)==='bonus'?'regular':'bonus'}}
   else if(a==='bill-add'){billUI.adding=true;billUI.edit=''}
   else if(a==='bill-cancel'){billUI.adding=false;billUI.edit=''}
   else if(a==='bill-adj'){billUI.adj=id;billUI.edit='';billUI.adding=false}
