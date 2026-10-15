@@ -588,3 +588,7 @@ Dates now carry their year wherever it matters. A date from another year always 
 ## Analyst rating on Investments
 
 Each holding in the list now shows an **Analysts** pill next to the volatility pill (Strong Buy, Moderate Buy, Hold, Moderate Sell, Strong Sell), and the selected holding's panel has an Analysts tile. It reuses the consensus already loaded for the stock page (Yahoo Finance via the desktop app), cached for 6 hours in memory. Holdings with no analyst coverage (many funds) show no pill. It is information from banks and research firms, which are often wrong, not advice.
+
+## Big windows and full screen
+
+The app used to stay in a 1120px column however large the window was, leaving wide empty sides in macOS full screen. It now grows with the window (up to 1440px from 1500px wide, 1760px from 1900px, 2080px from 2300px), and the six Overview tiles lay out as 3 + 3 (6 across on wide windows) instead of 5 + 1.
