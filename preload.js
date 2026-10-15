@@ -74,6 +74,7 @@ contextBridge.exposeInMainWorld('tally', {
     assetValue: inv('ai:assetValue'),
     energy: inv('ai:energy'),
     energyAdvice: inv('ai:energyAdvice'),
+    service: inv('ai:service'),
     test: inv('ai:test'),
     categorize: inv('ai:categorize'),
     loans: inv('ai:loans'),

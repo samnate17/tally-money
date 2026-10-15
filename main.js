@@ -307,6 +307,11 @@ function wireIpc() {
     if (!text) throw new Error('That file is no longer in memory. Choose it again.');
     return ai.energyFromText(text, fuel);
   });
+  handle('ai:service', (textId) => {
+    const text = statementText.get(String(textId));
+    if (!text) throw new Error('That file is no longer in memory. Choose it again.');
+    return ai.serviceFromText(text);
+  });
   handle('ai:energyAdvice', (summary) => ai.energyAdvice(summary));
   const weatherSvc = createWeather();
   handle('weather:search', (q) => weatherSvc.search(q));

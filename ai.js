@@ -327,6 +327,33 @@ function cleanEnergyDocs(raw, wanted) {
   out.notes = String(raw.notes || '').replace(/\s+/g, ' ').trim().slice(0, 300);
   return out;
 }
+const SERVICE_SCHEMA = {
+  type: 'object', additionalProperties: false,
+  properties: {
+    records: { type: 'array', items: { type: 'object', additionalProperties: false, properties: { date: { type: 'string' }, mileage: { type: 'number' }, service: { type: 'string' }, cost: { type: 'number' } }, required: ['date', 'mileage', 'service', 'cost'] } },
+    notes: { type: 'string' },
+  },
+  required: ['records', 'notes'],
+};
+const SERVICE_SYSTEM = [
+  'You read a vehicle history report (such as Carfax) or a repair shop invoice list for a personal-finance app. Return one record per maintenance or repair service performed.',
+  'date: the service date as YYYY-MM-DD (if only a month and year are shown use the first of that month). mileage: the odometer reading at that service, 0 if not shown. service: a short plain description such as "Oil and filter change", "Tires rotated", "Brake pads replaced". cost: dollars if shown, else 0.',
+  'Skip ownership changes, title events, accidents, registrations, inspections that are not services, and odometer-only readings. Never repeat the VIN, owner names, addresses or plate numbers. Never guess a value you cannot read. If the document is not a service history, return no records and say why in notes.',
+].join(' ');
+function cleanServiceRecords(raw) {
+  const out = { records: [], notes: '' };
+  if (!raw || typeof raw !== 'object') return out;
+  for (const r of Array.isArray(raw.records) ? raw.records : []) {
+    if (!r || !/^\d{4}-\d{2}-\d{2}$/.test(String(r.date || ''))) continue;
+    const service = String(r.service || '').replace(/[<>"]/g, '').replace(/\s+/g, ' ').trim().slice(0, 80);
+    if (!service) continue;
+    const mi = Math.round(Number(r.mileage)), c = Math.round(Number(r.cost) * 100) / 100;
+    out.records.push({ date: r.date, meter: Number.isFinite(mi) && mi > 0 && mi <= 5e6 ? mi : 0, service, cost: Number.isFinite(c) && c > 0 && c <= 1e6 ? c : 0 });
+    if (out.records.length >= 300) break;
+  }
+  out.notes = String(raw.notes || '').replace(/\s+/g, ' ').trim().slice(0, 300);
+  return out;
+}
 const ADVICE_SCHEMA = {
   type: 'object', additionalProperties: false,
   properties: { bullets: { type: 'array', items: { type: 'object', additionalProperties: false, properties: { title: { type: 'string' }, detail: { type: 'string' } }, required: ['title', 'detail'] } } },
@@ -710,6 +737,31 @@ function createAI({ store, clientFactory }) {
     try { parsed = JSON.parse(body); } catch (e) { throw new Error('Claude returned an answer the app could not read. Try again.'); }
     return cleanEnergyDocs(parsed, fuel);
   }
+  // A vehicle service history (a PDF or text the user chose) to service records. The page shows them for checking before anything is saved.
+  async function serviceFromText(text) {
+    const apiKey = store.get('anthropicKey');
+    if (!apiKey) throw new Error('Add your Anthropic API key first.');
+    const t = String(text || '').trim();
+    if (!t) throw new Error('There is no text to read in this file.');
+    if (t.length > 120000) throw new Error('This document is too long to send in one request.');
+    let msg;
+    try {
+      const stream = make(apiKey).messages.stream({
+        model: MODEL, max_tokens: 8000, system: SERVICE_SYSTEM,
+        output_config: { effort: 'low', format: { type: 'json_schema', schema: SERVICE_SCHEMA } },
+        messages: [{ role: 'user', content: JSON.stringify({ text: t }) }],
+      });
+      msg = await stream.finalMessage();
+    } catch (err) {
+      throw new Error(friendlyError(err));
+    }
+    if (msg.stop_reason === 'refusal') throw new Error('Claude declined to read this document. Nothing was changed.');
+    if (msg.stop_reason === 'max_tokens') throw new Error('The answer was cut off. Try a shorter document.');
+    const body = (msg.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('');
+    let parsed;
+    try { parsed = JSON.parse(body); } catch (e) { throw new Error('Claude returned an answer the app could not read. Try again.'); }
+    return cleanServiceRecords(parsed);
+  }
   // Written advice from the monthly numbers only (no names, addresses or account details).
   async function energyAdvice(summary) {
     const apiKey = store.get('anthropicKey');
@@ -734,7 +786,7 @@ function createAI({ store, clientFactory }) {
     return cleanAdvice(parsed);
   }
 
-  return { status, saveKey, clearKey, analyze, categorize, loansFromText, statement, statementPdf, testKey, carArt, creditShot, receipt, assetValue, energyFromText, energyAdvice };
+  return { status, saveKey, clearKey, analyze, categorize, loansFromText, statement, statementPdf, testKey, carArt, creditShot, receipt, assetValue, energyFromText, energyAdvice, serviceFromText };
 }
 
 // For a model running on this computer: the same job as the Claude version, but it must answer with plain JSON text.
@@ -748,4 +800,4 @@ function parseLocalLoans(reply) {
   return cleanLoans(parsed);
 }
 module.exports = {
-  LOANS_LOCAL_SYSTEM, parseLocalLoans, cleanLoans, cleanScoreShot, cleanReceipt, cleanAssetValue, cleanEnergyDocs, cleanAdvice, createAI, cleanResult, cleanStatement, friendlyError, detailOf, MODEL, SCHEMA, schemaFor, SYSTEM, MAX_STATEMENT_CHARS };
+  LOANS_LOCAL_SYSTEM, parseLocalLoans, cleanLoans, cleanScoreShot, cleanReceipt, cleanAssetValue, cleanEnergyDocs, cleanAdvice, cleanServiceRecords, createAI, cleanResult, cleanStatement, friendlyError, detailOf, MODEL, SCHEMA, schemaFor, SYSTEM, MAX_STATEMENT_CHARS };

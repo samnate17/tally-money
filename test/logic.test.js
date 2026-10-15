@@ -1857,3 +1857,71 @@ test('cardsSummary and cardsAdvice: totals, combined use and which card to pay e
   assert.ok(adv.some((a) => /Card A is over 50%/.test(a.title)));
   assert.ok(adv.some((a) => /Card B earns the most back/.test(a.title)));
 });
+
+// ---------- Vehicles: real cost with a loan, upkeep savings, service history ----------
+function vehWorld() { return new Function(srcBlock('/*ASSETS-START*/', '/*ASSETS-END*/') + '\nreturn {assetOwnership, maintSavings, mergeServiceRecords, serviceScore};')(); }
+test('assetOwnership: price plus interest is the real cost, and money gone adds depreciation, interest and upkeep', () => {
+  const W = vehWorld();
+  const o = W.assetOwnership({ price: 30000, value: 22000, loan: { orig: 27000, balance: 20000, minPay: 500 }, monthsOwned: 20, loanMonths: 20, interestLeft: 2500, upkeep: 600 });
+  assert.equal(o.lost, 8000);
+  assert.equal(o.interestPaid, 3000);              // 500 x 20 months = 10,000 paid, 7,000 of it principal
+  assert.equal(o.realCost, 35500);                 // 30,000 + 3,000 + 2,500
+  assert.equal(o.gone, 11600);                     // 8,000 + 3,000 + 600
+  assert.equal(o.perMonth, 580);
+  assert.equal(o.equity, 2000);
+  assert.equal(o.underwater, false);
+  const u = W.assetOwnership({ price: 30000, value: 15000, loan: { orig: 27000, balance: 20000, minPay: 500 }, monthsOwned: 20, interestLeft: 0 });
+  assert.equal(u.underwater, true);
+  const c = W.assetOwnership({ price: 10000, value: 6000, loan: null, monthsOwned: 12 });
+  assert.equal(c.realCost, 10000);
+  assert.equal(c.interestPaid, null);
+});
+test('maintSavings: spreads each upcoming cost over the months left and totals the year', () => {
+  const W = vehWorld(), today = new Date(2026, 9, 15);
+  const acct = { id: 'a1', name: 'Sample Car', asset: { kind: 'car', meter: 50000, meterLog: [], maint: [
+    { id: 'm1', name: 'Oil change', months: 6, meter: 0, cost: 90, lastDate: '2026-05-01' },        // due 2026-11-01, 17 days
+    { id: 'm2', name: 'Brake pads', months: 24, meter: 0, cost: 400, lastDate: '2025-02-01' },      // due 2027-02-01, ~109 days
+    { id: 'm3', name: 'No cost', months: 12, meter: 0, cost: 0, lastDate: '2026-01-01' },
+    { id: 'm4', name: 'Never done', months: 12, meter: 0, cost: 50 }] } };
+  const r = W.maintSavings([acct], today, 12);
+  assert.deepEqual(r.items.map((i) => i.id), ['m1', 'm2']);
+  assert.equal(r.items[0].monthsLeft, 1);
+  assert.equal(Math.round(r.items[1].perMonth), 100);   // 400 over 4 months
+  assert.equal(r.monthly, 190);
+  assert.equal(r.soonTotal, 490);
+  assert.equal(r.yearly, 180 + 200 + 50);               // 90 x2 + 400 / 2 + 50 x1
+});
+test('mergeServiceRecords: matches services to the schedule, finds real intervals and new items', () => {
+  const W = vehWorld();
+  const asset = { kind: 'car', maint: [{ id: 'o', name: 'Oil and filter change', months: 6, meter: 5000, lastDate: '2025-01-01' }, { id: 't', name: 'Tire rotation', months: 6, meter: 7500 }, { id: 'b', name: 'Brake inspection', months: 12, meter: 0 }] };
+  const recs = [
+    { date: '2025-03-01', meter: 30000, service: 'Oil and filter changed' }, { date: '2025-09-01', meter: 36000, service: 'Engine oil and filter service' }, { date: '2026-03-01', meter: 42000, service: 'Oil change' },
+    { date: '2026-03-01', meter: 42000, service: 'Tires rotated' },
+    { date: '2026-01-10', meter: 40500, service: 'Cabin air filter replaced' }, { date: '2025-01-10', meter: 28000, service: 'Cabin air filter replaced' },
+    { date: '2024-06-01', meter: 20000, service: 'Wheel alignment performed' }];
+  const r = W.mergeServiceRecords(asset, recs);
+  const up = Object.fromEntries(r.updates.map((u) => [u.id, u]));
+  assert.equal(up.o.date, '2026-03-01');
+  assert.equal(up.o.meter, 42000);
+  assert.equal(up.t.date, '2026-03-01');
+  assert.ok(!up.b);
+  const oil = r.intervals.find((i) => i.id === 'o');
+  assert.equal(oil.months, 6);
+  assert.equal(oil.meter, 6000);
+  assert.equal(r.extra.length, 1);                      // the cabin filter repeats, so it becomes a schedule item
+  assert.match(r.extra[0].name, /Cabin air filter/);
+  assert.equal(r.extra[0].meter, 12500);
+  assert.ok(r.unmatched.some((u) => /alignment/i.test(u.name)));
+  assert.equal(r.latestMeter, 42000);
+  assert.equal(r.latestMeterDate, '2026-03-01');
+  assert.ok(W.serviceScore('Tires rotated', 'Tire rotation') > W.serviceScore('Tires rotated', 'Tire check or replacement'));
+});
+test('cleanServiceRecords keeps only valid, plain service rows and drops personal details', () => {
+  const { cleanServiceRecords } = require('../ai.js');
+  const r = cleanServiceRecords({ records: [
+    { date: '2026-03-01', mileage: 42000, service: 'Oil <b>change</b>', cost: 89.5 }, { date: 'March 2026', mileage: 1, service: 'x', cost: 0 }, { date: '2026-02-01', mileage: -5, service: '', cost: 10 }, { date: '2026-02-02', mileage: 'abc', service: 'Tires rotated', cost: 'n/a' }], notes: 'ok' });
+  assert.equal(r.records.length, 2);
+  assert.equal(r.records[0].service, 'Oil bchange/b');
+  assert.equal(r.records[1].meter, 0);
+  assert.equal(r.records[1].cost, 0);
+});

@@ -891,6 +891,9 @@ function homeScreen(sp,inc,nw){
   // credit score
   var cser=scoreSeries(S.credit.scores);
   if(cser.length){cards.push(hcard('credit','Credit score',cser.map(function(x){return '<div class="hrow"><span>'+esc(x.name)+'</span><b class="num '+x.band.k+'">'+x.last.score+'</b></div>'}).join('')+'<div class="sub" style="margin-top:6px">'+(cser[0].diff!==null?(cser[0].diff>=0?'Up ':'Down ')+Math.abs(cser[0].diff)+' since last time':'Latest scores')+'</div>'))}
+  // vehicle upkeep
+  var upk=maintSavings(assetAccts(),TODAY,12);
+  if(upk.items.length&&upk.monthly>0){var u0=upk.items[0];cards.push(hcard('assets','Upkeep coming','<div class="hnum num">'+money0(upk.monthly)+'<span class="muted" style="font-size:14px">/mo</span></div><div class="sub">to put aside</div><div class="sub" style="margin-top:6px">'+esc(u0.name)+' '+(u0.overdue?'<span class="bad">overdue</span>':'in '+u0.days+' d')+' \u00b7 '+money0(u0.cost)+'</div>'))}
   // credit cards
   var cbs=cashbackStats(S.txns,S.accounts,TODAY,S.cardPay),ccl=S.accounts.filter(function(a){return a.type==='credit'&&(!a.closed||a.balance>0)});
   if(ccl.length){var ccb=ccl.reduce(function(a,c){return a+c.balance},0),ccLim=ccl.reduce(function(a,c){return a+(c.closed?0:+c.limit||0)},0),ccU=ccLim>0?ccb/ccLim*100:null,cbn=cbs.total.net12;
@@ -1050,7 +1053,7 @@ function vTx(){
   var shown=list.slice(0,filter.limit||150),nx=S.txns.filter(function(x){return isTransfer(x,xinf)}).length;
   var rows=shown.map(function(x){
     if(editTx===x.id)return txEditForm(x);
-    return '<div class="row">'+logo(x.name)+'<div class="grow"><div class="nm">'+esc(x.name)+'</div><div class="sub">'+shortDate(x.date)+(x.sub?' \u00b7 '+esc(x.sub):'')+(isTransfer(x,xinf)?' \u00b7 <span class="pill mute" style="font-size:11px" title="Money moving between your own accounts. It is not counted as spending or income.">'+(txKind(x,xinf)==='cardpay'?'Card payment':'Transfer')+', not counted</span>':'')+(isCashback(x)?' \u00b7 <span class="pill good" style="font-size:11px" title="A reward from a credit card. It is not counted as income; see Loans, Credit cards, Cash back.">Cash back</span>':'')+(x.cash?' \u00b7 <span class="pill mute" style="font-size:11px">Paid in cash</span>':'')+(x.note?'<div class="sub" style="white-space:normal;font-size:12px">'+esc(x.note)+'</div>':'')+'</div></div><select data-cat="'+x.id+'" aria-label="Category for '+esc(x.name)+'" class="hide-s">'+CATS.map(function(c){return '<option'+(c===x.cat?' selected':'')+'>'+c+'</option>'}).join('')+'</select><div class="amt num '+(x.amount>0?'good':'')+'">'+(x.amount>0?'+':'')+money(x.amount)+'</div><div class="actions" style="flex:none;flex-wrap:nowrap"><button class="btn small" data-act="tx-edit" data-id="'+x.id+'" aria-label="Edit '+esc(x.name)+'">Edit</button><button class="btn small" data-act="tx-xfer" data-id="'+x.id+'" title="'+(isTransfer(x,xinf)?'Count this as real spending or income':'This only moved money between my own accounts. Do not count it.')+'">'+(isTransfer(x,xinf)?'Count it':'Transfer')+'</button>'+(x.amount>0&&!isTransfer(x,xinf)?'<button class="btn small" data-act="tx-cb" data-id="'+x.id+'" title="'+(isCashback(x)?'This is not cash back. Count it normally.':'This is cash back or a card reward. Keep it out of income.')+'">'+(isCashback(x)?'Not cash back':'Cash back')+'</button>':'')+'<button class="btn small" data-act="tx-aside" data-id="'+x.id+'" title="This money was not mine. Remove it from all my numbers; you can restore it later." aria-label="Not mine">Not mine</button><button class="btn small" data-act="tx-del" data-id="'+x.id+'" aria-label="Delete">&times;</button></div></div>';
+    return '<div class="row">'+logo(x.name)+'<div class="grow"><div class="nm">'+esc(x.name)+'</div><div class="sub">'+shortDate(x.date)+(x.sub?' \u00b7 '+esc(x.sub):'')+(isTransfer(x,xinf)?' \u00b7 <span class="pill mute" style="font-size:11px" title="Money moving between your own accounts. It is not counted as spending or income.">'+(txKind(x,xinf)==='cardpay'?'Card payment':'Transfer')+', not counted</span>':'')+(isCashback(x)?' \u00b7 <span class="pill good" style="font-size:11px" title="A reward from a credit card. It is not counted as income; see Loans, Credit cards, Cash back.">Cash back</span>':'')+(x.cash?' \u00b7 <span class="pill mute" style="font-size:11px">Paid in cash</span>':'')+(x.veh&&asById(x.veh)?' \u00b7 <span class="pill mute" style="font-size:11px">'+esc(asById(x.veh).name.slice(0,24))+'</span>':'')+(x.note?'<div class="sub" style="white-space:normal;font-size:12px">'+esc(x.note)+'</div>':'')+'</div></div><select data-cat="'+x.id+'" aria-label="Category for '+esc(x.name)+'" class="hide-s">'+CATS.map(function(c){return '<option'+(c===x.cat?' selected':'')+'>'+c+'</option>'}).join('')+'</select><div class="amt num '+(x.amount>0?'good':'')+'">'+(x.amount>0?'+':'')+money(x.amount)+'</div><div class="actions" style="flex:none;flex-wrap:nowrap"><button class="btn small" data-act="tx-edit" data-id="'+x.id+'" aria-label="Edit '+esc(x.name)+'">Edit</button><button class="btn small" data-act="tx-xfer" data-id="'+x.id+'" title="'+(isTransfer(x,xinf)?'Count this as real spending or income':'This only moved money between my own accounts. Do not count it.')+'">'+(isTransfer(x,xinf)?'Count it':'Transfer')+'</button>'+(x.amount>0&&!isTransfer(x,xinf)?'<button class="btn small" data-act="tx-cb" data-id="'+x.id+'" title="'+(isCashback(x)?'This is not cash back. Count it normally.':'This is cash back or a card reward. Keep it out of income.')+'">'+(isCashback(x)?'Not cash back':'Cash back')+'</button>':'')+'<button class="btn small" data-act="tx-aside" data-id="'+x.id+'" title="This money was not mine. Remove it from all my numbers; you can restore it later." aria-label="Not mine">Not mine</button><button class="btn small" data-act="tx-del" data-id="'+x.id+'" aria-label="Delete">&times;</button></div></div>';
   }).join('');
   var xpanel='<section class="panel"><h2>Not double counted<small>'+nx+' transfer'+(nx===1?'':'s')+' left out of your numbers</small></h2><p class="sub muted" style="margin:0 0 8px;font-size:13px">Paying a credit card from checking moves money you already counted when you made the purchases, and "payment thank you" on a card statement is not income. Transfers between your own accounts are skipped too. Press <b>Transfer</b> on any row the app got wrong.</p><label style="font-size:13px">Payments to my credit cards <select id="cardpay"><option value="auto"'+(S.cardPay==='auto'?' selected':'')+'>Skip when my card purchases are here too (recommended)</option><option value="skip"'+(S.cardPay==='skip'?' selected':'')+'>Always skip</option><option value="count"'+(S.cardPay==='count'?' selected':'')+'>Count them as spending</option></select></label></section>';
   return '<div class="top"><h1>Transactions</h1></div>'+catTools()+xpanel+importsPanel()+cashPanel()+
@@ -1436,6 +1439,71 @@ function cleanAsset(raw,newId){
     var r={id:/^[\w-]{1,40}$/.test(m.id||'')?m.id:newId(),name:str(m.name,60),months:Math.min(240,Math.max(0,Math.round(+m.months)||0)),meter:Math.min(1e6,Math.max(0,Math.round(+m.meter)||0)),cost:Math.min(1e6,Math.max(0,Math.round((+m.cost||0)*100)/100)),cat:str(m.cat,40)||'Repairs and maintenance',sub:str(m.sub,40)};
     if(dre.test(m.lastDate||''))r.lastDate=m.lastDate;if(num(m.lastMeter,5e6)!==null)r.lastMeter=+m.lastMeter;return r}).filter(Boolean);
   return o;
+}
+// What owning it really costs. o: {price, value, loan:{orig,balance,minPay}|null, monthsOwned, loanMonths, interestLeft, upkeep}
+function assetOwnership(o){
+  var p=+o.price>0?+o.price:0,v=+o.value||0,l=o.loan||null,up=+o.upkeep||0,mo=o.monthsOwned>0?o.monthsOwned:null;
+  var r={price:p,value:v,lost:p>0?p-v:null,upkeep:up,months:mo,hasLoan:!!l,interestPaid:null,interestLeft:0,owed:0,equity:null,realCost:p>0?p:null,gone:null,perMonth:null,underwater:false};
+  if(l){
+    r.owed=+l.balance||0;r.equity=v-r.owed;r.underwater=r.equity<0;
+    var lm=o.loanMonths>0?o.loanMonths:mo,orig=+l.orig>0?+l.orig:0,pay=+l.minPay||0;
+    if(orig>0&&pay>0&&lm>0){var principal=Math.max(0,orig-r.owed),ip=pay*lm-principal;r.interestPaid=Math.max(0,Math.min(ip,pay*lm));r.interestPaid=Math.round(r.interestPaid)}
+    r.interestLeft=Math.max(0,Math.round(+o.interestLeft||0));
+    if(p>0)r.realCost=Math.round(p+(r.interestPaid||0)+r.interestLeft);
+  }
+  if(p>0)r.gone=Math.round(r.lost+(r.interestPaid||0)+up);
+  if(r.gone!==null&&mo>=1)r.perMonth=Math.round(r.gone/mo);
+  return r;
+}
+// What to put aside for upkeep that is coming. Each item is spread over the months left before it is due.
+function maintSavings(accounts,today,horizonMonths){
+  var hz=(horizonMonths||12)*30.4,items=[],yearly=0;
+  (accounts||[]).forEach(function(ac){var a=ac.asset;if(!a||!Array.isArray(a.maint))return;
+    a.maint.forEach(function(m){
+      var cost=+m.cost||0;if(cost<=0)return;
+      var byDate=m.months>0?12/m.months:0,byMeter=m.meter>0?meterPerDay(a)*365/m.meter:0;yearly+=cost*Math.max(byDate,byMeter);
+      var d=maintDue(m,a,today);if(!d.due||d.days>hz)return;
+      var left=Math.max(1,Math.ceil(Math.max(0,d.days)/30.4));
+      items.push({acctId:ac.id,acctName:ac.name,id:m.id,name:m.name,cost:cost,days:d.days,due:d.due,overdue:d.overdue,by:d.by,monthsLeft:left,perMonth:cost/left,fee:m.cat==='Fees and taxes'});
+    })});
+  items.sort(function(x,y){return x.days-y.days});
+  var soon=items.filter(function(i){return i.monthsLeft<=6});
+  return {items:items,monthly:Math.round(soon.reduce(function(n,i){return n+i.perMonth},0)),soonTotal:Math.round(soon.reduce(function(n,i){return n+i.cost},0)),total12:Math.round(items.reduce(function(n,i){return n+i.cost},0)),yearly:Math.round(yearly)};
+}
+// Service history (from a Carfax-style report) lined up with the maintenance schedule.
+var SERVICE_WORDS=['oil','tire','rotat','brake','batte','coola','trans','spark','regis','inspe','wiper','align','belt','cabin','rotor','chain','impel','winte','servi'];
+function serviceScore(text,name){
+  var a=String(text||'').toLowerCase(),b=String(name||'').toLowerCase(),n=0;
+  SERVICE_WORDS.forEach(function(w){if(a.indexOf(w)>-1&&b.indexOf(w)>-1&&w!=='servi')n++});
+  if(/air\s*filter/.test(a)&&/air\s*filter/.test(b))n+=2;
+  if(/rotat/.test(a)!==/rotat/.test(b)&&/tire/.test(a)&&/tire/.test(b))n-=1;    // a rotation is not a tire replacement
+  return n;
+}
+function cardMedian(a){var s=a.slice().sort(function(x,y){return x-y});return s.length?s[Math.floor(s.length/2)]:0}
+// records: [{date, meter, service, cost}] for one vehicle. Returns what to update, what did not match, and the intervals the history shows.
+function mergeServiceRecords(asset,records){
+  var maint=asset.maint||[],groups={},unmatched=[],latestMeter=null,latestMeterDate='';
+  (records||[]).forEach(function(r){
+    if(!r||!/^\d{4}-\d{2}-\d{2}$/.test(r.date||'')||!r.service)return;
+    if(r.meter>0&&(latestMeter===null||r.meter>latestMeter)){latestMeter=r.meter;latestMeterDate=r.date}
+    var best=null,bs=0;maint.forEach(function(m){var s=serviceScore(r.service,m.name);if(s>bs){bs=s;best=m}});
+    var key=best?best.id:'x:'+String(r.service).toLowerCase().replace(/[^a-z ]/g,' ').replace(/\s+/g,' ').trim().slice(0,40);
+    var g=groups[key]||(groups[key]={item:best,name:best?best.name:r.service,recs:[]});g.recs.push(r);
+  });
+  var updates=[],intervals=[],extra=[];
+  Object.keys(groups).forEach(function(k){
+    var g=groups[k],recs=g.recs.slice().sort(function(x,y){return x.date<y.date?-1:1}),last=recs[recs.length-1];
+    var gapsM=[],gapsK=[];
+    for(var i=1;i<recs.length;i++){gapsM.push(Math.round((parseISO(recs[i].date)-parseISO(recs[i-1].date))/864e5/30.4));if(recs[i].meter>0&&recs[i-1].meter>0&&recs[i].meter>recs[i-1].meter)gapsK.push(recs[i].meter-recs[i-1].meter)}
+    var need=g.item?2:1,months=gapsM.length>=need?cardMedian(gapsM):0,meter=gapsK.length>=need?Math.round(cardMedian(gapsK)/100)*100:0,cost=cardMedian(recs.map(function(r){return +r.cost||0}).filter(function(c){return c>0}));
+    if(g.item){
+      var m=g.item,newer=!m.lastDate||last.date>m.lastDate;
+      if(newer)updates.push({id:m.id,name:m.name,date:last.date,meter:last.meter>0?last.meter:null,count:recs.length});
+      if(months>0||meter>0)intervals.push({id:m.id,name:m.name,months:months,meter:meter,n:recs.length,cost:cost,currentMonths:m.months,currentMeter:m.meter});
+    }else if(recs.length>=2&&(months>0||meter>0))extra.push({name:g.name,months:months,meter:meter,cost:Math.round(cost),date:last.date,lastMeter:last.meter>0?last.meter:null,n:recs.length});
+    else unmatched.push({name:g.name,date:last.date,n:recs.length});
+  });
+  return {updates:updates,intervals:intervals,extra:extra,unmatched:unmatched,latestMeter:latestMeter,latestMeterDate:latestMeterDate};
 }
 /*ASSETS-END*/
 /*IMPORTS-START*/
@@ -3476,7 +3544,7 @@ function billForm(b){
    '<label class="newc" style="display:none">New category name<input name="nc" maxlength="24" placeholder="e.g. Haircuts"></label>'+
    '<label>Sub-category<select name="u">'+subOptions(v.cat||'Housing',v.sub||'')+'<option value="__new">+ New sub-category…</option></select></label>'+
    '<label class="news" style="display:none">New sub-category name<input name="ns" maxlength="32" placeholder="e.g. Barber"></label>'+
-   '<label style="flex-direction:row;align-items:center;gap:6px"><input name="ap" type="checkbox"'+(v.autopay?' checked':'')+'> On autopay</label>'+
+   '<label style="flex-direction:row;align-items:center;gap:6px"><input name="ap" type="checkbox"'+(v.autopay?' checked':'')+'> On autopay</label>'+(assetAccts().length?'<label>Vehicle<select name="vh"><option value="">None</option>'+assetAccts().map(function(a){return '<option value="'+esc(a.id)+'"'+(v.veh===a.id?' selected':'')+'>'+esc(a.name)+'</option>'}).join('')+'</select></label>':'')+
    '<label>Words in the payment name<input name="m" maxlength="80" value="'+esc(v.match||'')+'" placeholder="e.g. eversource" style="width:170px"></label></div>'+
    '<p class="sub muted" style="margin:8px 0 0;font-size:12px">A payment counts toward this bill if its description has one of the words, or, when you pick a sub-category, if it is filed under that category and sub-category (for example Housing, Electric). Leave both out to mark it paid by hand.</p>'+
    '<div class="actions" style="justify-content:flex-start;margin-top:10px"><button class="btn primary small">'+(b?'Save changes':'Add bill')+'</button><button type="button" class="btn small" data-act="bill-cancel">Cancel</button></div></form>';
@@ -3494,6 +3562,7 @@ function vBills(){
   var items=allBillItems(month),sum=billsSummary(items,month,S.txns,S.billMarks,TODAY),sug=[];
   var head='<div class="top"><h1>Bills</h1>'+monthNav()+'</div>';
   var tiles='<div class="grid tiles">'+tile('Paid',money0(sum.paid),sum.paidCount+' of '+sum.count+' bill'+(sum.count===1?'':'s'))+tile('Pending','<span class="'+(sum.overdue?'bad':'')+'">'+money0(sum.pending)+'</span>',sum.overdue?sum.overdue+' overdue':(sum.next?'Next: '+esc(billName(sum.next.item.name))+' '+shortDate(iso(sum.next.st.due)):'Nothing pending'))+tile('Total for the month',money0(sum.total),'What your bills usually come to')+'</div>';
+  var up=month===NOWKEY?maintSavings(assetAccts(),TODAY,12):null,upBanner=up&&up.monthly>0?'<div class="banner" style="align-items:center"><span><b>Upkeep is coming:</b> put aside about <b>'+money0(up.monthly)+' a month</b>. Next is '+esc(up.items[0].name)+' on '+esc(up.items[0].acctName)+' '+(up.items[0].overdue?'(overdue)':'in '+up.items[0].days+' day'+(up.items[0].days===1?'':'s'))+' (about '+money0(up.items[0].cost)+').</span><button class="btn small" data-view="assets">See it</button></div>':'';
   var rows=sum.rows.map(function(r){
     var it=r.item,st=r.st;
     if(it.source==='bill'&&billUI.edit===it.id)return billForm(it.raw);
@@ -3511,7 +3580,7 @@ function vBills(){
     '<div class="actions" style="justify-content:flex-start;margin-top:10px"><button class="btn small primary" data-act="bill-add">Add a bill</button></div>'+(billUI.adding?billForm(null):'')+
     '<p class="sub muted" style="margin:10px 0 0;font-size:12px">Car loans, student loans and credit cards appear here automatically once they have a minimum payment and a due day (set the due day on the loan or on the card in Accounts). A bill counts as paid when a payment with a matching name and a similar amount shows up in your transactions that month, or when you mark it.</p></section>';
   var sugg='';
-  return head+tiles+list+sugg;
+  return head+upBanner+tiles+list+sugg;
 }
 function hiddenPanel(){
   var words=S.hideWords||[],n=allBillItems(month).filter(function(it){return isHiddenName(it.name,words)}).length;
@@ -5079,6 +5148,7 @@ function assetCard(a){
     (loan?tile('Your equity',money0(a.balance-loan.balance),'worth minus the '+money0(loan.balance)+' still owed'):tile('In 3 years','~'+money0(st.proj[1].value),'projected'))+'</div>';
   h+='<p class="sub" style="margin:8px 0;white-space:normal">Rate '+rateWhy+'. In 1 year about <b>'+money0(st.proj[0].value)+'</b>, in 3 years about <b>'+money0(st.proj[1].value)+'</b>, in 5 years about <b>'+money0(st.proj[2].value)+'</b>. Years after the first assume the drop slows down. These are projections, not guarantees; mileage, condition and the market move real prices.</p>';
   h+=pts.length>1?lineChart(pts,{money:true,label:'Value history of '+a.name,h:170}):'<div class="sub muted" style="margin:6px 0">Record its value every few months and the depreciation curve appears here.</div>';
+  h+=assetKind(as)==='car'||assetKind(as)==='motorcycle'||assetKind(as)==='boat'||assetKind(as)==='rv'||assetKind(as)==='powersport'?assetExtras(a,loan):'';
   // value update
   h+='<h3 style="font-size:15px;margin:14px 0 6px">Update its value</h3><form class="form as-val" data-id="'+esc(a.id)+'" style="align-items:flex-end"><label>Value $<input name="v" type="number" min="0" step="1" required value="'+Math.round(a.balance)+'" style="width:120px"></label><label>As of<input name="d" type="date" required value="'+iso(TODAY)+'"></label><label>Where from<select name="s"><option>KBB</option><option>Dealer offer</option><option selected>My estimate</option></select></label><button class="btn primary">Save value</button></form>';
   h+='<div class="actions" style="justify-content:flex-start;margin-top:8px;flex-wrap:wrap;align-items:center"><a class="btn small" href="'+esc(lookup.url)+'" target="_blank" rel="noopener noreferrer">'+esc(lookup.label)+'</a>'+(hasAi?'<button class="btn small" data-act="as-ai" data-id="'+esc(a.id)+'"'+(keyOk&&!asUI.busy?'':' disabled')+'>'+(asUI.busy===a.id?'Estimating…':'Estimate with AI')+'</button>':'')+'</div>';
@@ -5093,6 +5163,7 @@ function assetCard(a){
   h+='<div class="actions" style="justify-content:flex-start;margin-top:8px;flex-wrap:wrap">'+(missing.length?'<button class="btn small" data-act="as-presets" data-id="'+esc(a.id)+'">Add the common ones ('+missing.length+')</button>':'')+'</div>';
   h+='<form class="form as-maint-add" data-id="'+esc(a.id)+'" style="align-items:flex-end;margin-top:8px"><label>Add one<input name="n" required maxlength="60" placeholder="e.g. Brake pads" style="width:170px"></label><label>Every (months)<input name="mo" type="number" min="0" step="1" placeholder="6" style="width:90px"></label>'+(u?'<label>Or every ('+u+')<input name="mt" type="number" min="0" step="1" placeholder="5000" style="width:100px"></label>':'')+'<label>Cost $<input name="c" type="number" min="0" step="1" placeholder="0" style="width:84px"></label><label>Last done<input name="d" type="date"></label><label>Type<select name="t"><option value="Repairs and maintenance">Upkeep</option><option value="Fees and taxes">Fee or tax</option></select></label><button class="btn small">Add</button></form>';
   h+='<p class="sub muted" style="margin:6px 0 0;font-size:12px;white-space:normal">Anything due this month or later shows up on the Bills tab as an upcoming bill, so you can plan for it.</p>';
+  h+=assetService(a);
   h+='<div class="actions" style="justify-content:flex-end;margin-top:12px"><button class="btn small danger" data-act="as-del" data-id="'+esc(a.id)+'">Remove this asset</button></div></section>';
   return h;
 }
@@ -5109,9 +5180,73 @@ function vAssets(){
   var tiles=list.length?'<div class="grid tiles">'+tile('Worth in total',money0(tot),list.length+' asset'+(list.length===1?'':'s')+', counted in your net worth')+tile('Losing about','<span class="bad">'+money0(yr)+'/yr</span>',money0(yr/12)+' a month')+tile(haveLost?'Lost since you bought them':'Lost since purchase',haveLost?'<span class="'+(lost>0?'bad':'good')+'">'+money0(Math.abs(lost))+'</span>':'n/a',haveLost?'':'Add what you paid')+tile('Next maintenance',next?esc(next.m.name):'None scheduled',next?(next.d.overdue?'<span class="bad">Overdue</span>':'Due '+shortDate(isoOf(next.d.due)))+' · '+esc(next.a.name):'Add upkeep to an asset')+'</div>':'';
   var intro=list.length?'':'<section class="panel"><div class="empty">Add a car, motorcycle, boat or anything else you own that loses value. You will see what it is worth, how fast it is losing value, and when its maintenance and yearly fees are due.</div></section>';
   var avoid='<p class="sub muted" style="margin:0 0 12px;font-size:12px;white-space:normal">If you already added one of these as an account on the Accounts tab, remove that account so it is not counted twice.</p>';
-  return head+tiles+intro+(asUI.adding||!list.length?assetForm():'<div class="actions" style="justify-content:flex-start;margin:0 0 12px"><button class="btn primary small" data-act="as-add">Add an asset</button></div>')+avoid+list.map(assetCard).join('');
+  return head+tiles+intro+upkeepPanel(list)+unlinkedVehPanel(list)+(asUI.adding||!list.length?assetForm():'<div class="actions" style="justify-content:flex-start;margin:0 0 12px"><button class="btn primary small" data-act="as-add">Add an asset</button></div>')+avoid+list.map(assetCard).join('');
+}
+
+/* ---------- Vehicles: what they really cost, upkeep to budget for, linked spending, service history ---------- */
+function vehTxns(id){return S.txns.filter(function(x){return x.veh===id})}
+function vehSpend(id){return vehTxns(id).reduce(function(n,x){return n-x.amount},0)}
+function vehicleLike(x){return x.amount<0&&!x.veh&&((x.cat==='Repairs and maintenance'&&/car|motorcycle|boat|vehicle|auto/i.test(x.sub||''))||(x.cat==='Fees and taxes'&&/vehicle/i.test(x.sub||'')))}
+function assetOwn(a,loan){
+  var as=a.asset,t0=TODAY,pd=/^\d{4}-\d{2}-\d{2}$/.test(as.purchaseDate||'')?parseISO(as.purchaseDate):null,months=pd?Math.max(0,(t0-pd)/864e5/30.4):0,left=0;
+  if(loan){var am=amortize(loan.balance,loan.apr,loan.minPay);if(am.ok)left=am.interest}
+  var lm=loan&&/^\d{4}-\d{2}-\d{2}$/.test(loan.opened||'')?Math.max(0,(t0-parseISO(loan.opened))/864e5/30.4):months;
+  return assetOwnership({price:as.purchasePrice,value:a.balance,loan:loan?{orig:loan.origBalance,balance:loan.balance,minPay:loan.minPay}:null,monthsOwned:months,loanMonths:lm,interestLeft:left,upkeep:vehSpend(a.id)});
+}
+function assetExtras(a,loan){
+  var o=assetOwn(a,loan),loans=S.accounts.filter(function(x){return x.type==='auto'||x.type==='loan'}),h='';
+  h+='<h3 style="font-size:15px;margin:16px 0 6px">What it really cost</h3>';
+  if(o.price>0){
+    h+='<div class="grid tiles">'+tile('Price you paid',money0(o.price),'before any loan interest')+(o.hasLoan?tile('Real cost with the loan',money0(o.realCost),'price + '+money0((o.interestPaid||0)+o.interestLeft)+' interest ('+(o.interestPaid!==null?money0(o.interestPaid)+' paid, ':'')+money0(o.interestLeft)+' to come)'):'')+
+      tile('Worth now',money0(o.value),o.lost!==null?(o.lost>=0?'lost '+money0(o.lost)+' ('+(o.lost/o.price*100).toFixed(0)+'%)':'up '+money0(-o.lost)):'')+tile('Money gone so far','<span class="bad">'+money0(Math.max(0,o.gone))+'</span>','depreciation'+(o.interestPaid?' + interest paid':'')+(o.upkeep>0?' + '+money0(o.upkeep)+' upkeep':''))+
+      (o.perMonth!==null&&o.months>=1?tile('It costs you',money0(Math.max(0,o.perMonth))+'<span class="muted" style="font-size:14px">/mo</span>','over '+Math.round(o.months)+' months of owning it'):'')+'</div>';
+    h+='<p class="sub" style="margin:8px 0;white-space:normal">'+(o.hasLoan?'With the loan you will pay about <b>'+money0(o.realCost)+'</b> for a vehicle bought at '+money0(o.price)+'. ':'')+(o.lost!==null&&o.lost>0?'It is worth '+money0(o.lost)+' less than you paid, so '+(o.hasLoan?'the loan interest and the lost value together are ':'the lost value is ')+'what owning it has cost beyond the sticker price. ':'')+(o.underwater?'<span class="bad">You owe '+money0(-o.equity)+' more than it is worth right now, so selling it would not clear the loan.</span> ':(o.hasLoan&&o.equity!==null?'You have '+money0(o.equity)+' of equity (worth minus what you owe). ':''))+'Fees, taxes and the down payment are not in this unless you recorded them in the price.</p>';
+  }else h+='<div class="sub muted">Add what you paid for it (and the date) when you add the asset, and this shows what owning it has really cost.</div>';
+  h+='<form class="form as-loan" data-id="'+esc(a.id)+'" style="align-items:flex-end;margin-top:8px"><label>Loan on this vehicle<select name="loan"><option value="">None</option>'+loans.map(function(l){return '<option value="'+esc(l.id)+'"'+(a.asset.loanId===l.id?' selected':'')+'>'+esc(l.name)+' ('+money0(l.balance)+' owed)</option>'}).join('')+'</select></label><button class="btn small">Save link</button></form>';
+  if(!loans.length)h+='<p class="sub muted" style="margin:4px 0 0;font-size:12px">Add the car loan under Loans (Car) first and it will be listed here.</p>';
+  var vt=vehTxns(a.id).slice().sort(function(x,y){return x.date<y.date?1:-1}),vb=S.bills.filter(function(b){return b.veh===a.id});
+  h+='<h3 style="font-size:15px;margin:16px 0 6px">Spent on it'+(vt.length?'<small class="sub" style="font-weight:400"> '+money0(vehSpend(a.id))+' in '+vt.length+' transaction'+(vt.length===1?'':'s')+'</small>':'')+'</h3>';
+  h+=vt.length?vt.slice(0,5).map(function(x){return '<div class="row"><div class="grow"><div class="nm">'+esc(x.name)+'</div><div class="sub">'+shortDate(x.date)+(x.sub?' · '+esc(x.sub):'')+'</div></div><div class="amt num">'+money(Math.abs(x.amount))+'</div></div>'}).join('')+(vt.length>5?'<div class="sub muted">and '+(vt.length-5)+' more. See them in Transactions.</div>':''):'<div class="sub muted">Repairs, parts and fees you link to this vehicle (Edit a transaction and choose the vehicle) add up here.</div>';
+  if(vb.length)h+='<div class="sub" style="margin-top:6px">Bills linked: '+vb.map(function(b){return esc(b.name)+' '+money0(b.amount)}).join(', ')+'</div>';
+  return h;
+}
+function assetService(a){
+  var s=asUI.svc&&asUI.svc.id===a.id?asUI.svc:null,canAi=!!(T&&T.loan&&T.loan.readFile&&T.ai&&T.ai.service),key=!!(aiSt&&aiSt.hasKey),h='<h3 style="font-size:15px;margin:16px 0 6px">Service history</h3>';
+  h+='<p class="sub muted" style="margin:0 0 8px;font-size:12px;white-space:normal">Carfax does not let apps connect to your account, so download your Carfax report (or a shop invoice list) as a PDF and add it here. Claude reads the services, dates and mileage; you check them before anything is saved. The app then marks each service as last done on that date and shows how often you really do it, so the schedule and the savings suggestions are based on your own history. VINs and owner details are told to be ignored.</p>';
+  h+='<div class="actions" style="justify-content:flex-start;align-items:center;flex-wrap:wrap"><label class="btn small'+(canAi&&key&&!asUI.svcBusy?'':' disabled')+'" style="cursor:'+(canAi&&key?'pointer':'not-allowed')+'">'+(asUI.svcBusy===a.id?'Reading…':'Add a Carfax report or service records')+'<input type="file" data-svcfile="'+esc(a.id)+'" accept=".pdf,.txt,.csv,application/pdf,text/plain" hidden'+(canAi&&key&&!asUI.svcBusy?'':' disabled')+'></label>'+(canAi&&key?'':'<span class="sub muted">Needs the desktop app and your Anthropic API key (Transactions tab).</span>')+'</div>';
+  if(asUI.svcMsg&&asUI.svcMsgId===a.id)h+='<div class="sub bad" role="alert" style="margin-top:6px;white-space:normal">'+esc(asUI.svcMsg)+'</div>';
+  if(s&&s.merge){
+    var mg=s.merge;
+    h+='<div class="banner" style="display:block;margin-top:10px;white-space:normal"><b>Found '+s.n+' service'+(s.n===1?'':'s')+' in '+esc(s.name)+'.</b>';
+    if(mg.updates.length)h+='<div style="margin-top:6px"><b>Last done will be set to:</b></div>'+mg.updates.map(function(u){return '<div class="sub">'+esc(u.name)+': '+shortDate(u.date)+(u.meter?' at '+u.meter.toLocaleString('en-US')+' '+(asUnit(a)||''):'')+' ('+u.count+' on record)</div>'}).join('');
+    if(mg.extra.length)h+='<div style="margin-top:6px"><b>New items for your schedule:</b></div>'+mg.extra.map(function(x){return '<div class="sub">'+esc(x.name)+': about every '+(x.months?x.months+' months':'')+(x.months&&x.meter?' or ':'')+(x.meter?x.meter.toLocaleString('en-US')+' '+(asUnit(a)||''):'')+(x.cost?' · about '+money0(x.cost):'')+'</div>'}).join('');
+    var diff=mg.intervals.filter(function(i){return (i.months&&Math.abs(i.months-i.currentMonths)>=2)||(i.meter&&i.currentMeter&&Math.abs(i.meter-i.currentMeter)>=i.currentMeter*0.2)});
+    if(diff.length)h+='<div style="margin-top:6px"><b>How often you really do it:</b></div>'+diff.map(function(i){return '<div class="sub">'+esc(i.name)+': every '+(i.months||'?')+' months'+(i.meter?' / '+i.meter.toLocaleString('en-US')+' '+(asUnit(a)||''):'')+' ('+i.n+' times); your schedule says '+(i.currentMonths||'-')+' months'+(i.currentMeter?' / '+i.currentMeter.toLocaleString('en-US'):'')+'</div>'}).join('');
+    if(mg.unmatched.length)h+='<div class="sub muted" style="margin-top:6px">Not matched to a schedule item (one-off): '+mg.unmatched.slice(0,8).map(function(u){return esc(u.name)}).join(', ')+'.</div>';
+    if(!mg.updates.length&&!mg.extra.length)h+='<div class="sub" style="margin-top:6px">Nothing new: your schedule already has these.</div>';
+    h+='<div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn small primary" data-act="as-svc-apply" data-id="'+esc(a.id)+'">Save these</button>'+(diff.length?'<button class="btn small" data-act="as-svc-int" data-id="'+esc(a.id)+'">Also use my real intervals</button>':'')+'<button class="btn small" data-act="as-svc-no">Discard</button></div></div>';
+  }
+  return h;
+}
+function upkeepPanel(list){
+  var sv=maintSavings(list,TODAY,12);
+  if(!list.length)return '';
+  if(!sv.items.length)return '<section class="panel"><h2>Upkeep coming up<small>what to budget for</small></h2><div class="empty" style="white-space:normal">Add the common maintenance items to a vehicle and record when each was last done (or add a Carfax report). Then this shows what is coming, when, and how much to put aside each month.</div></section>';
+  var multi=list.length>1,rows=sv.items.slice(0,10).map(function(i){
+    var due=i.overdue?'<span class="bad">overdue</span>':i.days===0?'<b>today</b>':'in '+(i.days<45?i.days+' day'+(i.days===1?'':'s'):Math.round(i.days/30.4)+' months');
+    return '<div class="row wrap"><div class="grow" style="flex-basis:200px"><div class="nm">'+esc(i.name)+(i.fee?' <span class="pill mute" style="font-size:11px">Fee</span>':'')+'</div><div class="sub">'+(multi?esc(i.acctName)+' · ':'')+due+' ('+shortDate(iso(i.due))+')'+(i.by==='meter'?' · by usage':'')+'</div></div><div class="amt num">'+money0(i.cost)+'</div><div class="sub" style="flex:none;min-width:96px;text-align:right">save '+money0(i.perMonth)+'/mo</div><button class="btn small" data-act="as-done" data-id="'+esc(i.acctId)+'" data-m="'+esc(i.id)+'">Done</button></div>'}).join('');
+  var goal=S.goals.filter(function(g){return g.auto==='upkeep'})[0];
+  return '<section class="panel"><h2>Upkeep coming up<small>what to budget for</small></h2><div class="grid tiles">'+tile('Due within 6 months',money0(sv.soonTotal),sv.items.filter(function(i){return i.monthsLeft<=6}).length+' item'+(sv.items.filter(function(i){return i.monthsLeft<=6}).length===1?'':'s'))+tile('Put aside each month','<span class="good">'+money0(sv.monthly)+'</span>','spreads each one over the months left')+tile('Yearly upkeep','~'+money0(sv.yearly),'from each item\'s schedule and cost')+'</div>'+rows+
+    '<div class="actions" style="justify-content:flex-start;margin-top:10px;flex-wrap:wrap"><button class="btn small primary" data-act="maint-goal" data-t="'+sv.soonTotal+'">'+(goal?'Update my upkeep goal':'Save for it with a goal')+'</button></div><p class="sub muted" style="margin:6px 0 0;font-size:12px;white-space:normal">The savings figure is simply each cost divided by the months until it is due; costs are your own estimates, so edit them as you learn what things really cost. Items also show on the Bills tab in the month they are due.</p></section>';
+}
+function unlinkedVehPanel(list){
+  if(!list.length)return '';
+  var un=S.txns.filter(vehicleLike);if(!un.length)return '';
+  return '<section class="panel"><h2>Repairs not linked to a vehicle<small>'+un.length+' transaction'+(un.length===1?'':'s')+'</small></h2>'+un.slice(0,4).map(function(x){return '<div class="row"><div class="grow"><div class="nm">'+esc(x.name)+'</div><div class="sub">'+shortDate(x.date)+(x.sub?' · '+esc(x.sub):'')+'</div></div><div class="amt num">'+money(Math.abs(x.amount))+'</div></div>'}).join('')+(un.length>4?'<div class="sub muted">and '+(un.length-4)+' more.</div>':'')+
+    '<div class="form" style="align-items:flex-end;margin-top:8px"><label>Link them to<select id="veh-pick">'+list.map(function(a){return '<option value="'+esc(a.id)+'">'+esc(a.name)+'</option>'}).join('')+'</select></label><button class="btn small primary" data-act="as-linkall">Link them all</button></div><p class="sub muted" style="margin:6px 0 0;font-size:12px">Or link one at a time: Edit the transaction and pick the vehicle.</p></section>';
 }
 function asBind(m){
+  m.querySelectorAll('[data-svcfile]').forEach(function(inp){inp.onchange=function(){svcRead(inp)}});
   var f=function(sel,fn){m.querySelectorAll(sel).forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();if(asGuard())return;fn(fm,fm.elements)}})};
   f('#assetform',function(fm,el){
     var v=parseFloat(el['v'].value);if(!(v>=0))return;
@@ -5122,6 +5257,7 @@ function asBind(m){
     if(asset.purchasePrice>0&&asset.purchaseDate&&asset.purchaseDate<t0)ac.history.push({date:asset.purchaseDate,balance:asset.purchasePrice});
     ac.history.push({date:t0,balance:v});S.accounts.push(ac);asUI.adding=false;save();render();toast('Added '+ac.name+'.');
   });
+  f('.as-loan',function(fm,el){var a=asById(fm.dataset.id);if(!a)return;var v=el['loan'].value;if(v&&S.accounts.some(function(x){return x.id===v}))a.asset.loanId=v;else delete a.asset.loanId;save();render();toast(v?'Linked to the loan.':'Loan link removed.')});
   f('.as-val',function(fm,el){var a=asById(fm.dataset.id),v=parseFloat(el['v'].value),d=el['d'].value;if(!a||!(v>=0)||!/^\d{4}-\d{2}-\d{2}$/.test(d))return;var was=a.balance;asSetValue(a,v,d,el['s'].value);save();render();toast('Value saved. '+(v<was?'Down ':'Up ')+money0(Math.abs(v-was))+'.')});
   f('.as-meter',function(fm,el){var a=asById(fm.dataset.id),v=parseFloat(el['v'].value);if(!a||!(v>=0))return;var t0=iso(TODAY);a.asset.meter=v;a.asset.meterDate=t0;a.asset.meterLog=(a.asset.meterLog||[]).filter(function(x){return x.date!==t0});a.asset.meterLog.push({date:t0,v:v});a.asset.meterLog.sort(function(x,y){return x.date<y.date?-1:1});a.asset.meterLog=a.asset.meterLog.slice(-40);save();render();toast('Saved.')});
   f('.as-last',function(fm,el){var a=asById(fm.dataset.id),mi=a&&a.asset.maint.filter(function(x){return x.id===fm.dataset.m})[0];if(!mi)return;var d=el['d'].value;if(!/^\d{4}-\d{2}-\d{2}$/.test(d))return;mi.lastDate=d;var v=el['v']?parseFloat(el['v'].value):NaN;if(v>=0)mi.lastMeter=v;else delete mi.lastMeter;save();render()});
@@ -5129,6 +5265,27 @@ function asBind(m){
     if(!mo&&!mt){toast('Say how often: every so many months, or every so many '+(asUnit(a)||'months')+'.');return}
     var mi=cleanAsset({kind:a.asset.kind,maint:[{id:uid(),name:el['n'].value,months:mo,meter:mt,cost:el['c'].value,lastDate:el['d'].value,lastMeter:/^\d{4}-\d{2}-\d{2}$/.test(el['d'].value)&&a.asset.meter>0?a.asset.meter:undefined,cat:el['t'].value,sub:el['t'].value==='Fees and taxes'?'Other fees':''}]},uid).maint[0];
     if(mi){a.asset.maint.push(mi);save();render()}});
+}
+
+function svcRead(inp){
+  var id=inp.dataset.svcfile,f=inp.files[0];inp.value='';if(!f)return;
+  if(f.size>25e6){asUI.svcMsg='Choose a file under 25 MB.';asUI.svcMsgId=id;render();return}
+  var rd=new FileReader();rd.onload=function(){
+    asUI.svcBusy=id;asUI.svcMsg='';asUI.svc=null;render();
+    tcall(T.loan.readFile(rd.result,f.name)).then(function(r){return tcall(T.ai.service(r.textId))}).then(function(r){
+      asUI.svcBusy='';var a=asById(id);
+      if(!r.records.length){asUI.svcMsg=r.notes||'Claude did not find any service records in that file.';asUI.svcMsgId=id;render();return}
+      asUI.svc={id:id,name:f.name,n:r.records.length,recs:r.records,merge:mergeServiceRecords(a.asset,r.records)};render();
+    }).catch(function(e){asUI.svcBusy='';asUI.svcMsg=(e&&e.message)||'Could not read that file.';asUI.svcMsgId=id;render()});
+  };rd.readAsArrayBuffer(f);
+}
+function svcApply(a,withIntervals){
+  var s=asUI.svc;if(!s||s.id!==a.id)return 0;var mg=s.merge,n=0;
+  mg.updates.forEach(function(u){var m=a.asset.maint.filter(function(x){return x.id===u.id})[0];if(!m)return;m.lastDate=u.date;if(u.meter>0)m.lastMeter=u.meter;else delete m.lastMeter;n++});
+  if(withIntervals)mg.intervals.forEach(function(i){var m=a.asset.maint.filter(function(x){return x.id===i.id})[0];if(!m)return;if(i.months)m.months=Math.min(240,i.months);if(i.meter)m.meter=Math.min(1e6,i.meter)});
+  mg.extra.forEach(function(x){if(a.asset.maint.length>=40)return;var mi=cleanAsset({kind:a.asset.kind,maint:[{id:uid(),name:x.name,months:x.months,meter:x.meter,cost:x.cost,lastDate:x.date,lastMeter:x.lastMeter!==null?x.lastMeter:undefined,cat:'Repairs and maintenance',sub:''}]},uid).maint[0];if(mi){a.asset.maint.push(mi);n++}});
+  if(mg.latestMeter>0&&mg.latestMeter>(a.asset.meter||0)){a.asset.meter=mg.latestMeter;a.asset.meterDate=mg.latestMeterDate;a.asset.meterLog=(a.asset.meterLog||[]).filter(function(x){return x.date!==mg.latestMeterDate});a.asset.meterLog.push({date:mg.latestMeterDate,v:mg.latestMeter});a.asset.meterLog.sort(function(x,y){return x.date<y.date?-1:1});a.asset.meterLog=a.asset.meterLog.slice(-40)}
+  asUI.svc=null;return n;
 }
 function asAiRun(id){
   var a=asById(id);if(!a||asUI.busy)return;asUI.busy=id;asUI.msg='';asUI.ai=null;render();
@@ -5883,19 +6040,19 @@ function cleanCustomCats(c){
 function cleanBackup(j){
   var d=j&&j.data?j.data:j,dre=/^\d{4}-\d{2}-\d{2}$/,custom=cleanCustomCats(d&&d.customCats),allowed=BASECATS.concat(custom.map(function(c){return c.name}),['Other','Income']);
   if(!d||!Array.isArray(d.txns)||!Array.isArray(d.subs)||!Array.isArray(d.goals)||!d.budgets||typeof d.budgets!=='object')return null;
-  var cleanTx=function(x){var t={id:String(x.id||uid()),date:x.date,name:String(x.name).slice(0,120),amount:+x.amount,cat:allowed.indexOf(x.cat)>-1?x.cat:'Other'};if(typeof x.plaidId==='string'&&x.plaidId)t.plaidId=x.plaidId.slice(0,100);if(dre.test(x.asideAt||''))t.asideAt=x.asideAt;if(x.transfer===true||x.transfer===false)t.transfer=x.transfer;if(x.cardPay===true)t.cardPay=true;if(typeof x.acct==='string'&&x.acct&&x.acct.length<=100)t.acct=x.acct;if(x.cash===true)t.cash=true;if(x.fromWallet===true&&x.cash===true)t.fromWallet=true;if(/^[\w-]{1,20}$/.test(x.imp||''))t.imp=x.imp;if(typeof x.note==='string'&&x.note)t.note=x.note.slice(0,200);if(x.cashback===true||x.cashback===false)t.cashback=x.cashback;var sb=cleanSubName(x.sub);if(sb)t.sub=sb;return t};
+  var cleanTx=function(x){var t={id:String(x.id||uid()),date:x.date,name:String(x.name).slice(0,120),amount:+x.amount,cat:allowed.indexOf(x.cat)>-1?x.cat:'Other'};if(typeof x.plaidId==='string'&&x.plaidId)t.plaidId=x.plaidId.slice(0,100);if(dre.test(x.asideAt||''))t.asideAt=x.asideAt;if(x.transfer===true||x.transfer===false)t.transfer=x.transfer;if(x.cardPay===true)t.cardPay=true;if(typeof x.acct==='string'&&x.acct&&x.acct.length<=100)t.acct=x.acct;if(x.cash===true)t.cash=true;if(typeof x.veh==='string'&&/^[\w-]{1,40}$/.test(x.veh))t.veh=x.veh;if(x.fromWallet===true&&x.cash===true)t.fromWallet=true;if(/^[\w-]{1,20}$/.test(x.imp||''))t.imp=x.imp;if(typeof x.note==='string'&&x.note)t.note=x.note.slice(0,200);if(x.cashback===true||x.cashback===false)t.cashback=x.cashback;var sb=cleanSubName(x.sub);if(sb)t.sub=sb;return t};
   var okTx=function(x){return x&&dre.test(x.date)&&isFinite(x.amount)&&x.name};
   var txns=d.txns.filter(okTx).map(cleanTx);
   var setAside=(Array.isArray(d.setAside)?d.setAside:[]).filter(okTx).slice(0,5000).map(cleanTx);
   var subCats={};if(d.subCats&&typeof d.subCats==='object'&&!Array.isArray(d.subCats))Object.keys(d.subCats).forEach(function(c){if(allowed.indexOf(c)>-1&&Array.isArray(d.subCats[c]))subCats[c]=parseSubList(d.subCats[c].join(','))});
   var merchantSubs={};if(d.merchantSubs&&typeof d.merchantSubs==='object'&&!Array.isArray(d.merchantSubs))Object.keys(d.merchantSubs).slice(0,3000).forEach(function(k){var n=cleanSubName(d.merchantSubs[k]);if(n&&String(k).length<=120)merchantSubs[String(k)]=n});
-  var bills=(Array.isArray(d.bills)?d.bills:[]).filter(function(x){return x&&x.name&&isFinite(x.amount)}).slice(0,100).map(function(x){return {id:String(x.id||uid()).slice(0,40),name:cleanSubName(x.name).slice(0,40)||'Bill',amount:Math.max(0,Math.round(+x.amount*100)/100),dueDay:Math.min(31,Math.max(0,Math.round(+x.dueDay||0))),cat:allowed.indexOf(x.cat)>-1?x.cat:'Housing',sub:cleanSubName(x.sub),match:String(x.match||'').replace(/[<>"]/g,'').slice(0,80),autopay:x.autopay===true}});
+  var bills=(Array.isArray(d.bills)?d.bills:[]).filter(function(x){return x&&x.name&&isFinite(x.amount)}).slice(0,100).map(function(x){return {id:String(x.id||uid()).slice(0,40),name:cleanSubName(x.name).slice(0,40)||'Bill',amount:Math.max(0,Math.round(+x.amount*100)/100),dueDay:Math.min(31,Math.max(0,Math.round(+x.dueDay||0))),cat:allowed.indexOf(x.cat)>-1?x.cat:'Housing',sub:cleanSubName(x.sub),match:String(x.match||'').replace(/[<>"]/g,'').slice(0,80),autopay:x.autopay===true,veh:/^[\w-]{1,40}$/.test(x.veh||'')?x.veh:undefined}});
   var billMarks={};if(d.billMarks&&typeof d.billMarks==='object'&&!Array.isArray(d.billMarks))Object.keys(d.billMarks).slice(0,5000).forEach(function(k){if(/^[\w:.-]{1,60}:\d{4}-\d{2}$/.test(k)&&(d.billMarks[k]==='paid'||d.billMarks[k]==='unpaid'))billMarks[k]=d.billMarks[k]});
   var energy=(Array.isArray(d.energy)?d.energy:[]).filter(function(x){return x&&/^\d{4}-\d{2}$/.test(x.month)&&isFinite(x.kwh)&&+x.kwh>=0}).slice(0,240).map(function(x){return {month:x.month,kwh:Math.round(+x.kwh*10)/10,cost:x.cost!==null&&x.cost!==undefined&&isFinite(x.cost)&&+x.cost>=0?Math.round(+x.cost*100)/100:null,days:Math.min(62,Math.max(0,Math.round(+x.days||0)))}});
   var merchantCats={};if(d.merchantCats&&typeof d.merchantCats==='object'&&!Array.isArray(d.merchantCats))Object.keys(d.merchantCats).slice(0,3000).forEach(function(k){if(allowed.indexOf(d.merchantCats[k])>-1&&String(k).length<=120)merchantCats[String(k)]=d.merchantCats[k]});
   var subs=d.subs.filter(function(x){return x&&x.name&&isFinite(x.amount)&&dre.test(x.next)}).map(function(x){return {id:String(x.id||uid()),name:String(x.name).slice(0,120),amount:+x.amount,cycle:x.cycle==='yearly'?'yearly':'monthly',next:x.next,status:['active','flagged','cancelled'].indexOf(x.status)>-1?x.status:'active'}});
   var budgets={};Object.keys(d.budgets).forEach(function(c){if(allowed.indexOf(c)>-1&&c!=='Income'&&+d.budgets[c]>0)budgets[c]=+d.budgets[c]});
-  var goals=d.goals.filter(function(x){return x&&x.name&&+x.target>0&&isFinite(x.saved)}).map(function(x){return {id:String(x.id||uid()),name:String(x.name).slice(0,120),target:+x.target,saved:+x.saved}});
+  var goals=d.goals.filter(function(x){return x&&x.name&&+x.target>0&&isFinite(x.saved)}).map(function(x){return {id:String(x.id||uid()),name:String(x.name).slice(0,120),target:+x.target,saved:+x.saved,auto:x.auto==='upkeep'?'upkeep':undefined}});
   txns.sort(function(a,b){return a.date<b.date?1:-1});
   var accounts=(Array.isArray(d.accounts)?d.accounts:[]).filter(function(x){return x&&x.name&&isFinite(x.balance)&&+x.balance>=0&&(ASSET_TYPES[x.type]||DEBT_TYPES[x.type])}).map(function(x){
     var hist=(Array.isArray(x.history)?x.history:[]).filter(function(h){return h&&dre.test(h.date)&&isFinite(h.balance)}).map(function(h){return {date:h.date,balance:+h.balance}}).sort(function(a,b){return a.date<b.date?-1:1});
@@ -6075,6 +6232,10 @@ document.addEventListener('click',function(e){
     rcpt.phone.msg='';tcall(T.phone.start()).then(function(r){rcpt.phone={on:true,url:r.url,qr:r.qr,msg:'',expires:r.expires};render()}).catch(function(e){rcpt.phone={on:false,url:'',qr:'',msg:(e&&e.message)||'Could not start.',expires:0};render()});return}
   else if(a==='ph-stop'){tcall(T.phone.stop()).catch(function(){});rcpt.phone={on:false,url:'',qr:'',msg:'',expires:0}}
   else if(a==='as-add'){asUI.adding=true}
+  else if(a==='as-svc-no'){asUI.svc=null}
+  else if(a==='as-svc-apply'||a==='as-svc-int'){var sa=asById(id);if(sa){if(asGuard())return;var sn=svcApply(sa,a==='as-svc-int');toast(sn?'Saved '+sn+' change'+(sn===1?'':'s')+' to the schedule.':'Nothing to change.')}}
+  else if(a==='as-linkall'){var vp=$('#veh-pick'),vid=vp&&vp.value;if(vid&&asById(vid)){var vn=0;S.txns.filter(vehicleLike).forEach(function(t){t.veh=vid;vn++});toast('Linked '+vn+' transaction'+(vn===1?'':'s')+'.')}}
+  else if(a==='maint-goal'){var gt=Math.round(+b.dataset.t||0),gg=S.goals.filter(function(g){return g.auto==='upkeep'})[0];if(gt>0){if(gg){gg.target=Math.max(gt,gg.saved||0)}else S.goals.push({id:uid(),name:'Vehicle upkeep',target:gt,saved:0,auto:'upkeep'});toast('Goal '+(gg?'updated':'added')+': '+money0(gt)+'. See the Goals tab.')}}
   else if(a==='as-ai'){asAiRun(id);return}
   else if(a==='as-ai-no'){asUI.ai=null}
   else if(a==='as-ai-use'){var aa=asById(id);if(aa&&asUI.ai&&asUI.ai.res&&asUI.ai.res.mid>0){if(asGuard())return;asSetValue(aa,asUI.ai.res.mid,iso(TODAY),'AI estimate');aa.asset.rate=Math.max(-0.3,Math.min(0.6,asUI.ai.res.yearlyDepreciationPct/100));asUI.ai=null;toast('Value set to the AI estimate.')}}
@@ -6336,7 +6497,7 @@ function thClick(a,b){
   saveTheme();applyTheme();render();return true;
 }
 function thBind(m){
-  m.querySelectorAll('.txedit').forEach(function(fm){var cs=fm.elements['c'],us=fm.elements['u'];if(cs&&us)cs.onchange=function(){us.innerHTML=subOptions(cs.value,'')};fm.onsubmit=function(e){e.preventDefault();var g=function(n){return fm.elements[n]};var wt=S.txns.filter(function(x){return x.id===fm.dataset.id})[0],wOld=wt&&wt.fromWallet?wt.amount:null;var r=editTxn(fm.dataset.id,{date:g('d').value,name:g('n').value,amount:parseFloat(g('a').value),cat:g('c').value,sub:g('u').value},g('s').checked);if(wOld!==null&&walletAcct()&&wt.amount!==wOld)walletAdd(wt.amount-wOld);if(r)r.changed+=editTxnExtras(fm.dataset.id,g('k').value,g('ac').value,g('nt').value,g('s').checked);editTx='';catMsg='';save();render();toast(r?(r.changed?'Saved. Also updated '+r.changed+' similar transaction'+(r.changed===1?'':'s')+'.':'Saved.'):'Could not save.')}});
+  m.querySelectorAll('.txedit').forEach(function(fm){var cs=fm.elements['c'],us=fm.elements['u'];if(cs&&us)cs.onchange=function(){us.innerHTML=subOptions(cs.value,'')};fm.onsubmit=function(e){e.preventDefault();var g=function(n){return fm.elements[n]};var wt=S.txns.filter(function(x){return x.id===fm.dataset.id})[0],wOld=wt&&wt.fromWallet?wt.amount:null;var r=editTxn(fm.dataset.id,{date:g('d').value,name:g('n').value,amount:parseFloat(g('a').value),cat:g('c').value,sub:g('u').value},g('s').checked);if(wOld!==null&&walletAcct()&&wt.amount!==wOld)walletAdd(wt.amount-wOld);if(r)r.changed+=editTxnExtras(fm.dataset.id,g('k').value,g('ac').value,g('nt').value,g('s').checked,g('vh')?g('vh').value:undefined);editTx='';catMsg='';save();render();toast(r?(r.changed?'Saved. Also updated '+r.changed+' similar transaction'+(r.changed===1?'':'s')+'.':'Saved.'):'Could not save.')}});
   m.querySelectorAll('[data-subs]').forEach(function(i){i.onchange=function(){var l=parseSubList(i.value);if(!S.subCats)S.subCats={};if(l.length)S.subCats[i.dataset.subs]=l;else delete S.subCats[i.dataset.subs];save();render();toast('Sub-categories for '+i.dataset.subs+' saved.')}});
   m.querySelectorAll('[data-loanfile]').forEach(function(inp){inp.onchange=function(){
     var kind=inp.dataset.loanfile,how=inp.dataset.how||'ai',f=inp.files[0];if(!f)return;
@@ -6409,7 +6570,7 @@ function thBind(m){
     if(sub==='__new'){var sn=cleanSubName(g('ns'));if(!sn){toast('Type a name for the new sub-category.');return}
       var sl=subList(cat).slice(),hit=sl.filter(function(x){return x.toLowerCase()===sn.toLowerCase()})[0];if(!hit){sl.push(sn);if(sl.length<=24){S.subCats[cat]=sl}}sub=hit||sn}
     var b=id?S.bills.filter(function(x){return x.id===id})[0]:null;if(!b){b={id:uid()};S.bills.push(b)}
-    b.name=g('n').trim().slice(0,40);b.amount=Math.round(amt*100)/100;b.dueDay=dd>=1&&dd<=31?dd:0;b.cat=cat;b.sub=sub;b.match=g('m').trim().slice(0,80);b.autopay=!!fm.elements['ap']&&fm.elements['ap'].checked;
+    b.name=g('n').trim().slice(0,40);b.amount=Math.round(amt*100)/100;b.dueDay=dd>=1&&dd<=31?dd:0;b.cat=cat;b.sub=sub;b.match=g('m').trim().slice(0,80);b.autopay=!!fm.elements['ap']&&fm.elements['ap'].checked;if(fm.elements['vh']){if(fm.elements['vh'].value&&asById(fm.elements['vh'].value))b.veh=fm.elements['vh'].value;else delete b.veh}
     billUI.adding=false;billUI.edit='';save();render();toast(id?'Bill saved.':'Bill added.')}});
   m.querySelectorAll('.loanform').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();var g=function(n){return fm.elements[n].value},kind=fm.dataset.kind,id=fm.dataset.id,bal=parseFloat(g('b')),apr=parseFloat(g('a')),pay=parseFloat(g('p'));
     if(!(bal>=0)||!(apr>=0)||!(pay>=0)||!g('n').trim())return;
@@ -6489,11 +6650,12 @@ function refinePanel(list,xinf,rows,shownN){
   }
   return h+(rows||'<div class="empty">No transactions match.</div>')+(list.length>shownN?'<div class="empty">Showing '+shownN+' of '+list.length.toLocaleString('en-US')+'. <button class="btn small" data-act="f-more">Show more</button></div>':'')+'</section>';
 }
-function editTxnExtras(id,kind,acct,note,similar){
+function editTxnExtras(id,kind,acct,note,similar,veh){
   var t=S.txns.filter(function(x){return x.id===id})[0];if(!t)return 0;
   var det=txKind(t,transferInfo(S.txns,S.cardPay)),n=0;
   if(acct&&S.accounts.some(function(a){return a.id===acct}))t.acct=acct;else delete t.acct;
   var nn=String(note||'').trim().slice(0,200);if(nn)t.note=nn;else delete t.note;
+  if(veh!==undefined){if(veh&&asById(veh))t.veh=veh;else delete t.veh}
   if(kind&&kind!==det){
     applyKind(t,kind);
     if(similar){
@@ -6507,7 +6669,7 @@ function editTxnExtras(id,kind,acct,note,similar){
 }
 function txEditForm(x){
   return '<form class="txedit panel" data-id="'+x.id+'" style="margin:8px 0"><div class="form" style="align-items:end"><label>Date<input name="d" type="date" required value="'+esc(x.date)+'"></label><label style="flex:1 1 200px">Description<input name="n" required value="'+esc(x.name)+'" maxlength="120"></label><label>Amount<input name="a" type="number" step="0.01" required value="'+x.amount+'"></label><label>Category<select name="c">'+CATS.map(function(c){return '<option'+(c===x.cat?' selected':'')+'>'+esc(c)+'</option>'}).join('')+'</select></label><label>Sub-category<select name="u">'+subOptions(x.cat,x.sub)+'</select></label></div>'+
-   '<div class="form" style="align-items:end;margin-top:8px"><label>This is<select name="k">'+[['count','Real spending or income (counted)'],['cardpay','Credit card payment (not counted)'],['transfer','Transfer between my accounts (not counted)'],['cashback','Cash back or reward']].map(function(o){return '<option value="'+o[0]+'"'+(txKind(x,transferInfo(S.txns,S.cardPay))===o[0]?' selected':'')+'>'+o[1]+'</option>'}).join('')+'</select></label><label>Linked card<select name="ac"><option value="">None</option>'+S.accounts.filter(function(a){return a.type==='credit'||a.type==='checking'||a.type==='savings'}).map(function(a){return '<option value="'+esc(a.id)+'"'+(x.acct===a.id?' selected':'')+'>'+esc(a.name)+'</option>'}).join('')+'</select></label><label style="flex:1 1 200px">Note<input name="nt" maxlength="200" value="'+esc(x.note||'')+'"></label></div>'+
+   '<div class="form" style="align-items:end;margin-top:8px"><label>This is<select name="k">'+[['count','Real spending or income (counted)'],['cardpay','Credit card payment (not counted)'],['transfer','Transfer between my accounts (not counted)'],['cashback','Cash back or reward']].map(function(o){return '<option value="'+o[0]+'"'+(txKind(x,transferInfo(S.txns,S.cardPay))===o[0]?' selected':'')+'>'+o[1]+'</option>'}).join('')+'</select></label><label>Linked card<select name="ac"><option value="">None</option>'+S.accounts.filter(function(a){return a.type==='credit'||a.type==='checking'||a.type==='savings'}).map(function(a){return '<option value="'+esc(a.id)+'"'+(x.acct===a.id?' selected':'')+'>'+esc(a.name)+'</option>'}).join('')+'</select></label><label style="flex:1 1 200px">Note<input name="nt" maxlength="200" value="'+esc(x.note||'')+'"></label>'+(assetAccts().length?'<label>Vehicle<select name="vh"><option value="">None</option>'+assetAccts().map(function(a){return '<option value="'+esc(a.id)+'"'+(x.veh===a.id?' selected':'')+'>'+esc(a.name)+'</option>'}).join('')+'</select></label>':'')+'</div>'+
    '<label style="display:flex;gap:8px;align-items:center;margin:10px 0 4px;font-size:13px"><input name="s" type="checkbox" checked> Do the same for every similar transaction (category, and payment or not), and remember it for future imports</label><p class="sub muted" style="margin:0 0 10px;font-size:12px">Amount: negative is money out, positive is money in.</p>'+
    '<div class="actions" style="justify-content:flex-start"><button class="btn primary small">Save</button><button type="button" class="btn small" data-act="tx-cancel">Cancel</button></div></form>';
 }
