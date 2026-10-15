@@ -2576,3 +2576,16 @@ test('tour: every tab is covered, every step is well formed and optional steps a
   // the intro of each tab comes before its highlights, and tabs follow the tab list
   assert.deepStrictEqual([...new Set(steps.filter((s) => s.tab).map((s) => s.tab))], TABS.map((t) => t[0]));
 });
+
+test('year check: the span of a batch of dates and what is suspicious about it', () => {
+  const Y = new Function(srcBlock('/*YEAR-START*/', '/*YEAR-END*/') + '\nreturn {dateSpan, dateSpanWarnings};')();
+  assert.strictEqual(Y.dateSpan([], '2026-10-15'), null);
+  const sp = Y.dateSpan(['2025-10-24', '2026-01-03', '2026-10-01', 'junk'], '2026-10-15');
+  assert.strictEqual(sp.from, '2025-10-24'); assert.strictEqual(sp.to, '2026-10-01'); assert.strictEqual(sp.count, 3);
+  assert.deepStrictEqual(sp.years, ['2025', '2026']); assert.strictEqual(sp.thisYear, 2); assert.strictEqual(sp.old, 0);
+  assert.match(Y.dateSpanWarnings(sp).join(' '), /span 2025 and 2026/);
+  const odd = Y.dateSpan(['2024-03-01', '2027-02-01', '2026-10-14'], '2026-10-15');
+  assert.strictEqual(odd.old, 1); assert.strictEqual(odd.future, 1);
+  const w = Y.dateSpanWarnings(odd).join(' '); assert.match(w, /1 date is in the future/); assert.match(w, /more than a year old/);
+  assert.deepStrictEqual(Y.dateSpanWarnings(Y.dateSpan(['2026-10-01'], '2026-10-15')), []);
+});

@@ -164,3 +164,14 @@ test('glued month-and-day dates', () => {
   assert.strictEqual(matchDate('SEPTEMBER STATEMENT', 'mdy'), null);
   assert.strictEqual(matchDate('MAYBE 12.00', 'mdy'), null);
 });
+
+test('a statement with no year printed: dates that would land in the future belong to the year before', () => {
+  const page = [[['Account Activity', 20]], [['Date', 20], ['Description', 80], ['Amount', 400]],
+    [['12/05', 20], ['CORNER STORE', 80], ['-10.00', 400]], [['12/28', 20], ['GAS STATION', 80], ['-25.00', 400]], [['01/03', 20], ['PAYROLL ACME', 80], ['500.00', 400]]];
+  const pg = page.map((cells, i) => cells.map(([str, x]) => ({ str, x, y: 800 - i * 12, w: str.length * 5 }))).flat();
+  const r = parseStatement(buildLines([pg]), { today: new Date(2026, 9, 15) });
+  const dates = r.rows.map((x) => x.date).sort();
+  assert.deepStrictEqual(dates, ['2025-12-05', '2025-12-28', '2026-01-03']);   // December is last December, not a December that has not happened
+  const later = parseStatement(buildLines([pg]), { today: new Date(2027, 0, 20) });
+  assert.deepStrictEqual(later.rows.map((x) => x.date).sort(), ['2026-12-05', '2026-12-28', '2027-01-03']);
+});

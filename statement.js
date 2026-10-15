@@ -99,7 +99,7 @@ function detectOrder(lines) {
   return dmy ? 'dmy' : 'mdy';
 }
 
-function pickYear(d, period, fallbackYear) {
+function pickYear(d, period, fallbackYear, today) {
   if (d.y) return d.y;
   if (period) {
     for (const y of [period.end.y, period.start.y]) {
@@ -108,6 +108,9 @@ function pickYear(d, period, fallbackYear) {
     }
     return period.end.y;
   }
+  // No year printed and no statement period to go by: take the most common year, but a date that would land in the future belongs to the year before
+  const now = today || new Date();
+  if (fallbackYear && ymdNum({ y: fallbackYear, m: d.m, d: d.d }) > ymdNum({ y: now.getFullYear(), m: now.getMonth() + 1, d: now.getDate() }) + 3) return fallbackYear - 1;
   return fallbackYear;
 }
 
@@ -127,7 +130,7 @@ function parseStatement(lines, opts = {}) {
   if (dates.length >= 2) { dates.sort((a, b) => ymdNum(a) - ymdNum(b)); meta.period = { start: dates[0], end: dates[dates.length - 1] }; }
   else if (dates.length === 1) { const e = dates[0], s = new Date(e.y, e.m - 1, e.d - 31); meta.period = { start: { y: s.getFullYear(), m: s.getMonth() + 1, d: s.getDate() }, end: e }; }
   const yrs = {}; (headText.match(/\b20\d{2}\b/g) || []).forEach((y) => { yrs[y] = (yrs[y] || 0) + 1; });
-  const fallbackYear = +(Object.keys(yrs).sort((a, b) => yrs[b] - yrs[a])[0] || new Date().getFullYear());
+  const fallbackYear = +(Object.keys(yrs).sort((a, b) => yrs[b] - yrs[a])[0] || (opts.today || new Date()).getFullYear());
 
   // withdrawal / deposit / balance columns
   let cols = null;
@@ -199,7 +202,7 @@ function parseStatement(lines, opts = {}) {
       if (amts.length >= 2) { amt = amts[amts.length - 2]; balance = amts[amts.length - 1].v * (amts[amts.length - 1].neg ? -1 : 1); } else amt = amts[0];
       if (amt.neg || amt.dr) { sign = -1; sawExplicitNeg = true; } else if (amt.cr) sign = 1; else sign = 0;
     }
-    const y = pickYear(d1, meta.period, fallbackYear);
+    const y = pickYear(d1, meta.period, fallbackYear, opts.today);
     rows.push({ date: iso(y, d1.m, d1.d), name, amount: sign * amt.v, abs: amt.v, sign, balance, uncertain: false });
     lastLi = li; contN = 0;
   });

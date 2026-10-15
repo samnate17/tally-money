@@ -645,7 +645,7 @@ function dayDiff(a,b){return Math.round((b-a)/864e5)}
 function monthKey(s){return s.slice(0,7)}
 function monthLabel(k){var p=k.split('-');return new Date(+p[0],+p[1]-1,1).toLocaleDateString('en-US',{month:'long',year:'numeric'})}
 function shiftMonth(k,n){var p=k.split('-');var d=new Date(+p[0],+p[1]-1+n,1);return d.getFullYear()+'-'+pad(d.getMonth()+1)}
-function shortDate(s){return parseD(s).toLocaleDateString('en-US',{month:'short',day:'numeric'})}
+function shortDate(s){var d=parseD(s),o={month:'short',day:'numeric'};if(d.getFullYear()!==new Date().getFullYear())o.year='numeric';return d.toLocaleDateString('en-US',o)}   // a date from another year always says which year
 function uid(){return Math.random().toString(36).slice(2,9)}
 function col(c){if(CCOL[c])return 'var('+CCOL[c]+')';var h=0,i;for(i=0;i<c.length;i++)h=(h*31+c.charCodeAt(i))>>>0;return 'var(--c'+(1+h%8)+')'}
 var TODAY=new Date(); TODAY.setHours(0,0,0,0);
@@ -876,6 +876,7 @@ function detect(){
     var cycle=med>=26&&med<=35?'monthly':(med>=355&&med<=375?'yearly':null);
     if(!cycle)return;
     var last=a[a.length-1];
+    if(dayDiff(parseD(last.date),TODAY)>(cycle==='yearly'?400:65))return;   // it stopped: a charge that last happened long ago is not a subscription you have now
     var nx=cycle==='yearly'?new Date(parseD(last.date).getFullYear()+1,parseD(last.date).getMonth(),parseD(last.date).getDate()):new Date(parseD(last.date).getFullYear(),parseD(last.date).getMonth()+1,parseD(last.date).getDate());
     out.push({name:last.name,amount:amts[amts.length-1],cycle:cycle,next:iso(nx),count:a.length});
   });
@@ -1676,7 +1677,7 @@ function billItems(bills,accounts,txns){
     var nm=String(a.name||'').toLowerCase();
     if(nm.length>=5&&manual.some(function(m){return m===nm||(m.length>=5&&(m.indexOf(nm)>-1||nm.indexOf(m)>-1))}))return;   // you already added this one by hand
     var re=a.type==='credit'?cardMatchRe(a):loanMatchRe(a),day=+a.dueDay>0?+a.dueDay:0,guessed=false;
-    if(!day&&re&&txns){var ds=txns.filter(function(x){return x.amount<0&&re.test(x.name)}).map(function(x){return +x.date.slice(8)}).sort(function(p,q){return p-q});if(ds.length){day=ds[Math.floor(ds.length/2)];guessed=true}}   // no due day set: use the day your payments usually land
+    if(!day&&re&&txns){var ds=txns.filter(function(x){return x.amount<0&&re.test(x.name)}).sort(function(p,q){return p.date<q.date?1:-1}).slice(0,8).map(function(x){return +x.date.slice(8)}).sort(function(p,q){return p-q});if(ds.length){day=ds[Math.floor(ds.length/2)];guessed=true}}   // no due day set: use the day your payments usually land
     out.push({id:'loan:'+a.id,autopay:a.autopay===true,name:a.name,amount:a.minPay,dueDay:day,dayGuessed:guessed,source:'loan',kind:a.type,cat:'Debt and loans',sub:a.type==='credit'?'Credit card':(a.type==='auto'?'Car loan':(a.type==='student'?'Student loan':'')),re:re,raw:a})}});
   // Several loans from one lender (a student loan split into groups) are paid as one payment, so they are one bill.
   var grp={};out.forEach(function(it){if(it.source==='loan'&&it.kind==='student'&&it.raw.lender){var k=String(it.raw.lender).toLowerCase()+'|'+it.kind;(grp[k]=grp[k]||[]).push(it)}});
@@ -4665,6 +4666,24 @@ function tourSteps(tabs){
   return out;
 }
 /*TOUR-END*/
+
+/*YEAR-START*/
+// What the dates of a batch of transactions or statements say about it: the span with its years, and anything that looks like a year mistake.
+function dateSpan(dates,todayIso){
+  var d=(dates||[]).filter(function(x){return /^\d{4}-\d{2}-\d{2}$/.test(x)}).sort();
+  if(!d.length)return null;
+  var t=Date.parse(todayIso),day=864e5,future=0,old=0,years={};
+  d.forEach(function(x){var ms=Date.parse(x);years[x.slice(0,4)]=(years[x.slice(0,4)]||0)+1;if(ms>t+3*day)future++;else if(ms<t-396*day)old++});
+  return {from:d[0],to:d[d.length-1],count:d.length,years:Object.keys(years).sort(),perYear:years,future:future,old:old,thisYear:years[todayIso.slice(0,4)]||0};
+}
+function dateSpanWarnings(sp){
+  var w=[];if(!sp)return w;
+  if(sp.future)w.push(sp.future+' date'+(sp.future===1?' is':'s are')+' in the future. That is usually a wrong year; check the file.');
+  if(sp.old)w.push(sp.old+' '+(sp.old===1?'is':'are')+' more than a year old. They are filed in the months and years they belong to and will not change this month\'s numbers.');
+  if(sp.years.length>1)w.push('The dates span '+sp.years.join(' and ')+'.');
+  return w;
+}
+/*YEAR-END*/
 /*PAYLINK-START*/
 // Pay now: the app never moves money. It opens the lender's own payment page, using an https address you saved once.
 function cleanPayUrl(t){
@@ -5755,11 +5774,14 @@ function contractPanel(a){
 }
 function contractPanels(loans){return loans.filter(function(a){return a.contract}).map(contractPanel).join('')}
 
+var LOANSKIP={last:false};
 function upsertLoan(kind,r){
   var a=null;
   if(r.accountId)a=S.accounts.filter(function(x){return x.plaid&&x.plaid.accountId===r.accountId})[0];
   if(!a&&r.match)a=S.accounts.filter(function(x){return x.id===r.match})[0];
   var isNew=!a;
+  LOANSKIP.last=false;
+  if(a&&r.asOf&&a.asOf&&r.asOf<a.asOf){LOANSKIP.last=true;return a}   // this statement is older than the one already applied: keep the newer balance and terms
   if(!a){a={id:uid(),type:kind,history:[],name:'Loan',apr:0,minPay:0,balance:0};S.accounts.push(a)}
   if(isNew||r.name)a.name=String(r.name||a.name).slice(0,60);
   if(r.lender)a.lender=String(r.lender).slice(0,40);
@@ -5770,7 +5792,7 @@ function upsertLoan(kind,r){
   if(r.origBalance>0)a.origBalance=r.origBalance;
   applyStmt(a,r);
   if(r.balance!==null&&r.balance!==undefined&&(isNew||r.balance>0||a.balance===0)){
-    if(a.balance!==r.balance||!a.history.length){a.balance=r.balance;var t=iso(TODAY),h=a.history.filter(function(x){return x.date===t})[0];if(h)h.balance=r.balance;else a.history.push({date:t,balance:r.balance})}
+    if(a.balance!==r.balance||!a.history.length){a.balance=r.balance;var t=(/^\d{4}-\d{2}-\d{2}$/.test(r.asOf||'')&&r.asOf<=iso(TODAY))?r.asOf:iso(TODAY),h=a.history.filter(function(x){return x.date===t})[0];if(h)h.balance=r.balance;else{a.history.push({date:t,balance:r.balance});a.history.sort(function(x,y){return x.date<y.date?-1:x.date>y.date?1:0})}}
   }
   if(r.accountId)a.plaid={accountId:r.accountId,itemId:r.itemId};
   return a;
@@ -5944,7 +5966,9 @@ function pdfInner(){
   var rows=list.map(function(r){var i=pdf.rows.indexOf(r);return '<div class="row wrap pdfrow"><input type="checkbox" data-pc="on" data-i="'+i+'"'+(r.on?' checked':'')+' aria-label="Include"><input type="date" data-pc="date" data-i="'+i+'" value="'+r.date+'" aria-label="Date"><input type="text" class="grow" style="flex-basis:140px" data-pc="name" data-i="'+i+'" value="'+esc(r.name)+'" aria-label="Description"><select data-pc="cat" data-i="'+i+'" aria-label="Category">'+cats.map(function(c){return '<option'+(c===r.cat?' selected':'')+'>'+c+'</option>'}).join('')+'</select>'+(r.ai?'<span class="pill '+(r.ai==='high'?'good':r.ai==='medium'?'warn':'mute')+'" title="Predicted by Claude ('+r.ai+' confidence). Change it if it is wrong.">AI</span>':'')+'<button class="btn small" data-pdf="flip" data-i="'+i+'" title="Switch between money in and money out" aria-label="Flip sign">'+(r.uncertain?'\u26a0 ':'')+'<span class="num '+(r.amount>0&&!r.transfer?'good':'')+'">'+(r.amount>0&&!r.transfer?'+':r.transfer?'':'-')+money(Math.abs(r.amount))+'</span></button>'+(r.card&&!r.dup?'<span class="pill good" title="Money you paid to the card. It is kept, but not counted as income or spending.">Card payment</span>':r.transfer&&!r.dup?'<span class="pill mute" title="Moves money between your own accounts. Not counted as income or spending.">Transfer</span>':'')+(r.dup?'<span class="pill mute">Already have</span>':'')+'</div>'}).join('');
   var bal=pdf.files.map(function(f,i){if(!(f.meta&&f.meta.endBalance>0))return '';
     return '<div class="row wrap" style="align-items:center"><div class="grow" style="flex-basis:240px"><div class="nm">'+esc(f.name)+' shows a closing balance of '+money(f.meta.endBalance)+'</div><div class="sub" style="white-space:normal">Bring an account up to date with it (optional).</div></div><select data-pdfbal="'+i+'" aria-label="Account to update">'+S.accounts.map(function(a){return '<option value="'+esc(a.id)+'">'+esc(a.name)+'</option>'}).join('')+'</select><button class="btn small" data-pdf="setbal" data-i="'+i+'"'+(S.accounts.length?'':' disabled')+'>Set balance</button></div>'}).join('');
-  return h+note+pick+files+bal+(pdf.rows.length?'<p style="margin:14px 0 8px"><b>'+pdf.rows.length+'</b> transaction'+(pdf.rows.length===1?'':'s')+' found'+(dups?', '+dups+' already in the app (unchecked)':'')+(cps?', '+cps+' '+(cps===1?'is a payment':'are payments')+' you made to the card (imported as transfers, so they are not counted as income or spending)':'')+(trs?', '+trs+' look like transfers between your own accounts (unchecked, so they are not counted as spending or income)':'')+'. '+(unc?'<b class="warn">'+unc+' have a guessed sign</b> (marked \u26a0). Check them, and use the amount button to flip money in and out.':'Check the amounts and signs before importing.')+'</p>'+(S.sample?'<div class="banner" style="margin:0 0 10px;display:block;white-space:normal"><b class="warn">You are still using the example data.</b> Importing replaces it: the example accounts, bills, goals and transactions are removed and only what you import stays. You can press Undo afterwards if that was a mistake.</div>':'')+cardPick+'<div class="pdfscroll">'+rows+'</div>'+(pdf.rows.length>300&&!pdf.showAll?'<div class="empty"><button class="btn small" data-pdf="all">Show all '+pdf.rows.length+'</button></div>':'')+'<div class="actions" style="justify-content:flex-start;margin-top:12px"><button class="btn primary" data-pdf="import"'+(on?'':' disabled')+'>Import '+on+' transaction'+(on===1?'':'s')+(pdf.rows.some(function(r){return r.replace&&r.on})?' ('+pdf.rows.filter(function(r){return r.replace&&r.on}).length+' replacing)':'')+'</button>'+(pdf.rows.some(function(r){return r.dup&&r.dupId&&!r.replace})?'<button class="btn" data-pdf="replace" title="Deletes the copies already in the app and adds this file\'s rows instead. Category changes you made to those rows are lost.">Replace the '+pdf.rows.filter(function(r){return r.dup&&r.dupId&&!r.replace}).length+' already in the app</button>':'')+(pdf.rows.some(function(r){return r.replace})?'<button class="btn" data-pdf="noreplace">Keep the ones already in the app</button>':'')+(window.tally&&window.tally.ai&&aiSt&&aiSt.hasKey&&pdf.rows.some(function(r){return r.on&&r.cat==='Other'})?'<button class="btn" data-pdf="aicat"'+(pdf.aiBusy?' disabled':'')+'>'+(pdf.aiBusy?'Asking Claude…':'Predict categories with AI')+'</button>':'')+'<button class="btn" data-pdf="cancel">Cancel</button></div>':'<div class="actions" style="justify-content:flex-start;margin-top:12px"><button class="btn" data-pdf="cancel">Done</button></div>');
+  var ysp=dateSpan(pdf.rows.filter(function(r){return r.on}).map(function(r){return r.date}),iso(TODAY)),ywarn=dateSpanWarnings(ysp);
+  var ynote=ysp?'<p class="sub'+(ywarn.length?' warn':'')+'" style="margin:8px 0 0;white-space:normal">Dates: <b>'+esc(shortDate(ysp.from))+'</b> to <b>'+esc(shortDate(ysp.to))+'</b>'+(ywarn.length?'. '+esc(ywarn.join(' ')):'')+'</p>':'';
+  return h+note+pick+files+bal+(pdf.rows.length?ynote+'<p style="margin:14px 0 8px"><b>'+pdf.rows.length+'</b> transaction'+(pdf.rows.length===1?'':'s')+' found'+(dups?', '+dups+' already in the app (unchecked)':'')+(cps?', '+cps+' '+(cps===1?'is a payment':'are payments')+' you made to the card (imported as transfers, so they are not counted as income or spending)':'')+(trs?', '+trs+' look like transfers between your own accounts (unchecked, so they are not counted as spending or income)':'')+'. '+(unc?'<b class="warn">'+unc+' have a guessed sign</b> (marked \u26a0). Check them, and use the amount button to flip money in and out.':'Check the amounts and signs before importing.')+'</p>'+(S.sample?'<div class="banner" style="margin:0 0 10px;display:block;white-space:normal"><b class="warn">You are still using the example data.</b> Importing replaces it: the example accounts, bills, goals and transactions are removed and only what you import stays. You can press Undo afterwards if that was a mistake.</div>':'')+cardPick+'<div class="pdfscroll">'+rows+'</div>'+(pdf.rows.length>300&&!pdf.showAll?'<div class="empty"><button class="btn small" data-pdf="all">Show all '+pdf.rows.length+'</button></div>':'')+'<div class="actions" style="justify-content:flex-start;margin-top:12px"><button class="btn primary" data-pdf="import"'+(on?'':' disabled')+'>Import '+on+' transaction'+(on===1?'':'s')+(pdf.rows.some(function(r){return r.replace&&r.on})?' ('+pdf.rows.filter(function(r){return r.replace&&r.on}).length+' replacing)':'')+'</button>'+(pdf.rows.some(function(r){return r.dup&&r.dupId&&!r.replace})?'<button class="btn" data-pdf="replace" title="Deletes the copies already in the app and adds this file\'s rows instead. Category changes you made to those rows are lost.">Replace the '+pdf.rows.filter(function(r){return r.dup&&r.dupId&&!r.replace}).length+' already in the app</button>':'')+(pdf.rows.some(function(r){return r.replace})?'<button class="btn" data-pdf="noreplace">Keep the ones already in the app</button>':'')+(window.tally&&window.tally.ai&&aiSt&&aiSt.hasKey&&pdf.rows.some(function(r){return r.on&&r.cat==='Other'})?'<button class="btn" data-pdf="aicat"'+(pdf.aiBusy?' disabled':'')+'>'+(pdf.aiBusy?'Asking Claude…':'Predict categories with AI')+'</button>':'')+'<button class="btn" data-pdf="cancel">Cancel</button></div>':'<div class="actions" style="justify-content:flex-start;margin-top:12px"><button class="btn" data-pdf="cancel">Done</button></div>');
 }
 function renderPdf(){
   var el=$('#pdfpanel');if(!el)return;el.innerHTML=pdfInner();
@@ -7034,7 +7058,7 @@ function spotStatic(){
   activeSubs().forEach(function(x){push('Subscriptions',x.name,money(x.amount)+' '+(x.cycle||'monthly'),'subscription recurring',function(){goTo('subscriptions')})});
   S.goals.forEach(function(g){push('Goals',g.name,money0(g.saved)+' of '+money0(g.target),'goal savings',function(){goTo('goals')})});
   var mn=spotMonthNames();
-  payStubs().slice(-60).forEach(function(st){var mo=mn[st.payDate.slice(5,7)];push('Pay and taxes','Pay statement · '+shortDate(st.payDate),'Gross '+money0(st.gross)+' · take-home '+money0(st.net),'paycheck pay stub '+st.payDate+' '+mo+' '+st.payDate.slice(0,4),function(){mypayUI.sel=st.id;goTo('pay')})});
+  payStubs().slice(-60).forEach(function(st){var mo=mn[st.payDate.slice(5,7)]+' '+st.payDate.slice(0,4);push('Pay and taxes','Pay statement · '+shortDate(st.payDate),'Gross '+money0(st.gross)+' · take-home '+money0(st.net),'paycheck pay stub '+st.payDate+' '+mo+' '+st.payDate.slice(0,4),function(){mypayUI.sel=st.id;goTo('pay')})});
   (S.tax.forms||[]).forEach(function(f){push('Pay and taxes',f.form+' '+f.year,(f.wages?money0(f.wages)+' wages':'tax form'),'tax form '+f.state,function(){taxUI.year=f.year;goTo('tax')})});
   if(docsUI.data)docsUI.data.folders.forEach(function(f){f.files.forEach(function(x){push('Documents',x.name,f.category+' · '+x.year,'file document',function(){goTo('docs')})})});
   return it;
@@ -8315,9 +8339,9 @@ document.addEventListener('click',function(e){
   else if(a==='af-cut'){aff.skip[b.dataset.id]=!b.checked}
   else if(a==='loan-imp-cancel'){loanUI[b.dataset.kind].imp={stage:'idle'}}
   else if(a==='loan-imp-ok'){
-    var kk=b.dataset.kind,I2=loanUI[kk].imp,cnt=0;
-    (I2.rows||[]).forEach(function(r,ri){if(!r.on)return;var accNew=upsertLoan(kk,{match:r.match,name:r.name,lender:r.lender,balance:+r.balance,apr:+r.apr,minPay:+r.minPay,dueDay:+r.dueDay,origBalance:+r.origBalance,amountDue:r.amountDue,pastDue:r.pastDue,dueDate:r.dueDate,accruedInterest:r.accruedInterest,principal:r.principal,lastPayAmt:r.lastPayAmt,lastPayDate:r.lastPayDate,asOf:r.asOf});if(I2.contract&&ri===0){var cc2=cleanContract(I2.contract);if(cc2)accNew.contract=cc2}cnt++});
-    loanUI[kk].imp={stage:'idle',msg:'Saved '+cnt+' loan'+(cnt===1?'':'s')+'.'};
+    var kk=b.dataset.kind,I2=loanUI[kk].imp,cnt=0,skipOld=0;
+    (I2.rows||[]).forEach(function(r,ri){if(!r.on)return;var accNew=upsertLoan(kk,{match:r.match,name:r.name,lender:r.lender,balance:+r.balance,apr:+r.apr,minPay:+r.minPay,dueDay:+r.dueDay,origBalance:+r.origBalance,amountDue:r.amountDue,pastDue:r.pastDue,dueDate:r.dueDate,accruedInterest:r.accruedInterest,principal:r.principal,lastPayAmt:r.lastPayAmt,lastPayDate:r.lastPayDate,asOf:r.asOf});if(LOANSKIP.last){skipOld++;return}if(I2.contract&&ri===0){var cc2=cleanContract(I2.contract);if(cc2)accNew.contract=cc2}cnt++});
+    loanUI[kk].imp={stage:'idle',msg:'Saved '+cnt+' loan'+(cnt===1?'':'s')+'.'+(skipOld?' '+skipOld+' statement'+(skipOld===1?' was':'s were')+' older than the one already saved, so the newer balance and terms were kept.':'')};
   }
   else if(a==='contract-bal'){var ca=S.accounts.filter(function(x){return x.id===id})[0],ci=ca&&contractInput(ca),cs=ci&&contractSchedule(ci);if(cs){var cst=contractStatus(ci,cs,TODAY);acctSetBalance(ca,Math.round(cst.principal*100)/100);toast('Balance set to '+money(cst.principal)+'.')}}
   else if(a==='look-dismiss'){try{localStorage.setItem('tally-look-offer','1')}catch(e){}}
