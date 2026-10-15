@@ -429,6 +429,28 @@ canvas.confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:non
 .en-green svg polyline,.en-green svg path[stroke]{filter:drop-shadow(0 0 3px rgba(57,255,136,.55))}
 .en-green .btn.primary{box-shadow:0 0 16px rgba(57,255,136,.45)}
 @media (max-width:560px){.enhero{padding:14px;gap:12px}.enhero .enbolt{width:72px;height:72px}.enhero .entxt h2{font-size:18px}}
+
+/* a coloured banner with its own graphic on every tab */
+.thero{position:relative;display:flex;align-items:center;gap:20px;padding:16px 24px;border-radius:18px;margin:12px 0 14px;overflow:hidden;color:#fff;background:radial-gradient(130% 170% at 0% 0%,color-mix(in srgb,var(--hc) 78%,#000) 0%,color-mix(in srgb,var(--hc) 46%,#0b1020) 62%,color-mix(in srgb,var(--hc) 26%,#070a14) 100%);border:1px solid color-mix(in srgb,var(--hc) 55%,#fff);box-shadow:0 10px 34px color-mix(in srgb,var(--hc) 28%,transparent)}
+.thero .thglyph{flex:none;width:76px;height:76px;border-radius:22px;display:grid;place-items:center;background:linear-gradient(145deg,rgba(255,255,255,.28),rgba(255,255,255,.08));border:1px solid rgba(255,255,255,.4);box-shadow:0 0 30px color-mix(in srgb,var(--hc) 70%,transparent),inset 0 1px 0 rgba(255,255,255,.4)}
+.thero .thglyph svg{width:42px;height:42px;color:#fff;filter:drop-shadow(0 0 8px rgba(255,255,255,.65))}
+.thero .thtxt{position:relative;z-index:1;min-width:0}
+.thero .thtxt h2{font-size:22px;margin:0 0 4px;color:#fff;text-shadow:0 1px 12px color-mix(in srgb,var(--hc) 80%,#000)}
+.thero .thtxt p{margin:0;font-size:14px;color:rgba(255,255,255,.86)}
+.thero .thchips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.thero .thchips span{font-size:12px;padding:3px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.5);background:rgba(255,255,255,.14);color:#fff}
+.thero .thdeco{position:absolute;right:10px;top:0;bottom:0;height:100%;width:42%;opacity:.55;pointer-events:none}
+.thero .thdeco *{vector-effect:non-scaling-stroke}
+:root[data-motion="full"] .thero .thglyph{animation:thfloat 5s ease-in-out infinite}
+:root[data-motion="full"] .thero .thdeco{animation:thdrift 9s ease-in-out infinite alternate}
+@keyframes thfloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+@keyframes thdrift{from{transform:translateX(0)}to{transform:translateX(-8px)}}
+@media (max-width:640px){.thero{padding:14px;gap:12px}.thero .thglyph{width:56px;height:56px;border-radius:16px}.thero .thglyph svg{width:30px;height:30px}.thero .thtxt h2{font-size:18px}.thero .thdeco{opacity:.3}}
+.qa button .ni{width:36px;height:36px;border-radius:11px}
+.qa button .ni svg{width:20px;height:20px;color:#fff}
+.wdot{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:8px;background:var(--ic,#6366f1)}
+.helppop h3 .ni,.walkmain h2 .ni{width:30px;height:30px;margin-right:10px;vertical-align:-7px}
+.helppop h3 .ni svg,.walkmain h2 .ni svg{width:18px;height:18px}
 .spotwrap{position:fixed;inset:0;z-index:60;background:rgba(10,12,20,.45);display:flex;align-items:flex-start;justify-content:center;padding:10vh 12px 0;backdrop-filter:blur(3px)}
 .spotbox{width:min(680px,100%);background:var(--surface-solid,var(--bg));color:var(--ink);border:1px solid var(--line);border-radius:18px;box-shadow:0 24px 70px rgba(0,0,0,.35);overflow:hidden}
 .spotbox input{width:100%;border:0;border-bottom:1px solid var(--line);background:transparent;padding:16px 18px;font-size:17px;outline:none}
@@ -687,6 +709,58 @@ function detect(){
 
 var TABCOL={overview:'#6366f1',dash:'#0ea5e9',accounts:'#2563eb',pay:'#0d9488',tax:'#f97316',docs:'#f59e0b',assets:'#8b5cf6',subscriptions:'#ec4899',bills:'#f43f5e',energy:'#16a34a',budgets:'#06b6d4',report:'#7c3aed',afford:'#d97706',credit:'#10b981',cards:'#4f46e5',invest:'#059669',transactions:'#64748b',goals:'#db2777',loans:'#b45309',carloan:'#b45309',student:'#b45309',mortgage:'#0f766e',assist:'#a855f7',look:'#475569'};
 function tabColor(v){return Object.prototype.hasOwnProperty.call(TABCOL,v)?TABCOL[v]:'#6366f1'}
+
+// What each tab's banner says, and which picture it draws. Energy and the Overview have their own.
+var THERO={
+ dash:['Your money, live','Net worth, bills, loans and goals at a glance, refreshed as you watch.',['Net worth','Bills','Loans','Goals'],'rings'],
+ accounts:['Everything you own and owe','Add your accounts and watch your net worth.',['Checking','Savings','Cards','Loans'],'coins'],
+ pay:['Know your paycheck','When it lands, what comes out and what changed.',['Gross to net','Taxes','Retirement','Benefits'],'steps'],
+ tax:['No surprises at tax time','Estimate your refund or bill from your pay and your W-2.',['W-2','Withholding','Refund','Deadlines'],'doc'],
+ docs:['Your records, filed','Statements and forms sorted by kind and year.',['Pay stubs','Tax forms','Statements','Receipts'],'tiles'],
+ assets:['What you own, and what it is worth','Values, upkeep and upgrades for your car and other things.',['Value','Upkeep','Mods','Loans'],'gear'],
+ subscriptions:['Little charges, big total','Every recurring charge and what it costs you a year.',['Monthly','Yearly','Cancel'],'rings'],
+ bills:['Pay on time, every time','What is due, what is paid and what is left.',['Due','Paid','Autopay'],'doc'],
+ budgets:['Give every dollar a job','Set limits and see how each category is doing.',['Limits','Trends','Keywords'],'pie'],
+ report:['The month in review','Income, spending, top merchants and how to save.',['Income','Spending','Savings'],'bars'],
+ afford:['Can you buy it?','Check a purchase against your real money and get a plan.',['Plan','Cuts','Timeline'],'target'],
+ credit:['Watch your credit','Track your scores and what moves them.',['Scores','Factors','Tips'],'steps'],
+ cards:['Every card, one view','Progress, spending habits, cash back and interest.',['Balance','Cash back','Interest'],'card'],
+ invest:['Watch your investments','Holdings, allocation and how much they swing.',['Holdings','Allocation','Risk'],'wave'],
+ transactions:['Every dollar in and out','Import statements, search and fix categories.',['Import','Search','Categories'],'tiles'],
+ goals:['Save for what matters','Targets, progress and dates.',['Targets','Progress','Auto'],'target'],
+ loans:['Pay debt down faster','Plans, the order to pay and what extra payments save.',['Payoff','Order','Interest'],'steps'],
+ mortgage:['Your home loan, explained','Payment, interest and what extra payments save.',['Payment','Interest','Extra'],'house'],
+ look:['Make it yours','Appearance, tabs, security, backups and help.',['Look','Tabs','Security','Backup'],'pie']
+};
+// Decorations drawn in white on the banner (260 by 110).
+function heroDeco(kind){
+  var W='stroke="#fff" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"',F='fill="#fff"',o='';
+  var i;
+  if(kind==='bars'){for(i=0;i<9;i++)o+='<rect x="'+(20+i*26)+'" y="'+(92-(14+((i*37)%58)))+'" width="16" height="'+(14+((i*37)%58))+'" rx="4" '+F+' opacity="'+(0.25+i*0.07)+'"/>'}
+  else if(kind==='rings'){[18,34,50,66].forEach(function(r,n){o+='<circle cx="190" cy="55" r="'+r+'" '+W+' opacity="'+(0.7-n*0.14)+'" stroke-dasharray="'+(r*3.2)+' '+(r*3)+'"/>'});o+='<circle cx="190" cy="55" r="5" '+F+'/>'}
+  else if(kind==='coins'){for(i=0;i<6;i++)o+='<ellipse cx="'+(150+(i%2)*14)+'" cy="'+(92-i*13)+'" rx="38" ry="11" '+W+' fill="rgba(255,255,255,.14)"/>';o+='<circle cx="60" cy="40" r="12" '+W+'/><circle cx="92" cy="70" r="8" '+W+'/>'}
+  else if(kind==='steps'){o+='<polyline points="10,96 50,96 50,74 90,74 90,52 130,52 130,30 170,30 170,12 250,12" '+W+' opacity=".85"/>';[[50,74],[90,52],[130,30],[170,12]].forEach(function(p){o+='<circle cx="'+p[0]+'" cy="'+p[1]+'" r="5" '+F+'/>'})}
+  else if(kind==='tiles'){for(i=0;i<6;i++)o+='<rect x="'+(60+(i%3)*58)+'" y="'+(14+Math.floor(i/3)*48)+'" width="50" height="40" rx="9" '+F+' opacity="'+(0.16+i*0.05)+'"/>'}
+  else if(kind==='wave'){o+='<path d="M0 80 C30 20 60 20 90 60 S150 100 180 46 S230 10 260 40" '+W+' stroke-width="3"/><path d="M0 80 C30 20 60 20 90 60 S150 100 180 46 S230 10 260 40 V110 H0Z" '+F+' opacity=".14" stroke="none"/>'}
+  else if(kind==='pie'){o+='<circle cx="190" cy="55" r="40" '+W+' opacity=".5"/><path d="M190 55 V15 A40 40 0 0 1 228 67Z" '+F+' opacity=".5"/><path d="M190 55 L228 67 A40 40 0 0 1 166 90Z" '+F+' opacity=".3"/>'}
+  else if(kind==='house'){o+='<path d="M110 60 190 14l80 46" '+W+' stroke-width="3"/><path d="M126 52v50h128V52" '+W+'/><rect x="176" y="70" width="28" height="32" rx="4" '+F+' opacity=".35"/>'}
+  else if(kind==='card'){o+='<rect x="100" y="22" width="130" height="80" rx="12" '+F+' opacity=".16" '+W+'/><rect x="116" y="40" width="26" height="18" rx="4" '+F+' opacity=".55"/><path d="M116 82h60M190 82h24" '+W+' opacity=".7"/>'}
+  else if(kind==='doc'){o+='<rect x="130" y="10" width="86" height="96" rx="10" '+F+' opacity=".14" '+W+'/><path d="M146 36h54M146 52h54M146 68h34" '+W+' opacity=".7"/><circle cx="212" cy="88" r="14" '+F+' opacity=".3"/>'}
+  else if(kind==='gear'){o+='<circle cx="190" cy="55" r="26" '+W+' stroke-width="3"/><circle cx="190" cy="55" r="9" '+F+'/>';for(i=0;i<8;i++){var a=i*Math.PI/4;o+='<line x1="'+(190+Math.cos(a)*32)+'" y1="'+(55+Math.sin(a)*32)+'" x2="'+(190+Math.cos(a)*42)+'" y2="'+(55+Math.sin(a)*42)+'" '+W+' stroke-width="5"/>'}}
+  else{o+='<circle cx="190" cy="55" r="12" '+F+' opacity=".9"/><circle cx="190" cy="55" r="28" '+W+' opacity=".75"/><circle cx="190" cy="55" r="46" '+W+' opacity=".4"/>'}   // target
+  return o;
+}
+function tabHero(v){
+  var d=THERO[helpKey?helpKey(v):v];if(!d)return '';
+  return '<section class="thero" style="--hc:'+tabColor(v)+'"><div class="thglyph">'+(ICON[v]||'')+'</div><div class="thtxt"><h2>'+esc(d[0])+'</h2><p>'+esc(d[1])+'</p><div class="thchips">'+d[2].map(function(c){return '<span>'+esc(c)+'</span>'}).join('')+'</div></div><svg class="thdeco" viewBox="0 0 260 110" preserveAspectRatio="xMaxYMid meet" aria-hidden="true">'+heroDeco(d[3])+'</svg></section>';
+}
+// Puts html right after the page's title bar (the first div.top, closed at its matching end).
+function afterTopBar(body,html){
+  var st=body.indexOf('<div class="top">');if(st<0||!html)return body;
+  var re=/<div\b|<\/div>/g,depth=0,m;re.lastIndex=st;
+  while((m=re.exec(body))){if(m[0]==='</div>'){depth--;if(depth===0)return body.slice(0,re.lastIndex)+html+body.slice(re.lastIndex)}else depth++}
+  return body;
+}
 function tabChip(v){return '<i class="ni" style="--ic:'+tabColor(v)+'">'+(ICON[v]||'')+'</i>'}
 /* ---------- icons + shell ---------- */
 var ICON={
@@ -782,6 +856,7 @@ function render(){
   body=body.replace(/(<div class="top"><h1>[^<]*<\/h1>)/,'$1'+undoButtons());
   if(body.indexOf('class="undo"')<0)body='<div style="display:flex;justify-content:flex-end;margin:0 0 8px">'+undoButtons()+'</div>'+body;
   body=body.replace('<div class="top"><h1>','<div class="top"><h1>'+tabChip(view));
+  if(view!=='energy'&&view!=='overview'&&view!=='assist')body=afterTopBar(body,tabHero(view));
   $('#main').style.setProperty('--tab',tabColor(view));
   $('#main').innerHTML=banner+body;
   bindView();thBind($('#main'));afterRender();helpFabSync();
@@ -1063,7 +1138,7 @@ function homeScreen(sp,inc,nw){
     cards.push(hcard('goals','Goal',ringSVG(Math.min(1,g.saved/g.target),{size:92,stroke:10,center:Math.round(g.saved/g.target*100)+'%',label:g.name})+'<div class="sub" style="margin-top:6px">'+esc(g.name)+': '+money0(Math.max(0,g.target-g.saved))+' to go</div>'))}
   return '<section class="home">'+heroTxt+qa+(cards.length?'<div class="hscroll" role="list">'+cards.join('')+'</div>':'')+'</section>';
 }
-function qaView(icon,label,view){return '<button type="button" data-view="'+view+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+icon+'</svg>'+label+'</button>'}
+function qaView(icon,label,view){return '<button type="button" data-view="'+view+'"><i class="ni" style="--ic:'+tabColor(view)+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+icon+'</svg></i>'+label+'</button>'}
 
 function lookOffer(){
   var seen=false;try{seen=localStorage.getItem('tally-look-offer')==='1'}catch(e){}
@@ -5167,7 +5242,7 @@ function carStage(a,type,color){
     '<g mask="url(#refmask)" opacity=".5"><g transform="translate('+x+','+(gy+4)+') scale('+sc+',-'+sc+') translate(0,-88)">'+carDraw(a,type,color)+'</g></g>'+
     '<g class="stagecar"><g transform="translate('+x+','+(gy-88*sc)+') scale('+sc+')">'+carDraw(a,type,color)+'</g></g></svg></div>';
 }
-function qaBtn(icon,label,target){return '<button type="button" data-scrollto="'+target+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+icon+'</svg>'+label+'</button>'}
+function qaBtn(icon,label,target){return '<button type="button" data-scrollto="'+target+'"><i class="ni" style="--ic:'+tabColor(view)+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+icon+'</svg></i>'+label+'</button>'}
 var QI={pay:'<circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5c0-1 1-1.7 2.5-1.7s2.5.7 2.5 1.7-1 1.5-2.5 1.8-2.5.8-2.5 1.8 1 1.7 2.5 1.7 2.5-.7 2.5-1.7"/>',chart:'<path d="M4 19V5M4 19h16M8 15l3-4 3 2 4-6"/>',list:'<path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/>',plus:'<circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/>',swap:'<path d="M7 7h11l-3-3M17 17H6l3 3"/>',doc:'<path d="M7 3h8l4 4v14H7z"/><path d="M14 3v5h5"/>',home:'<path d="M3 11.5 12 4l9 7.5M5 10v10h14V10"/>'};
 // Resize a chosen photo to something small enough to keep with your data.
 function photoToData(file,cb){
@@ -6672,7 +6747,7 @@ function helpPopClose(){var el=document.getElementById('helppop');if(el&&el.pare
 function helpPopOpen(){
   helpPopClose();
   var h=helpFor(view),el=document.createElement('div');el.id='helppop';el.className='helppop';el.setAttribute('role','dialog');el.setAttribute('aria-label','Help for this tab');
-  el.innerHTML=h?'<h3>'+esc(h.t)+'</h3><p>'+esc(h.what)+'</p><p style="margin:0 0 4px"><b>How to use it</b></p>'+helpList(h.how)+(h.tip?'<div class="tipline">'+esc(h.tip)+'</div>':'')+'<div class="actions" style="justify-content:flex-start;flex-wrap:wrap"><button type="button" class="btn small primary" data-w="walk">Full walkthrough</button><button type="button" class="btn small" data-w="close">Close</button></div>':'<h3>Help</h3><p>Open the full walkthrough for a tour of the whole app.</p><div class="actions" style="justify-content:flex-start"><button type="button" class="btn small primary" data-w="walk">Full walkthrough</button><button type="button" class="btn small" data-w="close">Close</button></div>';
+  el.innerHTML=h?'<h3>'+tabChip(view)+esc(h.t)+'</h3><p>'+esc(h.what)+'</p><p style="margin:0 0 4px"><b>How to use it</b></p>'+helpList(h.how)+(h.tip?'<div class="tipline">'+esc(h.tip)+'</div>':'')+'<div class="actions" style="justify-content:flex-start;flex-wrap:wrap"><button type="button" class="btn small primary" data-w="walk">Full walkthrough</button><button type="button" class="btn small" data-w="close">Close</button></div>':'<h3>Help</h3><p>Open the full walkthrough for a tour of the whole app.</p><div class="actions" style="justify-content:flex-start"><button type="button" class="btn small primary" data-w="walk">Full walkthrough</button><button type="button" class="btn small" data-w="close">Close</button></div>';
   el.onclick=function(e){var b=e.target.closest&&e.target.closest('[data-w]');if(!b)return;if(b.dataset.w==='close')helpPopClose();else if(b.dataset.w==='walk'){var k=helpKey(view);helpPopClose();walkOpen(k)}};
   document.body.appendChild(el);helpUI.pop=true;helpUI.popView=view;
   var f=document.getElementById('helpfab');if(f)f.setAttribute('aria-expanded','true');
@@ -6708,8 +6783,8 @@ function walkDraw(){
   var el=document.getElementById('walk');if(!el)return;
   var st=helpUI.steps[helpUI.i],n=helpUI.steps.length,h=st.info,last=helpUI.i>=n-1;
   el.innerHTML='<div class="walkbox" role="dialog" aria-modal="true" aria-label="Walkthrough of the app"><div class="walkhead"><b>Walkthrough</b><span class="sub grow">Step '+(helpUI.i+1)+' of '+n+'</span><button type="button" class="btn small" data-w="close" aria-label="Close the walkthrough">Close</button></div><div class="walkbar"><i style="width:'+((helpUI.i+1)/n*100)+'%"></i></div>'+
-    '<div class="walkbody"><nav class="walknav" aria-label="Steps">'+helpUI.steps.map(function(x,i){return '<button type="button" data-w="go" data-i="'+i+'" class="'+(i===helpUI.i?'on':i<helpUI.i?'done':'')+'"'+(i===helpUI.i?' aria-current="step"':'')+'>'+esc(x.info.t)+'</button>'}).join('')+'</nav>'+
-    '<div class="walkmain" tabindex="-1"><h2>'+esc(h.t)+'</h2><p>'+esc(h.what)+'</p><p style="margin:0 0 4px"><b>'+(st.view?'How to use it':'What to do')+'</b></p>'+helpList(h.how)+(h.tip?'<div class="tipline" style="font-size:14px;color:var(--muted);background:var(--accent-soft,rgba(59,76,240,.12));padding:10px 12px;border-radius:10px">'+esc(h.tip)+'</div>':'')+'</div></div>'+
+    '<div class="walkbody"><nav class="walknav" aria-label="Steps">'+helpUI.steps.map(function(x,i){return '<button type="button" data-w="go" data-i="'+i+'" class="'+(i===helpUI.i?'on':i<helpUI.i?'done':'')+'"'+(i===helpUI.i?' aria-current="step"':'')+'><i class="wdot" style="--ic:'+tabColor(x.view||'')+'"></i>'+esc(x.info.t)+'</button>'}).join('')+'</nav>'+
+    '<div class="walkmain" tabindex="-1"><h2>'+(st.view?tabChip(st.view):'')+esc(h.t)+'</h2><p>'+esc(h.what)+'</p><p style="margin:0 0 4px"><b>'+(st.view?'How to use it':'What to do')+'</b></p>'+helpList(h.how)+(h.tip?'<div class="tipline" style="font-size:14px;color:var(--muted);background:var(--accent-soft,rgba(59,76,240,.12));padding:10px 12px;border-radius:10px">'+esc(h.tip)+'</div>':'')+'</div></div>'+
     '<div class="walkfoot"><button type="button" class="btn" data-w="prev"'+(helpUI.i===0?' disabled':'')+'>Back</button>'+(st.view?'<button type="button" class="btn" data-w="open" title="Close the walkthrough and open this tab">Open this tab</button>':'')+'<span class="grow"></span><button type="button" class="btn primary" data-w="next" id="walk-next">'+(last?'Done':'Next')+'</button></div></div>';
   var nx=el.querySelector('#walk-next');if(nx)nx.focus();
   var on=el.querySelector('.walknav .on');if(on&&on.scrollIntoView)on.scrollIntoView({block:'nearest'});

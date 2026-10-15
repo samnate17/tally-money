@@ -560,3 +560,5 @@ A round **?** button sits at the bottom right of every tab. It opens a short gui
 
 ## Look
 Every tab icon is a coloured, glossy chip (one colour per tab) in the sidebar, the top bar and the phone tab bar, and the same chip heads each page. Panels get a small colour bar and tiles a coloured top edge in the tab's colour. **Energy** is neon green: a glowing lightning-bolt banner with pulsing rings and a power wave (animated unless motion is off in Settings or your system), and glowing bars, dots and lines in its charts.
+
+Every other tab (all except the Overview and the Assistant) has its own banner in its colour: a frosted icon, a one-line promise, chips and a drawn picture (stairs for pay, a pie for budgets, a house for the mortgage, a card for credit cards, and so on). The quick-action buttons on the Overview, and the help and walkthrough, use the same coloured icon chips. The text and pictures live in `THERO` and `heroDeco` in `index.html`.
