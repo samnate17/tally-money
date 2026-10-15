@@ -1227,18 +1227,39 @@ function dueDateFor(dueDay,mk){
   var y=+mk.slice(0,4),m=+mk.slice(5)-1,dim=new Date(y,m+1,0).getDate();
   return new Date(y,m,Math.min(dueDay,dim));
 }
-function billStatus(it,mk,txns,marks,today){
-  var due=dueDateFor(it.dueDay,mk),mark=marks&&marks[it.id+':'+mk],found=null,y=+mk.slice(0,4),m=+mk.slice(5)-1;
-  var from=new Date(y,m,1),to=new Date(y,m+1,0);
+function txnClaimKey(x){return x.id||(x.date+'|'+x.amount+'|'+x.name)}
+var WEAK_SKIP=/\b(transfer|xfer|atm|withdrawal|cash (back|out)|deposit|refund|reversal|interest|fee)\b|payment[ ,\-]*(thank|received)|cardmember|autopay.*(credit|card)|credit card (pmt|payment)/i;
+// ctx (optional): {claimed:{txnKey:billId}, weak:bool}. A payment is claimed by one bill only. Weak matches (the amount and the date line up but no name does) run in a second pass.
+function billStatus(it,mk,txns,marks,today,ctx){
+  var due=dueDateFor(it.dueDay,mk),mark=marks&&marks[it.id+':'+mk],found=null,y=+mk.slice(0,4),m=+mk.slice(5),claimed=ctx&&ctx.claimed;
+  var from=new Date(y,m-1,1),to=new Date(y,m,0);
   if(due&&it.dueDay<=7)from=new Date(due.getFullYear(),due.getMonth(),due.getDate()-7);     // a bill due early in the month is often paid in the last days of the one before
+  if(due&&it.dueDay>=25)to=new Date(y,m,7);                                                  // and one due at the end is often paid in the first days of the next
   var f=iso(from),t=iso(to);
   var subLink=it.source==='bill'&&it.cat&&it.sub;                                   // a bill with a sub-category also matches payments filed under that category and sub-category
+  var free=function(x){return !claimed||!claimed[txnClaimKey(x)]||claimed[txnClaimKey(x)]===it.id};
   if(it.re||subLink||it.key)txns.forEach(function(x){
-    if(x.amount>=0||x.date<f||x.date>t)return;
+    if(x.amount>=0||x.date<f||x.date>t||!free(x))return;
     if(!((it.re&&it.re.test(x.name))||(it.key&&aiKey(x.name)===it.key)||(subLink&&x.cat===it.cat&&x.sub===it.sub)))return;
     var a=-x.amount;if(it.amount>0&&(a<it.amount*0.5||a>it.amount*3))return;                  // utilities vary, but not by that much
-    if(!found||x.date>found.date)found={date:x.date,amount:a,name:x.name};
+    if(!found||x.date>found.date)found={date:x.date,amount:a,name:x.name,key:txnClaimKey(x)};
   });
+  // A card's own bill is paid when a payment shows on that card (from its statement), even though the money left another account.
+  if(!found&&it.source==='loan'&&it.kind==='credit'&&it.raw&&it.raw.id)txns.forEach(function(x){
+    if(!(x.amount>0)||x.acct!==it.raw.id||x.date<f||x.date>t||!free(x))return;
+    if(!(x.cardPay===true||/payment|pmt|thank you/i.test(x.name||'')))return;
+    if(it.amount>0&&x.amount<it.amount*0.9)return;
+    if(!found||x.date>found.date)found={date:x.date,amount:x.amount,name:x.name,key:txnClaimKey(x)};
+  });
+  if(!found&&ctx&&ctx.weak&&!mark&&due&&it.amount>0&&(it.source==='bill'||it.source==='loan')){
+    var wf=iso(new Date(due.getFullYear(),due.getMonth(),due.getDate()-5)),wt=iso(new Date(due.getFullYear(),due.getMonth(),due.getDate()+7)),tol=Math.max(0.5,it.amount*0.01),best=null;
+    txns.forEach(function(x){
+      if(x.amount>=0||x.date<wf||x.date>wt||!free(x)||x.transfer===true||x.cashback===true||WEAK_SKIP.test(x.name||''))return;
+      var a=-x.amount;if(Math.abs(a-it.amount)>tol)return;
+      var dd=Math.abs((new Date(+x.date.slice(0,4),+x.date.slice(5,7)-1,+x.date.slice(8,10))-due)/864e5);if(!best||dd<best.dd)best={dd:dd,x:x,a:a};
+    });
+    if(best)found={date:best.x.date,amount:best.a,name:best.x.name,key:txnClaimKey(best.x),guess:true};
+  }
   var paid=mark==='unpaid'?false:(mark==='paid'||!!found),state,nowK=monthKey(iso(today)),midnight=new Date(today.getFullYear(),today.getMonth(),today.getDate());
   if(paid)state='paid';
   else if(mk<nowK)state='missed';
@@ -1250,7 +1271,11 @@ function billStatus(it,mk,txns,marks,today){
   return {state:state,auto:!!it.autopay,due:due,found:mark==='unpaid'?null:found,manual:!!mark,paidAmount:paid?(found?found.amount:it.amount):0};
 }
 function billsSummary(items,mk,txns,marks,today){
-  var rows=items.map(function(it){return {item:it,st:billStatus(it,mk,txns,marks,today)}}).sort(function(a,b){return (a.st.due?a.st.due.getTime():9e15)-(b.st.due?b.st.due.getTime():9e15)||a.item.name.localeCompare(b.item.name)});
+  var ctx={claimed:{},weak:false},byDue=items.slice().sort(function(a,b){var da=dueDateFor(a.dueDay,mk),db=dueDateFor(b.dueDay,mk);return (da?da.getTime():9e15)-(db?db.getTime():9e15)}),sts={};
+  byDue.forEach(function(it){var st=billStatus(it,mk,txns,marks,today,ctx);sts[it.id]=st;if(st.found&&st.found.key)ctx.claimed[st.found.key]=it.id});
+  ctx.weak=true;
+  byDue.forEach(function(it){var st0=sts[it.id];if(st0.state==='paid')return;var st=billStatus(it,mk,txns,marks,today,ctx);if(st.found&&st.found.guess){sts[it.id]=st;ctx.claimed[st.found.key]=it.id}});
+  var rows=items.map(function(it){return {item:it,st:sts[it.id]}}).sort(function(a,b){return (a.st.due?a.st.due.getTime():9e15)-(b.st.due?b.st.due.getTime():9e15)||a.item.name.localeCompare(b.item.name)});
   var out={rows:rows,paid:0,pending:0,total:0,paidCount:0,count:rows.length,overdue:0,next:null};
   rows.forEach(function(r){
     out.total+=r.item.amount;
@@ -3283,7 +3308,7 @@ function billForm(b){
 }
 function billPill(st){
   var d=st.due?shortDate(iso(st.due)):'';
-  if(st.state==='paid')return '<span class="pill good">'+(st.found?'Paid '+shortDate(st.found.date):'Marked paid')+'</span>';
+  if(st.state==='paid')return '<span class="pill good"'+(st.found&&st.found.guess?' title="The amount and the date match a payment on '+esc(shortDate(st.found.date))+' ('+esc(String(st.found.name).slice(0,40))+'). If that is not it, press Not paid."':'')+'>'+(st.found?'Paid '+shortDate(st.found.date)+(st.found.guess?' (by amount)':''):'Marked paid')+'</span>';
   if(st.state==='autopay')return '<span class="pill good" title="Comes out by itself. It turns to Paid once the payment shows up in your transactions.">Autopay'+(d?' · '+d:'')+'</span>';
   if(st.state==='overdue')return '<span class="pill bad">'+(st.auto?'Autopay not seen':'Overdue')+' · was '+d+'</span>';
   if(st.state==='missed')return '<span class="pill bad">Not found</span>';
@@ -3297,7 +3322,7 @@ function vBills(){
   var rows=sum.rows.map(function(r){
     var it=r.item,st=r.st;
     if(it.source==='bill'&&billUI.edit===it.id)return billForm(it.raw);
-    var act=st.state==='paid'?'<button class="btn small" data-act="bill-undo" data-id="'+esc(it.id)+'">'+(st.manual?'Undo':'Not paid?')+'</button>':'<button class="btn small primary" data-act="bill-paid" data-id="'+esc(it.id)+'">Mark paid</button>';
+    var act=st.state==='paid'?(st.found&&st.found.guess&&it.source==='bill'?'<button class="btn small primary" data-act="bill-learn" data-id="'+esc(it.id)+'" title="Match this bill by that merchant name from now on">Remember it</button>':'')+'<button class="btn small" data-act="bill-undo" data-id="'+esc(it.id)+'">'+(st.manual?'Undo':'Not paid?')+'</button>':'<button class="btn small primary" data-act="bill-paid" data-id="'+esc(it.id)+'">Mark paid</button>';
     var more=it.source==='auto'?'<button class="btn small" data-act="bill-keep" data-id="'+esc(it.id)+'" title="Save it as your own bill so you can edit it">Keep</button><button class="btn small" data-act="bill-ignore" data-id="'+esc(it.id)+'" aria-label="Not a bill" title="This is not a bill. Stop showing it.">Not a bill</button>':it.source==='bill'?'<button class="btn small" data-act="bill-edit" data-id="'+esc(it.id)+'">Edit</button><button class="btn small" data-act="bill-del" data-id="'+esc(it.id)+'" aria-label="Remove">&times;</button>':'<span class="sub muted" style="font-size:12px">from your '+(it.kind==='credit'?'card':'loan')+'</span>';
     if(it.source==='bill'||it.source==='loan')more='<button class="btn small'+(it.autopay?' primary':'')+'" data-act="bill-autopay" data-id="'+esc(it.id)+'" aria-pressed="'+(it.autopay?'true':'false')+'" title="'+(it.autopay?'On autopay. Press to turn off.':'Press if this comes out automatically.')+'">'+(it.autopay?'Autopay on':'Autopay')+'</button>'+more;
     if(it.source==='maint'){act='<button class="btn small primary" data-act="maint-done" data-id="'+esc(it.id)+'">Done</button>';more='<button class="btn small" data-view="assets">Open</button>'}
@@ -5910,6 +5935,13 @@ document.addEventListener('click',function(e){
   else if(a==='bill-unhide'){var ub=allBillItems(month).filter(function(x){return x.id===id})[0];if(ub){S.hideWords=(S.hideWords||[]).filter(function(w){return String(ub.name).toLowerCase().indexOf(w)<0})}}
   else if(a==='hide-del'){S.hideWords=(S.hideWords||[]).filter(function(w){return w!==b.dataset.k})}
   else if(a==='hide-toggle'){showHidden=!showHidden}
+  else if(a==='bill-learn'){
+    var lit=allBillItems(month).filter(function(x){return x.id===id})[0],lst=lit&&billStatus(lit,month,S.txns,S.billMarks,TODAY,{claimed:{},weak:true}),lb=S.bills.filter(function(x){return x.id===id})[0];
+    if(lb&&lst&&lst.found){var skipW=/^(payment|purchase|online|autopay|debit|card|check|visa|mastercard|recurring|checkcard|pos|ach|web|bill|pay)$/i,ws=String(lst.found.name).toLowerCase().replace(/[^a-z ]/g,' ').split(/\s+/).filter(function(w){return w.length>=4&&!skipW.test(w)&&!GENERIC_BILL_WORDS.test(w)}).slice(0,2);
+      var have=String(lb.match||'').toLowerCase();ws=ws.filter(function(w){return have.indexOf(w)<0});
+      if(ws.length){lb.match=((lb.match?lb.match+', ':'')+ws.join(', ')).slice(0,80);toast('Remembered "'+ws.join(', ')+'". Later months match this bill by name.')}else toast('Nothing new to remember from that payment.');
+      S.billMarks[id+':'+month]=undefined;delete S.billMarks[id+':'+month]}
+  }
   else if(a==='bill-paid'){S.billMarks[id+':'+month]='paid'}
   else if(a==='bill-undo'){var bk=id+':'+month;if(S.billMarks[bk]==='paid')delete S.billMarks[bk];else S.billMarks[bk]='unpaid'}
   else if(a==='bill-keep'||a==='bill-ignore'){var ab=allBillItems(month).filter(function(x){return x.id===id})[0];if(ab&&ab.source==='auto'){if(a==='bill-keep')S.bills.push({id:uid(),name:ab.name,amount:ab.amount,dueDay:ab.dueDay,cat:ab.cat,sub:ab.sub||guessSub(ab.cat,ab.name),match:''});else{S.billIgnore[ab.key]=1;toast('Hidden. It will not come back as a bill.')}}}

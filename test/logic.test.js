@@ -1728,3 +1728,26 @@ test('weather and energy settings are cleaned for backups', () => {
   const w = W.cleanWeather({ place: 'Troy <b>NY', lat: 42.7312345, lon: -73.69, fetched: '2026-10-15', months: { '2026-01': { hdd: 1200, cdd: 0, avgF: 22.44, days: 31 }, '2026-02': { hdd: -5, cdd: 0, avgF: 30, days: 28 }, bad: { hdd: 1 }, '2026-03': { hdd: 900, cdd: 0, avgF: 'x', days: 31 } } });
   assert.deepStrictEqual(w, { place: 'Troy bNY', lat: 42.7312, lon: -73.69, fetched: '2026-10-15', months: { '2026-01': { hdd: 1200, cdd: 0, avgF: 22.4, days: 31 } } });
 });
+
+test('bills: paid by name, by card statement, by amount and date, with one payment claimed by one bill, and late payments next month', () => {
+  const B = billsWorld(), today = new Date(2026, 9, 29);                       // Oct 29
+  const bills = [{ id: 'ph', name: 'Cell phone', amount: 80, dueDay: 20, match: '' }, { id: 'net', name: 'Internet', amount: 70, dueDay: 21, match: '' }, { id: 'gym', name: 'Gym', amount: 25, dueDay: 28, match: 'goldsgym' }];
+  const items = B.billItems(bills, [{ id: 'c1', name: 'Chase Freedom', type: 'credit', balance: 500, minPay: 35, dueDay: 15, lender: 'Chase' }]);
+  const txns = [
+    { id: 't1', date: '2026-10-19', name: 'TMOBILE*AUTOPAY 8001', amount: -80, cat: 'Other' },                  // same amount as the phone bill, no name to match: matched by amount
+    { id: 't2', date: '2026-10-21', name: 'COMCAST 8773', amount: -70, cat: 'Other' },                         // internet, by amount
+    { id: 't3', date: '2026-10-20', name: 'SPOTIFY', amount: -70, cat: 'Subscriptions' },                      // also 70, but a better-dated payment already claimed by Internet's closer date
+    { id: 't4', date: '2026-11-02', name: 'GOLDSGYM MONTHLY', amount: -25, cat: 'Health' },                    // paid after month end: counts for a bill due on the 28th
+    { id: 't5', date: '2026-10-14', name: 'PAYMENT THANK YOU', amount: 35, cat: 'Other', acct: 'c1', cardPay: true }];
+  const sum = B.billsSummary(items, '2026-10', txns, {}, today), by = (id) => sum.rows.find((r) => r.item.id === id);
+  assert.strictEqual(by('ph').st.state, 'paid'); assert.strictEqual(by('ph').st.found.guess, true); assert.strictEqual(by('ph').st.found.name, 'TMOBILE*AUTOPAY 8001');
+  assert.strictEqual(by('net').st.state, 'paid'); assert.strictEqual(by('net').st.found.key, 't2');                                    // the closest date to the due day wins, so SPOTIFY is not claimed
+  assert.strictEqual(by('gym').st.state, 'paid'); assert.ok(!by('gym').st.found.guess);
+  assert.strictEqual(by('loan:c1').st.state, 'paid'); assert.strictEqual(by('loan:c1').st.found.key, 't5');                           // the card's own statement shows the payment
+  // a transfer, an ATM row or a refund is never taken for a bill by amount
+  const bad = B.billsSummary(B.billItems([{ id: 'x', name: 'Thing', amount: 80, dueDay: 20, match: '' }], []), '2026-10', [{ id: 'a', date: '2026-10-19', name: 'ATM WITHDRAWAL', amount: -80 }, { id: 'b', date: '2026-10-19', name: 'TRANSFER TO SAVINGS', amount: -80 }, { id: 'c', date: '2026-10-19', name: 'Somewhere', amount: -80, transfer: true }], {}, today);
+  assert.strictEqual(bad.rows[0].st.state, 'overdue');
+  // a mark always wins, and the amount must be close
+  const marked = B.billsSummary(items.slice(0, 1), '2026-10', txns, { 'ph:2026-10': 'unpaid' }, today); assert.notStrictEqual(marked.rows[0].st.state, 'paid');
+  const off = B.billsSummary(B.billItems([{ id: 'y', name: 'Thing', amount: 80, dueDay: 20, match: '' }], []), '2026-10', [{ id: 'a', date: '2026-10-19', name: 'Somewhere', amount: -95 }], {}, today); assert.strictEqual(off.rows[0].st.state, 'overdue');
+});
