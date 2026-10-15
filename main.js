@@ -17,6 +17,7 @@ const { createPhoneCapture } = require('./phonecapture');
 const qrcode = require('qrcode-generator');
 const { createLocalAI } = require('./local-ai');
 const { parseLoanText, parseMortgageText, parseCardStatement } = require('./loanparse');
+const { parsePayStub } = require('./paystub');
 const aiMod = require('./ai');
 const { spawn } = require('child_process');
 
@@ -24,6 +25,8 @@ let localAi = null;
 let store, plaid, ai, market, fundamentals, widget, updater, mainWin = null, linkState = null;
 let glassAddon = null, glassState = { available: false, active: false, reason: '' }, glassId = -1, glassPrefsFile = '';
 const statementText = new Map();
+// Unmasked text of the same files, for the on-device pay stub reader only. It never leaves the main process and is never sent anywhere.
+const statementRaw = new Map();
 let phone = null;      // the "scan with my iPhone" server, only running when switched on
 const statementBytes = new Map(); // PDFs with no text layer, kept briefly so they can be sent to Claude if the user chooses
 let textSeq = 0;
@@ -272,7 +275,9 @@ function wireIpc() {
     const masked = maskText(text).slice(0, 200000);
     const textId = 'l' + (++textSeq);
     statementText.set(textId, masked);
+    statementRaw.set(textId, text.slice(0, 200000));
     while (statementText.size > 12) statementText.delete(statementText.keys().next().value);
+    while (statementRaw.size > 4) statementRaw.delete(statementRaw.keys().next().value);
     return { textId, chars: masked.length, name: String(name || '').slice(0, 80), text: masked.slice(0, 80000) };
   });
   // Reading a loan statement without a paid key: by matching labels (always), or with a model running on this computer.
@@ -313,6 +318,12 @@ function wireIpc() {
     const text = statementText.get(String(textId));
     if (!text) throw new Error('That file is no longer in memory. Choose it again.');
     return ai.serviceFromText(text);
+  });
+  // Pay stub read on this computer by matching labels and checking the arithmetic. No key and no network.
+  handle('pay:parse', (textId) => {
+    const text = statementRaw.get(String(textId));
+    if (!text) throw new Error('That file is no longer in memory. Choose it again.');
+    return parsePayStub(text);
   });
   handle('ai:payStub', (textId) => {
     const text = statementText.get(String(textId));

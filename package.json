@@ -25,6 +25,7 @@
       "plaid.js",
       "package.json",
       "ai.js",
+      "paystub.js",
       "weather.js",
       "docs.js",
       "statement.js",

@@ -2092,6 +2092,7 @@ function payTotals(s){
   var t={earnings:0,tax:0,benefit:0,retirement:0,deduction:0,other:0};
   (s.lines||[]).forEach(function(l){t[l.section]+=l.amount});
   var out=t.tax+t.benefit+t.retirement+t.deduction;
+  (s.lines||[]).forEach(function(l){if(l.section==='other'&&/credit|reimburs|refund|adjust/i.test(l.name))out-=l.amount});
   // Earnings lines should add up to gross; if the statement did not list them, gross stands alone.
   var chk=s.gross-out-s.net;
   return {gross:s.gross,net:s.net,tax:t.tax,benefit:t.benefit,retirement:t.retirement,deduction:t.deduction,other:t.other,taken:out,unexplained:Math.round(chk*100)/100,fedRate:0,earnLines:t.earnings};
@@ -6097,7 +6098,7 @@ function payForm(){
 function payImpPreview(){
   var im=mypayUI.imp;if(!im)return '';
   var t=payTotals(im),dup=S.pay.stubs.some(function(s){return s.payDate===im.payDate&&Math.abs(s.net-im.net)<0.5});
-  return '<section class="panel"><h2>Check this before saving<small>read from '+esc(mypayUI.impName)+'</small></h2><p class="sub" style="margin:0 0 8px;white-space:normal">Claude read these numbers; compare them with your statement. Nothing is saved until you press Save.</p>'+
+  return '<section class="panel"><h2>Check this before saving<small>read from '+esc(mypayUI.impName)+'</small></h2><p class="sub" style="margin:0 0 8px;white-space:normal">'+(mypayUI.impSrc==='ai'?'Claude':'The app')+' read these numbers; compare them with your statement. Nothing is saved until you press Save.</p>'+
     '<div class="grid tiles">'+tile('Pay date',shortDate(im.payDate),im.periodStart&&im.periodEnd?shortDate(im.periodStart)+' to '+shortDate(im.periodEnd):'')+tile('Gross',money(im.gross),im.hours?im.hours+' hours':'')+tile('Taxes',money(t.tax),'')+tile('Net',money(im.net),Math.abs(t.unexplained)>Math.max(2,im.gross*0.01)?'<span class="warn">items differ by '+money(Math.abs(t.unexplained))+'</span>':'adds up')+'</div>'+
     ['earnings','tax','benefit','retirement','deduction','other'].map(function(sec){var ls=im.lines.filter(function(l){return l.section===sec});return ls.length?'<div class="sub" style="margin-top:8px"><b>'+PAY_SECTIONS[sec]+'</b>: '+ls.map(function(l){return esc(l.name)+' '+money(l.amount)}).join(' · ')+'</div>':''}).join('')+
     (dup?'<p class="sub warn" style="margin:8px 0 0">You already have a statement with this date and take-home. Saving replaces it.</p>':'')+
@@ -6105,10 +6106,10 @@ function payImpPreview(){
 }
 function vPay(){
   var stubs=payStubs(),head='<div class="top"><h1>My pay</h1></div>';
-  var canAi=!!(T&&T.loan&&T.loan.readFile&&T.ai&&T.ai.payStub),key=!!(aiSt&&aiSt.hasKey);
-  var actions='<div class="actions" style="justify-content:flex-end;margin:0 0 10px;flex-wrap:wrap"><label class="btn small primary'+(canAi&&key&&!mypayUI.busy?'':' disabled')+'" style="cursor:'+(canAi&&key?'pointer':'not-allowed')+'" title="'+(canAi&&key?'':'Needs the desktop app and your Anthropic API key')+'">'+(mypayUI.busy?'Reading…':'Add a pay statement (PDF)')+'<input type="file" data-payfile accept=".pdf,.txt,application/pdf,text/plain" hidden'+(canAi&&key&&!mypayUI.busy?'':' disabled')+'></label><button class="btn small" data-act="pay-manual">Add by hand</button><a class="btn small" href="https://my.adp.com" target="_blank" rel="noopener noreferrer">Open ADP</a></div>'+(canAi&&key?'':'<p class="sub muted" style="margin:0 0 10px;font-size:12px;white-space:normal;text-align:right">'+(!canAi?'Reading a PDF needs the desktop app. ':(aiSt?'Reading a PDF needs your Anthropic API key: add it in Settings, then Claude. ':'Checking for your API key… '))+'Until then, use Add by hand.</p>');
+  var canAi=!!(T&&T.loan&&T.loan.readFile&&((T.pay&&T.pay.parse)||(T.ai&&T.ai.payStub))),key=true;
+  var actions='<div class="actions" style="justify-content:flex-end;margin:0 0 10px;flex-wrap:wrap"><label class="btn small primary'+(canAi&&key&&!mypayUI.busy?'':' disabled')+'" style="cursor:'+(canAi&&key?'pointer':'not-allowed')+'" title="'+(canAi?'':'Needs the desktop app')+'">'+(mypayUI.busy?'Reading…':'Add a pay statement (PDF)')+'<input type="file" data-payfile accept=".pdf,.txt,application/pdf,text/plain" hidden'+(canAi&&key&&!mypayUI.busy?'':' disabled')+'></label><button class="btn small" data-act="pay-manual">Add by hand</button><a class="btn small" href="https://my.adp.com" target="_blank" rel="noopener noreferrer">Open ADP</a></div>'+(canAi?'':'<p class="sub muted" style="margin:0 0 10px;font-size:12px;white-space:normal;text-align:right">Reading a PDF needs the desktop app. Use Add by hand here.</p>');
   var msg=mypayUI.msg?'<div class="banner" role="alert"><span>'+esc(mypayUI.msg)+'</span></div>':'';
-  var note='<p class="sub muted" style="margin:0 0 12px;font-size:12px;white-space:normal">ADP does not let apps connect to a personal account (its connections are for employers and approved partners), so there is no way to link it. Download your pay statement as a PDF from ADP (Pay, then Pay statements) and add it here: Claude reads it, you check the numbers, and a copy goes into your Documents folder. Only the numbers are sent to Claude; names, addresses and account numbers are masked first.</p>';
+  var note='<p class="sub muted" style="margin:0 0 12px;font-size:12px;white-space:normal">ADP does not let apps connect to a personal account (its connections are for employers and approved partners), so there is no way to link it. Download your pay statement as a PDF from ADP (Pay, then Pay statements) and add it here: the app reads it on your computer (nothing is sent anywhere), you check the numbers, and a copy goes into your Documents folder. If a statement has a layout the app does not know and you have saved an Anthropic API key, Claude reads it instead; names, addresses and account numbers are masked first.</p>';
   if(!stubs.length)return head+actions+msg+payImpPreview()+(mypayUI.manual?payForm():'')+'<section class="panel"><div class="empty" style="white-space:normal">Add your latest pay statement to see what you earn, what comes out, when your next paycheck should arrive and what changed since the last one. Add a few and the app learns your pay schedule.</div></section>'+note;
   var last=stubs[stubs.length-1],sel=stubs.filter(function(s){return s.id===mypayUI.sel})[0]||last,nx=payNext(stubs,TODAY),arr=payArrived(stubs,S.txns,TODAY),ch=payChanges(stubs.slice(0,stubs.indexOf(sel)+1)),yr=payYear(stubs,TODAY.getFullYear(),TODAY);
   var hero='';
@@ -6125,10 +6126,18 @@ function payRead(inp){
   if(f.size>25e6){mypayUI.msg='Choose a file under 25 MB.';render();return}
   var rd=new FileReader();rd.onload=function(){
     mypayUI.busy=true;mypayUI.msg='';mypayUI.imp=null;render();
-    tcall(T.loan.readFile(rd.result,f.name)).then(function(r){return tcall(T.ai.payStub(r.textId))}).then(function(r){
-      mypayUI.busy=false;var st=r.stub&&cleanPayStub(r.stub,uid);
-      if(!st){mypayUI.msg=r.notes||'Claude did not find a pay statement in that file.';render();return}
-      mypayUI.imp=st;mypayUI.impBuf=rd.result;mypayUI.impName=f.name;render();
+    var hasKey=!!(aiSt&&aiSt.hasKey)&&!!(T.ai&&T.ai.payStub),tid;
+    var fin=function(raw,src,note){var st=raw&&cleanPayStub(raw,uid);mypayUI.busy=false;
+      if(!st){mypayUI.msg=note||'No pay statement was found in that file.'+(hasKey?'':' Add it by hand, or save an Anthropic API key in Settings to have Claude read other layouts.');render();return}
+      mypayUI.imp=st;mypayUI.impSrc=src;mypayUI.impBuf=rd.result;mypayUI.impName=f.name;mypayUI.msg=note||'';render()};
+    var ai=function(prev){return tcall(T.ai.payStub(tid)).then(function(r){fin(r.stub||(prev&&prev.stub),r.stub?'ai':'local',r.stub?'':r.notes)})};
+    tcall(T.loan.readFile(rd.result,f.name)).then(function(r){tid=r.textId;
+      if(!(T.pay&&T.pay.parse))return hasKey?ai(null):fin(null,'');
+      return tcall(T.pay.parse(tid)).then(function(p){
+        if(p&&p.stub&&p.checked){fin(p.stub,'local','');return}
+        if(hasKey)return ai(p).catch(function(){fin(p&&p.stub,'local',p&&p.notes)});
+        fin(p&&p.stub,'local',p&&p.notes)
+      })
     }).catch(function(e){mypayUI.busy=false;mypayUI.msg=(e&&e.message)||'Could not read that file.';render()});
   };rd.readAsArrayBuffer(f);
 }

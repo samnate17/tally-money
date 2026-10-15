@@ -36,6 +36,9 @@ contextBridge.exposeInMainWorld('tally', {
     open: inv('docs:open'),
     remove: inv('docs:remove'),
   },
+  pay: {
+    parse: inv('pay:parse'),
+  },
   loan: {
     readFile: inv('loan:text'),
     parse: inv('loan:parse'),
