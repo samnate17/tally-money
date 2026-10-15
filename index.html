@@ -489,7 +489,7 @@ function sample(){
   tx.sort(function(a,b){return a.date<b.date?1:-1});
   function nd(day){var d=new Date(TODAY.getFullYear(),TODAY.getMonth(),day);if(d<TODAY)d=new Date(TODAY.getFullYear(),TODAY.getMonth()+1,day);return iso(d)}
   tx.forEach(function(x){if(/shell/i.test(x.name))x.cat='Gas'});
-  return {sample:true,bills:sampleBills(),billMarks:{},customCats:[{name:'Gas',rules:RULE_PRESETS.gas.slice()}],accounts:sampleAccounts(),extraPay:100,txns:tx,
+  return {sample:true,bills:sampleBills(),billMarks:{},billAdj:{},customCats:[{name:'Gas',rules:RULE_PRESETS.gas.slice()}],accounts:sampleAccounts(),extraPay:100,txns:tx,
    subs:[{id:uid(),name:'Netflix',amount:15.49,cycle:'monthly',next:nd(3),status:'active'},
          {id:uid(),name:'Spotify',amount:11.99,cycle:'monthly',next:nd(7),status:'active'},
          {id:uid(),name:'Planet Fitness',amount:49,cycle:'monthly',next:nd(9),status:'flagged'},
@@ -521,7 +521,7 @@ try{var _lk=JSON.parse(localStorage.getItem('tally-lock-v1')||'{}');if(_lk&&_lk.
 function load(){try{if(localStorage.getItem('tally-vault-v1')){VLT.on=true;VLT.locked=true;S=sample();migrate();syncCats();return}}catch(e){}try{var j=localStorage.getItem('tally-money-v1');if(j){S=JSON.parse(j);migrate();syncCats();undoInit();return}}catch(e){}S=sample();migrate();syncCats();undoInit()}
 function defCredit(){return {scores:[],profile:{late:'unknown',inq:'unknown',oldest:'',derog:'unknown'}}}
 function syncXfer(){setXferContext(S.accounts.filter(function(a){return a.type==='credit'}).map(function(a){return a.id}),S.xferLearn)}
-function migrate(){S.catRules=cleanCatRules(S.catRules);S.pay=cleanPayState(S.pay,uid);S.tax=cleanTaxState(S.tax);taxApplyOnline(S.tax.online);if(!Array.isArray(S.fuel))S.fuel=[];S.fuel=cleanFuel(S.fuel,uid);if(!S.energyCfg||typeof S.energyCfg!=='object'||Array.isArray(S.energyCfg))S.energyCfg={};if(S.weather&&!cleanWeather(S.weather))delete S.weather;if(!S.weather)S.weather={};if(!S.xferLearn||typeof S.xferLearn!=='object'||Array.isArray(S.xferLearn))S.xferLearn={};S.hideWords=cleanHideWords(S.hideWords);if(!Array.isArray(S.imports))S.imports=[];if(!S.payLinks||typeof S.payLinks!=='object'||Array.isArray(S.payLinks))S.payLinks={};if(!S.apple||typeof S.apple!=='object'||Array.isArray(S.apple))S.apple={};if(!S.billIgnore||typeof S.billIgnore!=='object'||Array.isArray(S.billIgnore))S.billIgnore={};if(S.cardPay!=='skip'&&S.cardPay!=='count')S.cardPay='auto';if(!S.home||typeof S.home!=='object'||Array.isArray(S.home))S.home={};if(!(S.debtMonthly>=0))S.debtMonthly=0;if(!Array.isArray(S.customCats))S.customCats=[];if(!Array.isArray(S.setAside))S.setAside=[];if(!S.merchantCats||typeof S.merchantCats!=='object'||Array.isArray(S.merchantCats))S.merchantCats={};if(!Array.isArray(S.energy))S.energy=[];if(!Array.isArray(S.bills))S.bills=[];if(!S.billMarks||typeof S.billMarks!=='object'||Array.isArray(S.billMarks))S.billMarks={};if(!S.subCats||typeof S.subCats!=='object'||Array.isArray(S.subCats))S.subCats={};if(!S.merchantSubs||typeof S.merchantSubs!=='object'||Array.isArray(S.merchantSubs))S.merchantSubs={};if(!Array.isArray(S.holdings))S.holdings=S.sample?sampleHoldings():[];if(!S.credit||!Array.isArray(S.credit.scores))S.credit=S.sample?sampleCredit():defCredit();if(!Array.isArray(S.plaidIgnored))S.plaidIgnored=[];if(!Array.isArray(S.accounts))S.accounts=S.sample?sampleAccounts():[];if(typeof S.extraPay!=='number')S.extraPay=S.sample?100:0}
+function migrate(){S.catRules=cleanCatRules(S.catRules);S.pay=cleanPayState(S.pay,uid);S.tax=cleanTaxState(S.tax);taxApplyOnline(S.tax.online);if(!Array.isArray(S.fuel))S.fuel=[];S.fuel=cleanFuel(S.fuel,uid);if(!S.energyCfg||typeof S.energyCfg!=='object'||Array.isArray(S.energyCfg))S.energyCfg={};if(S.weather&&!cleanWeather(S.weather))delete S.weather;if(!S.weather)S.weather={};if(!S.xferLearn||typeof S.xferLearn!=='object'||Array.isArray(S.xferLearn))S.xferLearn={};S.hideWords=cleanHideWords(S.hideWords);if(!Array.isArray(S.imports))S.imports=[];if(!S.payLinks||typeof S.payLinks!=='object'||Array.isArray(S.payLinks))S.payLinks={};if(!S.apple||typeof S.apple!=='object'||Array.isArray(S.apple))S.apple={};if(!S.billIgnore||typeof S.billIgnore!=='object'||Array.isArray(S.billIgnore))S.billIgnore={};if(S.cardPay!=='skip'&&S.cardPay!=='count')S.cardPay='auto';if(!S.home||typeof S.home!=='object'||Array.isArray(S.home))S.home={};if(!(S.debtMonthly>=0))S.debtMonthly=0;if(!Array.isArray(S.customCats))S.customCats=[];if(!Array.isArray(S.setAside))S.setAside=[];if(!S.merchantCats||typeof S.merchantCats!=='object'||Array.isArray(S.merchantCats))S.merchantCats={};if(!Array.isArray(S.energy))S.energy=[];if(!Array.isArray(S.bills))S.bills=[];if(!S.billMarks||typeof S.billMarks!=='object'||Array.isArray(S.billMarks))S.billMarks={};S.billAdj=cleanBillAdj(S.billAdj);if(!S.subCats||typeof S.subCats!=='object'||Array.isArray(S.subCats))S.subCats={};if(!S.merchantSubs||typeof S.merchantSubs!=='object'||Array.isArray(S.merchantSubs))S.merchantSubs={};if(!Array.isArray(S.holdings))S.holdings=S.sample?sampleHoldings():[];if(!S.credit||!Array.isArray(S.credit.scores))S.credit=S.sample?sampleCredit():defCredit();if(!Array.isArray(S.plaidIgnored))S.plaidIgnored=[];if(!Array.isArray(S.accounts))S.accounts=S.sample?sampleAccounts():[];if(typeof S.extraPay!=='number')S.extraPay=S.sample?100:0}
 function ledger(){return ledgerOf(S.txns,S.cardPay)}
 function billCatOf(n){var c=guessCat(n);return {cat:c,sub:c==='Other'?'':(guessSub(c,n)||'')}}
 var showHidden=false;
@@ -560,7 +560,7 @@ function fuelBillItems(mk){
   });
   return out;
 }
-function allBillItems(mk){var base=billItems(S.bills,S.accounts,S.txns);return base.concat(autoBillItems(S.txns,base,mk,S.billIgnore,billCatOf),maintBillItems(S.accounts,mk,TODAY),fuelBillItems(mk))}
+function allBillItems(mk){var base=billItems(S.bills,S.accounts,S.txns);return billApply(base.concat(autoBillItems(S.txns,base,mk,S.billIgnore,billCatOf),maintBillItems(S.accounts,mk,TODAY),fuelBillItems(mk)),mk,S.billAdj)}
 // Undo: before each change is saved the app keeps the state it had. Changes made within 0.7 s of each other count as one step. Kept in memory only (up to 30 steps).
 var UNDO={stack:[],redo:[],cur:'',t:0,bytes:0};
 function undoInit(){try{UNDO={stack:[],redo:[],cur:JSON.stringify(S),t:0,bytes:0}}catch(e){}}
@@ -1375,6 +1375,47 @@ function billItems(bills,accounts,txns){
   });
   return out;
 }
+
+// Your changes to a bill, whatever its source (a bill you added, a loan or card, one found in your transactions, a fuel estimate).
+// adj keys: "<bill id>" = lasting changes {amount, dueDay, months:[1..12]}; "<bill id>:<YYYY-MM>" = this month only {amount, paid, skip}.
+function cleanBillAdj(raw){
+  var out={},n=0;if(!raw||typeof raw!=='object'||Array.isArray(raw))return out;
+  Object.keys(raw).forEach(function(k){
+    if(n>=3000||!/^[^\n\r]{1,160}$/.test(k)||k==='__proto__'||k==='constructor'||k==='prototype')return;
+    var v=raw[k];if(!v||typeof v!=='object'||Array.isArray(v))return;
+    var o={},num=function(x,max){x=+x;return isFinite(x)&&x>=0&&x<=max?Math.round(x*100)/100:null};
+    var a=num(v.amount,1e7);if(a!==null)o.amount=a;
+    if(/:\d{4}-\d{2}$/.test(k)){
+      var pd=num(v.paid,1e7);if(pd!==null&&pd>0)o.paid=pd;
+      if(v.skip===true)o.skip=true;
+    }else{
+      var d=Math.round(+v.dueDay);if(d>=1&&d<=31)o.dueDay=d;
+      if(Array.isArray(v.months)){var ms=[];v.months.forEach(function(m){m=Math.round(+m);if(m>=1&&m<=12&&ms.indexOf(m)<0)ms.push(m)});ms.sort(function(x,y){return x-y});if(ms.length&&ms.length<12)o.months=ms}
+    }
+    if(Object.keys(o).length){out[k]=o;n++}
+  });
+  return out;
+}
+// Applies those changes to the month's bills: a different amount or due day, a part payment, or a bill you are not expecting that month.
+function billApply(items,mk,adj){
+  var a=adj||{},mo=+mk.slice(5);
+  return items.map(function(it){
+    var p=Object.prototype.hasOwnProperty.call(a,it.id)?a[it.id]:null,m=Object.prototype.hasOwnProperty.call(a,it.id+':'+mk)?a[it.id+':'+mk]:null;
+    if(!p&&!m)return it;
+    var o={};Object.keys(it).forEach(function(k){o[k]=it[k]});o.baseAmount=it.amount;o.baseDueDay=it.dueDay;
+    if(p){
+      if(p.amount>=0&&p.amount!==undefined){o.amount=p.amount;o.amountSet='always'}
+      if(p.dueDay>=1){o.dueDay=p.dueDay;o.dayGuessed=false}
+      if(p.months&&p.months.indexOf(mo)<0){o.skip=true;o.skipWhy='season'}
+    }
+    if(m){
+      if(m.amount>=0&&m.amount!==undefined){o.amount=m.amount;o.amountSet='month'}
+      if(m.paid>0)o.paidManual=m.paid;
+      if(m.skip){o.skip=true;o.skipWhy='month'}
+    }
+    return o;
+  });
+}
 function dueDateFor(dueDay,mk){
   if(!(dueDay>=1))return null;
   var y=+mk.slice(0,4),m=+mk.slice(5)-1,dim=new Date(y,m+1,0).getDate();
@@ -1413,7 +1454,8 @@ function billStatus(it,mk,txns,marks,today,ctx){
     });
     if(best)found={date:best.x.date,amount:best.a,name:best.x.name,key:txnClaimKey(best.x),guess:true};
   }
-  var paid=mark==='unpaid'?false:(mark==='paid'||!!found),state,nowK=monthKey(iso(today)),midnight=new Date(today.getFullYear(),today.getMonth(),today.getDate());
+  var pm=+it.paidManual||0,fullManual=pm>0&&(it.amount<=0||pm>=it.amount-0.005);
+  var paid=mark==='unpaid'?false:(mark==='paid'||!!found||fullManual),state,nowK=monthKey(iso(today)),midnight=new Date(today.getFullYear(),today.getMonth(),today.getDate());
   if(paid)state='paid';
   else if(mk<nowK)state='missed';
   else if(mk===nowK&&due&&due<midnight)state='overdue';
@@ -1421,19 +1463,21 @@ function billStatus(it,mk,txns,marks,today,ctx){
   else state='upcoming';
   var apDays=due?Math.round((midnight-due)/864e5):0,ap=!!it.autopay&&!paid;   // on autopay: expected to go out by itself, so only flag it when it has not shown up a few days after the due date
   if(ap&&(state==='soon'||state==='upcoming'||(state==='overdue'&&apDays<=3)))state='autopay';
-  return {state:state,auto:!!it.autopay,due:due,found:mark==='unpaid'?null:found,manual:!!mark,paidAmount:paid?(found?found.amount:it.amount):0};
+  var partial=!paid&&pm>0;if(partial&&state==='autopay')state=apDays>0?'overdue':'soon';
+  return {state:state,auto:!!it.autopay,due:due,found:mark==='unpaid'?null:found,manual:!!mark||fullManual,paidAmount:paid?(found?found.amount:(fullManual?pm:it.amount)):(partial?pm:0),partial:partial,remaining:partial?Math.round(Math.max(0,it.amount-pm)*100)/100:0};
 }
 function billsSummary(items,mk,txns,marks,today){
+  var skippedItems=items.filter(function(it){return it.skip});items=items.filter(function(it){return !it.skip});
   var ctx={claimed:{},weak:false},byDue=items.slice().sort(function(a,b){var da=dueDateFor(a.dueDay,mk),db=dueDateFor(b.dueDay,mk);return (da?da.getTime():9e15)-(db?db.getTime():9e15)}),sts={};
   byDue.forEach(function(it){var st=billStatus(it,mk,txns,marks,today,ctx);sts[it.id]=st;if(st.found&&st.found.key)ctx.claimed[st.found.key]=it.id});
   ctx.weak=true;
   byDue.forEach(function(it){var st0=sts[it.id];if(st0.state==='paid')return;var st=billStatus(it,mk,txns,marks,today,ctx);if(st.found&&st.found.guess){sts[it.id]=st;ctx.claimed[st.found.key]=it.id}});
   var rows=items.map(function(it){return {item:it,st:sts[it.id]}}).sort(function(a,b){return (a.st.due?a.st.due.getTime():9e15)-(b.st.due?b.st.due.getTime():9e15)||a.item.name.localeCompare(b.item.name)});
-  var out={rows:rows,paid:0,pending:0,total:0,paidCount:0,count:rows.length,overdue:0,next:null};
+  var out={rows:rows,skipped:skippedItems,paid:0,pending:0,total:0,paidCount:0,partialCount:0,count:rows.length,overdue:0,next:null};
   rows.forEach(function(r){
     out.total+=r.item.amount;
     if(r.st.state==='paid'){out.paid+=r.st.paidAmount;out.paidCount++}
-    else{out.pending+=r.item.amount;if(r.st.state==='overdue')out.overdue++;if(!out.next&&r.st.due&&(r.st.state==='soon'||r.st.state==='upcoming'||r.st.state==='overdue'||r.st.state==='autopay'))out.next=r}
+    else{if(r.st.partial){out.paid+=r.st.paidAmount;out.partialCount++;out.pending+=r.st.remaining}else out.pending+=r.item.amount;if(r.st.state==='overdue')out.overdue++;if(!out.next&&r.st.due&&(r.st.state==='soon'||r.st.state==='upcoming'||r.st.state==='overdue'||r.st.state==='autopay'))out.next=r}
   });
   return out;
 }
@@ -4070,7 +4114,7 @@ function vAfford(){
 
 
 /* ---------- Bills ---------- */
-var billUI={edit:'',adding:false};
+var billUI={edit:'',adding:false,adj:''};
 /*PAYLINK-START*/
 // Pay now: the app never moves money. It opens the lender's own payment page, using an https address you saved once.
 function cleanPayUrl(t){
@@ -4135,8 +4179,23 @@ function billForm(b){
    '<p class="sub muted" style="margin:8px 0 0;font-size:12px">A payment counts toward this bill if its description has one of the words, or, when you pick a sub-category, if it is filed under that category and sub-category (for example Housing, Electric). Leave both out to mark it paid by hand.</p>'+
    '<div class="actions" style="justify-content:flex-start;margin-top:10px"><button class="btn primary small">'+(b?'Save changes':'Add bill')+'</button><button type="button" class="btn small" data-act="bill-cancel">Cancel</button></div></form>';
 }
+
+function billAdjForm(it){
+  var P=S.billAdj[it.id]||{},M=S.billAdj[it.id+':'+month]||{},base=it.baseAmount!==undefined?it.baseAmount:it.amount,months=P.months||[1,2,3,4,5,6,7,8,9,10,11,12],names=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var who=it.source==='loan'?'This only changes what shows here. The loan or card keeps its own minimum payment.':it.source==='auto'?'This bill was found in your transactions. Your changes are saved with it.':it.source==='fuel'?'This is an estimate from your past deliveries. Turn it off for the months you will not need a delivery.':'Changes apply to this bill on this page.';
+  var any=!!(S.billAdj[it.id]||S.billAdj[it.id+':'+month]);
+  return '<form class="billadjform panel" data-id="'+esc(it.id)+'" style="margin:10px 0"><h3 style="margin:0 0 4px;font-size:15px">'+esc(billName(it.name))+' for '+monthLabel(month)+'</h3><p class="sub muted" style="margin:0 0 8px;font-size:12px;white-space:normal">'+who+(it.amountSet?' Usually '+money(base)+'.':'')+'</p>'+
+    '<div class="form" style="align-items:end"><label>Amount<input name="a" type="number" min="0" step="0.01" required value="'+it.amount+'"></label>'+
+    '<label style="flex-direction:row;align-items:center;gap:6px"><input name="al" type="checkbox"'+(P.amount!==undefined?' checked':'')+'> Use this amount every month</label>'+
+    '<label>Due day (1 to 31)<input name="d" type="number" min="0" max="31" value="'+(it.dueDay||'')+'"></label>'+
+    '<label>Paid so far this month<input name="pd" type="number" min="0" step="0.01" value="'+(M.paid!==undefined?M.paid:'')+'" placeholder="0.00"></label></div>'+
+    '<p class="sub muted" style="margin:6px 0 0;font-size:12px;white-space:normal">Type what you have paid toward it and the bill shows what is left. When it reaches the amount, the bill counts as paid.</p>'+
+    '<details style="margin-top:8px"'+(P.months?' open':'')+'><summary class="sub" style="cursor:pointer">Only expect this bill in some months (seasonal)</summary><div style="display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:6px">'+names.map(function(n,i){return '<label style="display:flex;gap:4px;align-items:center;font-size:13px"><input type="checkbox" name="mo" value="'+(i+1)+'"'+(months.indexOf(i+1)>-1?' checked':'')+'>'+n+'</label>'}).join('')+'</div></details>'+
+    '<div class="actions" style="justify-content:flex-start;margin-top:10px;flex-wrap:wrap"><button class="btn primary small">Save</button><button type="button" class="btn small" data-act="bill-adj-skip" data-id="'+esc(it.id)+'" title="Take it out of this month. It still comes back next month.">Not expecting it this month</button>'+(any?'<button type="button" class="btn small" data-act="bill-adj-reset" data-id="'+esc(it.id)+'">Back to automatic</button>':'')+'<button type="button" class="btn small" data-act="bill-adj-cancel">Cancel</button></div></form>';
+}
 function billPill(st){
   var d=st.due?shortDate(iso(st.due)):'';
+  if(st.partial)return '<span class="pill '+(st.state==='overdue'?'bad':'warn')+'" title="You told the app how much you have paid so far. The rest is still due.">Part paid \u00b7 '+money(st.remaining)+' left</span>';
   if(st.state==='paid')return '<span class="pill good"'+(st.found&&st.found.guess?' title="The amount and the date match a payment on '+esc(shortDate(st.found.date))+' ('+esc(String(st.found.name).slice(0,40))+'). If that is not it, press Not paid."':'')+'>'+(st.found?'Paid '+shortDate(st.found.date)+(st.found.guess?' (by amount)':''):'Marked paid')+'</span>';
   if(st.state==='autopay')return '<span class="pill good" title="Comes out by itself. It turns to Paid once the payment shows up in your transactions.">Autopay'+(d?' · '+d:'')+'</span>';
   if(st.state==='overdue')return '<span class="pill bad">'+(st.auto?'Autopay not seen':'Overdue')+' · was '+d+'</span>';
@@ -4158,11 +4217,16 @@ function vBills(){
     if(it.source==='fuel')more='<button class="btn small" data-view="energy">Open</button>';
     if(it.source==='maint'){act='<button class="btn small primary" data-act="maint-done" data-id="'+esc(it.id)+'">Done</button>';more='<button class="btn small" data-view="assets">Open</button>'}
     var paidNote=(st.state==='paid'&&st.found&&Math.abs(st.found.amount-it.amount)>=1?' · paid '+money(st.found.amount):'')+(it.source==='loan'&&it.raw.pastDue>0?' · <span class="bad">past due '+money(it.raw.pastDue)+'</span>':'');
+    var canAdj=it.source==='bill'||it.source==='loan'||it.source==='auto'||it.source==='fuel';
+    if(canAdj)more='<button class="btn small" data-act="bill-adj" data-id="'+esc(it.id)+'" title="Change the amount or due day, enter what you have paid so far, or skip this month">'+(it.source==='bill'?'This month':'Edit')+'</button>'+more;
+    if(st.partial)paidNote+=' · paid '+money(st.paidAmount)+' of '+money(it.amount)+', <b>'+money(st.remaining)+' left</b>';
+    else if(it.amountSet)paidNote+=' · <span class="muted">usually '+money(it.baseAmount)+'</span>';
     var hid=isHiddenName(it.name,S.hideWords);
     if(it.source==='bill'||it.source==='loan'||it.source==='auto')more='<button class="btn small" data-act="'+(hid?'bill-unhide':'bill-hide')+'" data-id="'+esc(it.id)+'" title="'+(hid?'Show this name again':'Keep this name out of sight. The amount still counts.')+'">'+(hid?'Unhide':'Hide')+'</button>'+more;
-    return '<div class="row wrap">'+logo(billName(it.name))+'<div class="grow" style="flex-basis:200px"><div class="nm">'+esc(billName(it.name))+(hid&&showHidden?' <span class="pill mute" style="font-size:11px">hidden</span>':'')+'</div><div class="sub">'+(it.dueDay?(it.dayGuessed?'Usually paid around the ':'Due on the ')+it.dueDay+ordinal(it.dueDay):'No due day')+(it.source==='auto'?' · <span class="pill good" style="font-size:11px">Found in your transactions</span>':'')+(it.source==='fuel'?' · <span class="pill mute" style="font-size:11px" title="Worked out from your past deliveries and the weather. It turns into a real bill when you record the delivery.">Estimate</span>':'')+(it.cat?' · '+esc(it.cat)+(it.sub?' › '+esc(it.sub):''):'')+paidNote+'</div>'+(it.source==='bill'||it.source==='loan'?'<div style="margin-top:6px">'+payBtn(it.id.indexOf('loan:')===0||it.source==='bill'?(it.source==='bill'?'bill:'+it.id:it.id):it.id)+'</div>':'')+'</div>'+billPill(st)+'<div class="amt num">'+money(it.amount)+'</div><div class="actions" style="flex:none;flex-wrap:nowrap">'+act+more+'</div></div>';
+    return '<div class="row wrap">'+logo(billName(it.name))+'<div class="grow" style="flex-basis:200px"><div class="nm">'+esc(billName(it.name))+(hid&&showHidden?' <span class="pill mute" style="font-size:11px">hidden</span>':'')+'</div><div class="sub">'+(it.dueDay?(it.dayGuessed?'Usually paid around the ':'Due on the ')+it.dueDay+ordinal(it.dueDay):'No due day')+(it.source==='auto'?' · <span class="pill good" style="font-size:11px">Found in your transactions</span>':'')+(it.source==='fuel'?' · <span class="pill mute" style="font-size:11px" title="Worked out from your past deliveries and the weather. It turns into a real bill when you record the delivery.">Estimate</span>':'')+(it.cat?' · '+esc(it.cat)+(it.sub?' › '+esc(it.sub):''):'')+paidNote+'</div>'+(it.source==='bill'||it.source==='loan'?'<div style="margin-top:6px">'+payBtn(it.id.indexOf('loan:')===0||it.source==='bill'?(it.source==='bill'?'bill:'+it.id:it.id):it.id)+'</div>':'')+'</div>'+billPill(st)+'<div class="amt num">'+money(it.amount)+'</div><div class="actions" style="flex:none;flex-wrap:nowrap">'+act+more+'</div></div>'+(billUI.adj===it.id?billAdjForm(it):'');
   }).join('');
-  var list='<section class="panel"><h2>'+monthLabel(month)+'<small>'+sum.paidCount+' of '+sum.count+' paid</small></h2>'+(rows||'<div class="empty">No bills yet. Add rent, electricity, internet, insurance and anything else due every month.</div>')+
+  var skippedRows=(sum.skipped||[]).map(function(it){return '<div class="row wrap"><div class="grow"><div class="nm">'+esc(billName(it.name))+'</div><div class="sub">Not expecting it this month'+(it.skipWhy==='season'?' (outside its months)':'')+'</div></div><div class="actions" style="flex:none"><button class="btn small" data-act="'+(it.skipWhy==='season'?'bill-adj':'bill-adj-unskip')+'" data-id="'+esc(it.id)+'">'+(it.skipWhy==='season'?'Edit':'Expect it')+'</button></div></div>'+(billUI.adj===it.id?billAdjForm(it):'')}).join('');
+  var list='<section class="panel"><h2>'+monthLabel(month)+'<small>'+sum.paidCount+' of '+sum.count+' paid</small></h2>'+(rows||(skippedRows?'':'<div class="empty">No bills yet. Add rent, electricity, internet, insurance and anything else due every month.</div>'))+(skippedRows?'<div class="sub muted" style="margin:14px 0 4px;font-size:12px">Skipped this month</div>'+skippedRows:'')+
     '<div class="actions" style="justify-content:flex-start;margin-top:10px"><button class="btn small primary" data-act="bill-add">Add a bill</button></div>'+(billUI.adding?billForm(null):'')+
     '<p class="sub muted" style="margin:10px 0 0;font-size:12px">Car loans, student loans and credit cards appear here automatically once they have a minimum payment and a due day (set the due day on the loan or on the card in Accounts). A bill counts as paid when a payment with a matching name and a similar amount shows up in your transactions that month, or when you mark it.</p></section>';
   var sugg='';
@@ -6876,7 +6940,7 @@ function backupPanel(){
   return '<section class="panel"><h2>Backup<small>save or restore everything</small></h2><div class="actions" style="justify-content:flex-start"><button class="btn primary" data-act="exp">Download backup</button><label class="btn" style="cursor:pointer">Restore from file<input id="bk" type="file" accept=".json,application/json" hidden></label></div><p class="sub muted" style="margin:10px 0 0;font-size:13px">Your data lives only on this computer. Download a backup now and then, and use it to recover after clearing site data. To move to another computer, use <b>Move to another computer</b> above, which can protect the file with a password.</p>'+pendBanner()+'</section>';
 }
 function backupPayload(){
-  return {app:'tally-money',version:1,exported:new Date().toISOString(),data:{txns:S.txns,subs:S.subs,budgets:S.budgets,goals:S.goals,accounts:S.accounts,extraPay:S.extraPay,plaidIgnored:S.plaidIgnored,credit:S.credit,holdings:S.holdings,customCats:S.customCats,setAside:S.setAside,merchantCats:S.merchantCats,subCats:S.subCats,merchantSubs:S.merchantSubs,bills:S.bills,billMarks:S.billMarks,fuel:S.fuel,weather:S.weather,energyCfg:S.energyCfg,xferLearn:S.xferLearn,imports:S.imports,hideWords:S.hideWords,energy:S.energy,home:S.home,debtMonthly:S.debtMonthly,billIgnore:S.billIgnore,cardPay:S.cardPay,apple:S.apple,payLinks:S.payLinks,pay:S.pay,tax:S.tax,catRules:S.catRules}};
+  return {app:'tally-money',version:1,exported:new Date().toISOString(),data:{txns:S.txns,subs:S.subs,budgets:S.budgets,goals:S.goals,accounts:S.accounts,extraPay:S.extraPay,plaidIgnored:S.plaidIgnored,credit:S.credit,holdings:S.holdings,customCats:S.customCats,setAside:S.setAside,merchantCats:S.merchantCats,subCats:S.subCats,merchantSubs:S.merchantSubs,bills:S.bills,billMarks:S.billMarks,billAdj:S.billAdj,fuel:S.fuel,weather:S.weather,energyCfg:S.energyCfg,xferLearn:S.xferLearn,imports:S.imports,hideWords:S.hideWords,energy:S.energy,home:S.home,debtMonthly:S.debtMonthly,billIgnore:S.billIgnore,cardPay:S.cardPay,apple:S.apple,payLinks:S.payLinks,pay:S.pay,tax:S.tax,catRules:S.catRules}};
 }
 // Saves a file: through the desktop app's Save dialog when there is one (reliable on both Mac and Windows), else as a normal download.
 function saveFile(name,text,done){
@@ -7062,7 +7126,7 @@ function cleanBackup(j){
     if(!hist.length)hist=[{date:iso(TODAY),balance:+x.balance}];
     var ac={id:String(x.id||uid()),name:String(x.name).slice(0,120),type:x.type,balance:+x.balance,apr:DEBT_TYPES[x.type]?Math.max(0,+x.apr||0):0,minPay:DEBT_TYPES[x.type]?Math.max(0,+x.minPay||0):0,history:hist};if(x.type==='credit'&&+x.limit>0)ac.limit=+x.limit;if(x.type==='credit'&&x.closed===true)ac.closed=true;if(DEBT_TYPES[x.type]&&x.contract){var cc=cleanContract(x.contract);if(cc)ac.contract=cc}if(DEBT_TYPES[x.type]){if(photoOk(x.photo))ac.photo=x.photo;if(/^#[0-9a-f]{6}$/i.test(x.carColor||''))ac.carColor=x.carColor;if(CAR_TYPES[x.carType])ac.carType=x.carType;if(/^\d{4}-\d{2}(-\d{2})?$/.test(x.opened||''))ac.opened=x.opened;if(/^\d{4}$/.test(x.last4||''))ac.last4=x.last4;if(typeof x.carSvg==='string'){var csv=cleanCarSvg(x.carSvg);if(csv)ac.carSvg=csv}if(x.showPhoto===true)ac.showPhoto=true}if(DEBT_TYPES[x.type]){var dd=Math.round(+x.dueDay);if(dd>=1&&dd<=31)ac.dueDay=dd;if(+x.origBalance>0)ac.origBalance=+x.origBalance;if(typeof x.lender==='string'&&x.lender)ac.lender=cleanSubName(x.lender).slice(0,40);var stm=cleanStmt(x);Object.keys(stm).forEach(function(k){ac[k]=stm[k]})}if(x.plaid&&typeof x.plaid.accountId==='string')ac.plaid={itemId:String(x.plaid.itemId||'').slice(0,100),accountId:x.plaid.accountId.slice(0,100)};if(x.wallet===true&&x.type==='cash')ac.wallet=true;if(x.autopay===true&&DEBT_TYPES[x.type])ac.autopay=true;if(x.type==='property'&&x.asset){var as1=cleanAsset(x.asset,uid);if(as1)ac.asset=as1}return ac});
   var home={};if(d.home&&typeof d.home==='object'&&!Array.isArray(d.home)){['purchasePrice','down','closing','origLoan','termYears','taxYear','insYear','hoaMonth','pmiMonth','maintPct','mgmtPct','vacancyPct','appreciation','ret','sellPct','rentGrowth','costGrowth','rentMonth','extra'].forEach(function(k){var n=parseFloat(d.home[k]);if(isFinite(n)&&n>=0&&n<1e9)home[k]=n});['purchaseDate','startDate'].forEach(function(k){if(/^\d{4}-\d{2}-\d{2}$/.test(d.home[k]||''))home[k]=d.home[k]});['mortId','valueId'].forEach(function(k){if(typeof d.home[k]==='string'&&/^[\w-]{1,40}$/.test(d.home[k])&&accounts.some(function(a){return a.id===d.home[k]}))home[k]=d.home[k]});if(d.home.setup===true&&home.valueId)home.setup=true;if(photoOk(d.home.photo))home.photo=d.home.photo}
-  return {catRules:cleanCatRules(d.catRules),tax:cleanTaxState(d.tax),pay:cleanPayState(d.pay,uid),fuel:cleanFuel(d.fuel,uid),weather:cleanWeather(d.weather)||{},energyCfg:(function(){var o={},c=d.energyCfg&&+d.energyCfg.cop;if(c>=1&&c<=6)o.cop=c;return o})(),xferLearn:cleanXferLearn(d.xferLearn),hideWords:cleanHideWords(d.hideWords),imports:cleanImports(d.imports,uid),txns:txns,subs:subs,budgets:budgets,goals:goals,accounts:accounts,extraPay:Math.max(0,+d.extraPay||0),plaidIgnored:(Array.isArray(d.plaidIgnored)?d.plaidIgnored:[]).filter(function(x){return typeof x==='string'}).slice(0,200),credit:cleanCredit(d.credit),holdings:cleanHoldings(d.holdings),customCats:custom,setAside:setAside,merchantCats:merchantCats,subCats:subCats,merchantSubs:merchantSubs,bills:bills,billMarks:billMarks,energy:energy,home:home,debtMonthly:Math.max(0,+d.debtMonthly||0),billIgnore:(function(){var o={};if(d.billIgnore&&typeof d.billIgnore==='object'&&!Array.isArray(d.billIgnore))Object.keys(d.billIgnore).slice(0,500).forEach(function(k){if(k.length<=120&&k!=='__proto__')o[k]=1});return o})(),cardPay:d.cardPay==='skip'||d.cardPay==='count'?d.cardPay:'auto',apple:(function(){var a=d.apple||{},o={};if(typeof a.acct==='string'&&a.acct.length<=40)o.acct=a.acct;if(/^\d{4}-\d{2}-\d{2}$/.test(a.last||''))o.last=a.last;if(+a.count>=0)o.count=Math.min(1e6,Math.round(+a.count));return o})(),payLinks:cleanPayLinks(d.payLinks)};
+  return {catRules:cleanCatRules(d.catRules),tax:cleanTaxState(d.tax),pay:cleanPayState(d.pay,uid),fuel:cleanFuel(d.fuel,uid),weather:cleanWeather(d.weather)||{},energyCfg:(function(){var o={},c=d.energyCfg&&+d.energyCfg.cop;if(c>=1&&c<=6)o.cop=c;return o})(),xferLearn:cleanXferLearn(d.xferLearn),hideWords:cleanHideWords(d.hideWords),imports:cleanImports(d.imports,uid),txns:txns,subs:subs,budgets:budgets,goals:goals,accounts:accounts,extraPay:Math.max(0,+d.extraPay||0),plaidIgnored:(Array.isArray(d.plaidIgnored)?d.plaidIgnored:[]).filter(function(x){return typeof x==='string'}).slice(0,200),credit:cleanCredit(d.credit),holdings:cleanHoldings(d.holdings),customCats:custom,setAside:setAside,merchantCats:merchantCats,subCats:subCats,merchantSubs:merchantSubs,bills:bills,billMarks:billMarks,billAdj:cleanBillAdj(d.billAdj),energy:energy,home:home,debtMonthly:Math.max(0,+d.debtMonthly||0),billIgnore:(function(){var o={};if(d.billIgnore&&typeof d.billIgnore==='object'&&!Array.isArray(d.billIgnore))Object.keys(d.billIgnore).slice(0,500).forEach(function(k){if(k.length<=120&&k!=='__proto__')o[k]=1});return o})(),cardPay:d.cardPay==='skip'||d.cardPay==='count'?d.cardPay:'auto',apple:(function(){var a=d.apple||{},o={};if(typeof a.acct==='string'&&a.acct.length<=40)o.acct=a.acct;if(/^\d{4}-\d{2}-\d{2}$/.test(a.last||''))o.last=a.last;if(+a.count>=0)o.count=Math.min(1e6,Math.round(+a.count));return o})(),payLinks:cleanPayLinks(d.payLinks)};
 }
 
 /* ---------- Goals ---------- */
@@ -7236,7 +7300,7 @@ document.addEventListener('click',function(e){
   else if(a==='sub-adddet'){var d=detect()[+b.dataset.i];if(d)S.subs.push({id:uid(),name:d.name,amount:d.amount,cycle:d.cycle,next:d.next,status:'active'})}
   else if(a==='tx-del'){var dtx=S.txns.filter(function(x){return x.id===id})[0];if(dtx&&dtx.fromWallet&&walletAcct()){walletAdd(-dtx.amount);toast('Deleted. The cash went back into your wallet.')}S.txns=S.txns.filter(function(x){return x.id!==id})}
   else if(a==='exp'){exportData();return}
-  else if(a==='imp-ok'){S={sample:false,catRules:pendingImport.catRules||{},pay:pendingImport.pay||{stubs:[]},tax:pendingImport.tax||{status:'single',kids:0,useForms:true,forms:[]},customCats:pendingImport.customCats,txns:pendingImport.txns,subs:pendingImport.subs,budgets:pendingImport.budgets,goals:pendingImport.goals,accounts:pendingImport.accounts,extraPay:pendingImport.extraPay,plaidIgnored:pendingImport.plaidIgnored,credit:pendingImport.credit,holdings:pendingImport.holdings,setAside:pendingImport.setAside||[],merchantCats:pendingImport.merchantCats||{},subCats:pendingImport.subCats||{},merchantSubs:pendingImport.merchantSubs||{},bills:pendingImport.bills||[],fuel:pendingImport.fuel||[],weather:pendingImport.weather||{},energyCfg:pendingImport.energyCfg||{},xferLearn:pendingImport.xferLearn||{},imports:pendingImport.imports||[],hideWords:pendingImport.hideWords||[],billMarks:pendingImport.billMarks||{},energy:pendingImport.energy||[],home:pendingImport.home||{},debtMonthly:pendingImport.debtMonthly||0,billIgnore:pendingImport.billIgnore||{},cardPay:pendingImport.cardPay||'auto',apple:pendingImport.apple||{},payLinks:pendingImport.payLinks||{}};pendingImport=null;migrate();syncCats();Object.keys(PL.items).forEach(function(k){PL.items[k].cursor=''});savePL();toast('Backup restored.')}
+  else if(a==='imp-ok'){S={sample:false,catRules:pendingImport.catRules||{},pay:pendingImport.pay||{stubs:[]},tax:pendingImport.tax||{status:'single',kids:0,useForms:true,forms:[]},customCats:pendingImport.customCats,txns:pendingImport.txns,subs:pendingImport.subs,budgets:pendingImport.budgets,goals:pendingImport.goals,accounts:pendingImport.accounts,extraPay:pendingImport.extraPay,plaidIgnored:pendingImport.plaidIgnored,credit:pendingImport.credit,holdings:pendingImport.holdings,setAside:pendingImport.setAside||[],merchantCats:pendingImport.merchantCats||{},subCats:pendingImport.subCats||{},merchantSubs:pendingImport.merchantSubs||{},bills:pendingImport.bills||[],fuel:pendingImport.fuel||[],weather:pendingImport.weather||{},energyCfg:pendingImport.energyCfg||{},xferLearn:pendingImport.xferLearn||{},imports:pendingImport.imports||[],hideWords:pendingImport.hideWords||[],billMarks:pendingImport.billMarks||{},billAdj:pendingImport.billAdj||{},energy:pendingImport.energy||[],home:pendingImport.home||{},debtMonthly:pendingImport.debtMonthly||0,billIgnore:pendingImport.billIgnore||{},cardPay:pendingImport.cardPay||'auto',apple:pendingImport.apple||{},payLinks:pendingImport.payLinks||{}};pendingImport=null;migrate();syncCats();Object.keys(PL.items).forEach(function(k){PL.items[k].cursor=''});savePL();toast('Backup restored.')}
   else if(a==='imp-no'){pendingImport=null;pendingEnc=null;secMsg=''}
   else if(a==='undo'){undoStep('undo');return}
   else if(a==='redo'){undoStep('redo');return}
@@ -7385,8 +7449,13 @@ document.addEventListener('click',function(e){
   else if(a==='en-clear'){if(confirm('Remove all electricity data from this app?'))S.energy=[]}
   else if(a==='bill-add'){billUI.adding=true;billUI.edit=''}
   else if(a==='bill-cancel'){billUI.adding=false;billUI.edit=''}
+  else if(a==='bill-adj'){billUI.adj=id;billUI.edit='';billUI.adding=false}
+  else if(a==='bill-adj-cancel'){billUI.adj=''}
+  else if(a==='bill-adj-skip'){var sk=id+':'+month,sv=S.billAdj[sk]||{};sv.skip=true;S.billAdj[sk]=sv;billUI.adj='';toast('Skipped for '+monthLabel(month)+'. It comes back next month.')}
+  else if(a==='bill-adj-unskip'){var uk=id+':'+month,uv=S.billAdj[uk];if(uv){delete uv.skip;if(!Object.keys(uv).length)delete S.billAdj[uk]}}
+  else if(a==='bill-adj-reset'){delete S.billAdj[id];delete S.billAdj[id+':'+month];billUI.adj='';toast('Back to automatic.')}
   else if(a==='bill-edit'){billUI.edit=id;billUI.adding=false}
-  else if(a==='bill-del'){S.bills=S.bills.filter(function(x){return x.id!==id});Object.keys(S.billMarks).forEach(function(k){if(k.indexOf(id+':')===0)delete S.billMarks[k]})}
+  else if(a==='bill-del'){S.bills=S.bills.filter(function(x){return x.id!==id});Object.keys(S.billAdj).forEach(function(k){if(k===id||k.indexOf(id+':')===0)delete S.billAdj[k]});Object.keys(S.billMarks).forEach(function(k){if(k.indexOf(id+':')===0)delete S.billMarks[k]})}
   else if(a==='bill-autopay'){var apb=S.bills.filter(function(x){return x.id===id})[0];if(apb)apb.autopay=!apb.autopay;else if(String(id).indexOf('loan:')===0){var apIt=allBillItems(month).filter(function(x){return x.id===id})[0];if(apIt){var on=!apIt.autopay,accs=String(id).indexOf('loan:grp:')===0?S.accounts.filter(function(x){return x.type==='student'&&String(x.lender||'').toLowerCase()===String(apIt.raw.lender||'').toLowerCase()}):S.accounts.filter(function(x){return 'loan:'+x.id===id});accs.forEach(function(x){if(on)x.autopay=true;else delete x.autopay})}}}
   else if(a==='bill-hide'){var hb=allBillItems(month).filter(function(x){return x.id===id})[0];if(hb){S.hideWords=cleanHideWords((S.hideWords||[]).concat([hb.name]));toast('Hidden. Add or remove keywords in Hidden bills below.')}}
   else if(a==='bill-unhide'){var ub=allBillItems(month).filter(function(x){return x.id===id})[0];if(ub){S.hideWords=(S.hideWords||[]).filter(function(w){return String(ub.name).toLowerCase().indexOf(w)<0})}}
@@ -7698,6 +7767,22 @@ function thBind(m){
     var b=id?S.bills.filter(function(x){return x.id===id})[0]:null;if(!b){b={id:uid()};S.bills.push(b)}
     b.name=g('n').trim().slice(0,40);b.amount=Math.round(amt*100)/100;b.dueDay=dd>=1&&dd<=31?dd:0;b.cat=cat;b.sub=sub;b.match=g('m').trim().slice(0,80);b.autopay=!!fm.elements['ap']&&fm.elements['ap'].checked;if(fm.elements['vh']){if(fm.elements['vh'].value&&asById(fm.elements['vh'].value))b.veh=fm.elements['vh'].value;else delete b.veh}
     billUI.adding=false;billUI.edit='';save();render();toast(id?'Bill saved.':'Bill added.')}});
+  m.querySelectorAll('.billadjform').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();
+    var id=fm.dataset.id,it=allBillItems(month).filter(function(x){return x.id===id})[0];if(!it)return;
+    var amt=parseFloat(fm.elements['a'].value),dd=parseInt(fm.elements['d'].value,10),pd=parseFloat(fm.elements['pd'].value);
+    if(!(amt>=0)){toast('Type the amount.');return}
+    var base=it.baseAmount!==undefined?it.baseAmount:it.amount,baseDay=it.baseDueDay!==undefined?it.baseDueDay:it.dueDay,P=Object.assign({},S.billAdj[id]),M=Object.assign({},S.billAdj[id+':'+month]);
+    amt=Math.round(amt*100)/100;
+    if(fm.elements['al'].checked){if(amt!==base)P.amount=amt;else delete P.amount;delete M.amount}
+    else{delete P.amount;if(amt!==base)M.amount=amt;else delete M.amount}
+    if(dd>=1&&dd<=31&&dd!==baseDay)P.dueDay=dd;else delete P.dueDay;
+    if(pd>0)M.paid=Math.round(pd*100)/100;else delete M.paid;
+    var ms=[].slice.call(fm.querySelectorAll('input[name=mo]:checked')).map(function(c){return +c.value});
+    if(ms.length&&ms.length<12)P.months=ms;else delete P.months;
+    delete M.skip;
+    if(Object.keys(P).length)S.billAdj[id]=P;else delete S.billAdj[id];
+    if(Object.keys(M).length)S.billAdj[id+':'+month]=M;else delete S.billAdj[id+':'+month];
+    billUI.adj='';save();render();toast('Saved.')}});
   m.querySelectorAll('.loanform').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();var g=function(n){return fm.elements[n].value},kind=fm.dataset.kind,id=fm.dataset.id,bal=parseFloat(g('b')),apr=parseFloat(g('a')),pay=parseFloat(g('p'));
     if(!(bal>=0)||!(apr>=0)||!(pay>=0)||!g('n').trim())return;
     var dd=parseInt(g('d'),10),orig=parseFloat(g('o')),a=id?S.accounts.filter(function(x){return x.id===id})[0]:null;

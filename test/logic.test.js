@@ -841,7 +841,7 @@ function billsWorld() {
   const normName = (n) => n.toLowerCase().replace(/[#\d*]+/g, '').replace(/\s+/g, ' ').trim(), aiKey = (n) => normName(n) || '(blank)';
   const monthKey = (s) => s.slice(0, 7), shiftMonth = (k, n) => { const p = k.split('-'); const d = new Date(+p[0], +p[1] - 1 + n, 1); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); };
   const iso = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-  return new Function('aiKey,monthKey,shiftMonth,iso', srcBlock('/*LOAN-START*/', '/*LOAN-END*/') + srcBlock('/*BILLS-START*/', '/*BILLS-END*/') + '\nreturn {billMatchRe, billItems, dueDateFor, billStatus, billsSummary, suggestBills, autoBillItems};')(aiKey, monthKey, shiftMonth, iso);
+  return new Function('aiKey,monthKey,shiftMonth,iso', srcBlock('/*LOAN-START*/', '/*LOAN-END*/') + srcBlock('/*BILLS-START*/', '/*BILLS-END*/') + '\nreturn {billMatchRe, billItems, dueDateFor, billStatus, billsSummary, suggestBills, autoBillItems, billApply, cleanBillAdj};')(aiKey, monthKey, shiftMonth, iso);
 }
 
 test('bills: payments are found in transactions with a sensible amount window; marks override; states follow the calendar', () => {
@@ -2461,4 +2461,42 @@ test('taxFormWarn flags a W-2 whose box 2 copied box 1, and the estimate shows w
   const est = (fw) => W.taxInputs({ status: 'single', state: 'NH' }, 2025, [], [Object.assign({}, w2, { fedWithheld: fw })], [], new Date(2026, 9, 15));
   assert.ok(Math.abs(est(10000).balance) < 3000);        // a normal refund or bill
   assert.ok(est(80000).balance < -60000);                // the absurd result the warning exists to prevent
+});
+
+test('bill edits: a different amount, a part payment, a skipped month and a seasonal bill', () => {
+  const B = billsWorld(), today = new Date(2026, 9, 20);                                   // Oct 20
+  const items = B.billItems([{ id: 'el', name: 'Eversource electric', amount: 95, dueDay: 15, match: 'eversource' }, { id: 'prop', name: 'Propane', amount: 240, dueDay: 10, match: 'propane' }, { id: 'ph', name: 'Phone plan', amount: 60, dueDay: 25, match: 'carrierx' }], [], []);
+  const sumOf = (adj, txns = []) => B.billsSummary(B.billApply(items, '2026-10', adj), '2026-10', txns, {}, today);
+  // nothing set: all three pending, propane and electric overdue
+  let s0 = sumOf({}); assert.strictEqual(s0.count, 3); assert.strictEqual(s0.pending, 395); assert.strictEqual(s0.overdue, 2);
+  // part payment: 85 of 95 paid leaves 10
+  let s1 = sumOf({ 'el:2026-10': { paid: 85 } });
+  const el = s1.rows.find((r) => r.item.id === 'el');
+  assert.strictEqual(el.st.partial, true); assert.strictEqual(el.st.remaining, 10); assert.strictEqual(el.st.paidAmount, 85); assert.strictEqual(s1.partialCount, 1);
+  assert.strictEqual(s1.pending, 10 + 240 + 60); assert.strictEqual(s1.paid, 85); assert.strictEqual(s1.paidCount, 0);
+  // paying the rest turns it paid
+  let s2 = sumOf({ 'el:2026-10': { paid: 95 } }); assert.strictEqual(s2.rows.find((r) => r.item.id === 'el').st.state, 'paid'); assert.strictEqual(s2.paidCount, 1);
+  // this month's amount only: the bill was really 85
+  let s3 = sumOf({ 'el:2026-10': { amount: 85, paid: 85 } }); assert.strictEqual(s3.rows.find((r) => r.item.id === 'el').st.state, 'paid');
+  assert.strictEqual(B.billApply(items, '2026-11', { 'el:2026-10': { amount: 85 } }).find((x) => x.id === 'el').amount, 95);   // other months unchanged
+  // a lasting amount and due day
+  const perm = B.billApply(items, '2026-11', { el: { amount: 88, dueDay: 3 } }).find((x) => x.id === 'el'); assert.strictEqual(perm.amount, 88); assert.strictEqual(perm.dueDay, 3); assert.strictEqual(perm.baseAmount, 95);
+  // not expecting propane this month: out of the totals and the overdue count, listed as skipped
+  let s4 = sumOf({ 'prop:2026-10': { skip: true } }); assert.strictEqual(s4.count, 2); assert.strictEqual(s4.overdue, 1); assert.strictEqual(s4.pending, 155); assert.strictEqual(s4.skipped.length, 1);
+  // seasonal: propane only Nov to Mar
+  const season = { prop: { months: [11, 12, 1, 2, 3] } };
+  assert.strictEqual(sumOf(season).count, 2);
+  assert.strictEqual(B.billsSummary(B.billApply(items, '2026-12', season), '2026-12', [], {}, new Date(2026, 11, 1)).count, 3);
+  // a real payment found in transactions still beats a part payment
+  let s5 = sumOf({ 'el:2026-10': { paid: 10 } }, [{ date: '2026-10-14', name: 'EVERSOURCE WEB PAY', amount: -95 }]); assert.strictEqual(s5.rows.find((r) => r.item.id === 'el').st.state, 'paid');
+});
+
+test('cleanBillAdj keeps only sane edits and refuses prototype keys', () => {
+  const B = billsWorld();
+  const c = B.cleanBillAdj({ el: { amount: 88, dueDay: 40, months: [11, 11, 13, 12] }, 'el:2026-10': { paid: 85, skip: true, amount: -5 }, '__proto__': { amount: 1 }, junk: 'x', 'p:2026-10': { paid: 0 } });
+  assert.deepStrictEqual(c.el, { amount: 88, months: [11, 12] });
+  assert.deepStrictEqual(c['el:2026-10'], { paid: 85, skip: true });
+  assert.strictEqual(c.junk, undefined); assert.strictEqual(c['p:2026-10'], undefined);
+  assert.strictEqual(({}).amount, undefined);
+  assert.deepStrictEqual(B.cleanBillAdj(null), {});
 });
