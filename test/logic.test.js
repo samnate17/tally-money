@@ -2335,3 +2335,19 @@ test('search: every word must match, title and word-start matches rank first, gr
   assert.equal(r[0].rows[0].title, 'Shell settings');
   assert.deepEqual(S.searchRank(items, '', ['Pages'], {}), []);
 });
+
+test('search periods: this month, last month, a month name, this year and last N days are pulled out of the query', () => {
+  const S = new Function(srcBlock('/*SEARCH-START*/', '/*SEARCH-END*/') + '\nreturn {searchPeriod};')();
+  const t = new Date(2026, 9, 15);
+  assert.deepEqual(S.searchPeriod('shell last month', t), { rest: 'shell', from: '2026-09-01', to: '2026-09-30', label: 'September 2026' });
+  assert.equal(S.searchPeriod('groceries this month', t).from, '2026-10-01');
+  assert.equal(S.searchPeriod('groceries march', t).label, 'March 2026');
+  assert.equal(S.searchPeriod('rent in november', t).label, 'November 2025');            // a month that has not happened this year means last year's
+  assert.equal(S.searchPeriod('uber oct 2024', t).label, 'October 2024');
+  assert.deepEqual(S.searchPeriod('spent this year', t), { rest: 'spent', from: '2026-01-01', to: '2026-12-31', label: '2026' });
+  assert.equal(S.searchPeriod('fuel last 30 days', t).from, '2026-09-15');
+  assert.equal(S.searchPeriod('may flowers', t).label, '');                              // "may" alone is a word, not a month
+  assert.equal(S.searchPeriod('in may', t).label, 'May 2026');
+  assert.equal(S.searchPeriod('shell', t).rest, 'shell');
+  assert.equal(S.searchPeriod('', t).rest, '');
+});

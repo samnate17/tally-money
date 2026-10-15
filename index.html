@@ -378,6 +378,7 @@ canvas.confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:non
 .sp-item{display:flex;justify-content:space-between;gap:12px;width:100%;text-align:left;background:none;border:0;border-radius:10px;padding:9px 12px;align-items:baseline}
 .sp-item.on,.sp-item:hover{background:var(--accent-soft,rgba(59,76,240,.12))}
 .sp-t{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sp-a{color:var(--accent)}
 .sp-s{color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:55%}
 .sp-foot{padding:8px 16px;border-top:1px solid var(--line);font-size:12px}
 @media (max-width:760px){.spotwrap{padding-top:6vh}.sp-s{display:none}}
@@ -2307,7 +2308,7 @@ function catInsights(d,budget,cat){
 /*SEARCH-START*/
 // Search across the app: every word must be found; matches at the start of a word or in the title rank higher.
 function searchTerms(q){
-  return String(q||'').toLowerCase().replace(/[$,]/g,'').split(/\s+/).filter(function(t){return t.length>0}).slice(0,6);
+  return String(q||'').toLowerCase().replace(/[$,]/g,'').split(/\s+/).filter(function(t){return t.length>0}).slice(0,12);
 }
 function searchScore(terms,title,hay){
   if(!terms.length)return 0;
@@ -2325,6 +2326,25 @@ function searchRank(items,q,order,perGroup){
   var terms=searchTerms(q),out={};
   items.forEach(function(it){var sc=searchScore(terms,it.title,(it.sub||'')+' '+(it.hay||''));if(sc>0){(out[it.group]=out[it.group]||[]).push({item:it,score:sc})}});
   return order.map(function(g){var l=(out[g]||[]).sort(function(a,b){return b.score-a.score}).slice(0,(perGroup&&perGroup[g])||5);return {group:g,total:(out[g]||[]).length,rows:l.map(function(x){return x.item})}}).filter(function(g){return g.rows.length});
+}
+// Pulls a time period out of a search ("shell last month", "groceries march", "this year"). rest is what is left to search for.
+var SP_MONTHS=['january','february','march','april','may','june','july','august','september','october','november','december'];
+function spIso(d){return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2)}
+function searchPeriod(q,today){
+  var s=' '+String(q||'').toLowerCase().replace(/[$,]/g,' ')+' ',out={rest:'',from:'',to:'',label:''},y=today.getFullYear(),m=today.getMonth(),mo=function(yy,mm){var a=new Date(yy,mm,1),b=new Date(yy,mm+1,0);out.from=spIso(a);out.to=spIso(b);out.label=SP_MONTHS[a.getMonth()].charAt(0).toUpperCase()+SP_MONTHS[a.getMonth()].slice(1)+' '+a.getFullYear()},hit;
+  if((hit=/\s(this|current)\s+month\s/.exec(s))){mo(y,m)}
+  else if((hit=/\s(last|previous)\s+month\s/.exec(s))){mo(y,m-1)}
+  else if((hit=/\s(this)\s+year\s/.exec(s))){out.from=y+'-01-01';out.to=y+'-12-31';out.label=String(y)}
+  else if((hit=/\s(last|previous)\s+year\s/.exec(s))){out.from=(y-1)+'-01-01';out.to=(y-1)+'-12-31';out.label=String(y-1)}
+  else if((hit=/\s(?:in\s+the\s+)?last\s+(\d{1,3})\s+days\s/.exec(s))){var n=Math.min(+hit[1],3650);out.from=spIso(new Date(y,today.getMonth(),today.getDate()-n));out.to=spIso(today);out.label='the last '+n+' days'}
+  else{
+    var re=/\s(?:in\s+)?(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t|tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)(?:\s+(20\d\d))?\s/,mm=re.exec(s);
+    if(mm&&!(mm[1]==='may'&&!mm[2]&&!/\sin\s+may\s/.test(s))&&!(mm[1]==='mar'&&!mm[2])){
+      var idx=SP_MONTHS.map(function(n){return n.slice(0,3)}).indexOf(mm[1].slice(0,3)),yy=mm[2]?+mm[2]:(idx>m?y-1:y);mo(yy,idx);hit=mm}
+  }
+  out.rest=(hit?s.replace(hit[0],' '):s).replace(/\s+/g,' ').trim();
+  if(!hit)out.rest=s.replace(/\s+/g,' ').trim();
+  return out;
 }
 /*SEARCH-END*/
 /*CARDS-START*/
@@ -6204,41 +6224,88 @@ function spotStatic(){
   if(docsUI.data)docsUI.data.folders.forEach(function(f){f.files.forEach(function(x){push('Documents',x.name,f.category+' · '+x.year,'file document',function(){goTo('docs')})})});
   return it;
 }
-function spotTx(terms,q){
+function spotTx(terms,q,per){
   var mn=spotMonthNames(),hits=[],sp=0,inc=0,n=0,i;
   for(i=0;i<S.txns.length;i++){
-    var x=S.txns[i],hay=(x.name||'')+' '+(x.note||'')+' '+(x.cat||'')+' '+(x.sub||'')+' '+Math.abs(x.amount).toFixed(2)+' '+x.date+' '+mn[x.date.slice(5,7)]+' '+x.date.slice(0,4);
+    var x=S.txns[i],hay;if(per&&per.from&&(x.date<per.from||x.date>per.to))continue;
+    hay=(x.name||'')+' '+(x.note||'')+' '+(x.cat||'')+' '+(x.sub||'')+' '+Math.abs(x.amount).toFixed(2)+' '+x.date+' '+mn[x.date.slice(5,7)]+' '+x.date.slice(0,4);
     var sc=searchScore(terms,x.name,hay);if(!sc)continue;
     n++;if(x.amount<0)sp-=x.amount;else inc+=x.amount;hits.push({x:x,sc:sc});
   }
   hits.sort(function(a,b){return b.sc-a.sc||(a.x.date<b.x.date?1:-1)});
   return {n:n,spent:sp,income:inc,top:hits.slice(0,6).map(function(h){return h.x})};
 }
+var SPOT_STOP={how:1,much:1,did:1,i:1,on:1,the:1,in:1,my:1,what:1,is:1,are:1,total:1,for:1,a:1,at:1,of:1,to:1,me:1,show:1,spent:1,spend:1,spending:1,do:1,have:1,'much?':1,i:1};
+function spotRange(per){return per.from?{from:per.from,to:per.to,label:per.label}:{from:NOWKEY+'-01',to:NOWKEY+'-31',label:monthLabel(NOWKEY)}}
+function spotSpend(from,to){
+  var by={},tot=0,inc=0;ledger().forEach(function(x){if(x.date<from||x.date>to)return;if(x.amount<0&&x.cat!=='Income'){by[x.cat]=(by[x.cat]||0)-x.amount;tot-=x.amount}else if(x.amount>0&&x.cat==='Income')inc+=x.amount});
+  return {total:tot,by:by,income:inc,top:Object.keys(by).sort(function(a,b){return by[b]-by[a]}).slice(0,3)};
+}
+// Straight answers to common questions, so nothing has to be opened.
+function spotAnswers(all,per){
+  var out=[],has=function(){var a=[].slice.call(arguments);return a.some(function(w){return all.indexOf(w)>-1})},A=function(t,sub,go){out.push({group:'Quick answers',title:t,sub:sub,go:go,answer:true})},r=spotRange(per);
+  try{
+    if(has('networth')||(has('net')&&has('worth'))){var nw=netWorth();A('Net worth '+(nw.net<0?'-':'')+money0(Math.abs(nw.net)),money0(nw.assets)+' assets · '+money0(nw.debts)+' debts',function(){goTo('accounts')})}
+    var catHit=CATS.filter(function(c){return c!=='Income'&&c!=='Other'&&(all.indexOf(c.toLowerCase())>-1||all.join(' ').indexOf(c.toLowerCase())>-1)})[0];
+    if(catHit){var cs0=spotSpend(r.from,r.to),bg=S.budgets[catHit]||0,cv=cs0.by[catHit]||0;A(catHit+': '+money0(cv)+' in '+r.label,(bg&&r.from.slice(0,7)===NOWKEY?money0(Math.abs(bg-cv))+(cv>bg?' over':' left')+' of the '+money0(bg)+' budget \u00b7 ':'')+'see it month by month',function(){budOpen=catHit;month=r.from.slice(0,7);goTo('budgets')})}
+    else if(has('spent','spend','spending','expenses')||(has('left')&&!has('bills'))){var sp=spotSpend(r.from,r.to);A('Spent '+money0(sp.total)+' in '+r.label,(sp.income?'Income '+money0(sp.income)+' · ':'')+(sp.top.length?'most on '+sp.top.map(function(c){return c+' '+money0(sp.by[c])}).join(', '):'nothing recorded'),function(){month=r.from.slice(0,7);goTo('report')})}
+    if(has('income','earned','earnings','salary')){var si=spotSpend(r.from,r.to);A('Income '+money0(si.income)+' in '+r.label,'Spent '+money0(si.total)+' · left '+money0(si.income-si.total),function(){month=r.from.slice(0,7);goTo('report')})}
+    if(has('paycheck','payday','paychecks')||(has('next')&&has('pay'))){var pn=payNext(payStubs(),TODAY);A(pn?'Next paycheck '+shortDate(pn.date)+', about '+money0(pn.net):'No pay statements yet',pn?(pn.days===0?'today':pn.days===1?'tomorrow':'in '+pn.days+' days')+' · paid '+pn.freq.label:'Add one on the My pay tab',function(){goTo('pay')})}
+    if(has('bill','bills','due')){var bs=billsSummary(allBillItems(NOWKEY),NOWKEY,S.txns,S.billMarks,TODAY);A(bs.count?money0(bs.pending)+' of bills still to pay this month':'No bills set up',bs.count?bs.paidCount+' of '+bs.count+' paid'+(bs.overdue?' · '+bs.overdue+' overdue':'')+(bs.next?' · next: '+billName(bs.next.item.name)+' '+shortDate(iso(bs.next.st.due)):''):'Add bills on the Bills tab',function(){goTo('bills')})}
+    if(has('debt','debts','owe','owed','loans','loan')){var dl=debtList(true),dt=dl.reduce(function(n,d){return n+d.balance},0),hi=dl.slice().sort(function(a,b){return b.apr-a.apr})[0];A('You owe '+money0(dt),dl.length?dl.length+' debt'+(dl.length===1?'':'s')+(hi&&hi.apr>0?' · highest rate '+hi.name+' at '+hi.apr+'%':''):'no debts recorded',function(){goTo('loans')})}
+    if(has('tax','taxes','refund')){var te=taxInputs(S.tax,TODAY.getFullYear(),payStubs(),S.tax.forms,S.txns,TODAY);if(te.source==='none')A('Tax estimate needs your pay','Add pay statements or your yearly pay on the Taxes tab',function(){goTo('tax')});else A((te.total>=0?'Expect to owe about ':'Expect a refund of about ')+money0(Math.abs(te.total)),'federal '+(te.balance>=0?'owe ':'refund ')+money0(Math.abs(te.balance))+(te.state?' · state '+(te.state.balance>=0?'owe ':'refund ')+money0(Math.abs(te.state.balance)):'')+' · estimate',function(){goTo('tax')})}
+    if(has('upkeep','maintenance','service')){var us=maintSavings(assetAccts(),TODAY,12);A(us.items.length?us.items[0].name+(us.items[0].overdue?' is overdue':' in '+us.items[0].days+' days')+' ('+money0(us.items[0].cost)+')':'No upkeep scheduled',us.monthly?'put aside about '+money0(us.monthly)+' a month':'Add maintenance items to a vehicle',function(){goTo('assets')})}
+    if(has('cashback')||(has('cash')&&has('back'))){var cb=cashbackStats(S.txns,S.accounts,TODAY,S.cardPay);A('Cash back '+money0(cb.total.cb12)+' in 12 months',money0(cb.total.cost12)+' interest and fees · net '+(cb.total.net12>=0?'+':'-')+money0(Math.abs(cb.total.net12)),function(){goTo('cards')})}
+    if(has('utilization','credit')&&!has('score')||has('cards')){var cl=cardsData();if(cl.length){var cs=cardsSummary(cl);A('Credit cards: you owe '+money0(cs.balance),(cs.pct!==null?Math.round(cs.pct)+'% of '+money0(cs.limit)+' used · ':'')+'minimums '+money0(cs.minPay)+' a month',function(){goTo('cards')})}}
+    if(has('budget','budgets','over')){var sb=spendBy(NOWKEY),ov=Object.keys(S.budgets).filter(function(c){return S.budgets[c]>0&&(sb.by[c]||0)>S.budgets[c]});A(ov.length?ov.length+' budget'+(ov.length===1?'':'s')+' over this month':'No budget is over this month',ov.length?ov.slice(0,3).map(function(c){return c+' by '+money0(sb.by[c]-S.budgets[c])}).join(', '):'Open budgets to see each one',function(){goTo('budgets')})}
+  }catch(e){}
+  return out;
+}
+function spotGlance(){
+  var rows=[],g=function(t,sub,go){rows.push({group:'At a glance',title:t,sub:sub,go:go,answer:true})};
+  try{
+    var nw=netWorth(),sp=spotSpend(NOWKEY+'-01',NOWKEY+'-31'),pn=payNext(payStubs(),TODAY),bs=billsSummary(allBillItems(NOWKEY),NOWKEY,S.txns,S.billMarks,TODAY),sb=spendBy(NOWKEY),ov=Object.keys(S.budgets).filter(function(c){return S.budgets[c]>0&&(sb.by[c]||0)>S.budgets[c]}),us=maintSavings(assetAccts(),TODAY,12);
+    if(S.accounts.length)g('Net worth '+(nw.net<0?'-':'')+money0(Math.abs(nw.net)),money0(nw.assets)+' assets · '+money0(nw.debts)+' debts',function(){goTo('accounts')});
+    g('Spent '+money0(sp.total)+' this month',(sp.income?'income '+money0(sp.income)+' · left '+money0(sp.income-sp.total):'no income recorded yet')+(sp.top.length?' · most on '+sp.top[0]:''),function(){goTo('report')});
+    if(pn)g('Next paycheck '+shortDate(pn.date)+', about '+money0(pn.net),(pn.days===0?'today':pn.days===1?'tomorrow':'in '+pn.days+' days'),function(){goTo('pay')});
+    if(bs.count)g(money0(bs.pending)+' of bills still to pay',(bs.next?'next: '+billName(bs.next.item.name)+' '+shortDate(iso(bs.next.st.due)):bs.paidCount+' of '+bs.count+' paid')+(bs.overdue?' · '+bs.overdue+' overdue':''),function(){goTo('bills')});
+    if(ov.length)g(ov.length+' budget'+(ov.length===1?'':'s')+' over',ov.slice(0,3).join(', '),function(){goTo('budgets')});
+    if(us.items.length&&us.items[0].days<=45)g(us.items[0].name+(us.items[0].overdue?' is overdue':' in '+us.items[0].days+' days'),us.items[0].acctName,function(){goTo('assets')});
+  }catch(e){}
+  return rows;
+}
 function spotSearch(q){
-  var terms=searchTerms(q),res=[];
-  if(!terms.length){var base=spotStatic().filter(function(i){return i.group==='Pages'});return [{group:'Jump to',total:base.length,rows:base.slice(0,8)}]}
-  res=searchRank(spotStatic(),q,SPOT_ORDER,{Pages:5,Budgets:4,Bills:4,Accounts:4,'Vehicles and assets':5,Goals:3,Subscriptions:3,'Pay and taxes':4,Documents:4});
-  var t=spotTx(terms,q);
+  var per=searchPeriod(q,TODAY),all=searchTerms(per.rest),terms=all.filter(function(t){return !SPOT_STOP[t]}),res=[];
+  if(!all.length&&!per.label){var base=spotStatic().filter(function(i){return i.group==='Pages'}),gl=spotGlance();return (gl.length?[{group:'At a glance',total:gl.length,rows:gl}]:[]).concat([{group:'Jump to',total:base.length,rows:base.slice(0,8)}])}
+  var ans=spotAnswers(all.concat(terms),per);
+  // words that only asked a question ("spent", "bills") are not searched for in the data
+  var qa={spent:1,spend:1,spending:1,income:1,earned:1,earnings:1,salary:1,paycheck:1,paychecks:1,payday:1,next:1,pay:1,bill:1,bills:1,due:1,debt:1,debts:1,owe:1,owed:1,loans:1,loan:1,tax:1,taxes:1,refund:1,upkeep:1,maintenance:1,cashback:1,cash:1,back:1,networth:1,net:1,worth:1,utilization:1,over:1,left:1,cards:1};
+  var dataTerms=ans.length?terms.filter(function(t){return !qa[t]}):terms;
+  if(!dataTerms.length&&!per.label)return ans.length?[{group:'Quick answers',total:ans.length,rows:ans}]:[];
+  if(!dataTerms.length&&per.label){return ans.length?[{group:'Quick answers',total:ans.length,rows:ans}]:[]}
+  res=searchRank(spotStatic(),dataTerms.join(' '),SPOT_ORDER,{Pages:5,Budgets:4,Bills:4,Accounts:4,'Vehicles and assets':5,Goals:3,Subscriptions:3,'Pay and taxes':4,Documents:4});
+  var t=spotTx(dataTerms,q,per);
   if(t.n){
-    var rows=[];
-    if(t.n>1)rows.push({group:'Transactions',title:t.n+' transactions match',sub:(t.spent?money0(t.spent)+' spent':'')+(t.spent&&t.income?' · ':'')+(t.income?money0(t.income)+' in':''),go:function(){filter.q=terms.join(' ');filter.cat='';filter.kind='';filter.acct='';filter.from='';filter.to='';filter.min='';filter.max='';filter.limit=150;filter.bulk='';goTo('transactions')}});
-    t.top.forEach(function(x){rows.push({group:'Transactions',title:x.name,sub:shortDate(x.date)+' · '+(x.sub||x.cat)+' · '+(x.amount<0?'':'+')+money(x.amount),amt:true,go:function(){filter.q=x.name;filter.cat='';filter.kind='';filter.acct='';filter.from='';filter.to='';filter.min='';filter.max='';filter.limit=150;filter.bulk='';goTo('transactions')}})});
+    var rows=[],clear=function(){filter.cat='';filter.kind='';filter.acct='';filter.min='';filter.max='';filter.limit=150;filter.bulk='';filter.from=per.from||'';filter.to=per.to||''};
+    if(t.n>1||per.label)rows.push({group:'Transactions',title:t.n+' transaction'+(t.n===1?'':'s')+' match'+(per.label?' in '+per.label:''),sub:(t.spent?money0(t.spent)+' spent':'')+(t.spent&&t.income?' · ':'')+(t.income?money0(t.income)+' in':''),go:function(){filter.q=dataTerms.join(' ');clear();goTo('transactions')},answer:true});
+    t.top.forEach(function(x){rows.push({group:'Transactions',title:x.name,sub:shortDate(x.date)+' · '+(x.sub||x.cat)+' · '+(x.amount<0?'':'+')+money(x.amount),go:function(){filter.q=x.name;clear();filter.from='';filter.to='';goTo('transactions')}})});
     var gi=SPOT_ORDER.indexOf('Transactions'),at=0,k;for(k=0;k<res.length;k++)if(SPOT_ORDER.indexOf(res[k].group)<gi)at=k+1;
     res.splice(at,0,{group:'Transactions',total:t.n,rows:rows});
   }
+  if(ans.length)res.unshift({group:'Quick answers',total:ans.length,rows:ans});
   return res;
 }
 function spotFlat(){var f=[];spot.res.forEach(function(g){g.rows.forEach(function(r){f.push(r)})});return f}
 function spotDraw(){
   var el=document.getElementById('spot');if(!el)return;
   var flat=spotFlat(),n=0,list=el.querySelector('#sp-list');
-  list.innerHTML=spot.res.length?spot.res.map(function(g){return '<div class="sp-group">'+esc(g.group)+(g.total>g.rows.length&&g.group!=='Transactions'?' <span class="muted">('+g.total+')</span>':'')+'</div>'+g.rows.map(function(r){var i=n++;return '<button type="button" class="sp-item'+(i===spot.sel?' on':'')+'" data-i="'+i+'" role="option" aria-selected="'+(i===spot.sel)+'"><span class="sp-t">'+esc(r.title)+'</span><span class="sp-s">'+esc(r.sub||'')+'</span></button>'}).join('')}).join(''):'<div class="empty" style="padding:22px 0">Nothing found for “'+esc(spot.q)+'”. Try a merchant, an amount, a month, a category, a bill or an account.</div>';
+  list.innerHTML=spot.res.length?spot.res.map(function(g){return '<div class="sp-group">'+esc(g.group)+(g.total>g.rows.length&&g.group!=='Transactions'?' <span class="muted">('+g.total+')</span>':'')+'</div>'+g.rows.map(function(r){var i=n++;return '<button type="button" class="sp-item'+(i===spot.sel?' on':'')+'" data-i="'+i+'" role="option" aria-selected="'+(i===spot.sel)+'"><span class="sp-t'+(r.answer?' sp-a':'')+'">'+esc(r.title)+'</span><span class="sp-s">'+esc(r.sub||'')+'</span></button>'}).join('')}).join(''):'<div class="empty" style="padding:22px 0">Nothing found for “'+esc(spot.q)+'”. Try a merchant, an amount, a month, a category, a bill or an account.</div>';
   var on=list.querySelector('.sp-item.on');if(on&&on.scrollIntoView)on.scrollIntoView({block:'nearest'});
 }
 function spotOpen(){
   if(VLT.locked||document.getElementById('spot'))return;
   var el=document.createElement('div');el.id='spot';el.className='spotwrap';
-  el.innerHTML='<div class="spotbox" role="dialog" aria-modal="true" aria-label="Search the app"><input id="sp-q" type="search" autocomplete="off" placeholder="Search anything: a merchant, amount, bill, account, budget, month or setting" aria-label="Search"><div id="sp-list" role="listbox"></div><div class="sp-foot sub muted">&uarr;&darr; to move · Enter to open · Esc to close</div></div>';
+  el.innerHTML='<div class="spotbox" role="dialog" aria-modal="true" aria-label="Search the app"><input id="sp-q" type="search" autocomplete="off" placeholder="Search or ask: shell last month, next paycheck, net worth, bills due, tax refund" aria-label="Search"><div id="sp-list" role="listbox"></div><div class="sp-foot sub muted">&uarr;&darr; to move · Enter to open · Esc to close</div></div>';
   document.body.appendChild(el);spot.open=true;spot.q='';spot.sel=0;spot.res=spotSearch('');spotDraw();
   var q=el.querySelector('#sp-q');q.focus();
   q.oninput=function(){spot.q=q.value;spot.sel=0;spot.res=spotSearch(q.value);spotDraw()};
