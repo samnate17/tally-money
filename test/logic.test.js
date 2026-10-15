@@ -1925,3 +1925,10 @@ test('cleanServiceRecords keeps only valid, plain service rows and drops persona
   assert.equal(r.records[1].meter, 0);
   assert.equal(r.records[1].cost, 0);
 });
+
+test('income sub-categories: salary, bonus, tax refund, interest and more are recognised', () => {
+  const w = catWorld({ customCats: [], merchantCats: {}, txns: [], subCats: {}, merchantSubs: {} });
+  const table = { 'ACME CORP PAYROLL DIRECT DEP': 'Salary', 'ADP PAYROLL 1234': 'Salary', 'YEAR END BONUS ACME': 'Bonus', 'IRS TREAS 310 TAX REF': 'Tax refund', 'INTEREST PAID': 'Interest and dividends', 'AMAZON REFUND': 'Refunds and reimbursements', 'SOCIAL SECURITY SSA TREAS': 'Government benefits' };
+  for (const [n, sub] of Object.entries(table)) assert.equal(w.guessSub('Income', n), sub, n);
+  assert.ok(w.subList('Income').includes('Overtime and commission'));
+});
