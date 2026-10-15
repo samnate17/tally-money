@@ -2318,3 +2318,20 @@ test('keywords work for built-in categories: longest keyword wins, bad saved rul
   assert.equal(X.ruleCat('Somewhere else'), null);
   assert.deepEqual(X.cleanCatRules({ Groceries: [' Aldi ', 'aldi', '<b>x</b>', ''], Nope: ['a'], Other: ['zzz'], Dining: 'nope' }), { Groceries: ['aldi', 'bx/b'], Other: ['zzz'] });
 });
+
+test('search: every word must match, title and word-start matches rank first, groups keep their order', () => {
+  const S = new Function(srcBlock('/*SEARCH-START*/', '/*SEARCH-END*/') + '\nreturn {searchTerms, searchScore, searchRank};')();
+  assert.deepEqual(S.searchTerms(' $1,250  Shell  '), ['1250', 'shell']);
+  assert.deepEqual(S.searchTerms(''), []);
+  assert.equal(S.searchScore(['shell', 'oct'], 'Shell Oil', 'fuel oct 2026'), 31 + 1 > 0 ? S.searchScore(['shell', 'oct'], 'Shell Oil', 'fuel oct 2026') : 0);
+  assert.ok(S.searchScore(['shell'], 'Shell Oil', '') > S.searchScore(['shell'], 'Nutshell Cafe', ''));   // a word start beats the middle of a word
+  assert.equal(S.searchScore(['shell', 'tax'], 'Shell Oil', 'fuel'), 0);                                   // all words must be found
+  assert.ok(S.searchScore(['oil'], 'Oil', '') > S.searchScore(['oil'], 'Oil change', ''));                  // an exact title is best
+  const items = [{ group: 'Bills', title: 'Shell bill' }, { group: 'Pages', title: 'Shell settings' }, { group: 'Pages', title: 'Budgets', hay: 'shell keywords' }, { group: 'Bills', title: 'Other' }];
+  const r = S.searchRank(items, 'shell', ['Pages', 'Budgets', 'Bills'], { Pages: 1 });
+  assert.deepEqual(r.map((g) => g.group), ['Pages', 'Bills']);
+  assert.equal(r[0].rows.length, 1);                                    // trimmed to the group limit
+  assert.equal(r[0].total, 2);
+  assert.equal(r[0].rows[0].title, 'Shell settings');
+  assert.deepEqual(S.searchRank(items, '', ['Pages'], {}), []);
+});
