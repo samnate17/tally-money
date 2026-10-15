@@ -2271,3 +2271,50 @@ test('tab lock: protection setting is kept only as app or own', () => {
   assert.equal(N.cleanNavPref({ protect: 'own' }, []).protect, 'own');
   assert.equal(N.cleanNavPref({ protect: 'yes' }, []).protect, '');
 });
+
+// ---------- Budgets: category history, findings, keywords for any category ----------
+function budWorld() { return new Function(srcBlock('/*CATDETAIL-START*/', '/*CATDETAIL-END*/') + '\nreturn {catDetail, catInsights};')(); }
+const budKey = (n) => n.toLowerCase().replace(/[#\d*]+/g, '').replace(/\s+/g, ' ').trim();
+test('catDetail: twelve months of one category, merchants, regular charges and the biggest purchase', () => {
+  const B = budWorld(), t = [];
+  ['2026-05', '2026-06', '2026-07', '2026-08', '2026-09', '2026-10'].forEach((m, i) => {
+    t.push({ id: 'g' + i, date: m + '-04', name: 'Grocer One', amount: -100 - i * 10, cat: 'Groceries' });
+    t.push({ id: 'w' + i, date: m + '-15', name: 'Wholesale 12', amount: -50, cat: 'Groceries' });
+  });
+  t.push({ id: 'x', date: '2026-10-09', name: 'Elsewhere', amount: -400, cat: 'Dining' }, { id: 'r', date: '2026-10-10', name: 'Refund', amount: 20, cat: 'Groceries' });
+  const d = B.catDetail(t, 'Groceries', '2026-10', 175, { keyOf: budKey, dataMonths: ['2026-05', '2026-06', '2026-07', '2026-08', '2026-09', '2026-10'] });
+  assert.equal(d.months.length, 12);
+  assert.equal(d.months[11].mk, '2026-10');
+  assert.equal(d.spend, 200);                         // 150 + 50, the refund and the other category are not counted
+  assert.equal(d.months[0].mk, '2025-11');
+  assert.equal(Math.round(d.avg6), 170);               // May to September: 150, 160, 170, 180, 190
+  assert.equal(d.merchants[0].name, 'Grocer One');
+  assert.equal(d.recurring.find((r) => /Wholesale/.test(r.name)).amt, 50);
+  assert.equal(d.big.amount, 150);
+  assert.equal(d.overOf, 6);
+  assert.equal(d.overCount, 3);                        // Aug, Sep and Oct are above 175
+});
+test('catInsights: over budget, above usual, budget too low, nothing recorded', () => {
+  const B = budWorld();
+  const mk = (spends, budget) => { const t = spends.map((v, i) => ({ id: 'a' + i, date: ['2026-05', '2026-06', '2026-07', '2026-08', '2026-09', '2026-10'][i] + '-05', name: 'Shop', amount: -v, cat: 'Dining' })); return B.catDetail(t, 'Dining', '2026-10', budget, { keyOf: budKey, dataMonths: ['2026-05', '2026-06', '2026-07', '2026-08', '2026-09', '2026-10'] }); };
+  const over = B.catInsights(mk([300, 300, 300, 300, 300, 450], 250), 250, 'Dining');
+  assert.ok(over.some((i) => i.k === 'bad' && /Over budget by \$200/.test(i.title)));
+  assert.ok(over.some((i) => /Over budget in 6 of the last 6 months/.test(i.title)));
+  assert.ok(over.some((i) => /above your usual/.test(i.title)));
+  const low = B.catInsights(mk([100, 100, 100, 100, 100, 100], 500), 500, 'Dining');
+  assert.ok(low.some((i) => /usually use about 20%/.test(i.title)));
+  const none = B.catInsights(B.catDetail([], 'Dining', '2026-10', 0, { keyOf: budKey }), 0, 'Dining');
+  assert.match(none[0].title, /Nothing spent in Dining/);
+});
+test('keywords work for built-in categories: longest keyword wins, bad saved rules are cleaned', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const code = src.slice(src.indexOf('function ruleRe('), src.indexOf('var CCOL=')) + src.slice(src.indexOf('function cleanCatRules('), src.indexOf('function cleanCustomCats('));
+  const f = new Function('S,BASECATS', code + '\nreturn {ruleCat, cleanCatRules};');
+  const S = { customCats: [{ name: 'Gas', rules: ['costco gas', 'shell'] }], catRules: { Groceries: ['costco', 'aldi'] } };
+  const X = f(S, ['Groceries', 'Dining']);
+  assert.equal(X.ruleCat('COSTCO GAS #123'), 'Gas');            // the longer keyword wins
+  assert.equal(X.ruleCat('Costco wholesale'), 'Groceries');
+  assert.equal(X.ruleCat('ALDI 44'), 'Groceries');
+  assert.equal(X.ruleCat('Somewhere else'), null);
+  assert.deepEqual(X.cleanCatRules({ Groceries: [' Aldi ', 'aldi', '<b>x</b>', ''], Nope: ['a'], Other: ['zzz'], Dining: 'nope' }), { Groceries: ['aldi', 'bx/b'], Other: ['zzz'] });
+});
