@@ -1548,15 +1548,15 @@ test('categories: fees, taxes, repairs and maintenance', () => {
   t.forEach(([n, c, s]) => { assert.strictEqual(w.guessCat(n), c, n); if (s !== '*') assert.strictEqual(w.guessSub(c, n), s, n + ' sub'); });
 });
 
-function assetWorld() { return new Function(srcBlock('/*ASSETS-START*/', '/*ASSETS-END*/') + '\nreturn {ASSET_KINDS, MAINT_PRESETS, assetRate, assetStats, meterPerDay, maintDue, maintBillItems, valueLookupUrl, cleanAsset};')(); }
+function assetWorld() { return new Function(srcBlock('/*ASSETS-START*/', '/*ASSETS-END*/') + '\nreturn {ASSET_KINDS, MAINT_PRESETS, assetRate, assetStats, meterPerDay, maintDue, maintBillItems, valueLookupUrl, cleanAsset, modRecoup, modsCost, modsAdd};')(); }
 test('assets: depreciation rate comes from your numbers, then purchase, then a default', () => {
   const A = assetWorld(), T = new Date(2026, 9, 14);
   const hist = { balance: 30000, history: [{ date: '2025-10-14', balance: 34000 }, { date: '2026-10-14', balance: 30000 }], asset: { kind: 'car' } };
-  let r = A.assetRate(hist, T); assert.strictEqual(r.src, 'history'); assert.ok(Math.abs(r.rate - 0.1176) < 0.001);
-  r = A.assetRate({ balance: 36000, history: [{ date: '2026-10-14', balance: 36000 }], asset: { kind: 'car', purchasePrice: 40000, purchaseDate: '2025-10-14' } }, T); assert.strictEqual(r.src, 'purchase'); assert.ok(Math.abs(r.rate - 0.10) < 0.001);
-  r = A.assetRate({ balance: 36000, history: [{ date: '2026-10-14', balance: 36000 }], asset: { kind: 'boat', rate: 0.2 } }, T); assert.deepStrictEqual(r, { rate: 0.2, src: 'ai' });
-  r = A.assetRate({ balance: 5000, history: [], asset: { kind: 'motorcycle' } }, T); assert.deepStrictEqual(r, { rate: 0.08, src: 'default' });
-  const st = A.assetStats(hist, T); assert.strictEqual(Math.round(st.proj[0].value), 26471); assert.strictEqual(st.lost, null);
+  let r = A.assetRate(hist, T); assert.strictEqual(r.src, 'history'); assert.ok(Math.abs(r.rate - 0.1188) < 0.002);   // one year of data is blended 50/50 with the typical 12%
+  r = A.assetRate({ balance: 36000, history: [{ date: '2026-10-14', balance: 36000 }], asset: { kind: 'car', purchasePrice: 40000, purchaseDate: '2025-10-14' } }, T); assert.strictEqual(r.src, 'purchase'); assert.ok(Math.abs(r.rate - 0.11) < 0.002);
+  r = A.assetRate({ balance: 36000, history: [{ date: '2026-10-14', balance: 36000 }], asset: { kind: 'boat', rate: 0.2 } }, T); assert.strictEqual(r.rate, 0.2); assert.strictEqual(r.src, 'ai');
+  r = A.assetRate({ balance: 5000, history: [], asset: { kind: 'motorcycle' } }, T); assert.strictEqual(r.rate, 0.08); assert.strictEqual(r.src, 'default');
+  const st = A.assetStats(hist, T); assert.strictEqual(Math.round(st.proj[0].value), Math.round(30000 * (1 - st.rate))); assert.strictEqual(st.lost, null);
   const st2 = A.assetStats({ balance: 30000, history: [], asset: { kind: 'car', purchasePrice: 40000, purchaseDate: '2024-10-14' } }, T); assert.strictEqual(st2.lost, 10000); assert.strictEqual(Math.round(st2.lostPct), 25); assert.ok(Math.abs(st2.ageYears - 2) < 0.02);
 });
 test('assets: maintenance is due by date or by usage, whichever comes first, and feeds the bills list', () => {
@@ -2187,4 +2187,40 @@ test('cleanAssetWeb needs three real https listings and keeps the price range sa
   assert.equal(few.mid, 0);
   assert.match(few.basis, /Fewer than three/);
   assert.equal(cleanAssetWeb('nothing'), null);
+});
+
+test('assets: a value that rose since purchase (market, inflation) is not treated as appreciation, mods are not market movement', () => {
+  const A = assetWorld(), T = new Date(2026, 9, 14);
+  const bike = { balance: 8800, history: [{ date: '2026-04-14', balance: 8000 }, { date: '2026-10-14', balance: 8800 }], asset: { kind: 'motorcycle', purchasePrice: 8000, purchaseDate: '2026-04-14' } };
+  const r = A.assetRate(bike, T);
+  assert.ok(r.rate >= 0.08 * 0.4 - 1e-9 && r.rate <= 0.08);                       // never an appreciation; only a slow decline
+  assert.equal(r.floored, true);
+  assert.equal(r.young, true);
+  const st = A.assetStats(bike, T);
+  assert.ok(st.perYear > 0 && st.proj[2].value < 8800);
+  assert.equal(st.lost, -800);                                                    // nominally up $800 ...
+  assert.ok(st.realLost !== null && st.realLost < st.lost + 1000);               // ... and the inflation-adjusted figure is lower than the nominal gain
+  const coll = A.assetRate(Object.assign({}, bike, { asset: Object.assign({}, bike.asset, { collectible: true }) }), T);
+  assert.ok(coll.rate < 0.08 * 0.4);                                              // a collectible may gain value
+  assert.equal(coll.floored, false);
+  // a $1,000 mod that adds $400 is not "market gain": the value jump is removed before the rate is worked out
+  const mod = { balance: 8400, history: [{ date: '2025-10-14', balance: 8000 }, { date: '2026-10-14', balance: 8400 }], asset: { kind: 'motorcycle', purchasePrice: 8000, purchaseDate: '2025-10-14', mods: [{ id: 'm', name: 'Exhaust', cost: 1000, add: 400, counted: true, date: '2026-06-01' }] } };
+  const rm = A.assetRate(mod, T);
+  assert.ok(Math.abs(rm.observed) < 0.01);                                        // 8,400 less the 400 added is 8,000 again
+  const sm = A.assetStats(mod, T);
+  assert.equal(sm.invested, 9000);
+  assert.equal(sm.lost, 600);                                                     // 9,000 put in, worth 8,400
+  assert.equal(sm.modsAdd, 400);
+});
+test('assets: modifications are cleaned and recouped at a share of their cost', () => {
+  const A = assetWorld(); let n = 0;
+  const c = A.cleanAsset({ kind: 'motorcycle', collectible: true, mods: [{ name: 'Exhaust <b>', kind: 'Performance (exhaust, tune, suspension)', cost: 900, add: 270, counted: true, date: '2026-05-01' }, { name: '', cost: 5 }, { name: 'Bad', cost: -4 }] }, () => 'n' + (++n));
+  assert.equal(c.collectible, true);
+  assert.equal(c.mods.length, 1);
+  assert.equal(c.mods[0].name, 'Exhaust b');
+  assert.equal(c.mods[0].add, 270);
+  assert.equal(A.modRecoup('Performance (exhaust, tune, suspension)'), 0.3);
+  assert.equal(A.modRecoup('nonsense'), 0.3);
+  assert.equal(A.modsCost(c), 900);
+  assert.equal(A.modsAdd(c), 270);
 });

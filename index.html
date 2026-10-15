@@ -1377,22 +1377,37 @@ function assetKind(a){return ASSET_KINDS[a&&a.kind]?a.kind:'other'}
 function isoOf(d){return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2)}
 function parseISO(s){var p=String(s).split('-');return new Date(+p[0],+p[1]-1,+p[2])}
 function addMonthsISO(s,n){var d=parseISO(s),day=d.getDate();d.setDate(1);d.setMonth(d.getMonth()+n);var dim=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();d.setDate(Math.min(day,dim));return d}
-// How fast it loses value, as a yearly fraction. Your own recorded values are used first, then the price you paid, then the AI's figure, then a rule of thumb for that kind of asset.
+// Modifications you add: what they cost, and what a buyer would pay extra for them (a share of the cost, since buyers rarely pay full price for someone else's parts).
+var ASSET_INFLATION=0.03;
+var MOD_KINDS=[['Accessories (bags, windshield, crash bars)',0.5],['Wheels and tires',0.4],['Comfort (seat, grips, controls)',0.4],['Safety and security',0.4],['Performance (exhaust, tune, suspension)',0.3],['Lights and electronics',0.3],['Cosmetic (paint, wrap, graphics)',0.2],['Other',0.3]];
+function modRecoup(kind){for(var i=0;i<MOD_KINDS.length;i++)if(MOD_KINDS[i][0]===kind)return MOD_KINDS[i][1];return 0.3}
+function modsCost(a){return (a&&a.mods||[]).reduce(function(n,m){return n+(+m.cost||0)},0)}
+function modsAdd(a){return (a&&a.mods||[]).reduce(function(n,m){return n+(m.counted?(+m.add||0):0)},0)}
+// How fast it loses value, as a yearly fraction. Your recorded values and what you paid are used, blended with a typical rate for that kind of asset until there are two years of data (a few months of prices says little). Vehicles and boats do not gain value over time: a rise is market prices and inflation, so the rate never drops below 40% of the typical one. Collectibles are the exception.
 function assetRate(acct,today){
-  var a=acct.asset||{},h=(acct.history||[]).filter(function(x){return x.balance>0}),t=today.getTime(),r;
-  var clamp=function(v){return Math.max(-0.3,Math.min(0.6,v))};
-  if(h.length>=2){var f=h[0],l=h[h.length-1],days=(parseISO(l.date)-parseISO(f.date))/864e5;
-    if(days>=90&&f.balance>0){r=1-Math.pow(l.balance/f.balance,365/days);if(isFinite(r))return {rate:clamp(r),src:'history'}}}
-  if(a.purchasePrice>0&&/^\d{4}-\d{2}-\d{2}$/.test(a.purchaseDate||'')&&acct.balance>0){var d2=(t-parseISO(a.purchaseDate).getTime())/864e5;
-    if(d2>=180){r=1-Math.pow(acct.balance/a.purchasePrice,365/d2);if(isFinite(r))return {rate:clamp(r),src:'purchase'}}}
-  if(typeof a.rate==='number'&&isFinite(a.rate))return {rate:clamp(a.rate),src:'ai'};
-  return {rate:ASSET_KINDS[assetKind(a)].rate,src:'default'};
+  var a=acct.asset||{},k=ASSET_KINDS[assetKind(a)],t=today.getTime(),collect=a.collectible===true,usage=1;
+  var log=(a.meterLog||[]).filter(function(x){return x&&x.v>=0});
+  if(log.length>=2&&k.mpy>0){var pd=meterPerDay(a);usage=Math.max(0.8,Math.min(1.5,pd*365/k.mpy))}
+  var def=k.rate*usage;                                                    // typical rate, a little faster if you use it more than usual
+  var adj=function(h){var x=0;(a.mods||[]).forEach(function(m){if(m.counted&&m.date&&m.date<=h.date)x+=(+m.add||0)});return h.balance-x};   // value added by a modification is not market movement
+  var h=(acct.history||[]).filter(function(x){return x.balance>0}),obs=null,days=0,src='';
+  if(h.length>=2){var f=h[0],l=h[h.length-1],dd=(parseISO(l.date)-parseISO(f.date))/864e5,fb=adj(f),lb=adj(l);
+    if(dd>=90&&fb>0&&lb>0){obs=1-Math.pow(lb/fb,365/dd);days=dd;src='history'}}
+  if(obs===null&&a.purchasePrice>0&&/^\d{4}-\d{2}-\d{2}$/.test(a.purchaseDate||'')&&acct.balance>0){var d2=(t-parseISO(a.purchaseDate).getTime())/864e5;
+    if(d2>=180){obs=1-Math.pow(Math.max(1,acct.balance-modsAdd(a))/a.purchasePrice,365/d2);days=d2;src='purchase'}}
+  var rate,floored=false,young=false;
+  if(obs!==null&&isFinite(obs)){var w=Math.min(1,days/730);young=w<1;rate=w*obs+(1-w)*def}
+  else if(typeof a.rate==='number'&&isFinite(a.rate)){rate=a.rate;src='ai'}
+  else{rate=def;src='default'}
+  if(!collect&&rate<def*0.4){rate=def*0.4;floored=true}
+  return {rate:Math.max(-0.3,Math.min(0.6,rate)),src:src,floored:floored,young:young,observed:obs,typical:def};
 }
 function assetStats(acct,today){
-  var a=acct.asset||{},v=acct.balance,rt=assetRate(acct,today),p=a.purchasePrice>0?a.purchasePrice:0;
+  var a=acct.asset||{},v=acct.balance,rt=assetRate(acct,today),p=a.purchasePrice>0?a.purchasePrice:0,mc=modsCost(a),inv=p>0?p+mc:0;
   var def=ASSET_KINDS[assetKind(a)].rate,slow=rt.rate>def?(rt.rate+def)/2:rt.rate;   // a fast early drop (the first years of a car) eases off, so later years use a rate between yours and the typical one
-  var lost=p>0?p-v:null,age=/^\d{4}-\d{2}-\d{2}$/.test(a.purchaseDate||'')?Math.max(0,(today-parseISO(a.purchaseDate))/864e5/365.25):null;
-  return {value:v,purchasePrice:p,lost:lost,lostPct:p>0?(p-v)/p*100:null,ageYears:age,rate:rt.rate,rateSrc:rt.src,perYear:v*rt.rate,perMonth:v*rt.rate/12,
+  var age=/^\d{4}-\d{2}-\d{2}$/.test(a.purchaseDate||'')?Math.max(0,(today-parseISO(a.purchaseDate))/864e5/365.25):null;
+  var lost=inv>0?inv-v:null,realLost=(inv>0&&age!==null)?p*Math.pow(1+ASSET_INFLATION,age)+mc-v:null;   // realLost: in the money you paid with, after about 3% a year inflation
+  return {value:v,purchasePrice:p,invested:inv,modsCost:mc,modsAdd:modsAdd(a),lost:lost,lostPct:inv>0?(inv-v)/inv*100:null,realLost:realLost,ageYears:age,rate:rt.rate,rateSrc:rt.src,floored:rt.floored,young:rt.young,typical:rt.typical,perYear:v*rt.rate,perMonth:v*rt.rate/12,
     proj:[1,3,5].map(function(y){return {years:y,value:Math.max(0,v*(1-rt.rate)*Math.pow(1-slow,y-1))}})};
 }
 // Usage per day from the readings you logged, else a typical figure for that kind of asset.
@@ -1439,6 +1454,8 @@ function cleanAsset(raw,newId){
   var pp=num(raw.purchasePrice,1e9);if(pp!==null&&pp>0)o.purchasePrice=pp;if(dre.test(raw.purchaseDate||''))o.purchaseDate=raw.purchaseDate;
   if(typeof raw.rate==='number'&&isFinite(raw.rate)&&raw.rate>=-0.3&&raw.rate<=0.6)o.rate=raw.rate;
   if(/^[\w-]{1,40}$/.test(raw.loanId||''))o.loanId=raw.loanId;
+  if(raw.collectible===true)o.collectible=true;
+  o.mods=(Array.isArray(raw.mods)?raw.mods:[]).slice(0,60).map(function(m){if(!m||!str(m.name,60))return null;var c=num(m.cost,1e7),ad=num(m.add,1e7);if(c===null)return null;var r={id:/^[\w-]{1,40}$/.test(m.id||'')?m.id:newId(),name:str(m.name,60),kind:str(m.kind,60),cost:c,add:ad===null?0:ad,counted:m.counted===true};if(dre.test(m.date||''))r.date=m.date;return r}).filter(Boolean);
   if(['KBB','Dealer offer','My estimate','AI estimate','Web listings','Purchase price'].indexOf(raw.valueSource)>-1)o.valueSource=raw.valueSource;
   o.meterLog=(Array.isArray(raw.meterLog)?raw.meterLog:[]).filter(function(x){return x&&dre.test(x.date||'')&&num(x.v,5e6)!==null}).slice(-40).map(function(x){return {date:x.date,v:+x.v}});
   o.maint=(Array.isArray(raw.maint)?raw.maint:[]).slice(0,40).map(function(m){if(!m||!str(m.name,60))return null;
@@ -1448,14 +1465,14 @@ function cleanAsset(raw,newId){
 }
 // What owning it really costs. o: {price, value, loan:{orig,balance,minPay}|null, monthsOwned, loanMonths, interestLeft, upkeep}
 function assetOwnership(o){
-  var p=+o.price>0?+o.price:0,v=+o.value||0,l=o.loan||null,up=+o.upkeep||0,mo=o.monthsOwned>0?o.monthsOwned:null;
-  var r={price:p,value:v,lost:p>0?p-v:null,upkeep:up,months:mo,hasLoan:!!l,interestPaid:null,interestLeft:0,owed:0,equity:null,realCost:p>0?p:null,gone:null,perMonth:null,underwater:false};
+  var p=+o.price>0?+o.price:0,mods=p>0?(+o.mods||0):0,inv=p+mods,v=+o.value||0,l=o.loan||null,up=+o.upkeep||0,mo=o.monthsOwned>0?o.monthsOwned:null;
+  var r={price:p,mods:mods,value:v,lost:p>0?inv-v:null,upkeep:up,months:mo,hasLoan:!!l,interestPaid:null,interestLeft:0,owed:0,equity:null,realCost:p>0?inv:null,gone:null,perMonth:null,underwater:false};
   if(l){
     r.owed=+l.balance||0;r.equity=v-r.owed;r.underwater=r.equity<0;
     var lm=o.loanMonths>0?o.loanMonths:mo,orig=+l.orig>0?+l.orig:0,pay=+l.minPay||0;
     if(orig>0&&pay>0&&lm>0){var principal=Math.max(0,orig-r.owed),ip=pay*lm-principal;r.interestPaid=Math.max(0,Math.min(ip,pay*lm));r.interestPaid=Math.round(r.interestPaid)}
     r.interestLeft=Math.max(0,Math.round(+o.interestLeft||0));
-    if(p>0)r.realCost=Math.round(p+(r.interestPaid||0)+r.interestLeft);
+    if(p>0)r.realCost=Math.round(inv+(r.interestPaid||0)+r.interestLeft);
   }
   if(p>0)r.gone=Math.round(r.lost+(r.interestPaid||0)+up);
   if(r.gone!==null&&mo>=1)r.perMonth=Math.round(r.gone/mo);
@@ -5400,18 +5417,26 @@ function asMaintRow(a,m){
     '<form class="as-last form" data-id="'+esc(a.id)+'" data-m="'+esc(m.id)+'" style="gap:4px;align-items:center"><input type="date" name="d" value="'+esc(m.lastDate||'')+'" aria-label="Last done" style="width:140px">'+(u?'<input type="number" name="v" min="0" step="1" placeholder="'+u+'" value="'+(typeof m.lastMeter==='number'?m.lastMeter:'')+'" aria-label="'+u+' when last done" style="width:92px">':'')+'<button class="btn small">Save</button></form>'+
     '<button class="btn small primary" data-act="as-done" data-id="'+esc(a.id)+'" data-m="'+esc(m.id)+'">Done today</button><button class="btn small" data-act="as-mdel" data-id="'+esc(a.id)+'" data-m="'+esc(m.id)+'" aria-label="Remove '+esc(m.name)+'">&times;</button></div>';
 }
+
+function assetMods(a){
+  var as=a.asset,mods=as.mods||[],st=assetStats(a,TODAY),h='<h3 style="font-size:15px;margin:16px 0 6px">Modifications'+(mods.length?'<small class="sub" style="font-weight:400"> '+money0(modsCost(as))+' spent, about '+money0(modsAdd(as))+' added to its value</small>':'')+'</h3>';
+  h+=mods.length?mods.map(function(m){return '<div class="row wrap"><div class="grow" style="flex-basis:200px"><div class="nm">'+esc(m.name)+'</div><div class="sub">'+esc(m.kind||'')+(m.date?' · '+shortDate(m.date):'')+' · cost '+money0(m.cost)+' · '+(m.counted?'adds about '+money0(m.add)+' to its value':'<span class="muted">already in its value, not added</span>')+'</div></div><button class="btn small" data-act="as-mod-del" data-id="'+esc(a.id)+'" data-m="'+esc(m.id)+'" aria-label="Remove '+esc(m.name)+'">&times;</button></div>'}).join(''):'<div class="sub muted">Nothing added yet. Exhausts, bags, windshields, wheels, suspension and similar upgrades go here.</div>';
+  h+='<form class="form as-mod" data-id="'+esc(a.id)+'" style="align-items:flex-end;margin-top:8px"><label>What was installed<input name="n" required maxlength="60" placeholder="e.g. Slip-on exhaust" style="width:190px"></label><label>Kind<select name="k">'+MOD_KINDS.map(function(k){return '<option value="'+esc(k[0])+'">'+esc(k[0])+' · adds '+Math.round(k[1]*100)+'%</option>'}).join('')+'</select></label><label>Cost $<input name="c" type="number" min="0" step="1" required style="width:100px"></label><label>Installed<input name="d" type="date" value="'+iso(TODAY)+'"></label><label>Adds $ to value<input name="a" type="number" min="0" step="1" placeholder="auto" style="width:100px"></label><label style="flex-direction:row;align-items:center;gap:6px"><input name="v" type="checkbox" checked> Add it to its value now</label><button class="btn small">Add modification</button></form>';
+  h+='<p class="sub muted" style="margin:6px 0 0;font-size:12px;white-space:normal">A modification raises what the asset is worth by a share of what it cost (the percentage shown, which you can override), because buyers rarely pay full price for someone else\'s parts. Untick "Add it to its value now" if the value you entered already includes it. The cost is counted in what you have put into the asset, and the added value is not treated as market gain when the app works out how fast it loses value.</p>';
+  return h;
+}
 function assetCard(a){
   var st=assetStats(a,TODAY),as=a.asset,k=ASSET_KINDS[assetKind(as)],u=k.unit,loan=as.loanId?S.accounts.filter(function(x){return x.id===as.loanId})[0]:null;
   var last=a.history[a.history.length-1],age=last?dayDiff(parseD(last.date),TODAY):0;
   var pts=a.history.map(function(h){return [parseD(h.date).getTime(),h.balance]});
-  var rateWhy={history:'from the values you recorded',purchase:'from what you paid and its value now',ai:'from the AI estimate',default:'a general rule of thumb for this kind of asset, not your numbers yet'}[st.rateSrc];
+  var rateWhy={history:'from the values you recorded',purchase:'from what you paid and its value now',ai:'from the AI estimate',default:'a general rule of thumb for this kind of asset, not your numbers yet'}[st.rateSrc]+(st.young&&st.rateSrc!=='default'&&st.rateSrc!=='ai'?', blended with the typical rate because there is less than two years of data':'');
   var lookup=valueLookupUrl(as),ai=asUI.ai&&asUI.ai.id===a.id?asUI.ai:null,hasAi=!!(T&&T.ai&&T.ai.assetValue),keyOk=!!(aiSt&&aiSt.hasKey);
   var h='<section class="panel" id="asset-'+esc(a.id)+'"><h2>'+esc(a.name)+'<small>'+esc(k.label)+(as.valueSource?' · value from '+esc(as.valueSource):'')+'</small></h2>';
   h+='<div class="grid tiles">'+tile('Worth now',money0(a.balance),age>120?'<span class="warn">Value is '+age+' days old</span>':'Updated '+shortDate(last.date))+
-    tile(st.lost!==null?(st.lost>=0?'Lost since you bought it':'Gained since you bought it'):'Loses about',st.lost!==null?'<span class="'+(st.lost>0?'bad':'good')+'">'+money0(Math.abs(st.lost))+'</span>':'<span class="bad">'+money0(st.perYear)+'/yr</span>',st.lost!==null?(st.lostPct>=0?st.lostPct.toFixed(0)+'% of the '+money0(st.purchasePrice)+' you paid':Math.abs(st.lostPct).toFixed(0)+'% above what you paid'):'Add what you paid for a real figure')+
+    tile(st.lost!==null?(st.lost>=0?'Lost since you bought it':'Gained since you bought it'):'Loses about',st.lost!==null?'<span class="'+(st.lost>0?'bad':'good')+'">'+money0(Math.abs(st.lost))+'</span>':'<span class="bad">'+money0(st.perYear)+'/yr</span>',st.lost!==null?(st.lostPct>=0?st.lostPct.toFixed(0)+'% of the '+money0(st.invested)+' you paid'+(st.modsCost>0?' and put in':''):Math.abs(st.lostPct).toFixed(0)+'% above what you paid'+(st.realLost!==null&&st.realLost>0?' (inflation explains it)':'')):'Add what you paid for a real figure')+
     tile('Depreciation',(st.rate*100).toFixed(1)+'%<span class="muted" style="font-size:14px"> a year</span>','about '+money0(st.perMonth)+' a month')+
     (loan?tile('Your equity',money0(a.balance-loan.balance),'worth minus the '+money0(loan.balance)+' still owed'):tile('In 3 years','~'+money0(st.proj[1].value),'projected'))+'</div>';
-  h+='<p class="sub" style="margin:8px 0;white-space:normal">Rate '+rateWhy+'. In 1 year about <b>'+money0(st.proj[0].value)+'</b>, in 3 years about <b>'+money0(st.proj[1].value)+'</b>, in 5 years about <b>'+money0(st.proj[2].value)+'</b>. Years after the first assume the drop slows down. These are projections, not guarantees; mileage, condition and the market move real prices.</p>';
+  h+='<p class="sub" style="margin:8px 0;white-space:normal">Rate '+rateWhy+'. In 1 year about <b>'+money0(st.proj[0].value)+'</b>, in 3 years about <b>'+money0(st.proj[1].value)+'</b>, in 5 years about <b>'+money0(st.proj[2].value)+'</b>. Years after the first assume the drop slows down. These are projections, not guarantees; mileage, condition and the market move real prices.'+(st.floored?' <b>Your recorded value is above what you paid. That is usually market prices and inflation, not real appreciation, so the app assumes a slow decline (at least 40% of the typical rate) instead of a gain.</b>':'')+(st.lost!==null&&st.lost<0&&st.realLost!==null&&st.realLost>0?' With about '+Math.round(ASSET_INFLATION*100)+'% inflation a year, in the money you paid with it is down about '+money0(Math.max(0,st.realLost))+' in real terms.':'')+'</p>'+(as.collectible?'<p class="sub muted" style="margin:0 0 6px;font-size:12px">Marked as a collectible, so it is allowed to gain value. <button class="btn small" data-act="as-collect" data-id="'+esc(a.id)+'">Treat it as a normal depreciating asset</button></p>':(st.floored||(as.kind==='other')?'<p class="sub muted" style="margin:0 0 6px;font-size:12px">Genuinely rare or collectible? <button class="btn small" data-act="as-collect" data-id="'+esc(a.id)+'">Allow it to gain value</button></p>':''));
   h+=pts.length>1?lineChart(pts,{money:true,label:'Value history of '+a.name,h:170}):'<div class="sub muted" style="margin:6px 0">Record its value every few months and the depreciation curve appears here.</div>';
   h+=assetKind(as)==='car'||assetKind(as)==='motorcycle'||assetKind(as)==='boat'||assetKind(as)==='rv'||assetKind(as)==='powersport'?assetExtras(a,loan):'';
   // value update
@@ -5422,6 +5447,7 @@ function assetCard(a){
   if(ai&&ai.res){var r=ai.res;h+='<div class="banner" style="margin-top:10px;display:block;white-space:normal">'+(r.mid>0?'<b>'+(r.listings?'From listings online: ':'AI estimate: ')+money0(r.low)+' to '+money0(r.high)+', most likely '+money0(r.mid)+'</b> ('+esc(r.confidence)+' confidence, about '+r.yearlyDepreciationPct+'% a year). '+esc(r.basis)+' <i>Not Kelley Blue Book.</i>'+(r.listings&&r.listings.length?'<div class="sub" style="margin-top:6px">'+r.listings.map(function(l){return '<div><a href="'+esc(l.url)+'" target="_blank" rel="noopener noreferrer">'+esc(l.title||l.url.replace(/^https:\/\//,'').slice(0,40))+'</a> '+money0(l.price)+(l.miles?' \u00b7 '+l.miles.toLocaleString('en-US')+' mi':'')+'</div>'}).join('')+'<div class="muted" style="margin-top:4px;font-size:12px">These are asking prices at dealers and sellers. What you would get selling it or trading it in is usually lower. Open a few to check they match your vehicle.</div></div>':'')+'<div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn small primary" data-act="as-ai-use" data-id="'+esc(a.id)+'">Use '+money0(r.mid)+'</button><button class="btn small" data-act="as-ai-no" data-id="'+esc(a.id)+'">Dismiss</button></div>':'<b>The AI could not price this one.</b> '+esc(r.basis||'Add the year, make and model, then try again.')+'<div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn small" data-act="as-ai-no" data-id="'+esc(a.id)+'">Dismiss</button></div>')+'</div>'}
   // usage
   if(u)h+='<h3 style="font-size:15px;margin:16px 0 6px">'+(u==='miles'?'Mileage':'Engine hours')+'</h3><form class="form as-meter" data-id="'+esc(a.id)+'" style="align-items:flex-end"><label>Now ('+u+')<input name="v" type="number" min="0" step="1" required value="'+(as.meter>0?as.meter:'')+'" style="width:130px"></label><button class="btn small">Save</button></form><p class="sub muted" style="margin:4px 0 0;font-size:12px">'+(as.meterDate?'Last updated '+shortDate(as.meterDate)+'. ':'')+'Keeping this current lets the app predict when maintenance is due by '+u+', using how fast you actually use it (about '+Math.round(meterPerDay(as)*30).toLocaleString('en-US')+' '+u+' a month).</p>';
+  h+=assetMods(a);
   // maintenance
   h+='<h3 style="font-size:15px;margin:16px 0 6px">Maintenance and yearly fees</h3>'+((as.maint||[]).length?(as.maint||[]).map(function(m){return asMaintRow(a,m)}).join(''):'<div class="sub muted">Nothing scheduled yet.</div>');
   var missing=(MAINT_PRESETS[assetKind(as)]||[]).filter(function(p){return !(as.maint||[]).some(function(m){return m.name===p.name})});
@@ -5456,13 +5482,13 @@ function assetOwn(a,loan){
   var as=a.asset,t0=TODAY,pd=/^\d{4}-\d{2}-\d{2}$/.test(as.purchaseDate||'')?parseISO(as.purchaseDate):null,months=pd?Math.max(0,(t0-pd)/864e5/30.4):0,left=0;
   if(loan){var am=amortize(loan.balance,loan.apr,loan.minPay);if(am.ok)left=am.interest}
   var lm=loan&&/^\d{4}-\d{2}-\d{2}$/.test(loan.opened||'')?Math.max(0,(t0-parseISO(loan.opened))/864e5/30.4):months;
-  return assetOwnership({price:as.purchasePrice,value:a.balance,loan:loan?{orig:loan.origBalance,balance:loan.balance,minPay:loan.minPay}:null,monthsOwned:months,loanMonths:lm,interestLeft:left,upkeep:vehSpend(a.id)});
+  return assetOwnership({price:as.purchasePrice,mods:modsCost(as),value:a.balance,loan:loan?{orig:loan.origBalance,balance:loan.balance,minPay:loan.minPay}:null,monthsOwned:months,loanMonths:lm,interestLeft:left,upkeep:vehSpend(a.id)});
 }
 function assetExtras(a,loan){
   var o=assetOwn(a,loan),loans=S.accounts.filter(function(x){return x.type==='auto'||x.type==='loan'}),h='';
   h+='<h3 style="font-size:15px;margin:16px 0 6px">What it really cost</h3>';
   if(o.price>0){
-    h+='<div class="grid tiles">'+tile('Price you paid',money0(o.price),'before any loan interest')+(o.hasLoan?tile('Real cost with the loan',money0(o.realCost),'price + '+money0((o.interestPaid||0)+o.interestLeft)+' interest ('+(o.interestPaid!==null?money0(o.interestPaid)+' paid, ':'')+money0(o.interestLeft)+' to come)'):'')+
+    h+='<div class="grid tiles">'+tile('Price you paid',money0(o.price),o.mods>0?'plus '+money0(o.mods)+' of modifications':'before any loan interest')+(o.hasLoan?tile('Real cost with the loan',money0(o.realCost),'price + '+money0((o.interestPaid||0)+o.interestLeft)+' interest ('+(o.interestPaid!==null?money0(o.interestPaid)+' paid, ':'')+money0(o.interestLeft)+' to come)'):'')+
       tile('Worth now',money0(o.value),o.lost!==null?(o.lost>=0?'lost '+money0(o.lost)+' ('+(o.lost/o.price*100).toFixed(0)+'%)':'up '+money0(-o.lost)):'')+tile('Money gone so far','<span class="bad">'+money0(Math.max(0,o.gone))+'</span>','depreciation'+(o.interestPaid?' + interest paid':'')+(o.upkeep>0?' + '+money0(o.upkeep)+' upkeep':''))+
       (o.perMonth!==null&&o.months>=1?tile('It costs you',money0(Math.max(0,o.perMonth))+'<span class="muted" style="font-size:14px">/mo</span>','over '+Math.round(o.months)+' months of owning it'):'')+'</div>';
     h+='<p class="sub" style="margin:8px 0;white-space:normal">'+(o.hasLoan?'With the loan you will pay about <b>'+money0(o.realCost)+'</b> for a vehicle bought at '+money0(o.price)+'. ':'')+(o.lost!==null&&o.lost>0?'It is worth '+money0(o.lost)+' less than you paid, so '+(o.hasLoan?'the loan interest and the lost value together are ':'the lost value is ')+'what owning it has cost beyond the sticker price. ':'')+(o.underwater?'<span class="bad">You owe '+money0(-o.equity)+' more than it is worth right now, so selling it would not clear the loan.</span> ':(o.hasLoan&&o.equity!==null?'You have '+money0(o.equity)+' of equity (worth minus what you owe). ':''))+'Fees, taxes and the down payment are not in this unless you recorded them in the price.</p>';
@@ -5541,6 +5567,9 @@ function asBind(m){
     if(asset.purchasePrice>0&&asset.purchaseDate&&asset.purchaseDate<t0)ac.history.push({date:asset.purchaseDate,balance:asset.purchasePrice});
     ac.history.push({date:t0,balance:v});S.accounts.push(ac);asUI.adding=false;save();render();toast('Added '+ac.name+'.');
   });
+  f('.as-mod',function(fm,el){var a=asById(fm.dataset.id);if(!a)return;var cost=Math.max(0,parseFloat(el['c'].value)||0),kind=el['k'].value,addIn=el['a'].value!==''?Math.max(0,parseFloat(el['a'].value)||0):Math.round(cost*modRecoup(kind)),d=el['d'].value,counted=el['v'].checked;
+    var mi=cleanAsset({kind:a.asset.kind,mods:[{id:uid(),name:el['n'].value,kind:kind,cost:cost,add:addIn,counted:counted,date:/^\d{4}-\d{2}-\d{2}$/.test(d)?d:iso(TODAY)}]},uid).mods[0];if(!mi){toast('Give it a name and a cost.');return}
+    if(!a.asset.mods)a.asset.mods=[];a.asset.mods.push(mi);if(counted&&mi.add>0)asSetValue(a,a.balance+mi.add,mi.date||iso(TODAY),'');save();render();toast('Added. '+(counted&&mi.add>0?'Its value went up '+money0(mi.add)+'.':'')+(a.asset.mods.length?'':''))});
   f('.as-loan',function(fm,el){var a=asById(fm.dataset.id);if(!a)return;var v=el['loan'].value;if(v&&S.accounts.some(function(x){return x.id===v}))a.asset.loanId=v;else delete a.asset.loanId;save();render();toast(v?'Linked to the loan.':'Loan link removed.')});
   f('.as-val',function(fm,el){var a=asById(fm.dataset.id),v=parseFloat(el['v'].value),d=el['d'].value;if(!a||!(v>=0)||!/^\d{4}-\d{2}-\d{2}$/.test(d))return;var was=a.balance;asSetValue(a,v,d,el['s'].value);save();render();toast('Value saved. '+(v<was?'Down ':'Up ')+money0(Math.abs(v-was))+'.')});
   f('.as-meter',function(fm,el){var a=asById(fm.dataset.id),v=parseFloat(el['v'].value);if(!a||!(v>=0))return;var t0=iso(TODAY);a.asset.meter=v;a.asset.meterDate=t0;a.asset.meterLog=(a.asset.meterLog||[]).filter(function(x){return x.date!==t0});a.asset.meterLog.push({date:t0,v:v});a.asset.meterLog.sort(function(x,y){return x.date<y.date?-1:1});a.asset.meterLog=a.asset.meterLog.slice(-40);save();render();toast('Saved.')});
@@ -6727,6 +6756,8 @@ document.addEventListener('click',function(e){
     rcpt.phone.msg='';tcall(T.phone.start()).then(function(r){rcpt.phone={on:true,url:r.url,qr:r.qr,msg:'',expires:r.expires};render()}).catch(function(e){rcpt.phone={on:false,url:'',qr:'',msg:(e&&e.message)||'Could not start.',expires:0};render()});return}
   else if(a==='ph-stop'){tcall(T.phone.stop()).catch(function(){});rcpt.phone={on:false,url:'',qr:'',msg:'',expires:0}}
   else if(a==='as-add'){asUI.adding=true}
+  else if(a==='as-collect'){var ac=asById(id);if(ac){if(ac.asset.collectible)delete ac.asset.collectible;else ac.asset.collectible=true}}
+  else if(a==='as-mod-del'){var am2=asById(id),mm=am2&&(am2.asset.mods||[]).filter(function(x){return x.id===b.dataset.m})[0];if(mm){am2.asset.mods=am2.asset.mods.filter(function(x){return x.id!==mm.id});if(mm.counted&&mm.add>0&&confirm('Also lower its value by the '+money0(mm.add)+' this modification added?'))asSetValue(am2,Math.max(0,am2.balance-mm.add),iso(TODAY),'');toast('Removed.')}}
   else if(a==='pay-manual'){mypayUI.manual=!mypayUI.manual}
   else if(a==='tax-year'){taxUI.year=+b.dataset.y;taxUI.rates=null}
   else if(a==='tax-rates-no'){taxUI.rates=null}
