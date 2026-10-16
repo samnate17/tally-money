@@ -606,3 +606,7 @@ With several jobs, My pay opens on **All jobs**: a comparison of take-home per m
 ## Other income
 
 My pay has an **Other income** section for money that is not a paycheck: gigs, payments from friends and family, gifts, things you sold, reimbursements and rental income. Add cash or a payment directly, or **tag a deposit that is already in your accounts** (so bank, Venmo or Zelle money is not counted twice). It shows this month and this year by kind, and for gig income offers to include it in your tax estimate. Gifts, reimbursements and repayments from friends are generally not taxable income, and the notes say so; this is not tax advice.
+
+## Fixing what counts as income
+
+In My pay → Other income, **Already in your accounts?** lists deposits that currently count as income. Each row has **Tag** (gig, gift, friend and so on), **Transfer** (money moved between your own accounts: it stops counting as income right away), **Edit** (the full transaction editor, including "same for every similar transaction" and remembering it for future imports) and **Delete** (asks first; for a deposit that is not real). Undo at the top of the page takes any of it back. **Look further back** widens the list from four months to thirteen. Deleting a deposit that came from a linked bank removes it from the app only; a full re-sync of that bank can bring it back, so prefer Transfer or Edit for those.

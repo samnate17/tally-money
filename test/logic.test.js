@@ -2701,3 +2701,16 @@ test('other income: a deposit already in the accounts is found so it is not adde
   assert.equal(O.oiDup(tx, '2026-10-20', 40), null);
   assert.equal(O.oiDup(tx, '2026-10-09', 41), null);
 });
+test('other income: candidates honour a wider window, a limit and a skip rule (transfers already detected elsewhere)', () => {
+  const O = oiWorld(), today = new Date(2026, 9, 12);
+  const tx = [
+    { id: 'n', date: '2026-10-09', name: 'Deposit 7731', amount: 500, cat: 'Other' },
+    { id: 'x', date: '2026-10-08', name: 'Transfer from savings', amount: 300, cat: 'Other' },
+    { id: 'o', date: '2026-04-10', name: 'Older deposit', amount: 20, cat: 'Other' },
+    { id: 'p', date: '2026-10-02', name: 'ACME PAYROLL', amount: 1560, cat: 'Income' },
+  ];
+  assert.deepEqual(O.oiCandidates(tx, today).map((x) => x.id), ['n', 'x'], 'default: last 120 days, payroll left out');
+  assert.deepEqual(O.oiCandidates(tx, today, { skip: (x) => /^transfer/i.test(x.name) }).map((x) => x.id), ['n']);
+  assert.deepEqual(O.oiCandidates(tx, today, { days: 400 }).map((x) => x.id), ['n', 'x', 'o']);
+  assert.equal(O.oiCandidates(tx, today, { days: 400, limit: 1 }).length, 1);
+});
