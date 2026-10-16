@@ -3399,22 +3399,23 @@ function applyKind(t,kind){
   else if(kind==='cashback'){t.cashback=true;t.transfer=false;delete t.cardPay}
 }
 // Money lent to a friend, and a friend paying it back, is not spending or income: it is kept out of the numbers until it nets to zero.
-function friendHeld(x){return !!x.friend&&(x.friend.k==='loan'||x.friend.k==='repaid')}
+function friendHeld(x){return !!x.friend&&(x.friend.k==='loan'||x.friend.k==='repaid'||x.friend.k==='paidback')}
 function ledgerOf(txns,mode){var inf=transferInfo(txns,mode);return txns.filter(function(x){return !isTransfer(x,inf)&&!isCashback(x)&&!friendHeld(x)})}
 /*TRANSFER-END*/
 /*FRIEND-START*/
 // Payments to (and from) friends and family: each transaction can carry {friend:{k:kind,who:name}}.
-var FRIEND_KINDS=[['split','Split a bill or paid back','Counts as spending in its category.'],['gift','Gift','Counts as spending.'],['loan','Loan: I expect it back','Not counted as spending. Tracked until they pay you back.'],['repaid','They paid me back','Not counted as income. Lowers what they owe you.'],['other','Other','Counts as usual.']];
+var FRIEND_KINDS=[['split','Split a bill or paid back','Counts as spending in its category.'],['gift','Gift','Counts as spending.'],['loan','Loan: I expect it back','Not counted as spending. Tracked until they pay you back.'],['repaid','They paid me back','Not counted as income. Lowers what they owe you.'],['paidback','I paid them (settling what I owed)','Not counted as spending: it settles money they lent or covered for you.'],['other','Other','Counts as usual.']];
 var FRIEND_P2P=/venmo|zelle|cash ?app|paypal|apple cash|square cash|\bsent to\b|payment to|p2p/i;
 function friendKindLabel(k){for(var i=0;i<FRIEND_KINDS.length;i++)if(FRIEND_KINDS[i][0]===k)return FRIEND_KINDS[i][1];return ''}
 function friendClean(k,who){var kk=String(k||'');if(!FRIEND_KINDS.some(function(f){return f[0]===kk}))return null;return {k:kk,who:String(who||'').replace(/[<>"]/g,'').replace(/\s+/g,' ').trim().slice(0,40)}}
 function friendSummary(txns,year,mk){
-  var out={year:0,month:0,count:0,byKind:{},byPerson:{},owed:[],totalOwed:0},lent={},back={};
+  var out={year:0,month:0,count:0,byKind:{},byPerson:{},owed:[],totalOwed:0,settled:{},settledYear:0},lent={},back={};
   txns.forEach(function(x){
     var f=x.friend;if(!f)return;var who=f.who||'Someone';
     if(f.k==='loan'&&x.amount<0)lent[who]=(lent[who]||0)-x.amount;
     else if(f.k==='repaid'&&x.amount>0)back[who]=(back[who]||0)+x.amount;
-    else if(x.amount<0&&f.k!=='loan'&&f.k!=='repaid'&&x.date.slice(0,4)===String(year)){
+    else if(f.k==='paidback'&&x.amount<0){if(x.date.slice(0,4)===String(year)){out.settled[who]=(out.settled[who]||0)-x.amount;out.settledYear-=x.amount}}
+    else if(x.amount<0&&f.k!=='loan'&&f.k!=='repaid'&&f.k!=='paidback'&&x.date.slice(0,4)===String(year)){
       var a=-x.amount;out.year+=a;out.count++;out.byKind[f.k]=(out.byKind[f.k]||0)+a;out.byPerson[who]=(out.byPerson[who]||0)+a;if(x.date.slice(0,7)===mk)out.month+=a}
   });
   Object.keys(lent).forEach(function(w){var left=Math.round((lent[w]-(back[w]||0))*100)/100;if(left>0.009)out.owed.push({who:w,loaned:lent[w],repaid:back[w]||0,left:left})});
@@ -3438,7 +3439,7 @@ function friendsPanel(){
   var all=friendCandidates(S.txns,TODAY,{days:txFriendMore?400:120,limit:500,skip:function(x){return isTransfer(x,xi)}}),cand=txFriendMore?all.slice(0,60):all.slice(0,10);
   var tagged=S.txns.filter(function(x){return x.friend}).sort(function(a,b){return a.date<b.date?1:-1}).slice(0,12);
   var kinds=Object.keys(sm.byKind).sort(function(a,b){return sm.byKind[b]-sm.byKind[a]}),people=Object.keys(sm.byPerson).sort(function(a,b){return sm.byPerson[b]-sm.byPerson[a]}).slice(0,6);
-  var tiles=(sm.count||sm.owed.length)?'<div class="grid tiles" style="margin-top:10px">'+tile('Paid to friends '+yr,money0(sm.year),sm.count+' payment'+(sm.count===1?'':'s'))+tile('This month',money0(sm.month),'friends and family')+(sm.owed.length?tile('Owed to you',money0(sm.totalOwed),sm.owed.length+' loan'+(sm.owed.length===1?'':'s')+' not paid back'):'')+'</div>':'';
+  var tiles=(sm.count||sm.owed.length||sm.settledYear)?'<div class="grid tiles" style="margin-top:10px">'+tile('Paid to friends '+yr,money0(sm.year),sm.count+' payment'+(sm.count===1?'':'s'))+tile('This month',money0(sm.month),'friends and family')+(sm.owed.length?tile('Owed to you',money0(sm.totalOwed),sm.owed.length+' loan'+(sm.owed.length===1?'':'s')+' not paid back'):'')+(sm.settledYear?tile('Paid back '+yr,money0(sm.settledYear),'what you owed, not spending'):'')+'</div>':'';
   var split=(kinds.length?'<div class="sub" style="margin-top:8px;white-space:normal">'+kinds.map(function(k){return esc(friendKindLabel(k))+' <b>'+money0(sm.byKind[k])+'</b>'}).join(' · ')+'</div>':'')+(people.length?'<div class="sub" style="margin-top:4px;white-space:normal">Most paid to: '+people.map(function(w){return esc(w)+' <b>'+money0(sm.byPerson[w])+'</b>'}).join(' · ')+'</div>':'');
   var owed=sm.owed.length?'<div style="margin-top:8px">'+sm.owed.map(function(o){return '<div class="row" style="padding:6px 0"><div class="grow"><b>'+esc(o.who)+'</b> owes you</div><div class="num warn" style="font-weight:600">'+money(o.left)+'</div><div class="sub">of '+money0(o.loaned)+' lent'+(o.repaid>0?', '+money0(o.repaid)+' paid back':'')+'</div></div>'}).join('')+'</div>':'';
   var candRows=cand.length?'<h3 style="font-size:15px;margin:14px 0 4px">Payments to people, not tagged yet</h3><p class="sub muted" style="margin:0 0 6px;font-size:12px;white-space:normal">Venmo, Zelle, Cash App and PayPal payments. Say what each one was. Loans are left out of your spending until they pay you back; everything else counts as before.</p>'+cand.map(function(x){

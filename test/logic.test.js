@@ -2979,3 +2979,18 @@ test('jobs: naming a guessed job keeps the other jobs separate (they used to mer
   assert.equal(J.multi, true, 'still two jobs after naming one');
   assert.deepEqual(J.jobs.map((j) => [j.name, j.stubs.length]).sort(), [['Job 2', 4], ['Main', 4]].sort());
 });
+test('friends: "I paid them" settles what you owed, so it is not spending and is shown on its own', () => {
+  const F = friendWorld();
+  assert.ok(F.FRIEND_KINDS.some((k) => k[0] === 'paidback'));
+  assert.deepEqual(F.friendClean('paidback', ' Test Friend '), { k: 'paidback', who: 'Test Friend' });
+  const tx = [{ id: 'a', date: '2026-10-05', name: 'Venmo', amount: -80, friend: { k: 'paidback', who: 'Test Friend' } },
+    { id: 'b', date: '2026-10-06', name: 'Venmo', amount: -20, friend: { k: 'gift', who: 'Test Friend' } }];
+  const s = F.friendSummary(tx, 2026, '2026-10');
+  assert.equal(s.year, 20, 'only the gift counts as paid to friends');
+  assert.equal(s.settledYear, 80);
+  assert.deepEqual(s.settled, { 'Test Friend': 80 });
+  assert.equal(s.owed.length, 0);
+  const T = new Function(srcBlock('/*TRANSFER-START*/', '/*TRANSFER-END*/') + '\nreturn {friendHeld};')();
+  assert.equal(T.friendHeld(tx[0]), true);
+  assert.equal(T.friendHeld(tx[1]), false);
+});
