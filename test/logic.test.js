@@ -2994,3 +2994,19 @@ test('friends: "I paid them" settles what you owed, so it is not spending and is
   assert.equal(T.friendHeld(tx[0]), true);
   assert.equal(T.friendHeld(tx[1]), false);
 });
+test('friends: "They lent me" is not income and what you owe goes down as you pay them back', () => {
+  const F = friendWorld();
+  assert.ok(F.FRIEND_KINDS.some((k) => k[0] === 'lentme'));
+  const tx = [{ id: 'a', date: '2026-09-01', name: 'Venmo', amount: 200, friend: { k: 'lentme', who: 'Test Friend' } },
+    { id: 'b', date: '2026-10-05', name: 'Venmo', amount: -50, friend: { k: 'paidback', who: 'Test Friend' } },
+    { id: 'c', date: '2026-10-06', name: 'Venmo', amount: 40, friend: { k: 'lentme', who: 'Other Friend' } }];
+  const s = F.friendSummary(tx, 2026, '2026-10');
+  assert.deepEqual(s.owe.map((o) => [o.who, o.left]), [['Test Friend', 150], ['Other Friend', 40]]);
+  assert.equal(s.totalOwe, 190);
+  assert.equal(s.year, 0, 'borrowing is not spending');
+  assert.equal(s.owed.length, 0, 'nobody owes you');
+  const T = new Function(srcBlock('/*TRANSFER-START*/', '/*TRANSFER-END*/') + '\nreturn {friendHeld};')();
+  assert.equal(T.friendHeld(tx[0]), true);
+  const paid = F.friendSummary(tx.concat([{ id: 'd', date: '2026-10-07', name: 'Venmo', amount: -150, friend: { k: 'paidback', who: 'Test Friend' } }]), 2026, '2026-10');
+  assert.deepEqual(paid.owe.map((o) => o.who), ['Other Friend'], 'fully paid back drops off the list');
+});

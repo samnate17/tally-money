@@ -644,3 +644,7 @@ Each item has a button that jumps to the right place, **Later** (hides it for a 
 ## Touch ID to show widget amounts
 
 On a Mac with Touch ID, Settings → Desktop widget has **Touch ID to show amounts** (on by default). With it on, un-blurring the amounts (the Blur amounts checkbox, or the eye button on the floating widget) asks for your fingerprint first; blurring never asks, and turning the lock off asks too. Macs have no Face ID, so Touch ID (or the Mac's own prompt) is what is used. The macOS desktop widget itself cannot show a prompt, so its blur is controlled from the app and is protected the same way. On Windows or a Mac without Touch ID the option is hidden and nothing changes.
+
+## Money you borrowed from friends
+
+Besides loans you made, you can record money a friend lent you. On a deposit in My pay → deposits to review, choose **They lent me (not income, I owe it)**, or pick it from Friends and family when editing a transaction, and add who it was from. It stays out of your income, and your **I paid them (settling what I owed)** payments count it down. Transactions → Friends and family shows **You owe** per person.
