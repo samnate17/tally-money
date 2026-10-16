@@ -2504,7 +2504,7 @@ test('cleanBillAdj keeps only sane edits and refuses prototype keys', () => {
 
 test('help: every tab has a guide, the walkthrough covers all of them, and nothing is empty', () => {
   const src = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-  const tabsLine = /^var TABS=(\[\[.*\]\]);/m.exec(src)[1];
+  const tabsLine = /^var PAGES=(\[\[.*\]\]);/m.exec(src)[1];
   const TABS = new Function('return ' + tabsLine)();
   const H = new Function(srcBlock('/*HELP-START*/', '/*HELP-END*/') + '\nreturn {HELP, HELP_START, HELP_FINISH, helpFor, helpSteps};')();
   TABS.forEach((t) => { const h = H.helpFor(t[0]); assert.ok(h, 'no help for ' + t[0]); assert.ok(h.t && h.what.length > 20 && h.how.length >= 2, 'thin help for ' + t[0]); });
@@ -2565,7 +2565,7 @@ test('pay: bonus forecast from one check, from two years, and from year-to-date 
 
 test('tour: every tab is covered, every step is well formed and optional steps are marked', () => {
   const src = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-  const TABS = new Function('return ' + /^var TABS=(\[\[.*\]\]);/m.exec(src)[1])();
+  const TABS = new Function('return ' + /^var PAGES=(\[\[.*\]\]);/m.exec(src)[1])();
   const T = new Function(srcBlock('/*HELP-START*/', '/*HELP-END*/') + srcBlock('/*TOUR-START*/', '/*TOUR-END*/') + '\nreturn {TOURS, tourSteps};')();
   Object.keys(T.TOURS).forEach((k) => assert.ok(TABS.some((t) => t[0] === k), 'tour for a tab that does not exist: ' + k));
   TABS.forEach((t) => assert.ok(T.TOURS[t[0]] && T.TOURS[t[0]].length, 'no tour steps for ' + t[0]));
@@ -3147,4 +3147,59 @@ test('what to update: an expired or expiring ID is listed, soonest first', () =>
   assert.equal(t.find((x) => x.id === 'doc-exp-i1').sev, 3);
   assert.equal(t.find((x) => x.id === 'doc-exp-p1').sev, 2);
   assert.ok(ids.indexOf('doc-exp-i1') < ids.indexOf('doc-exp-p1'));
+});
+// ---- tabs and the pages inside them ----
+function hubWorld() {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const pages = new Function('return ' + /^var PAGES=(\[\[.*\]\]);/m.exec(src)[1])();
+  const tabs = new Function('return ' + /^var TABS=(\[\[.*\]\]);/m.exec(src)[1])();
+  const b = new Function(srcBlock('/*HUB-START*/', '/*HUB-END*/') + '\nreturn {HUBS, hubOf, hubPageOf, hubPages};')();
+  return { pages, tabs, ...b };
+}
+test('tabs: every page lives in exactly one tab, and each tab opens on the page with its own name', () => {
+  const H = hubWorld(), seen = {};
+  H.HUBS.forEach(([hub, pgs]) => { assert.equal(pgs[0], hub, hub + ' opens on its first page'); pgs.forEach((p) => { assert.ok(!seen[p], p + ' is in two tabs'); seen[p] = hub; }); });
+  H.pages.forEach((p) => assert.ok(seen[p[0]], 'page ' + p[0] + ' is in no tab'));
+  assert.deepEqual(Object.keys(seen).sort(), H.pages.map((p) => p[0]).sort(), 'no tab lists a page that does not exist');
+  assert.deepEqual(H.tabs.map((t) => t[0]), H.HUBS.map((h) => h[0]), 'the sidebar shows the tabs, in the same order');
+  assert.ok(H.tabs.length <= 10);
+});
+test('tabs: old links still work: any page or alias maps to its tab', () => {
+  const H = hubWorld();
+  assert.equal(H.hubOf('tax'), 'pay'); assert.equal(H.hubOf('dash'), 'overview'); assert.equal(H.hubOf('cards'), 'loans'); assert.equal(H.hubOf('credit'), 'loans');
+  assert.equal(H.hubOf('subscriptions'), 'bills'); assert.equal(H.hubOf('energy'), 'bills'); assert.equal(H.hubOf('afford'), 'budgets'); assert.equal(H.hubOf('invest'), 'accounts');
+  assert.equal(H.hubOf('carloan'), 'loans'); assert.equal(H.hubOf('student'), 'loans'); assert.equal(H.hubPageOf('student'), 'loans'); assert.equal(H.hubOf('cashback'), 'loans');
+  assert.equal(H.hubOf('look'), 'look'); assert.equal(H.hubOf('nonsense'), 'nonsense');
+  assert.deepEqual(H.hubPages('budgets'), ['budgets', 'report', 'goals', 'afford']); assert.deepEqual(H.hubPages('assist'), ['assist']);
+});
+test('tabs: a saved tab order and hidden list survive the merge', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const N = new Function(srcBlock('/*NAV-START*/', '/*NAV-END*/') + '\nreturn {cleanNavPref, navOrdered};')();
+  const tabs = new Function('return ' + /^var TABS=(\[\[.*\]\]);/m.exec(src)[1])(), ids = tabs.map((t) => t[0]);
+  const old = { layout: 'top', order: ['look', 'tax', 'bills', 'overview', 'dash', 'pay'], hidden: ['tax', 'bills', 'look', 'nope'] };
+  const c = N.cleanNavPref(old, ids);
+  assert.deepEqual(c.order, ['look', 'bills', 'overview', 'pay'], 'ids that are now pages are dropped; the order of the rest is kept');
+  assert.deepEqual(c.hidden, ['bills'], 'Settings can still never be hidden');
+  assert.equal(c.layout, 'top');
+  assert.deepEqual(N.navOrdered(tabs, c.order).map((t) => t[0]).slice(0, 4), ['look', 'bills', 'overview', 'pay']);
+});
+test('recent transactions: newest first, a tie goes to the one added last, and the count is respected', () => {
+  const R = new Function(srcBlock('/*RECENT-START*/', '/*RECENT-END*/') + '\nreturn {recentTx};')();
+  const tx = [{ id: 'a', date: '2026-10-01' }, { id: 'b', date: '2026-10-05' }, { id: 'c', date: '2026-10-05' }, { id: 'd', date: '2026-09-30' }, { id: 'e', date: '2026-10-03' }];
+  assert.deepEqual(R.recentTx(tx, 3).map((x) => x.id), ['c', 'b', 'e']);
+  assert.deepEqual(R.recentTx(tx, 99).map((x) => x.id), ['c', 'b', 'e', 'a', 'd']);
+  assert.deepEqual(R.recentTx([], 5), []); assert.deepEqual(R.recentTx(null, 5), []);
+  assert.deepEqual(tx.map((x) => x.id), ['a', 'b', 'c', 'd', 'e'], 'the original list is not reordered');
+});
+test('help: every release has a plain-words entry in What is new, and the help covers every page', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const ver = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8')).version;
+  const WN = new Function(/var WHATSNEW=(\[[\s\S]*?\n\]);/.exec(src)[1].replace(/^/, 'return '))();
+  assert.ok(WN.some((v) => v[0] === ver), 'Add a What is new entry (WHATSNEW in index.html) for version ' + ver + ' before releasing it');
+  const key = (v) => v.split('.').map(Number);
+  for (let i = 1; i < WN.length; i++) assert.ok(key(WN[i - 1][0]) > key(WN[i][0]) || key(WN[i - 1][0]).some((n, j) => n !== key(WN[i][0])[j] && n > key(WN[i][0])[j]), 'newest version first');
+  WN.forEach((v) => { assert.match(v[0], /^\d+\.\d+\.\d+$/); assert.ok(v[1].length && v[1].every((t) => typeof t === 'string' && t.length > 10), 'entry for ' + v[0]); });
+  // every item in the help names a page that exists, and new pages have help (the older tests check the rest)
+  const pages = new Function('return ' + /^var PAGES=(\[\[.*\]\]);/m.exec(src)[1])().map((p) => p[0]);
+  ['dash', 'assets', 'docs', 'look'].forEach((k) => assert.ok(pages.includes(k)));
 });

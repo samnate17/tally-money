@@ -9,6 +9,7 @@ const crypto = require('crypto');
 const REPO = 'samnate17/tally-money';
 const API = 'https://api.github.com';
 const UA = 'TallyMoney-Updater';
+const TAG_RE = /^v\d{1,3}\.\d{1,3}\.\d{1,4}$/;
 const TOKEN_RE = /^(github_pat_[A-Za-z0-9_]{20,}|gh[pousr]_[A-Za-z0-9]{20,})$/;
 const REDIRECT_HOSTS = [/(^|\.)github\.com$/, /(^|\.)githubusercontent\.com$/, /(^|\.)blob\.core\.windows\.net$/];
 
@@ -130,6 +131,34 @@ function createUpdater({ store, version, arch, platform, appPath, tmpDir, result
         hasAsset: !!asset, size: asset ? asset.size : 0, assetName: asset ? asset.name : '' };
     },
 
+    // Earlier releases that can be installed instead of the latest one (newest first), for going back after a bad update.
+    async versions() {
+      const res = await gh(API + '/repos/' + REPO + '/releases?per_page=40');
+      if (!res.ok) throw new Error(friendlyStatus(res.status));
+      const list = await res.json();
+      const out = (Array.isArray(list) ? list : []).filter((r) => r && !r.draft && !r.prerelease && TAG_RE.test(String(r.tag_name || ''))).map((r) => {
+        const a = pickAsset(r.assets, arch, platform), v = r.tag_name.slice(1);
+        return { tag: r.tag_name, version: v, date: String(r.published_at || '').slice(0, 10), hasAsset: !!a, size: a ? a.size : 0, current: v === version, older: isNewer(version, r.tag_name) };
+      }).filter((r) => r.older || r.current);
+      out.sort((a, b) => (isNewer(a.tag, b.tag) ? -1 : isNewer(b.tag, a.tag) ? 1 : 0));
+      return out.slice(0, 16);
+    },
+    // Choose one release (this one or an earlier one) for the next download. Never a newer one: that is what Check for updates is for.
+    async pick(tag) {
+      tag = String(tag || '');
+      if (!TAG_RE.test(tag)) throw new Error('That is not a version number.');
+      if (isNewer(tag, version)) throw new Error('That version is newer than this one. Use Check for updates for newer versions.');
+      const res = await gh(API + '/repos/' + REPO + '/releases/tags/' + tag);
+      if (res.status === 404) throw new Error('That version is not available on GitHub any more.');
+      if (!res.ok) throw new Error(friendlyStatus(res.status));
+      const j = await res.json();
+      if (String(j.tag_name || '') !== tag || j.draft || j.prerelease) throw new Error('That version is not available.');
+      const asset = pickAsset(j.assets, arch, platform);
+      if (!asset) throw new Error('That version has no download for this computer.');
+      latest = { tag, asset };
+      return { tag, version: tag.slice(1), size: asset.size, assetName: asset.name };
+    },
+
     async download(onProgress) {
       if (!latest || !latest.asset) throw new Error('Check for updates first.');
       const a = latest.asset;
@@ -192,4 +221,4 @@ function createUpdater({ store, version, arch, platform, appPath, tmpDir, result
   };
 }
 
-module.exports = { createUpdater, isNewer, parseVer, pickAsset, friendlyStatus, writeInstallScript, INSTALL_SCRIPT, TOKEN_RE };
+module.exports = { createUpdater, TAG_RE, isNewer, parseVer, pickAsset, friendlyStatus, writeInstallScript, INSTALL_SCRIPT, TOKEN_RE };

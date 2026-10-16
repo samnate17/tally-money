@@ -133,3 +133,30 @@ test('updater: on Windows install opens the verified Setup file, then quits', as
   assert.strictEqual(quit, 1); assert.strictEqual(spawned.length, 1);
   assert.strictEqual(spawned[0].cmd, u.downloadedPath()); assert.ok(/Setup-1\.8\.4\.exe$/.test(spawned[0].cmd)); assert.deepStrictEqual(spawned[0].args, []); assert.strictEqual(spawned[0].opt.detached, true);
 });
+
+test('updater: going back lists only earlier versions, installs only a chosen earlier one, and never a newer one', async () => {
+  const asset = (v) => [{ name: 'Tally.Money-' + v + '-arm64.dmg', id: 1, size: 5, digest: 'sha256:' + 'a'.repeat(64) }];
+  const rel = (v, extra) => ({ tag_name: 'v' + v, published_at: '2026-10-1' + (v.length % 9) + 'T00:00:00Z', draft: false, prerelease: false, assets: asset(v), ...(extra || {}) });
+  const releases = [rel('1.8.28'), rel('1.8.27'), rel('1.8.26'), rel('1.8.25', { draft: true }), rel('1.8.24', { prerelease: true }), rel('1.8.9'), { tag_name: 'weird-tag', assets: [] }, rel('1.8.23', { assets: [] })];
+  const calls = [];
+  const base = { store: memStore({ github_token: TOKEN }), arch: 'arm64', platform: 'darwin', appPath: '', tmpDir: tmp(), resultFile: path.join(tmp(), 'r.json'),
+    fetchImpl: async (url) => { calls.push(url); if (/releases\?per_page/.test(url)) return json(releases); const m = /releases\/tags\/(.+)$/.exec(url); const r = m && releases.find((x) => x.tag_name === decodeURIComponent(m[1])); return r ? json(r) : json({}, 404); } };
+  const u = U.createUpdater({ ...base, version: '1.8.27' });
+  const v = await u.versions();
+  assert.deepStrictEqual(v.map((x) => x.tag), ['v1.8.27', 'v1.8.26', 'v1.8.9', 'v1.8.23'].sort((a, b) => (U.isNewer(a, b) ? -1 : 1)), 'newest first; the newer one, drafts, pre-releases and odd tags are left out');
+  assert.strictEqual(v[0].current, true); assert.strictEqual(v[1].older, true);
+  assert.strictEqual(v.find((x) => x.tag === 'v1.8.23').hasAsset, false);
+  assert.ok(U.TAG_RE.test('v1.8.26') && !U.TAG_RE.test('v1.8.26; rm -rf') && !U.TAG_RE.test('1.8.26'));
+  // choosing
+  const p = await u.pick('v1.8.26');
+  assert.deepStrictEqual([p.tag, p.assetName], ['v1.8.26', 'Tally.Money-1.8.26-arm64.dmg']);
+  await assert.rejects(() => u.pick('v1.8.28'), /newer than this one/);
+  await assert.rejects(() => u.pick('v1.8.26/../../x'), /not a version/);
+  await assert.rejects(() => u.pick('v1.7.0'), /not available on GitHub/);
+  await assert.rejects(() => u.pick('v1.8.23'), /no download/);
+  await assert.rejects(() => u.pick('v1.8.24'), /not available/);
+  assert.ok(calls.every((c) => c.startsWith('https://api.github.com/repos/samnate17/tally-money/')), 'only the project\'s own releases are asked for');
+  // no token: asked to add one
+  const none = U.createUpdater({ ...base, store: memStore(), version: '1.8.27' });
+  await assert.rejects(() => none.versions(), /GitHub token/);
+});

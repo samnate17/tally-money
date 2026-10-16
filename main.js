@@ -200,14 +200,17 @@ function wireIpc() {
   mainOnly('update:setToken', (t) => updater.setToken(t));
   mainOnly('update:clearToken', () => updater.clearToken());
   mainOnly('update:check', (opt) => updater.check(opt || {}));
-  mainOnly('update:install', async () => {
+  mainOnly('update:versions', () => updater.versions());
+  const installFlow = async () => {
     const send = (p) => { if (mainWin && !mainWin.isDestroyed()) mainWin.webContents.send('update:progress', p); };
     send({ phase: 'download', received: 0, total: 0 });
     await updater.download((p) => send({ phase: 'download', ...p }));
     send({ phase: 'install' });
     updater.install();                  // quits the app; a script swaps the new version in and reopens it
     return true;
-  });
+  };
+  mainOnly('update:install', installFlow);
+  mainOnly('update:installVersion', async (tag) => { await updater.pick(tag); return installFlow(); });
 
   handle('plaid:status', () => plaid.status());
   handle('plaid:saveKeys', (k) => plaid.saveKeys(k));

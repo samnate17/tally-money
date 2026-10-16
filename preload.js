@@ -69,6 +69,8 @@ contextBridge.exposeInMainWorld('tally', {
     clearToken: inv('update:clearToken'),
     check: inv('update:check'),
     install: inv('update:install'),
+    versions: inv('update:versions'),
+    installVersion: inv('update:installVersion'),
     onProgress: (cb) => ipcRenderer.on('update:progress', (_e, p) => cb(p)),
   },
   onNav: (cb) => ipcRenderer.on('nav', (_e, where) => cb(String(where))),

@@ -435,6 +435,9 @@ body.reordering,body.reordering *{cursor:grabbing!important}
 .wnew{border:1.5px dashed var(--line);border-radius:18px;background:none;color:var(--ink);cursor:pointer;display:flex;flex-direction:column;gap:6px;align-items:center;justify-content:center;padding:18px;min-height:250px;font:inherit;text-align:center}.wnew span{font-size:12px;color:var(--muted);max-width:200px}.wnew:hover{background:var(--surface2)}
 .wsws{display:flex;gap:8px;margin:10px 0}.wsw{cursor:pointer;position:relative}.wsw input{position:absolute;opacity:0}.wsw span{display:block;width:26px;height:26px;border-radius:50%;background:var(--g);border:2px solid transparent}.wsw input:checked+span{border-color:var(--ink)}.wsw input:focus-visible+span{outline:2px solid var(--accent);outline-offset:2px}
 .wviewbox{max-width:860px}.wbody{min-height:200px;display:flex;justify-content:center}.wfull{max-width:100%;max-height:70vh;border-radius:12px}.wpdf{width:100%;height:70vh;border:0;border-radius:12px;background:#fff}
+.hubbar{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px}
+.hubpg{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:7px 14px;font:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:background .15s,transform .15s}
+.hubpg:hover{background:var(--surface2)}.hubpg.on{background:var(--accent);color:var(--accent-ink,#fff);border-color:var(--accent)}
 .whopick{position:fixed;inset:0;z-index:200;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:20px;overflow:auto}
 .whobox{text-align:center;max-width:760px}.whobox h1{font-size:30px;margin:0 0 28px}
 .whogrid{display:flex;gap:20px;flex-wrap:wrap;justify-content:center}
@@ -829,7 +832,7 @@ var SFX={
   tourstart:function(c){[523.25,659.25,783.99].forEach(function(f,i){sTone(c,f,0.14,'sine',0.07,i*0.07)})},
   finish:function(c){[523.25,659.25,783.99,1046.5].forEach(function(f,i){sTone(c,f,0.22,'sine',0.07,i*0.08)})},
   tab:function(c,v){
-    var k=helpKey(v||''),ids=TABS.map(function(t){return t[0]}),ix=Math.max(0,ids.indexOf(k)),f=SND_PENT[ix%6]*(ix>=12?1:ix>=6?0.5:0.5);
+    var k=helpKey(v||''),ids=PAGES.map(function(t){return t[0]}),ix=Math.max(0,ids.indexOf(k)),f=SND_PENT[ix%6]*(ix>=12?1:ix>=6?0.5:0.5);
     if(k==='energy'){sNoise(c,0.2,0.07,300,5200,'bandpass');sTone(c,95,0.18,'sawtooth',0.035,0,520);sTone(c,1800,0.08,'square',0.025,0.06,3200);return}   // a short electric zap
     if(k==='pay'){sTone(c,1318.5,0.09,'sine',0.07);sTone(c,1760,0.22,'sine',0.07,0.07);return}                                                         // a coin
     if(k==='tax'){sTone(c,110,0.14,'triangle',0.12,0,70);sNoise(c,0.05,0.04,1500,600,'bandpass');return}                                              // a stamp
@@ -1105,7 +1108,26 @@ var ICON={
  budgets:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v9h9"/><path d="M20.5 15A9 9 0 1 1 9 3.5"/></svg>',
  transactions:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h13M13 3l4 4-4 4M20 17H7M11 13l-4 4 4 4"/></svg>',
  goals:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg>'};
-var TABS=[['overview','Overview'],['dash','Dashboard','Live'],['accounts','Accounts'],['pay','My pay','Pay'],['tax','Taxes','Tax'],['docs','Documents','Docs'],['assets','Assets'],['subscriptions','Subscriptions','Subs'],['bills','Bills','Bills'],['energy','Energy'],['budgets','Budgets'],['report','Monthly report','Report'],['afford','Can I afford it?','Afford'],['credit','Credit score','Score'],['cards','Credit cards','Cards'],['invest','Investments','Invest'],['transactions','Transactions','Activity'],['goals','Goals'],['loans','Loans'],['mortgage','Mortgage','Home'],['assist','Assistant','Chat'],['look','Settings','Settings']];
+var PAGES=[['overview','Overview'],['dash','Dashboard','Live'],['accounts','Accounts'],['pay','My pay','Pay'],['tax','Taxes','Tax'],['docs','Documents','Docs'],['assets','Assets'],['subscriptions','Subscriptions','Subs'],['bills','Bills','Bills'],['energy','Energy'],['budgets','Budgets'],['report','Monthly report','Report'],['afford','Can I afford it?','Afford'],['credit','Credit score','Score'],['cards','Credit cards','Cards'],['invest','Investments','Invest'],['transactions','Transactions','Activity'],['goals','Goals'],['loans','Loans'],['mortgage','Mortgage','Home'],['assist','Assistant','Chat'],['look','Settings','Settings']];
+/*HUB-START*/
+// The tabs in the sidebar. Each one holds one or more pages (the old tabs); every page keeps its id, so anything that opens a page by id still works.
+var HUBS=[['overview',['overview','dash']],['accounts',['accounts','assets','invest']],['transactions',['transactions']],['bills',['bills','subscriptions','energy']],['budgets',['budgets','report','goals','afford']],['pay',['pay','tax']],['loans',['loans','cards','mortgage','credit']],['docs',['docs']],['assist',['assist']],['look',['look']]];
+var HUB_ALIAS={carloan:'loans',student:'loans',cashback:'cards'};
+function hubPageOf(v){return HUB_ALIAS[v]||v}
+function hubOf(v){v=hubPageOf(v);for(var i=0;i<HUBS.length;i++)if(HUBS[i][1].indexOf(v)>-1)return HUBS[i][0];return v}
+function hubPages(id){for(var i=0;i<HUBS.length;i++)if(HUBS[i][0]===id)return HUBS[i][1];return [id]}
+/*HUB-END*/
+var TABS=[['overview','Overview'],['accounts','Accounts'],['transactions','Transactions','Activity'],['bills','Bills'],['budgets','Budgets'],['pay','My pay','Pay'],['loans','Debts','Debts'],['docs','Documents','Docs'],['assist','Assistant','Chat'],['look','Settings','Settings']];
+var PAGE_LABEL={overview:'Summary',dash:'Live dashboard',accounts:'Accounts',assets:'Assets',invest:'Investments',bills:'Bills',subscriptions:'Subscriptions',energy:'Energy',budgets:'Budgets',report:'Monthly report',goals:'Goals',afford:'Can I afford it?',pay:'My pay',tax:'Taxes',loans:'Loans',cards:'Credit cards',mortgage:'Mortgage',credit:'Credit score'};
+var HUBLAST={};
+function pageName(id){var p=PAGES.filter(function(t){return t[0]===id})[0];return p?p[1]:id}
+// Every page in sidebar order (for the tour and for search).
+function pagesInOrder(){var out=[];HUBS.forEach(function(h){h[1].forEach(function(id){var p=PAGES.filter(function(t){return t[0]===id})[0];if(p)out.push(p)})});return out}
+// The row of pages at the top of a tab that holds several.
+function pageBar(){
+  var hub=hubOf(view),pg=hubPages(hub);if(pg.length<2)return '';
+  return '<nav class="hubbar" aria-label="Pages in this tab">'+pg.map(function(id){var cur=hubPageOf(view)===id;return '<button type="button" class="hubpg'+(cur?' on':'')+'" data-view="'+id+'"'+(cur?' aria-current="page"':'')+'>'+esc(PAGE_LABEL[id]||pageName(id))+'</button>'}).join('')+'</nav>';
+}
 /*NAVLOCK-START*/
 // A password that protects hiding and showing tabs: stored as a salted PBKDF2 hash, never the password itself.
 function nlB64(u8){var s='',i;for(i=0;i<u8.length;i++)s+=String.fromCharCode(u8[i]);return btoa(s)}
@@ -1140,7 +1162,7 @@ function saveNav(){try{localStorage.setItem(PK('tally-nav-v1'),JSON.stringify(NA
 function navIds(){return navOrdered(TABS,NAVP.order).map(function(t){return t[0]})}
 function nav(){
   document.documentElement.setAttribute('data-nav',NAVP.layout);
-  function items(short){return navVisible(TABS,NAVP.order,NAVP.hidden).map(function(t){return '<button class="nav" data-view="'+t[0]+'"'+(short?'':' title="Hold, then drag to move this tab"')+(view===t[0]?' aria-current="page"':'')+'>'+tabChip(t[0])+'<span>'+(short&&t[2]||t[1])+'</span></button>'}).join('')}
+  function items(short){return navVisible(TABS,NAVP.order,NAVP.hidden).map(function(t){return '<button class="nav" data-view="'+t[0]+'"'+(short?'':' title="Hold, then drag to move this tab"')+(hubOf(view)===t[0]?' aria-current="page"':'')+'>'+tabChip(t[0])+'<span>'+(short&&t[2]||t[1])+'</span></button>'}).join('')}
   var h=items(false);
   $('#rail').innerHTML='<div class="brand"><svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="tl-bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1B2470"/><stop offset="1" stop-color="#05061A"/></linearGradient><linearGradient id="tl-bar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#8FA2FF"/></linearGradient></defs><rect width="24" height="24" fill="url(#tl-bg)"/><g fill="url(#tl-bar)"><rect x="5.2" y="5.4" width="2.1" height="13.2" rx="1.05"/><rect x="8.9" y="5.4" width="2.1" height="13.2" rx="1.05"/><rect x="12.6" y="5.4" width="2.1" height="13.2" rx="1.05"/><rect x="16.3" y="5.4" width="2.1" height="13.2" rx="1.05"/></g><path d="M4.6 17.2 19.4 7.4" stroke="#FFB45A" stroke-width="1.9" stroke-linecap="round" fill="none"/></svg>Tally</div><button class="nav searchbtn" data-act="spot-open" aria-label="Search the app" title="Search (Ctrl or Cmd + K)">'+ICON.search+'<span>Search</span><kbd class="kbd">'+(/Mac|iP(hone|ad)/.test(navigator.platform||'')?'\u2318K':'Ctrl K')+'</kbd></button>'+h+'<div class="railfoot">'+((PROFS.list.length>1||profName(PROF))&&!HOSTED?'<button class="btn small railuser" data-act="prof-menu" title="Switch user">'+profAvatar(PROF)+'<span>'+esc(profLabel(PROF))+'</span></button>':'')+'<span>'+(window.tally?'Your data stays on this computer. Bank sync and AI analysis send data only when you use them.':HOSTED?'Signed in as '+esc(AUTH.email)+'. Your data is encrypted before it leaves this browser.':'Your data stays in this browser. Nothing is uploaded.')+'</span></div>';
   $('#tabbar').innerHTML=(NAVP.layout==='bottom'?'<button class="nav searchbtn" data-act="spot-open" aria-label="Search the app" title="Search (Ctrl or Cmd + K)">'+ICON.search+'<span>Search</span></button>':'')+items(true);
@@ -1176,7 +1198,8 @@ function render(){
   body=body.replace('<div class="top"><h1>','<div class="top"><h1>'+tabChip(view));
   if(view!=='energy'&&view!=='overview'&&view!=='assist')body=afterTopBar(body,tabHero(view));
   $('#main').style.setProperty('--tab',tabColor(view));
-  $('#main').innerHTML=banner+body;
+  HUBLAST[hubOf(view)]=hubPageOf(view);
+  $('#main').innerHTML=banner+pageBar()+body;
   bindView();thBind($('#main'));afterRender();helpFabSync();tabBgSync();dockInit();
 }
 function monthNav(){return '<div class="monthnav"><button class="btn small" data-act="mprev" aria-label="Previous month">&larr;</button><b>'+monthLabel(month)+'</b><button class="btn small" data-act="mnext" aria-label="Next month"'+(month>=monthLimit()?' disabled':'')+'>&rarr;</button></div>'}
@@ -1362,7 +1385,7 @@ function vDash(){
     (canSync?'<label class="sub" style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="dash-auto"'+(DASH.auto?' checked':'')+'> Sync banks every 30 min</label>':'')+
     '<button class="btn small" data-act="dash-full">Full screen</button></div></div>';
   return head+tiles+'<div class="grid two"><section class="panel"><h2>Where it went<small>'+monthLabel(mk)+'</small></h2>'+donut(sp.by,sp.total)+'</section><section class="panel"><h2>Budgets<small>most used first</small></h2>'+budgetRows(6,mk)+'</section></div>'+
-    '<div class="grid two">'+bills+debts+'</div><div class="grid two">'+en+goals+'</div>'+(S.accounts.length?'<section class="panel"><h2>Net worth</h2>'+nwChart()+'</section>':'');
+    '<div class="grid two">'+bills+debts+'</div><div class="grid two">'+en+goals+'</div>'+recentPanel(6)+(S.accounts.length?'<section class="panel"><h2>Net worth</h2>'+nwChart()+'</section>':'');
 }
 // Keeps the dashboard current: the clock ticks every second, the page redraws every minute, and linked banks can sync every 30 minutes.
 setInterval(function(){
@@ -1477,7 +1500,7 @@ function vOverview(){
   var upH=up.length?up.map(function(o){var n=dayDiff(TODAY,o.d);return '<div class="row">'+logo(o.s.name)+'<div class="grow"><div class="nm">'+esc(o.s.name)+'</div><div class="sub">'+(n===0?'Today':n===1?'Tomorrow':'In '+n+' days')+' · '+shortDate(iso(o.d))+'</div></div><div class="amt num">'+money(o.s.amount)+'</div></div>'}).join(''):'<div class="empty">Nothing due in the next 14 days.</div>';
   return '<div class="top"><h1>Overview</h1>'+monthNav()+'</div>'+lookOffer()+homeScreen(sp,inc,nw)+'<h2 class="sechead">'+monthLabel(month)+' in detail</h2>'+tiles+
    stocksPanel()+'<div class="grid two"><section class="panel"><h2>Where it went</h2>'+donut(sp.by,sp.total)+'</section><section class="panel"><h2>Last six months</h2>'+trend()+'</section></div>'+
-   '<div class="grid two"><section class="panel"><h2>Budgets<small>most used first</small></h2>'+budgetRows(5,month)+'</section><section class="panel"><h2>Bills coming up<small>next 14 days</small></h2>'+upH+'</section></div>'+waffleOverview(sp,inc)+historyPanel();
+   '<div class="grid two"><section class="panel"><h2>Budgets<small>most used first</small></h2>'+budgetRows(5,month)+'</section><section class="panel"><h2>Bills coming up<small>next 14 days</small></h2>'+upH+'</section></div>'+recentPanel(8)+waffleOverview(sp,inc)+historyPanel();
 }
 /*OVSTOCK-START*/
 // Is the US stock market open? Weekdays 9:30am to 4pm New York time (holidays are not known, so on those days prices just stay the same).
@@ -1549,6 +1572,19 @@ function ovPoll(){
   if(ovQuotesStale(S.holdings,Q,Date.now()))invRefresh(true);else ovStocksUpdate();
 }
 setInterval(ovPoll,30*1000);
+/*RECENT-START*/
+// The newest transactions first (the last one added wins a tie on the same day).
+function recentTx(txns,n){
+  return (txns||[]).map(function(x,i){return {x:x,i:i}}).sort(function(a,b){return a.x.date<b.x.date?1:a.x.date>b.x.date?-1:b.i-a.i}).slice(0,n).map(function(o){return o.x});
+}
+/*RECENT-END*/
+function recentPanel(n){
+  var rows=recentTx(S.txns,n||8);if(!rows.length)return '';
+  var xi=transferInfo(S.txns,S.cardPay);
+  return '<section class="panel"><h2>Recent transactions<small>your latest activity</small></h2>'+rows.map(function(x){
+    return '<div class="row">'+logo(x.name)+'<div class="grow"><div class="nm">'+esc(x.name)+'</div><div class="sub">'+shortDate(x.date)+' \u00b7 '+esc(x.sub||x.cat)+(isTransfer(x,xi)?' \u00b7 <span class="pill mute" style="font-size:11px">Not counted</span>':'')+'</div></div><div class="num'+(x.amount<0?'':' good')+'" style="font-weight:600">'+(x.amount<0?'-':'+')+money(Math.abs(x.amount))+'</div></div>'}).join('')+
+    '<div class="actions" style="justify-content:flex-end;margin-top:8px"><button class="btn small" data-view="transactions">See all transactions</button></div></section>';
+}
 // If you earned $100 this month, where did it go? One square per dollar.
 function waffleOverview(sp,inc){
   if(!(inc>0)&&!(sp.total>0))return '';
@@ -1953,8 +1989,8 @@ function updTasks(f){
   // backup
   if(accts.length||tx.count){
     var bd=f.backupAt?days(f.backupAt):null;
-    if(bd===null)add({id:'backup',area:'Settings',sev:1,title:'Back up your data',why:'Your data lives on this computer only. A backup file protects you if the computer is lost or the app is reinstalled.',go:{view:'look'},label:'Open Settings',mins:1});
-    else if(bd>=30)add({id:'backup',area:'Settings',sev:bd>=90?2:1,age:bd,title:'Back up your data again',why:'Your last backup was '+bd+' days ago.',go:{view:'look'},label:'Open Settings',mins:1});
+    if(bd===null)add({id:'backup',area:'Settings',sev:1,title:'Back up your data',why:'Your data lives on this computer only. A backup file protects you if the computer is lost or the app is reinstalled.',go:{view:'look',sub:'data'},label:'Open Settings',mins:1});
+    else if(bd>=30)add({id:'backup',area:'Settings',sev:bd>=90?2:1,age:bd,title:'Back up your data again',why:'Your last backup was '+bd+' days ago.',go:{view:'look',sub:'data'},label:'Open Settings',mins:1});
   }
   out.sort(function(a,b){return b.sev-a.sev||(b.age||0)-(a.age||0)});
   return out;
@@ -5036,17 +5072,17 @@ var billUI={edit:'',adding:false,adj:''};
 // What each tab is for and how to use it. Shown by the ? button on every tab and in the walkthrough (Settings, then Help).
 var HELP_START={t:'Welcome',what:'Tally Money keeps your money in one place on this computer: accounts, spending, bills, pay, taxes, goals and more. Your data stays on this computer; nothing is sent anywhere unless you choose an AI feature and give it your own key.',how:['Bring in your data. On Transactions, import a bank or card statement (a CSV or a PDF). On Accounts, add your accounts and balances.','The example data you see at first is made up so you can try everything. Clear it when you are ready to use your own.','Press Ctrl+K (Cmd+K on a Mac) or / to search or ask anything, such as next paycheck, bills due or tax refund.','If you change something by mistake, use Undo at the top of the page.','Open Settings to change how the app looks, reorder or hide tabs, set a password or Touch ID, back up your data and update the app.','Tap the ? button at the bottom right of any tab for a short guide to that tab.'],tip:'Nothing here moves money. The app only reads what you give it.'};
 var HELP={
-  overview:{t:'Overview',what:'A summary of the month: where your money went, income against spending over six months, your budgets and the bills coming up.',how:['Use the month arrows at the top to look at another month.','Read Where it went to see which categories took the most.','Budgets are listed most used first, so the ones you are close to overspending show at the top.','Bills coming up lists what is due in the next two weeks.'],tip:'This is the page to glance at each morning. Open the other tabs for detail.'},
-  dash:{t:'Dashboard',what:'A live view of your net worth, bills, loan payoff, goals and spending in one screen.',how:['Read the cards for your headline numbers.','Click a card to open the tab behind it.','Leave it open: it updates on its own.'],tip:'Add accounts and balances first so the net worth card is accurate.'},
-  accounts:{t:'Accounts',what:'Everything you own and owe, and your net worth (assets minus debts).',how:['Add an account with the form at the bottom: checking, savings, a card, a loan, a vehicle or a property.','Keep balances current: edit them, or import a statement on Transactions.','Assets and Debts show what adds to and what takes from your net worth.'],tip:'The more accounts you add, the more the rest of the app can connect (bills from loans, payoff plans, net worth).'},
-  pay:{t:'My pay',what:'Your paychecks: when the next one arrives, what comes out of each one and what changed since the last.',how:['Press Add a pay statement and choose the PDF from your payroll site (such as ADP). The app reads it on your computer.','Check the numbers it found, then save. Or press Add by hand to type them in.','Where your paycheck goes splits each check into taxes, benefits, retirement and take-home, with a chart and notes.','Add a statement each pay period so What changed and the yearly projection stay accurate.','With more than one job, the app tells them apart by the employer on each statement and shows each one: what it pays, when the next check comes and how it is doing.','Other income at the bottom is for gigs, payments from friends and gifts.'],tip:'A copy of each statement is filed in Documents for you.'},
+  overview:{t:'Overview',what:'A summary of the month: where your money went, income against spending over six months, your budgets and the bills coming up.',how:['Use the month arrows at the top to look at another month.','Read Where it went to see which categories took the most.','Budgets are listed most used first, so the ones you are close to overspending show at the top.','Bills coming up lists what is due in the next two weeks.','Your stocks shows what your investments are worth, how they moved today and how each stock is doing. It refreshes about every minute while the market is open.','Recent transactions lists your latest activity.','The row at the top switches between this summary and the Live dashboard.'],tip:'This is the page to glance at each morning. Open the other tabs for detail.'},
+  dash:{t:'Dashboard',what:'A live view of your net worth, bills, loan payoff, goals and spending in one screen.',how:['Read the cards for your headline numbers.','Click a card to open the tab behind it.','Recent transactions shows your latest activity.','Leave it open: it updates on its own.'],tip:'Add accounts and balances first so the net worth card is accurate.'},
+  accounts:{t:'Accounts',what:'Everything you own and owe, and your net worth (assets minus debts).',how:['Add an account with the form at the bottom: checking, savings, a card, a loan, a vehicle or a property.','Keep balances current: edit them, or import a statement on Transactions.','Assets and Debts show what adds to and what takes from your net worth.','The row at the top opens Assets (vehicles and valuables) and Investments, which live in this tab.'],tip:'The more accounts you add, the more the rest of the app can connect (bills from loans, payoff plans, net worth).'},
+  pay:{t:'My pay',what:'Your paychecks: when the next one arrives, what comes out of each one and what changed since the last.',how:['Press Add a pay statement and choose the PDF from your payroll site (such as ADP). The app reads it on your computer.','Check the numbers it found, then save. Or press Add by hand to type them in.','Where your paycheck goes splits each check into taxes, benefits, retirement and take-home, with a chart and notes.','Add a statement each pay period so What changed and the yearly projection stay accurate.','With more than one job, the app tells them apart by the employer on each statement and shows each one: what it pays, when the next check comes and how it is doing.','Other income at the bottom is for gigs, payments from friends and gifts.','Taxes is the other page, along the top of this tab.'],tip:'A copy of each statement is filed in Documents for you.'},
   tax:{t:'Taxes',what:'An estimate of whether you will owe or get a refund this year, built from your pay statements or your W-2.',how:['Choose your state, filing status and number of children under Your tax situation.','Press Add a tax form and choose your W-2 or 1099 PDF. Check what it read before you save it.','Read What to expect at tax time and How it adds up to see the estimate and where it comes from.','Use Update the estimate after you change anything.'],tip:'This is an estimate, not tax advice. Compare it with your real return.'},
-  docs:{t:'Documents',what:'A folder on your computer for statements and records, sorted by kind and year.',how:['Press Choose files and pick one or more documents.','Leave File under on Sort automatically, or pick the folder yourself.','Open a folder or a file from the list, or press Open my Documents folder.'],tip:'Pay statements, tax forms and service records you add elsewhere in the app are filed here too.'},
+  docs:{t:'Documents',what:'A folder on your computer for statements and records, sorted by kind and year.',how:['IDs and records at the top is an encrypted wallet for your ID card, passport and employment records: press Add / Edit on a card to add photos or PDFs and an expiry date, or New Category for your own. It is kept on this computer, one wallet per user.','Press Choose files and pick one or more documents.','Leave File under on Sort automatically, or pick the folder yourself.','Open a folder or a file from the list, or press Open my Documents folder.'],tip:'Pay statements, tax forms and service records you add elsewhere in the app are filed here too.'},
   assets:{t:'Assets',what:'Your vehicles and other valuable things: what they are worth, how fast they lose value, upkeep and modifications.',how:['Add the asset on Accounts, or open it here.','Keep its value current, or use the value lookup if you have set up AI.','Add maintenance so Upkeep coming up shows what to budget for.','Add modifications you installed; they add value.','Link a car loan to its vehicle.'],tip:'Upkeep that is due also shows up on the Bills tab.'},
   subscriptions:{t:'Subscriptions',what:'Your recurring charges (streaming, apps, memberships) and what they cost you a year.',how:['Add a subscription by hand, or press Track on one the app spotted in your transactions.','Press Cancelled it when you cancel one, and Restore if you change your mind.','Look at the yearly total to decide what is worth keeping.'],tip:'Import a few months of transactions so the app can spot the recurring ones for you.'},
-  bills:{t:'Bills',what:'What is due this month, what you have paid and what is still pending.',how:['A bill turns Paid when a matching payment shows up in your transactions, or when you press Mark paid.','Press Edit to change the amount or due day, enter what you have paid so far (the rest shows as left), or skip a month you are not expecting.','Turn on Autopay for bills that come out by themselves.','Press Add a bill for anything missing. Car loans, student loans and cards appear on their own.','Add a pay link to open your lender\'s payment page.'],tip:'Use the arrows to look ahead a few months.'},
+  bills:{t:'Bills',what:'What is due this month, what you have paid and what is still pending.',how:['A bill turns Paid when a matching payment shows up in your transactions, or when you press Mark paid.','Press Edit to change the amount or due day, enter what you have paid so far (the rest shows as left), or skip a month you are not expecting.','Turn on Autopay for bills that come out by themselves.','Press Add a bill for anything missing. Car loans, student loans and cards appear on their own.','Add a pay link to open your lender\'s payment page.','Subscriptions and Energy are the other pages along the top of this tab.'],tip:'Use the arrows to look ahead a few months.'},
   energy:{t:'Energy',what:'What electricity, gas and heating fuel cost you, by month, with weather and delivery history.',how:['Pick a type of energy in the row at the top: Electricity, Propane, Heating oil, Natural gas or Wood. Each has its own page.','On a fuel page press Add a delivery (gallons and price) or Add a bill. On Electricity import your utility\'s usage file, or press Add a month by hand.','The Overview adds them all up in What energy costs you.','Load the weather for your area to see how cold months drive your use.','The estimate for your next fuel delivery shows on Bills until you record it.'],tip:'If you have set up your Anthropic key, you can add a fuel invoice (PDF) and the app reads the gallons and price for you.'},
-  budgets:{t:'Budgets',what:'A monthly limit for each spending category, and how close you are to it.',how:['Set an amount for a category.','Click a category to see its past months, top merchants and a forecast.','Add auto-sort keywords so matching transactions land in the right category, including on the built-in ones.','Use the suggestion buttons to adopt a budget based on your history.'],tip:'Create your own categories when the built-in ones do not fit.'},
+  budgets:{t:'Budgets',what:'A monthly limit for each spending category, and how close you are to it.',how:['Set an amount for a category.','Click a category to see its past months, top merchants and a forecast.','Add auto-sort keywords so matching transactions land in the right category, including on the built-in ones.','Use the suggestion buttons to adopt a budget based on your history.','Monthly report, Goals and Can I afford it? are the other pages along the top of this tab.'],tip:'Create your own categories when the built-in ones do not fit.'},
   report:{t:'Monthly report',what:'A plain look back at a month: income, where it went, top merchants, biggest purchases and how you could save.',how:['Use the month arrows to choose a month.','Read Where your income came from and Where it went.','Look at How you can save and the 50/30/20 check for ideas.'],tip:'Look at it at the end of each month and set next month\'s budgets from it.'},
   afford:{t:'Can I afford it?',what:'Tell the app what you want to buy and it checks it against your money and shows a plan to get there.',how:['Enter what it is and what it costs.','Choose how soon you want it with the time buttons.','Read whether it fits now, and what to cut or earn to afford it.','Tick or untick the suggested cuts to see how the plan changes.'],tip:'It uses your real income, bills and goals, so keep those up to date.'},
   credit:{t:'Credit score',what:'Your credit scores over time, with what affects them graded from your own accounts.',how:['Type your scores from TransUnion, Equifax and Experian under Add your scores. Once a month is plenty.','Read For you for what the app noticed.','Look at What affects your score to see what to work on.'],tip:'The app cannot fetch your scores for you; you type them in.'},
@@ -5054,12 +5090,22 @@ var HELP={
   invest:{t:'Investments',what:'Your holdings, how they are spread out and how much they swing.',how:['Add a holding with its symbol, shares and cost.','See Allocation and By topic to check you are not too concentrated.','Volatility watch shows which ones move the most; the Analysts pill shows what analysts think.'],tip:'Prices are for information only.'},
   transactions:{t:'Transactions',what:'Every deposit and purchase. This is where you bring in your data.',how:['Import a statement (CSV or PDF) from your bank or card.','Use the filters and the search to find what you want.','Change a transaction\'s category, or fix many at once.','Transfers between your own accounts and card payments are left out of your spending so nothing counts twice.'],tip:'Import regularly. Most other tabs are built from what is here.'},
   goals:{t:'Goals',what:'Things you are saving for, with progress and a date.',how:['Create a goal with a name, a target and a date.','Link a goal to an account so progress follows its balance.','Turn on auto to put money toward it on a schedule.'],tip:'Pick the goal that matters most and fund it first.'},
-  loans:{t:'Loans',what:'Your car, student and other loans in one place, with plans to pay them off faster.',how:['Add a loan with its balance, rate, payment and due day.','Read The order to pay them and Debt-free by a date.','Import a statement from your lender to update a loan.','Try Would one new loan help? to compare consolidating or refinancing.'],tip:'A loan with a payment and a due day shows up on Bills.'},
+  loans:{t:'Loans',what:'Your car, student and other loans in one place, with plans to pay them off faster.',how:['Add a loan with its balance, rate, payment and due day.','Read The order to pay them and Debt-free by a date.','Import a statement from your lender to update a loan.','Try Would one new loan help? to compare consolidating or refinancing.','Credit cards, Mortgage and Credit score are the other pages along the top of this tab.'],tip:'A loan with a payment and a due day shows up on Bills.'},
   mortgage:{t:'Mortgage',what:'Your home loan: payment, interest, what you would save by paying extra and how it fits your budget.',how:['Press Edit details and enter your home value, loan, rate and payment.','Read My read for a plain explanation of your numbers.','Change the assumptions to test extra payments.'],tip:'Property tax and insurance are included in the monthly picture.'},
   assist:{t:'Assistant',what:'A private chat assistant that runs on this computer and answers questions about your money.',how:['Follow Set up the assistant once (about five minutes).','Ask a question in plain words, such as how much I spent on food last month.','Press Clear chat to start over.'],tip:'It runs on your computer, so your questions never leave it.'},
-  look:{t:'Settings',what:'How the app looks and works: appearance, tabs, security, backups and updates.',how:['Turn sound effects on or off, and set the volume, under Sound.','Pick a look, colour and mode under Appearance.','Drag tabs to reorder them, hide the ones you do not use, or put them across the top. You can protect hiding with a password, fingerprint or face.','Set an app password or Touch ID under Security.','Back up or restore your data, and check for app updates.'],tip:'Press Reset appearance to undo your styling.'}
+  look:{t:'Settings',what:'How the app looks and works: appearance, tabs, security, backups and updates.',how:['Settings has pages along the top: You, Appearance, Security, Backup, App updates, Widget, More and Help.','You: your name and nickname, and the other users of this computer (add a real person to get the setup guide, or a demo user with made-up data).','Appearance: sound, where the tabs sit and their order (hold and drag), the look, colour, glass, text and motion. Press Reset appearance to undo your styling.','Security: an app password and Touch ID, and moving to another computer.','Backup: save or restore everything you have entered.','App updates: check for a new version, or go back to an earlier one (save a backup first).','Widget: choose what the desktop widget shows and in what order, blur amounts, and ask for Touch ID before showing them.','Help: the tour, the guide, What to update and what is new.'],tip:'Search (Ctrl+K) finds any setting and opens its page.'}
 };
-var HELP_FINISH={t:'You are set',what:'That is the whole app. You can reopen this walkthrough any time from Settings, then Help.',how:['Search with Ctrl+K or / to jump anywhere.','Tap the ? button on any tab for a quick reminder.','Back up your data from Settings now and then.'],tip:'Start with Transactions and Accounts. Everything else fills in from them.'};
+// What changed in each version, in plain words. A test makes sure the version in package.json has an entry, so a release cannot go out without it.
+var WHATSNEW=[
+ ['1.8.29',['The 22 tabs are now 10. Tabs that held similar things became pages in one tab, shown as a row along the top: Overview (Summary, Live dashboard), Accounts (Accounts, Assets, Investments), Bills (Bills, Subscriptions, Energy), Budgets (Budgets, Monthly report, Goals, Can I afford it?), My pay (My pay, Taxes) and Debts (Loans, Credit cards, Mortgage, Credit score).','Settings is split into pages like Energy: You, Appearance, Security, Backup, App updates, Widget, More and Help.','App updates can now go back to an earlier version (save a backup first).','Users: share the computer with someone else, each with their own data, or add a demo user with made-up data. A setup guide walks a new user through everything worth filling in.','About you: your name and nickname. The Overview greets you by name.','IDs and records: an encrypted wallet in Documents for your ID card, passport and employment records, with expiry reminders.','The Overview shows your stocks live while the market is open, and your recent transactions.','The desktop widget can show what you choose, in the order you choose: net worth, investments, bills, next paycheck and more. Showing blurred amounts can ask for Touch ID.','Friends and family: I paid them, and They lent me (tracked until you pay them back).']],
+ ['1.8.28',['What to update (Settings, Help) lists what is out of date and takes you there.','Renaming a job no longer merges your other jobs into it.']],
+ ['1.8.27',['Student loans: forecast the auto-debit interest reduction.','Car loans add your vehicle for you.']]
+];
+function whatsNewPanel(){
+  var cur=(UP.st&&UP.st.version)||'';
+  return '<section class="panel"><h2>What is new<small>the latest changes</small></h2>'+WHATSNEW.slice(0,3).map(function(v){return '<div style="margin:0 0 10px"><div class="nm">Version '+esc(v[0])+(v[0]===cur?' <span class="pill good">You have this</span>':'')+'</div><ul class="tklist" style="margin:4px 0 0">'+v[1].map(function(x){return '<li>'+esc(x)+'</li>'}).join('')+'</ul></div>'}).join('')+'</section>';
+}
+var HELP_FINISH={t:'You are set',what:'That is the whole app. Tabs with several pages show a row of pages at the top. You can reopen this walkthrough any time from Settings, then Help.',how:['Search with Ctrl+K or / to jump anywhere.','Tap the ? button on any tab for a quick reminder.','Back up your data from Settings now and then.'],tip:'Start with Transactions and Accounts. Everything else fills in from them.'};
 function helpKey(v){return ({carloan:'loans',student:'loans'})[v]||v}
 function helpFor(v){var k=helpKey(v);return Object.prototype.hasOwnProperty.call(HELP,k)?HELP[k]:null}
 // The walkthrough: a welcome, one step per tab in the order of the tab list, then a closing step.
@@ -5176,13 +5222,13 @@ var TOURS={
  assist:[
   {f:[],t:'Ask in plain words',x:'The assistant runs on this computer. Set it up once (about five minutes), then ask questions such as how much you spent on food last month.'}],
  look:[
-  {f:['h2','Help'],t:'Help',x:'Start this tour again, read the guide, or press ? on any tab.'},
-  {f:['h2','Sound'],t:'Sound',x:'Soft sound effects when you switch tabs, press buttons or save something. Turn them off here, or lower the volume.'},
-  {f:['h2','Tabs'],t:'Your tabs',x:'Drag tabs to reorder them, hide the ones you do not use, or put them across the top. You can protect hiding with a password, fingerprint or face.'},
-  {f:['h2','Look'],t:'Look and colour',x:'One tap changes the whole app. Pick a colour, light or dark, and how much glass.'},
-  {f:['h2','Security'],t:'Security',x:'Set an app password or Touch ID.',opt:true},
-  {f:['h2','Backup'],t:'Backup',x:'Save or restore everything you have entered.',opt:true},
-  {f:['h2','App updates'],t:'App updates',x:'See your version and install new ones.',opt:true}]
+  {sub:'help',f:['h2','Help'],t:'Help',x:'Start this tour again, read the guide, or press ? on any tab.'},
+  {sub:'look',f:['h2','Sound'],t:'Sound',x:'Soft sound effects when you switch tabs, press buttons or save something. Turn them off here, or lower the volume.'},
+  {sub:'look',f:['h2','Tabs'],t:'Your tabs',x:'Drag tabs to reorder them, hide the ones you do not use, or put them across the top. You can protect hiding with a password, fingerprint or face.'},
+  {sub:'look',f:['h2','Look'],t:'Look and colour',x:'One tap changes the whole app. Pick a colour, light or dark, and how much glass.'},
+  {sub:'security',f:['h2','Security'],t:'Security',x:'Set an app password or Touch ID.',opt:true},
+  {sub:'data',f:['h2','Backup'],t:'Backup',x:'Save or restore everything you have entered.',opt:true},
+  {sub:'updates',f:['h2','App updates'],t:'App updates',x:'See your version and install new ones.',opt:true}]
 };
 // All the steps, in tab order: a welcome, then for each tab an introduction and its highlights, then a closing step.
 function tourSteps(tabs){
@@ -5190,7 +5236,7 @@ function tourSteps(tabs){
   (tabs||[]).forEach(function(t){
     var h=helpFor(t[0]);if(!h)return;
     out.push({tab:t[0],t:h.t,x:h.what,f:['top'],intro:true});
-    (TOURS[t[0]]||[]).forEach(function(st){out.push({tab:t[0],t:st.t,x:st.x,f:st.f,opt:!!st.opt,nth:st.nth||0})});
+    (TOURS[t[0]]||[]).forEach(function(st){out.push({tab:t[0],t:st.t,x:st.x,f:st.f,opt:!!st.opt,nth:st.nth||0,sub:st.sub})});
   });
   out.push({tab:'',t:'That is everything',x:'You can run this tour again from Settings, then Help, or press the ? button on any tab. Start with Transactions and Accounts; the rest fills in from them.',finish:true});
   return out;
@@ -7913,15 +7959,15 @@ function taxRead(inp){
 }
 /* ---------- Search: one box for everything in the app (Ctrl or Cmd + K, or press /) ---------- */
 var SPOT_KW={overview:'home summary today',dash:'live dashboard net worth',accounts:'banks balance checking savings',pay:'paycheck paystub salary adp gross net take-home',tax:'taxes refund owe w-2 1099 irs state withholding',docs:'documents folder files statements pdf',assets:'car vehicle motorcycle boat value depreciation maintenance modification',subscriptions:'subs recurring netflix streaming',bills:'due paid autopay upcoming',energy:'electric propane gas heating oil weather usage',budgets:'budget category limit keywords auto-sort',report:'monthly report income spending',afford:'can i afford purchase buy',credit:'credit score fico',cards:'credit card utilization cash back interest',invest:'stocks portfolio investments',transactions:'activity import csv filter edit expenses',goals:'savings goal target',loans:'debt student auto car loan payoff',mortgage:'house home rent buy',assist:'assistant chat ai ask',look:'settings appearance theme password backup security touch id hide tabs layout'};
-var SPOT_FEATURES=[['Help and walkthrough','look','help tutorial guide how to use walkthrough tour learn question mark'],['Add a user or switch user','look','profile account person share family demo switch who is using'],['Setup guide','look','setup guide walkthrough fill in upload new user onboarding'],['Your name and nickname','look','about you name nickname greeting personal information'],['What to update','look','update stale outdated accurate keep current checklist freshness todo what needs attention'],['Hide or show tabs','look','navigation layout order drag top bar sidebar'],['Change the theme or colours','look','appearance dark mode light glass'],['Set an app password or Touch ID','look','security lock unlock encrypt'],['Back up or restore your data','look','backup export import file'],['Add a transaction','transactions','new expense income cash manually'],['Import transactions (CSV, PDF)','transactions','statement upload bank file'],['Auto-sort keywords for a budget','budgets','rules categorize merchant keyword'],['Hidden bills','look','hide bill keyword'],['Set a monthly budget','budgets','limit category'],['Credit card statement','cards','pdf import add card']];
+var SPOT_FEATURES=[['Help and walkthrough','look:help','help tutorial guide how to use walkthrough tour learn question mark'],['Add a user or switch user','look:you','profile account person share family demo switch who is using'],['Setup guide','look:you','setup guide walkthrough fill in upload new user onboarding'],['Your name and nickname','look:you','about you name nickname greeting personal information'],['What to update','look:help','update stale outdated accurate keep current checklist freshness todo what needs attention'],['Hide or show tabs','look:look','navigation layout order drag top bar sidebar'],['Change the theme or colours','look:look','appearance dark mode light glass'],['Set an app password or Touch ID','look:security','security lock unlock encrypt'],['Back up or restore your data','look:data','backup export import file'],['Add a transaction','transactions','new expense income cash manually'],['Import transactions (CSV, PDF)','transactions','statement upload bank file'],['Auto-sort keywords for a budget','budgets','rules categorize merchant keyword'],['Hidden bills','look:more','hide bill keyword'],['Set a monthly budget','budgets','limit category'],['Credit card statement','cards','pdf import add card']];
 var SPOT_ORDER=['Pages','Budgets','Transactions','Bills','Accounts','Vehicles and assets','Goals','Subscriptions','Pay and taxes','Documents'];
 var spot={open:false,q:'',sel:0,res:[]};
 function spotMonthNames(){var o={},i;for(i=0;i<12;i++){var d=new Date(2000,i,1);o['0'.concat(i+1).slice(-2)]=d.toLocaleDateString('en-US',{month:'short'}).toLowerCase()+' '+d.toLocaleDateString('en-US',{month:'long'}).toLowerCase()}return o}
 function goTo(v){view=v;pendingImport=null;pendingEnc=null;secMsg='';payUI.edit='';editTx='';if(v!=='bills'&&month>NOWKEY)month=NOWKEY;spotClose();render();window.scrollTo(0,0)}
 function spotStatic(){
   var it=[],push=function(g,t,sub,hay,go){it.push({group:g,title:t,sub:sub,hay:hay,go:go})};
-  TABS.forEach(function(t){push('Pages',t[1],'Open this tab',SPOT_KW[t[0]]||'',function(){goTo(t[0])})});
-  SPOT_FEATURES.forEach(function(f){push('Pages',f[0],'In '+(TABS.filter(function(t){return t[0]===f[1]})[0]||[0,f[1]])[1],f[2],function(){goTo(f[1])})});
+  PAGES.forEach(function(t){push('Pages',t[1],hubOf(t[0])===t[0]?'Open this tab':'In '+pageName(hubOf(t[0])),SPOT_KW[t[0]]||'',function(){goTo(t[0])})});
+  SPOT_FEATURES.forEach(function(f){var base=String(f[1]).split(':')[0];push('Pages',f[0],'In '+pageName(base),f[2],function(){goSub(f[1])})});
   CATS.filter(function(c){return c!=='Income'}).forEach(function(c){var b=S.budgets[c]||0;push('Budgets',c,(b?money0(b)+' a month':'No budget')+' · see it month by month',rulesOf(c).join(' ')+' budget category',function(){budOpen=c;goTo('budgets')})});
   S.accounts.forEach(function(a){
     var asset=a.type==='property'&&a.asset,v=asset?'assets':a.type==='credit'?'cards':DEBT_TYPES[a.type]?'loans':'accounts';
@@ -8151,6 +8197,7 @@ function updGo(id){
   updClose();var g=t.go;
   if(g.view==='loans'&&g.sub&&LOANKIND[g.sub])loanFilter=g.sub;else if(g.view==='loans')loanFilter='all';
   if(g.view==='energy'&&g.sub)enTab=g.sub;
+  if(g.view==='look'&&g.sub)lookSub(g.sub);
   goTo(g.view);
 }
 function updPlan(){
@@ -8267,7 +8314,7 @@ function setupSteps(){
    {id:'tax',opt:1,tab:'tax',f:['h2','Your tax situation'],t:'Your taxes',x:'Choose your state, filing status and children. Add last year\'s W-2 to make the estimate use your real numbers.',check:function(){return S.tax&&S.tax.state?'State set to '+S.tax.state:false}},
    {id:'wallet',opt:1,tab:'docs',f:['h2','IDs and records'],t:'Store your ID, passport and records',x:'Add photos or PDFs of your ID card, passport and employment records. They are encrypted on this computer, never uploaded, and the app reminds you before one expires. Add the expiry date when you save.',check:function(){var n=(S.wallet||[]).reduce(function(t,c){return t+c.files.length},0);return n?cnt(n,'file')+' stored':false}},
    {id:'goals',opt:1,tab:'goals',f:['h2','New goal'],t:'Set a goal',x:'Saving for something? Give it a name, a target and a date, and link it to an account so progress follows the balance.',check:function(){return (S.goals||[]).length?cnt(S.goals.length,'goal')+' set':false}},
-   {id:'secure',opt:1,tab:'look',f:['h2','Security'],t:'Protect it',x:'Set an app password (and Touch ID on a Mac) so nobody else on this computer can open your data. Then save a backup file somewhere safe from the Backup section.',check:function(){return VLT.on?'App password is on':false}},
+   {id:'secure',opt:1,tab:'look',sub:'security',f:['h2','Security'],t:'Protect it',x:'Set an app password (and Touch ID on a Mac) so nobody else on this computer can open your data. Then save a backup file somewhere safe from the Backup section.',check:function(){return VLT.on?'App password is on':false}},
    {id:'finish',finish:true,t:'You are set up',x:'The more you add, the smarter the app gets. Anything you skipped is listed in Settings, Help, What to update, with a button to take you there.'}]);
   if(!(T&&T.wallet))steps=steps.filter(function(x){return x.id!=='wallet'});
   return steps;
@@ -8348,7 +8395,7 @@ function walkOpen(at){
   walkDraw();
 }
 // Every tab, so the tour covers the whole app even if you hid some tabs.
-function navVisibleTabsAll(){return TABS}
+function navVisibleTabsAll(){return pagesInOrder()}
 function walkDraw(){
   var el=document.getElementById('walk');if(!el)return;
   var st=helpUI.steps[helpUI.i],n=helpUI.steps.length,h=st.info,last=helpUI.i>=n-1;
@@ -8428,7 +8475,7 @@ function tourClose(restore){
 function tourStart(fromView){
   spotClose();helpPopClose();var w=document.getElementById('walk');if(w&&w.parentNode)w.parentNode.removeChild(w);
   if(VLT.locked)return;
-  TOUR.steps=tourSteps(TABS);TOUR.i=0;TOUR.startView=view;TOUR.play=false;TOUR.on=true;
+  TOUR.steps=tourSteps(pagesInOrder());TOUR.i=0;TOUR.startView=view;TOUR.play=false;TOUR.on=true;
   if(fromView){var ix=-1;TOUR.steps.forEach(function(st,n){if(ix<0&&st.intro&&st.tab===helpKey(fromView))ix=n});if(ix>-1)TOUR.i=ix}
   var b=document.createElement('div');b.id='tourblock';b.className='tourblock nohole';document.body.appendChild(b);
   var h=document.createElement('div');h.id='tourhole';h.className='tourhole';document.body.appendChild(h);
@@ -8487,7 +8534,8 @@ function tourShow(i,dir){
       TOUR.target=el;tourDrawCard();tourFocus(el);
     })();
   };
-  if(st.tab&&view!==st.tab){goTo(st.tab);setTimeout(go,420)}else go();
+  var subNow=st.sub&&st.tab==='look'&&lookTab!==st.sub;if(subNow)lookSub(st.sub);
+  if(st.tab&&view!==st.tab){goTo(st.tab);setTimeout(go,420)}else if(subNow){render();setTimeout(go,260)}else go();
 }
 function tourFocus(el){
   var narrow=window.innerWidth<=700,vh=window.innerHeight;
@@ -8506,7 +8554,7 @@ function tourFocus(el){
 function tourDrawCard(){
   if(TOUR.setup)return setupDrawCard();
   var c=document.getElementById('tourcard');if(!c)return;
-  var st=TOUR.steps[TOUR.i],n=TOUR.steps.length,last=TOUR.i>=n-1,tabName=st.tab?((TABS.filter(function(t){return t[0]===st.tab})[0]||[0,''])[1]):'';
+  var st=TOUR.steps[TOUR.i],n=TOUR.steps.length,last=TOUR.i>=n-1,tabName=st.tab?pageName(st.tab):'';
   var inTab=TOUR.steps.filter(function(x){return x.tab===st.tab&&!x.welcome&&!x.finish}),pos=inTab.indexOf(st)+1;
   c.innerHTML='<div class="tkicker">'+(st.tab?tabChip(st.tab):'')+'<span>'+esc(tabName?tabName+' · '+pos+' of '+inTab.length:(st.finish?'Done':'Welcome'))+'</span><span style="margin-left:auto">'+(TOUR.i+1)+'/'+n+'</span></div>'+
    '<h3>'+esc(st.t)+'</h3><p>'+esc(st.x)+'</p><div class="tkbar"><i style="width:'+((TOUR.i+1)/n*100)+'%"></i></div>'+(TOUR.play?'<div class="tkauto"><i></i></div>':'')+
@@ -9298,7 +9346,7 @@ function bindView(){
 }
 document.addEventListener('click',function(e){
   var bcat=e.target.closest('[data-budcat]');if(bcat){budOpen=bcat.dataset.budcat;view='budgets';pendingImport=null;pendingEnc=null;render();window.scrollTo(0,0);return}
-  var v=e.target.closest('[data-view]');if(v){view=v.dataset.view;if(view!=='bills'&&month>NOWKEY)month=NOWKEY;if(view==='cashback')view='cards';else if(view==='carloan'||view==='student'){loanFilter=view==='student'?'student':'auto';view='loans'}pendingImport=null;pendingEnc=null;secMsg='';payUI.edit='';editTx='';render();window.scrollTo(0,0);return}
+  var v=e.target.closest('[data-view]');if(v){view=v.dataset.view;if(v.closest('#rail,#tabbar')&&HUBLAST[view])view=HUBLAST[view];if(view!=='bills'&&month>NOWKEY)month=NOWKEY;if(view==='cashback')view='cards';else if(view==='carloan'||view==='student'){loanFilter=view==='student'?'student':'auto';view='loans'}pendingImport=null;pendingEnc=null;secMsg='';payUI.edit='';editTx='';render();window.scrollTo(0,0);return}
   var pl=e.target.closest('a[data-pay]');if(pl){toast('Opening '+pl.dataset.host+' in your browser. Come back and mark it paid when you are done.');return}
   var b=e.target.closest('[data-act]');if(!b)return;
   var a=b.dataset.act,id=b.dataset.id,s=S.subs.filter(function(x){return x.id===id})[0];
@@ -9566,7 +9614,14 @@ document.addEventListener('click',function(e){
   else if(a==='up-check'){updCheck(false);return}
   else if(a==='up-install'){updInstall();return}
   else if(a==='up-later'){UP.hide=true}
-  else if(a==='up-open'){view='look';pendingImport=null;goToUpdates()}
+  else if(a==='up-open'){view='look';lookTab='updates';pendingImport=null;render();goToUpdates();return}
+  else if(a==='look-tab'){lookSub(b.dataset.k)}
+  else if(a==='up-vers'){UP.busy='vers';UP.msg='';tcall(window.tally.update.versions()).then(function(v){UP.vers=v;UP.busy='';render()}).catch(function(e){UP.busy='';UP.msg=(e&&e.message)||'Could not list the versions.';render()})}
+  else if(a==='up-pick'){UP.pick=b.dataset.tag;UP.ack=false;UP.msg=''}
+  else if(a==='up-pick-no'){UP.pick='';UP.ack=false}
+  else if(a==='up-ack'){UP.ack=!!b.checked}
+  else if(a==='up-backup'){exportData();return}
+  else if(a==='up-down'){if(!UP.pick||!UP.ack||UP.busy)return;UP.busy='install';UP.msg='';UP.prog=null;render();window.tally.update.installVersion(UP.pick).then(function(r){if(r&&r.ok)return;UP.busy='';UP.msg=(r&&r.error)||'The version could not be installed.';render()},function(){UP.busy='';UP.msg='The version could not be installed.';render()});return}
   else if(a==='up-cleartoken'){window.tally.update.clearToken().then(function(){UP.st.hasToken=false;UP.info=null;UP.msg='';render()});return}
   else if(a==='gl-on'||a==='gl-off'){window.tally.glass.set(a==='gl-on');toast('Restarting…');return}
   else if(a.indexOf('th-')===0){thClick(a,b);return}
@@ -9670,9 +9725,10 @@ function navPanel(){
 }
 function vLook(){
   var sw=PRESETS.map(function(p){return '<button type="button" class="sw'+(TH.preset===p.id?' on':'')+'" data-act="th-preset" data-v="'+p.id+'" style="--sw:'+p.accent+'" aria-pressed="'+(TH.preset===p.id)+'">'+p.name+'</button>'}).join('');
-  return '<div class="top"><h1>Settings</h1><button class="btn small" data-act="th-reset">Reset appearance</button></div>'+
-  profPanels()+'<h2 class="setsec">Help</h2><section class="panel"><h2>Help<small>how to use the app</small></h2><p class="sub" style="margin:0 0 10px;white-space:normal">A guided tour that opens every tab for you, scrolls to what matters and lights it up (press Play to let it run by itself). You can also tap the <b>?</b> button at the bottom right of any tab for a short guide to just that tab.</p><div class="actions" style="justify-content:flex-start;flex-wrap:wrap"><button class="btn primary" data-act="help-walk">Start the walkthrough</button><button class="btn" data-act="help-guide">Read the guide</button><button class="btn" data-act="help-here">What does this tab do?</button><button class="btn" data-act="upd-open">What to update</button></div><p class="sub muted" style="margin:10px 0 0;font-size:12px;white-space:normal">Shortcuts: Ctrl+K (Cmd+K on a Mac) or / opens search and questions. Undo is at the top of each page.</p></section>'+
-  '<h2 class="setsec">Sound</h2><section class="panel"><h2>Sound<small>clicks, chimes and whooshes</small></h2><div class="lookrow"><span class="lbl">Sound effects<small>Soft sounds when you switch tabs, press buttons, save something or take the tour. Each tab has its own.</small></span><span class="ctl">'+seg('snd-on',SND.on?'on':'off',[['on','On'],['off','Off']])+'</span></div><div class="lookrow"><span class="lbl">Volume</span><span class="ctl"><input id="snd-vol" type="range" min="0" max="100" value="'+SND.vol+'" aria-label="Sound volume"'+(SND.on?'':' disabled')+'></span></div><div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn small" data-act="snd-test"'+(SND.on?'':' disabled')+'>Play a test sound</button></div></section>'+
+  var P={
+    you:function(){return profPanels()},
+    help:function(){return whatsNewPanel()+'<h2 class="setsec">Help</h2><section class="panel"><h2>Help<small>how to use the app</small></h2><p class="sub" style="margin:0 0 10px;white-space:normal">A guided tour that opens every tab for you, scrolls to what matters and lights it up (press Play to let it run by itself). You can also tap the <b>?</b> button at the bottom right of any tab for a short guide to just that tab.</p><div class="actions" style="justify-content:flex-start;flex-wrap:wrap"><button class="btn primary" data-act="help-walk">Start the walkthrough</button><button class="btn" data-act="help-guide">Read the guide</button><button class="btn" data-act="help-here">What does this tab do?</button><button class="btn" data-act="upd-open">What to update</button></div><p class="sub muted" style="margin:10px 0 0;font-size:12px;white-space:normal">Shortcuts: Ctrl+K (Cmd+K on a Mac) or / opens search and questions. Undo is at the top of each page.</p></section>'},
+    look:function(){return '<h2 class="setsec">Sound</h2><section class="panel"><h2>Sound<small>clicks, chimes and whooshes</small></h2><div class="lookrow"><span class="lbl">Sound effects<small>Soft sounds when you switch tabs, press buttons, save something or take the tour. Each tab has its own.</small></span><span class="ctl">'+seg('snd-on',SND.on?'on':'off',[['on','On'],['off','Off']])+'</span></div><div class="lookrow"><span class="lbl">Volume</span><span class="ctl"><input id="snd-vol" type="range" min="0" max="100" value="'+SND.vol+'" aria-label="Sound volume"'+(SND.on?'':' disabled')+'></span></div><div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn small" data-act="snd-test"'+(SND.on?'':' disabled')+'>Play a test sound</button></div></section>'+
   '<h2 class="setsec">Appearance</h2>'+navPanel()+
   '<section class="panel"><h2>Look<small>one tap changes the whole app</small></h2><div class="lookcards"><button type="button" class="lookcard'+(TH.bg==='studio'?' on':'')+'" data-act="th-look" data-v="studio"><div class="pv" style="background:radial-gradient(120px 60px at 50% 0%,#3e6ae155,transparent),#0a0c10;border:1px solid #1e222a"></div><b>Studio</b><div class="sub">Dark and cinematic, like a car app. Big light numbers, a lit stage for your car and home.</div></button><button type="button" class="lookcard'+(TH.bg!=='studio'?' on':'')+'" data-act="th-look" data-v="glass"><div class="pv" style="background:linear-gradient(135deg,#c7d2ff,#f3c6ff);border:1px solid #fff8"></div><b>Glass</b><div class="sub">Light, frosted and colourful.</div></button></div></section>'+
   glassPanel()+'<section class="panel"><h2>Colour<small>pick a preset or make your own</small></h2><div class="swatches">'+sw+'</div>'+
@@ -9685,8 +9741,22 @@ function vLook(){
   '<section class="panel"><h2>Type and motion</h2>'+
     '<div class="lookrow"><span class="lbl">Text size</span><span class="ctl">'+seg('th-size',TH.size,[['s','Small'],['m','Normal'],['l','Large']])+'</span></div>'+
     '<div class="lookrow"><span class="lbl">Font</span><span class="ctl">'+seg('th-font',TH.font,[['modern','Modern'],['system','System'],['rounded','Rounded'],['serif','Serif']])+'</span></div>'+
-    '<div class="lookrow"><span class="lbl">Motion<small>Page transitions, count-ups, the drifting background and confetti. Your system "reduce motion" setting always wins.</small></span><span class="ctl">'+seg('th-motion',TH.motion,[['full','Full'],['reduced','Calm']])+'</span></div></section>'+'<h2 class="setsec">Bills</h2>'+hiddenPanel()+'<h2 class="setsec">Your car</h2>'+carAiPanel()+'<h2 class="setsec">Security and moving to another computer</h2>'+secPanels()+'<h2 class="setsec">App and data</h2>'+updatesPanel()+widgetPanel()+backupPanel();
+    '<div class="lookrow"><span class="lbl">Motion<small>Page transitions, count-ups, the drifting background and confetti. Your system "reduce motion" setting always wins.</small></span><span class="ctl">'+seg('th-motion',TH.motion,[['full','Full'],['reduced','Calm']])+'</span></div></section>'},
+    more:function(){return '<h2 class="setsec">Bills</h2>'+hiddenPanel()+'<h2 class="setsec">Your car</h2>'+carAiPanel()},
+    security:function(){return '<h2 class="setsec">Security and moving to another computer</h2>'+secPanels()},
+    updates:function(){return updatesPanel()},
+    widget:function(){return widgetPanel()},
+    data:function(){return backupPanel()}};
+  var inner=(P[lookTab]||P.you)();
+  if(!inner)inner='<section class="panel"><div class="empty" style="white-space:normal">This part is only in the desktop app (Mac or Windows).</div></section>';
+  return '<div class="top"><h1>Settings</h1>'+(lookTab==='look'?'<button class="btn small" data-act="th-reset">Reset appearance</button>':'')+'</div>'+lookBar()+inner;
 }
+var LOOK_PAGES=[['you','You'],['look','Appearance'],['security','Security'],['data','Backup'],['updates','App updates'],['widget','Widget'],['more','More'],['help','Help']];
+var lookTab='you';
+function lookSub(k){if(LOOK_PAGES.some(function(p){return p[0]===k}))lookTab=k}
+// "look:security" opens Settings on its Security page; a plain name opens that tab.
+function goSub(spec){var a=String(spec).split(':');if(a[0]==='look'&&a[1])lookSub(a[1]);goTo(a[0])}
+function lookBar(){return '<nav class="hubbar" aria-label="Settings pages">'+LOOK_PAGES.map(function(p){var cur=lookTab===p[0];return '<button type="button" class="hubpg'+(cur?' on':'')+'" data-act="look-tab" data-k="'+p[0]+'"'+(cur?' aria-current="page"':'')+'>'+esc(p[1])+'</button>'}).join('')+'</nav>'}
 var carAI={busy:'',err:'',desc:{}};
 function carAiPanel(){
   var cars=S.accounts.filter(function(a){return a.type==='auto'}).slice(0,6),h='<section class="panel"><h2>Your car<small>draw it with AI</small></h2>';
@@ -10074,7 +10144,7 @@ function catAi(){
   }).catch(function(e){catBusy='';catMsg=e.message;render()});
 }
 /* ---------- App updates (Mac app) ---------- */
-var UP={st:null,info:null,busy:'',msg:'',prog:null,hide:false};
+var UP={st:null,info:null,busy:'',msg:'',prog:null,hide:false,vers:null,pick:'',ack:false};
 function mb(n){return Math.max(1,Math.round(n/1048576))+' MB'}
 function updInit(){
   if(!(window.tally&&window.tally.update))return;
@@ -10085,7 +10155,7 @@ function updInit(){
     if(b)b.style.width=(p.total?Math.min(100,p.received/p.total*100):0)+'%';
     if(t)t.textContent='Downloading '+mb(p.received||0)+' of '+mb(p.total||0);
   });
-  if(window.tally.onNav)window.tally.onNav(function(w){if(w==='update'){view='look';render();updCheck(false);goToUpdates()}});
+  if(window.tally.onNav)window.tally.onNav(function(w){if(w==='update'){view='look';lookTab='updates';render();updCheck(false);goToUpdates()}});
   u.status().then(function(r){
     if(!r||!r.ok)return;
     UP.st=r.data;
@@ -10127,6 +10197,21 @@ function updBanner(){
   var i=UP.info;if(!(i&&i.newer)||UP.hide||UP.busy==='install')return '';
   return '<div class="banner"><span><b>Version '+esc(i.latest)+' is available.</b> You have '+esc(i.current)+'.</span><span style="flex:0 0 auto;display:flex;gap:8px"><button class="btn small" data-act="up-later">Later</button><button class="btn small primary" data-act="up-open">See details</button></span></div>';
 }
+// Go back to an earlier release: lists them, asks you to save a backup first, then downloads, checks and installs the chosen one.
+function upDownHtml(st){
+  var h='<h3 style="font-size:15px;margin:18px 0 4px">Go back to an earlier version</h3>';
+  if(!st.canInstall)return h+'<p class="sub" style="margin:0;white-space:normal">'+esc(st.installBlocker||'This copy cannot replace itself.')+'</p>';
+  if(UP.busy==='install')return '';
+  h+='<p class="sub" style="margin:0 0 8px;white-space:normal">If a new version causes trouble, install an earlier one. Your data stays on this computer, but an earlier version does not know about anything added since, and it can lose that the next time it saves. Save a backup first.</p>';
+  if(!UP.vers)return h+'<button class="btn small" data-act="up-vers"'+(UP.busy?' disabled':'')+'>'+(UP.busy==='vers'?'Looking…':'Show earlier versions')+'</button>';
+  if(!UP.vers.some(function(v){return v.older}))return h+'<p class="sub">There are no earlier versions to go back to.</p>';
+  h+=UP.vers.filter(function(v){return v.older}).map(function(v){
+    return '<div class="row wrap" style="align-items:center"><div class="grow"><div class="nm">Version '+esc(v.version)+'</div><div class="sub">'+(v.date?'Released '+esc(shortDate(v.date)):'')+(v.hasAsset?'':' · no download for this computer')+'</div></div><button class="btn small" data-act="up-pick" data-tag="'+esc(v.tag)+'"'+(v.hasAsset?'':' disabled')+'>Go back to this</button></div>'}).join('');
+  if(UP.pick)h+='<div class="banner" style="display:block;margin-top:12px"><div class="nm" style="white-space:normal">Replace version '+esc(st.version)+' with '+esc(UP.pick.slice(1))+'?</div><p class="sub" style="white-space:normal;margin:6px 0">The app will download it, check it against GitHub\'s checksum, replace itself and reopen.'+(st.platform==='win32'?' On Windows the installer opens and may refuse to install an older version over a newer one; if it does, uninstall first (your data stays).':'')+' Anything you added in newer versions (for example IDs and records, users, or widget choices) may not show up, and may be lost if you keep using the older version.</p>'+
+    '<div class="actions" style="justify-content:flex-start"><button class="btn small" data-act="up-backup">Save a backup now</button><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-act="up-ack"'+(UP.ack?' checked':'')+'> I saved a backup</label></div>'+
+    '<div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn danger small" data-act="up-down"'+(UP.ack&&!UP.busy?'':' disabled')+'>Install '+esc(UP.pick.slice(1))+'</button><button class="btn small" data-act="up-pick-no">Cancel</button></div></div>';
+  return h;
+}
 function updatesPanel(){
   if(!(window.tally&&window.tally.update)||!UP.st)return '';
   var st=UP.st,i=UP.info,h='<section class="panel" id="updpanel"><h2>App updates<small>version '+esc(st.version)+'</small></h2>';
@@ -10147,6 +10232,7 @@ function updatesPanel(){
       else h+='<p class="sub muted" style="margin:8px 0 0;font-size:12px">The download is checked against GitHub\'s checksum, then replaces this app and reopens it. Your data stays. If anything fails, the old version is kept. Keychain may ask once to allow the new version to use saved keys.</p>';
     }
   }
+  if(st.hasToken)h+=upDownHtml(st);
   if(UP.msg)h+='<p class="sub bad" style="margin:10px 0 0">'+esc(UP.msg)+'</p>';
   return h+'</section>';
 }
