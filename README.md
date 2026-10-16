@@ -610,3 +610,7 @@ My pay has an **Other income** section for money that is not a paycheck: gigs, p
 ## Fixing what counts as income
 
 In My pay → Other income, **Already in your accounts?** lists deposits that currently count as income. Each row has **Tag** (gig, gift, friend and so on), **Transfer** (money moved between your own accounts: it stops counting as income right away), **Edit** (the full transaction editor, including "same for every similar transaction" and remembering it for future imports) and **Delete** (asks first; for a deposit that is not real). Undo at the top of the page takes any of it back. **Look further back** widens the list from four months to thirteen. Deleting a deposit that came from a linked bank removes it from the app only; a full re-sync of that bank can bring it back, so prefer Transfer or Edit for those.
+
+## Payments to friends and family
+
+On the Transactions tab, **Friends and family** lists payments that look like they went to a person (Venmo, Zelle, Cash App, PayPal) and lets you say what each was: a split bill or paying someone back, a gift, a **loan** (money you expect back) or other, with who it went to. Any transaction can also be tagged from **Edit**. Splits, gifts and other payments count as spending as before, with a summary by kind and person. A loan is kept out of your spending until the person pays you back; tag the money coming back as **They paid me back (not income)** (in My pay → Other income, or Edit) and the panel shows who still owes you what. Untag removes the tag and it counts as usual again.

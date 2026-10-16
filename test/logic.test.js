@@ -2714,3 +2714,51 @@ test('other income: candidates honour a wider window, a limit and a skip rule (t
   assert.deepEqual(O.oiCandidates(tx, today, { days: 400 }).map((x) => x.id), ['n', 'x', 'o']);
   assert.equal(O.oiCandidates(tx, today, { days: 400, limit: 1 }).length, 1);
 });
+
+// ---------- friends and family ----------
+function friendWorld() { return new Function(srcBlock('/*FRIEND-START*/', '/*FRIEND-END*/') + '\nreturn {friendClean, friendSummary, friendCandidates, friendKindLabel, FRIEND_KINDS};')(); }
+test('friends: a loan out and a payback in are kept out of spending and income; splits and gifts still count', () => {
+  const T = transferBlock();
+  const tx = [
+    { id: 'a', date: '2026-10-03', name: 'Venmo to Sam', amount: -50, cat: 'Dining', friend: { k: 'split', who: 'Sam' } },
+    { id: 'b', date: '2026-10-04', name: 'Venmo to Jo', amount: -200, cat: 'Other', friend: { k: 'loan', who: 'Jo' } },
+    { id: 'c', date: '2026-10-09', name: 'Venmo from Jo', amount: 80, cat: 'Other', friend: { k: 'repaid', who: 'Jo' } },
+    { id: 'd', date: '2026-10-05', name: 'Grocer', amount: -30, cat: 'Groceries' },
+  ];
+  assert.deepEqual(T.ledgerOf(tx, 'auto').map((x) => x.id), ['a', 'd']);
+});
+test('friends: summary counts what was paid, by kind and person, and what is still owed', () => {
+  const F = friendWorld();
+  const tx = [
+    { id: 'a', date: '2026-10-03', name: 'Venmo to Sam', amount: -50, friend: { k: 'split', who: 'Sam' } },
+    { id: 'g', date: '2026-03-03', name: 'Zelle Ana', amount: -100, friend: { k: 'gift', who: 'Ana' } },
+    { id: 'b', date: '2026-10-04', name: 'Venmo to Jo', amount: -200, friend: { k: 'loan', who: 'Jo' } },
+    { id: 'c', date: '2026-10-09', name: 'Venmo from Jo', amount: 80, friend: { k: 'repaid', who: 'Jo' } },
+    { id: 'o', date: '2025-10-09', name: 'old', amount: -999, friend: { k: 'gift', who: 'Ana' } },
+  ];
+  const s = F.friendSummary(tx, 2026, '2026-10');
+  assert.equal(s.year, 150);
+  assert.equal(s.month, 50);
+  assert.equal(s.count, 2);
+  assert.deepEqual(s.byKind, { split: 50, gift: 100 });
+  assert.equal(s.byPerson.Sam, 50);
+  assert.deepEqual(s.owed.map((o) => [o.who, o.loaned, o.repaid, o.left]), [['Jo', 200, 80, 120]]);
+  assert.equal(s.totalOwed, 120);
+  const paidBack = F.friendSummary(tx.concat([{ id: 'z', date: '2026-10-20', name: 'x', amount: 120, friend: { k: 'repaid', who: 'Jo' } }]), 2026, '2026-10');
+  assert.equal(paidBack.owed.length, 0, 'fully repaid loans disappear');
+});
+test('friends: clean tag, and payments to people are suggested (untagged, recent, not transfers)', () => {
+  const F = friendWorld(), today = new Date(2026, 9, 12);
+  assert.deepEqual(F.friendClean('loan', '  Jo <b> '), { k: 'loan', who: 'Jo b' });
+  assert.equal(F.friendClean('bogus', 'x'), null);
+  const tx = [
+    { id: '1', date: '2026-10-09', name: 'VENMO PAYMENT Sam', amount: -20 },
+    { id: '2', date: '2026-10-08', name: 'Zelle to Ana', amount: -40, friend: { k: 'gift', who: 'Ana' } },
+    { id: '3', date: '2026-10-07', name: 'Cash App', amount: -15, transfer: true },
+    { id: '4', date: '2026-10-06', name: 'Trader Joes', amount: -60 },
+    { id: '5', date: '2026-10-05', name: 'Venmo from Sam', amount: 20 },
+    { id: '6', date: '2026-03-05', name: 'PayPal old', amount: -5 },
+  ];
+  assert.deepEqual(F.friendCandidates(tx, today).map((x) => x.id), ['1']);
+  assert.deepEqual(F.friendCandidates(tx, today, { days: 400 }).map((x) => x.id), ['1', '6']);
+});
