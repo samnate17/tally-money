@@ -3203,3 +3203,29 @@ test('help: every release has a plain-words entry in What is new, and the help c
   const pages = new Function('return ' + /^var PAGES=(\[\[.*\]\]);/m.exec(src)[1])().map((p) => p[0]);
   ['dash', 'assets', 'docs', 'look'].forEach((k) => assert.ok(pages.includes(k)));
 });
+// ---- window layout ----
+function layWorld() { return new Function(srcBlock('/*LAYOUT-START*/', '/*LAYOUT-END*/') + '\nreturn {LAYOUT_VIEWS, WINSTYLES, winSlug, cleanLayout, winStyleOf};')(); }
+test('layout: window names become stable ids', () => {
+  const L = layWorld();
+  assert.equal(L.winSlug('Where it went'), 'where-it-went'); assert.equal(L.winSlug('  If you earned $100 '), 'if-you-earned-100');
+  assert.equal(L.winSlug('Budgets'), 'budgets'); assert.equal(L.winSlug(''), ''); assert.equal(L.winSlug(null), '');
+  assert.ok(L.winSlug('x'.repeat(100)).length <= 40);
+});
+test('layout: saved layouts are cleaned and bad input is ignored', () => {
+  const L = layWorld();
+  assert.deepEqual(L.cleanLayout(null), { views: {} }); assert.deepEqual(L.cleanLayout('x'), { views: {} }); assert.deepEqual(L.cleanLayout({ views: [] }), { views: {} });
+  const c = L.cleanLayout({ views: { overview: { order: ['a', 'a', 'B c', 'ok-1', 5], hidden: ['x', 'x'], size: { a: 'half', b: 'huge', 'bad key!': 'full' }, style: { 'where-it-went': 'bars', x: '<script>', y: 'ok' } }, nonsense: { order: ['z'] }, dash: null } });
+  assert.deepEqual(Object.keys(c.views), ['overview'], 'unknown pages and empty ones are dropped');
+  assert.deepEqual(c.views.overview.order, ['a', 'ok-1']); assert.deepEqual(c.views.overview.hidden, ['x']);
+  assert.deepEqual(c.views.overview.size, { a: 'half' }); assert.deepEqual(c.views.overview.style, { 'where-it-went': 'bars', y: 'ok' });
+});
+test('layout: a window uses the graphic chosen for it, the first one when the choice is gone, and none when it has no choice', () => {
+  const L = layWorld(), lay = L.cleanLayout({ views: { overview: { style: { 'where-it-went': 'list', 'your-stocks': 'nope', 'last-six-months': 'line' } } } });
+  assert.equal(L.winStyleOf(lay, 'overview', 'where-it-went'), 'list');
+  assert.equal(L.winStyleOf(lay, 'overview', 'your-stocks'), 'line', 'an unknown choice falls back to the first');
+  assert.equal(L.winStyleOf(lay, 'overview', 'last-six-months'), 'line');
+  assert.equal(L.winStyleOf(lay, 'overview', 'budgets'), 'bars');
+  assert.equal(L.winStyleOf(lay, 'overview', 'recent-transactions'), '', 'no choice for this window');
+  assert.equal(L.winStyleOf({ views: {} }, 'dash', 'net-worth'), 'line'); assert.equal(L.winStyleOf(null, 'dash', 'net-worth'), 'line');
+  Object.keys(L.WINSTYLES).forEach((k) => { assert.ok(L.LAYOUT_VIEWS[k.split('/')[0]], k + ' is on a page that can be customized'); assert.ok(L.WINSTYLES[k].length >= 2); });
+});

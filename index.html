@@ -438,6 +438,22 @@ body.reordering,body.reordering *{cursor:grabbing!important}
 .hubbar{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px}
 .hubpg{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:7px 14px;font:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:background .15s,transform .15s}
 .hubpg:hover{background:var(--surface2)}.hubpg.on{background:var(--accent);color:var(--accent-ink,#fff);border-color:var(--accent)}
+.winboard{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:0 0 14px;align-items:start}
+.win{min-width:0;position:relative}.win.full{grid-column:1/-1}.win>.panel{margin:0}.win>.grid.tiles{margin:0}
+@media (max-width:900px){.winboard{grid-template-columns:minmax(0,1fr)}.win.half{grid-column:1/-1}}
+.win>h2.sechead{margin-top:6px}
+.win .panel h2{cursor:grab}.reordering .win .panel h2{cursor:grabbing}
+.winoff{display:none}.layoutedit .winoff{display:block;opacity:.45}
+.wincfg{display:none;align-items:center;gap:6px;flex-wrap:wrap;margin:0 0 6px;padding:5px 8px;border:1px dashed var(--accent);border-radius:12px;background:var(--accent-soft,rgba(59,76,240,.12))}
+.layoutedit .wincfg{display:flex}
+.wgrip{cursor:grab;font-size:12px;font-weight:700;color:var(--accent);padding:4px 6px;border-radius:8px;user-select:none;touch-action:none}.wgrip:active{cursor:grabbing}
+.wincfg .btn,.wincfg select{font-size:12px;padding:4px 9px}.winstyle{border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--ink)}
+.layoutedit .win .panel,.layoutedit .win .grid.tiles{outline:2px dashed color-mix(in srgb,var(--accent) 45%,transparent);outline-offset:3px}
+.reorder-lift{z-index:5;box-shadow:0 18px 50px rgba(0,0,0,.35);border-radius:16px}
+.laybtns{display:inline-flex;gap:6px;margin-left:8px;vertical-align:middle}
+.catviz{display:flex;flex-direction:column;gap:6px}.cvrow{display:grid;grid-template-columns:minmax(80px,1.2fr) 3fr auto;gap:10px;align-items:center;font-size:14px}.cvl{display:flex;align-items:center;gap:6px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.cvbar{height:10px;border-radius:99px;background:var(--surface2,rgba(127,127,127,.15));overflow:hidden}.cvbar i{display:block;height:100%;border-radius:99px;transition:width .5s ease}.cvv{text-align:right;font-weight:600}
+.budrings{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:14px 10px}.brg{display:flex;flex-direction:column;align-items:center;text-align:center;gap:2px}.brn{font-size:13px;font-weight:600}
 .whopick{position:fixed;inset:0;z-index:200;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:20px;overflow:auto}
 .whobox{text-align:center;max-width:760px}.whobox h1{font-size:30px;margin:0 0 28px}
 .whogrid{display:flex;gap:20px;flex-wrap:wrap;justify-content:center}
@@ -1197,11 +1213,13 @@ function render(){
   if(view!=='invest'&&view!=='look'&&view!=='assist')body=body.replace(/(<div class="top"><h1>[^<]*<\/h1>)/,'$1<button class="btn small refresh" data-act="refresh" aria-label="Refresh this page"'+(refreshing?' disabled':'')+'>'+(refreshing?'Refreshing…':'&#8635; Refresh')+'</button>');
   body=body.replace(/(<div class="top"><h1>[^<]*<\/h1>)/,'$1'+undoButtons());
   if(body.indexOf('class="undo"')<0)body='<div style="display:flex;justify-content:flex-end;margin:0 0 8px">'+undoButtons()+'</div>'+body;
+  body=body.replace(/(<div class="top"><h1>[^<]*<\/h1>)/,'$1'+layoutButtons());
   body=body.replace('<div class="top"><h1>','<div class="top"><h1>'+tabChip(view));
   if(view!=='energy'&&view!=='overview'&&view!=='assist')body=afterTopBar(body,tabHero(view));
   $('#main').style.setProperty('--tab',tabColor(view));
   HUBLAST[hubOf(view)]=hubPageOf(view);
   $('#main').innerHTML=banner+pageBar()+body;
+  layoutApply();
   bindView();thBind($('#main'));afterRender();helpFabSync();tabBgSync();dockInit();
 }
 function monthNav(){return '<div class="monthnav"><button class="btn small" data-act="mprev" aria-label="Previous month">&larr;</button><b>'+monthLabel(month)+'</b><button class="btn small" data-act="mnext" aria-label="Next month"'+(month>=monthLimit()?' disabled':'')+'>&rarr;</button></div>'}
@@ -1217,13 +1235,17 @@ function donut(by,total){
   var leg=ents.map(function(c){return '<div><span class="dot" style="background:'+col(c)+'"></span>'+c+'<span class="v num">'+money0(by[c])+'</span></div>'}).join('');
   return '<div class="donutwrap"><svg width="140" height="140" viewBox="0 0 140 140" role="img" aria-label="Spending by category">'+arcs+'<text x="70" y="66" text-anchor="middle" font-size="11">Spent</text><text x="70" y="86" text-anchor="middle" font-size="17" font-weight="700" style="fill:var(--ink);font-family:var(--font-display)">'+money0(total)+'</text></svg><div class="legend">'+leg+'</div></div>';
 }
-function trend(){
+function trend(style){
   var ks=[],i;for(i=5;i>=0;i--)ks.push(shiftMonth(month,-i));
   var sp=ks.map(function(k){return spendBy(k).total}),inc=ks.map(incomeOf);
   var mx=Math.max.apply(null,sp.concat(inc).concat([1])),W=420,H=170,pl=6,bw=22,g=(W-pl*2)/6,out='';
   var step=mx>4000?1000:mx>1500?500:250,top=Math.ceil(mx/step)*step;
   for(var t=0;t<=top;t+=step){var y=H-24-(t/top)*(H-44);out+='<line x1="0" x2="'+W+'" y1="'+y+'" y2="'+y+'" stroke="var(--line)"/>'+'<text x="0" y="'+(y-3)+'" font-size="10">'+(t?money0(t):'')+'</text>'}
-  ks.forEach(function(k,i){
+  if(style==='line'){
+    var pt1=function(arr){return ks.map(function(k,i){return (pl+i*g+g/2).toFixed(1)+','+(H-24-(arr[i]/top)*(H-44)).toFixed(1)})};
+    out+='<polyline points="'+pt1(inc).join(' ')+'" fill="none" stroke="var(--good)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" opacity=".8"/><polyline points="'+pt1(sp).join(' ')+'" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>';
+    ks.forEach(function(k,i){var x=pl+i*g+g/2;out+='<circle cx="'+x.toFixed(1)+'" cy="'+(H-24-(inc[i]/top)*(H-44)).toFixed(1)+'" r="3.5" fill="var(--good)"/><circle cx="'+x.toFixed(1)+'" cy="'+(H-24-(sp[i]/top)*(H-44)).toFixed(1)+'" r="3.5" fill="var(--accent)"/><text x="'+x+'" y="'+(H-8)+'" text-anchor="middle" font-size="11" '+(k===month?'style="fill:var(--ink);font-weight:700"':'')+'>'+new Date(+k.slice(0,4),+k.slice(5)-1,1).toLocaleDateString('en-US',{month:'short'})+'</text>'});
+  }else ks.forEach(function(k,i){
     var x=pl+i*g+g/2,hs=(sp[i]/top)*(H-44),hi=(inc[i]/top)*(H-44);
     out+='<rect x="'+(x-bw-1)+'" y="'+(H-24-hi)+'" width="'+bw+'" height="'+hi+'" rx="4" fill="var(--good)" opacity=".55"/>';
     out+='<rect x="'+(x+1)+'" y="'+(H-24-hs)+'" width="'+bw+'" height="'+hs+'" rx="4" fill="var(--accent)"/>';
@@ -1231,11 +1253,13 @@ function trend(){
   });
   return '<svg viewBox="0 0 '+W+' '+H+'" width="100%" style="max-width:760px;display:block" role="img" aria-label="Income and spending, last six months">'+out+'</svg><div class="legend" style="flex-direction:row;gap:16px;margin-top:6px"><div><span class="dot" style="background:var(--good);opacity:.55"></span>Income</div><div><span class="dot" style="background:var(--accent)"></span>Spending</div></div>';
 }
-function budgetRows(limit,mk){
+function budgetRows(limit,mk,style){
   var sp=spendBy(mk).by,keys=Object.keys(S.budgets).filter(function(c){return S.budgets[c]>0});
   keys.sort(function(a,b){return (sp[b]||0)/S.budgets[b]-(sp[a]||0)/S.budgets[a]});
   if(limit)keys=keys.slice(0,limit);
   if(!keys.length)return '<div class="empty">No budgets yet. Set one on the Budgets tab.</div>';
+  if(style==='rings')return '<div class="budrings">'+keys.map(function(c){var s=sp[c]||0,b=S.budgets[c],p=s/b,C=2*Math.PI*26,tint=p>1?'var(--bad)':p>.85?'var(--warn)':col(c);
+    return '<div class="brg"><svg viewBox="0 0 64 64" width="68" height="68" role="img" aria-label="'+esc(c)+' '+Math.round(p*100)+'% used"><circle cx="32" cy="32" r="26" fill="none" stroke="var(--line)" stroke-width="6"/><circle cx="32" cy="32" r="26" fill="none" stroke="'+tint+'" stroke-width="6" stroke-linecap="round" stroke-dasharray="'+C.toFixed(1)+'" stroke-dashoffset="'+(C*(1-Math.min(p,1))).toFixed(1)+'" transform="rotate(-90 32 32)"/><text x="32" y="36" text-anchor="middle" font-size="13" font-weight="700" style="fill:var(--ink)">'+Math.round(p*100)+'%</text></svg><div class="brn">'+esc(c)+'</div><div class="sub">'+money0(s)+' of '+money0(b)+'</div></div>'}).join('')+'</div>';
   return keys.map(function(c){var s=sp[c]||0,b=S.budgets[c],p=s/b,cl=p>1?'bad':p>.85?'warn':'';
     return '<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;gap:8px;font-size:14px"><span><span class="dot" style="background:'+col(c)+';display:inline-block;margin-right:6px"></span><button class="cbtn" style="font-weight:500" data-budcat="'+esc(c)+'">'+esc(c)+'</button></span><span class="num muted">'+money0(s)+' of '+money0(b)+'</span></div><div class="bar" style="margin-top:5px"><i class="'+cl+'" style="width:'+Math.min(100,p*100)+'%"></i></div></div>'}).join('');
 }
@@ -1386,8 +1410,8 @@ function vDash(){
   var head='<div class="top"><h1>Dashboard</h1><div class="actions"><span class="pill good" title="This page updates itself">&#9679; Live</span><span class="sub muted" id="dashclock">Updated '+dashTime()+'</span>'+
     (canSync?'<label class="sub" style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="dash-auto"'+(DASH.auto?' checked':'')+'> Sync banks every 30 min</label>':'')+
     '<button class="btn small" data-act="dash-full">Full screen</button></div></div>';
-  return head+tiles+'<div class="grid two"><section class="panel"><h2>Where it went<small>'+monthLabel(mk)+'</small></h2>'+donut(sp.by,sp.total)+'</section><section class="panel"><h2>Budgets<small>most used first</small></h2>'+budgetRows(6,mk)+'</section></div>'+
-    '<div class="grid two">'+bills+debts+'</div><div class="grid two">'+en+goals+'</div>'+recentPanel(6)+(S.accounts.length?'<section class="panel"><h2>Net worth</h2>'+nwChart()+'</section>':'');
+  return head+tiles+'<div class="grid two"><section class="panel"><h2>Where it went<small>'+monthLabel(mk)+'</small></h2>'+catViz(sp.by,sp.total,winStyle('dash','where-it-went'))+'</section><section class="panel"><h2>Budgets<small>most used first</small></h2>'+budgetRows(6,mk,winStyle('dash','budgets'))+'</section></div>'+
+    '<div class="grid two">'+bills+debts+'</div><div class="grid two">'+en+goals+'</div>'+recentPanel(6)+(S.accounts.length?'<section class="panel"><h2>Net worth</h2>'+nwChart(winStyle('dash','net-worth'))+'</section>':'');
 }
 // Keeps the dashboard current: the clock ticks every second, the page redraws every minute, and linked banks can sync every 30 minutes.
 setInterval(function(){
@@ -1501,8 +1525,8 @@ function vOverview(){
    tile('Subscriptions',money0(subTotal)+'<span class="muted" style="font-size:14px">/mo</span>',activeSubs().length+' active · '+money0(subTotal*12)+'/yr')+billsTile()+'</div>';
   var upH=up.length?up.map(function(o){var n=dayDiff(TODAY,o.d);return '<div class="row">'+logo(o.s.name)+'<div class="grow"><div class="nm">'+esc(o.s.name)+'</div><div class="sub">'+(n===0?'Today':n===1?'Tomorrow':'In '+n+' days')+' · '+shortDate(iso(o.d))+'</div></div><div class="amt num">'+money(o.s.amount)+'</div></div>'}).join(''):'<div class="empty">Nothing due in the next 14 days.</div>';
   return '<div class="top"><h1>Overview</h1>'+monthNav()+'</div>'+lookOffer()+homeScreen(sp,inc,nw)+'<h2 class="sechead">'+monthLabel(month)+' in detail</h2>'+tiles+
-   stocksPanel()+'<div class="grid two"><section class="panel"><h2>Where it went</h2>'+donut(sp.by,sp.total)+'</section><section class="panel"><h2>Last six months</h2>'+trend()+'</section></div>'+
-   '<div class="grid two"><section class="panel"><h2>Budgets<small>most used first</small></h2>'+budgetRows(5,month)+'</section><section class="panel"><h2>Bills coming up<small>next 14 days</small></h2>'+upH+'</section></div>'+recentPanel(8)+waffleOverview(sp,inc)+historyPanel();
+   stocksPanel()+'<div class="grid two"><section class="panel"><h2>Where it went</h2>'+catViz(sp.by,sp.total,winStyle('overview','where-it-went'))+'</section><section class="panel"><h2>Last six months</h2>'+trend(winStyle('overview','last-six-months'))+'</section></div>'+
+   '<div class="grid two"><section class="panel"><h2>Budgets<small>most used first</small></h2>'+budgetRows(5,month,winStyle('overview','budgets'))+'</section><section class="panel"><h2>Bills coming up<small>next 14 days</small></h2>'+upH+'</section></div>'+recentPanel(8)+waffleOverview(sp,inc)+historyPanel();
 }
 /*OVSTOCK-START*/
 // Is the US stock market open? Weekdays 9:30am to 4pm New York time (holidays are not known, so on those days prices just stay the same).
@@ -1557,6 +1581,14 @@ function ovLive(qs,part){
 }
 // The value-over-time chart, or a plain note when there is not enough price history yet.
 function ovChartHtml(qs){
+  var st=winStyle('overview','your-stocks');
+  if(st==='pie'||st==='bars'){
+    var hv=S.holdings.map(function(h,i){return {sym:h.symbol,v:holdingStats(h,qs[h.symbol]).value||0}}).filter(function(r){return r.v>0}).sort(function(a,b){return b.v-a.v}),ht=hv.reduce(function(n,r){return n+r.v},0);
+    if(!(ht>0))return {k:'none',html:'<div class="empty" style="white-space:normal">The graphic appears when prices have loaded.</div>'};
+    var key=st+':'+hv.map(function(r){return r.sym+Math.round(r.v)}).join(',');
+    if(st==='pie')return {k:key,html:'<div class="donutwrap" style="align-items:center">'+pieSVG(hv.map(function(r,i){return {v:r.v,color:OV_COLS[i%8]}}),170,'How your stocks are split')+'<div class="legend">'+hv.map(function(r,i){return '<div><span class="dot" style="background:'+OV_COLS[i%8]+'"></span>'+esc(r.sym)+'<span class="v num">'+money0(r.v)+' · '+Math.round(r.v/ht*100)+'%</span></div>'}).join('')+'</div></div>'};
+    return {k:key,html:'<div class="catviz">'+hv.map(function(r,i){return '<div class="cvrow"><div class="cvl"><span class="dot" style="background:'+OV_COLS[i%8]+'"></span>'+esc(r.sym)+'</div><div class="cvbar"><i style="width:'+(r.v/hv[0].v*100).toFixed(1)+'%;background:'+OV_COLS[i%8]+'"></i></div><div class="cvv num">'+money0(r.v)+'</div></div>'}).join('')+'</div>'};
+  }
   var ser=portfolioSeries(S.holdings,qs,OVS.range);
   if(ser.length>1)return {k:ser.length+':'+Math.round(ser[ser.length-1][1]),html:lineChart(ser,{money:true,h:150,label:'Value of your stocks over time'})};
   return {k:'none',html:'<div class="empty" style="white-space:normal">'+(portfolioStats(S.holdings,qs).priced?'No price history for these yet. Press Refresh now to load it.':'The chart appears when prices have loaded.')+'</div>'};
@@ -1571,10 +1603,10 @@ function ovAlloc(qs){
 }
 function stocksPanel(){
   if(!S.holdings.length)return '';
-  var qs=quotesFor(),ch=ovChartHtml(qs);
+  var qs=quotesFor(),ch=ovChartHtml(qs),styl=winStyle('overview','your-stocks');
   var chips=[[30,'1M'],[90,'3M'],[365,'1Y']].map(function(r){return '<button class="btn small'+(OVS.range===r[0]?' primary':'')+'" data-act="ov-range" data-d="'+r[0]+'" aria-pressed="'+(OVS.range===r[0])+'">'+r[1]+'</button>'}).join('');
   return '<section class="panel stockpanel" id="ovstocks"><h2>Your stocks<small id="ov-status" class="ovstatus">'+ovStatus(qs)+'</small></h2><div id="ov-hero">'+ovLive(qs,'hero')+'</div>'+
-    '<div class="actions" style="justify-content:space-between;margin-top:10px;flex-wrap:wrap"><div class="actions" style="gap:6px">'+chips+'</div>'+(T&&T.quotes?'<button class="btn small" data-act="ov-refresh">Refresh now</button>':'')+'</div>'+
+    '<div class="actions" style="justify-content:space-between;margin-top:10px;flex-wrap:wrap"><div class="actions" style="gap:6px">'+(styl==='line'?chips:'')+'</div>'+(T&&T.quotes?'<button class="btn small" data-act="ov-refresh">Refresh now</button>':'')+'</div>'+
     '<div id="ov-chart" data-k="'+ch.k+'">'+ch.html+'</div><div id="ov-live" style="margin-top:12px">'+ovLive(qs,'rows')+'</div>'+
     '<p class="sub muted" style="margin:6px 0 0;font-size:12px;white-space:normal">Prices refresh about every minute while the market is open (9:30 to 4 New York time) and are delayed by the data provider. The chart uses the shares you hold today, so it shows how your current stocks did, not your past balance.</p></section>';
 }
@@ -3891,9 +3923,15 @@ function nwSeries(){
   }
   return out.slice(-6);
 }
-function nwChart(){
+function nwChart(style){
   var s=nwSeries();
   if(s.length<2)return '<div class="empty">Update your balances in two different months to see a trend here.</div>';
+  if(style==='bars'){
+    var bv=s.map(function(p){return p.v}),bm=Math.max.apply(null,bv.map(Math.abs).concat([1])),BW=420,BH=170,bz=BH-52,bg=(BW-16)/s.length,bo='<line x1="0" x2="'+BW+'" y1="'+(24+bz/2)+'" y2="'+(24+bz/2)+'" stroke="var(--line)"/>';
+    s.forEach(function(p,i){var h=Math.abs(p.v)/bm*(bz/2),x=8+i*bg+bg*0.2,w=bg*0.6,y=p.v>=0?24+bz/2-h:24+bz/2,last=i===s.length-1;
+      bo+='<rect x="'+x.toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+w.toFixed(1)+'" height="'+Math.max(2,h).toFixed(1)+'" rx="4" fill="'+(p.v>=0?'var(--accent)':'var(--bad)')+'" opacity="'+(last?1:.7)+'"/><text x="'+(x+w/2).toFixed(1)+'" y="'+(BH-6)+'" text-anchor="middle" font-size="11"'+(last?' style="fill:var(--ink);font-weight:700"':'')+'>'+new Date(+p.k.slice(0,4),+p.k.slice(5)-1,1).toLocaleDateString('en-US',{month:'short'})+'</text>'+(last?'<text x="'+(x+w/2).toFixed(1)+'" y="'+(y>24+bz/2?y+h+13:y-5).toFixed(1)+'" text-anchor="middle" font-size="11" font-weight="700" style="fill:var(--ink)">'+money0(p.v)+'</text>':'')});
+    return '<svg viewBox="0 0 '+BW+' '+BH+'" width="100%" style="max-width:560px" role="img" aria-label="Net worth by month">'+bo+'</svg>';
+  }
   var W=420,H=170,pl=8,pr=8,pt=14,pb=24,vals=s.map(function(p){return p.v}),mn=Math.min.apply(null,vals),mx=Math.max.apply(null,vals);
   if(mx===mn){mx+=1;mn-=1}
   var pad=(mx-mn)*.15;mn-=pad;mx+=pad;
@@ -3938,7 +3976,7 @@ function vAccounts(){
   var tiles='<div class="grid tiles">'+tile('Net worth','<span class="'+(nw.net<0?'bad':'good')+'">'+(nw.net<0?'-':'')+money0(Math.abs(nw.net))+'</span>','Assets minus debts')+tile('Assets',money0(nw.assets),assets.length+' account'+(assets.length===1?'':'s'))+tile('Debts','<span class="'+(nw.debts>0?'bad':'')+'">'+money0(nw.debts)+'</span>',debts.length+' account'+(debts.length===1?'':'s'))+'</div>';
   var opts='<optgroup label="Assets">'+Object.keys(ASSET_TYPES).map(function(k){return '<option value="'+k+'">'+ASSET_TYPES[k]+'</option>'}).join('')+'</optgroup><optgroup label="Debts">'+Object.keys(DEBT_TYPES).map(function(k){return '<option value="'+k+'">'+DEBT_TYPES[k]+'</option>'}).join('')+'</optgroup>';
   return '<div class="top"><h1>Accounts</h1></div>'+appleBalBanner()+'<div class="actions" style="justify-content:flex-end;margin:0 0 10px">'+cardStmtButton('Add a credit card from a statement','')+'</div>'+cardStmtPanel()+tiles+
-   '<section class="panel"><h2>Net worth</h2>'+nwChart()+'</section>'+
+   '<section class="panel"><h2>Net worth</h2>'+nwChart(winStyle('accounts','net-worth'))+'</section>'+
    '<section class="panel"><h2>Assets</h2>'+(assets.length?assets.map(acctRow).join(''):'<div class="empty">No assets yet.</div>')+'</section>'+
    '<section class="panel"><h2>Debts</h2>'+(debts.length?debts.map(acctRow).join(''):'<div class="empty">No debts tracked.</div>')+'</section>'+
    payoffPanel()+plShell()+
@@ -5095,7 +5133,7 @@ var billUI={edit:'',adding:false,adj:''};
 // What each tab is for and how to use it. Shown by the ? button on every tab and in the walkthrough (Settings, then Help).
 var HELP_START={t:'Welcome',what:'Tally Money keeps your money in one place on this computer: accounts, spending, bills, pay, taxes, goals and more. Your data stays on this computer; nothing is sent anywhere unless you choose an AI feature and give it your own key.',how:['Bring in your data. On Transactions, import a bank or card statement (a CSV or a PDF). On Accounts, add your accounts and balances.','The example data you see at first is made up so you can try everything. Clear it when you are ready to use your own.','Press Ctrl+K (Cmd+K on a Mac) or / to search or ask anything, such as next paycheck, bills due or tax refund.','If you change something by mistake, use Undo at the top of the page.','Open Settings to change how the app looks, reorder or hide tabs, set a password or Touch ID, back up your data and update the app.','Tap the ? button at the bottom right of any tab for a short guide to that tab.'],tip:'Nothing here moves money. The app only reads what you give it.'};
 var HELP={
-  overview:{t:'Overview',what:'A summary of the month: where your money went, income against spending over six months, your budgets and the bills coming up.',how:['Use the month arrows at the top to look at another month.','Read Where it went to see which categories took the most.','Budgets are listed most used first, so the ones you are close to overspending show at the top.','Bills coming up lists what is due in the next two weeks.','Your stocks shows what your investments are worth, how they moved today, a chart of their value over time (1M, 3M or 1Y), a bar of how your money is split between them and how each stock is doing. It refreshes about every minute while the market is open.','Recent transactions lists your latest activity.','The row at the top switches between this summary and the Live dashboard.'],tip:'This is the page to glance at each morning. Open the other tabs for detail.'},
+  overview:{t:'Overview',what:'A summary of the month: where your money went, income against spending over six months, your budgets and the bills coming up.',how:['Use the month arrows at the top to look at another month.','Read Where it went to see which categories took the most.','Budgets are listed most used first, so the ones you are close to overspending show at the top.','Bills coming up lists what is due in the next two weeks.','Your stocks shows what your investments are worth, how they moved today, a chart of their value over time (1M, 3M or 1Y), a bar of how your money is split between them and how each stock is doing. It refreshes about every minute while the market is open.','Recent transactions lists your latest activity.','The row at the top switches between this summary and the Live dashboard.','Press Customize at the top of this page (or any page with windows) to drag windows into a new order, make them half or full width, hide the ones you do not want and choose how some of them are drawn: spending as a donut, bars or a list, the six months as bars or lines, your stocks as a line graph, a pie or bars, budgets as bars or rings, net worth as a line or bars. You can also hold a window by its title and drag it.'],tip:'This is the page to glance at each morning. Open the other tabs for detail.'},
   dash:{t:'Dashboard',what:'A live view of your net worth, bills, loan payoff, goals and spending in one screen.',how:['Read the cards for your headline numbers.','Click a card to open the tab behind it.','Recent transactions shows your latest activity.','Leave it open: it updates on its own.'],tip:'Add accounts and balances first so the net worth card is accurate.'},
   accounts:{t:'Accounts',what:'Everything you own and owe, and your net worth (assets minus debts).',how:['Add an account with the form at the bottom: checking, savings, a card, a loan, a vehicle or a property.','Keep balances current: edit them, or import a statement on Transactions.','Assets and Debts show what adds to and what takes from your net worth.','The row at the top opens Assets (vehicles and valuables) and Investments, which live in this tab.'],tip:'The more accounts you add, the more the rest of the app can connect (bills from loans, payoff plans, net worth).'},
   pay:{t:'My pay',what:'Your paychecks: when the next one arrives, what comes out of each one and what changed since the last.',how:['Press Add a pay statement and choose the PDF from your payroll site (such as ADP). The app reads it on your computer.','Check the numbers it found, then save. Or press Add by hand to type them in.','Where your paycheck goes splits each check into taxes, benefits, retirement and take-home, with a chart and notes.','Add a statement each pay period so What changed and the yearly projection stay accurate.','With more than one job, the app tells them apart by the employer on each statement and shows each one: what it pays, when the next check comes and how it is doing.','Other income at the bottom is for gigs, payments from friends and gifts.','Taxes is the other page, along the top of this tab.'],tip:'A copy of each statement is filed in Documents for you.'},
@@ -5120,6 +5158,7 @@ var HELP={
 };
 // What changed in each version, in plain words. A test makes sure the version in package.json has an entry, so a release cannot go out without it.
 var WHATSNEW=[
+ ['1.8.31',['Drag the windows on a page to change its layout: press Customize, then move, resize or hide each window, or hold a window by its title and drag it. Some windows can be drawn a different way: spending as a donut, bars or a list; the six months as bars or lines; your stocks as a line graph, pie or bars; budgets as bars or rings; net worth as a line or bars. Each user keeps their own layout.']],
  ['1.8.30',['The stocks chart on the Overview now appears as soon as prices load (before, it could stay empty until you reopened the page). The Overview also shows a bar of how your stocks are split.','The desktop widget now has live graphics: a net worth graph, an investments graph with movers, rings for budgets, your next paycheck and your goal, a spending donut, due-date dots and a credit score scale. A green dot shows when it was updated in the last few minutes.']],
  ['1.8.29',['The 22 tabs are now 10. Tabs that held similar things became pages in one tab, shown as a row along the top: Overview (Summary, Live dashboard), Accounts (Accounts, Assets, Investments), Bills (Bills, Subscriptions, Energy), Budgets (Budgets, Monthly report, Goals, Can I afford it?), My pay (My pay, Taxes) and Debts (Loans, Credit cards, Mortgage, Credit score).','Settings is split into pages like Energy: You, Appearance, Security, Backup, App updates, Widget, More and Help.','App updates can now go back to an earlier version (save a backup first).','Users: share the computer with someone else, each with their own data, or add a demo user with made-up data. A setup guide walks a new user through everything worth filling in.','About you: your name and nickname. The Overview greets you by name.','IDs and records: an encrypted wallet in Documents for your ID card, passport and employment records, with expiry reminders.','The Overview shows your stocks live while the market is open, and your recent transactions.','The desktop widget can show what you choose, in the order you choose: net worth, investments, bills, next paycheck and more. Showing blurred amounts can ask for Touch ID.','Friends and family: I paid them, and They lent me (tracked until you pay them back).']],
  ['1.8.28',['What to update (Settings, Help) lists what is out of date and takes you there.','Renaming a job no longer merges your other jobs into it.']],
@@ -8234,7 +8273,7 @@ function updPlan(){
     updRefresh()},function(){UPD.aiBusy=false;UPD.ai='The assistant could not answer. The list above still applies.';updRefresh()});
 }
 /* ---------- Users, personal information and the guided setup ---------- */
-var USER_KEYS=['tally-money-v1','tally-vault-v1','tally-lock-v1','tally-nav-lock-v1','tally-nav-v1','tally-assist-v1','tally-dash-v1','tally-look-offer','tally-plaid-v1','tally-theme-v1','tally-order-v1','tally-owner'];
+var USER_KEYS=['tally-layout-v1','tally-money-v1','tally-vault-v1','tally-lock-v1','tally-nav-lock-v1','tally-nav-v1','tally-assist-v1','tally-dash-v1','tally-look-offer','tally-plaid-v1','tally-theme-v1','tally-order-v1','tally-owner'];
 // The Touch ID slot for this user: the first user keeps the original names.
 function bioSlot(base){return PROF.id==='main'?(base==='tabs'?'tabs':undefined):(base||'vault')+':'+PROF.id}
 var profUI={del:'',msg:''};
@@ -9640,6 +9679,10 @@ document.addEventListener('click',function(e){
   else if(a==='up-later'){UP.hide=true}
   else if(a==='up-open'){view='look';lookTab='updates';pendingImport=null;render();goToUpdates();return}
   else if(a==='look-tab'){lookSub(b.dataset.k)}
+  else if(a==='lay-edit'){layoutEdit=!layoutEdit}
+  else if(a==='lay-reset'){delete LAYOUT.views[view];saveLayout();toast('This page is back to its normal layout.')}
+  else if(a==='win-size'){var lw=layV(view),cw=b.closest('.win'),cur=cw&&cw.classList.contains('full')?'full':'half';lw.size[b.dataset.id]=cur==='full'?'half':'full';saveLayout()}
+  else if(a==='win-hide'){var lh=layV(view),hi=lh.hidden.indexOf(b.dataset.id);if(hi<0)lh.hidden.push(b.dataset.id);else lh.hidden.splice(hi,1);saveLayout()}
   else if(a==='up-vers'){UP.busy='vers';UP.msg='';tcall(window.tally.update.versions()).then(function(v){UP.vers=v;UP.busy='';render()}).catch(function(e){UP.busy='';UP.msg=(e&&e.message)||'Could not list the versions.';render()})}
   else if(a==='up-pick'){UP.pick=b.dataset.tag;UP.ack=false;UP.msg=''}
   else if(a==='up-pick-no'){UP.pick='';UP.ack=false}
@@ -9811,6 +9854,10 @@ function carAiRun(id){
     a.carSvg=svg;save();render();toast('Your car is drawn.');
   }).catch(function(e){carAI.busy='';carAI.err=(e&&e.message)||'Could not draw the car.';render()});
 }
+document.addEventListener('change',function(e){
+  var t=e.target;if(!t||!t.classList||!t.classList.contains('winstyle'))return;
+  var l=layV(t.dataset.v);l.style[t.dataset.id]=t.value;saveLayout();render();
+});
 function thClick(a,b){
   if(a==='th-nav-layout'){NAVP.layout=b.dataset.v==='top'||b.dataset.v==='bottom'?b.dataset.v:'side';saveNav();render();return true}
   if(a==='th-nav-up'||a==='th-nav-down'){NAVP.order=navStep(navIds(),b.dataset.id,a==='th-nav-up'?-1:1);saveNav();render();return true}
@@ -9841,6 +9888,108 @@ function ordMove(a,from,to){var b=a.slice(),x=b.splice(from,1)[0];b.splice(to,0,
 // The shown tabs were reordered; hidden ones keep their places in the full list.
 function ordMerge(full,vis){var set={},k=0;vis.forEach(function(v){set[v]=1});return full.map(function(id){return set[id]&&k<vis.length?vis[k++]:id})}
 /*REORDER-END*/
+/*LAYOUT-START*/
+// Windows (the panels on a page) can be moved, resized, hidden and shown as a different kind of graphic. Saved per user and per page.
+var LAYOUT_VIEWS={overview:1,dash:1,accounts:1,assets:1,invest:1,budgets:1,report:1,bills:1,subscriptions:1,pay:1,tax:1,loans:1,cards:1,credit:1,goals:1,docs:1};
+// The windows that can change what kind of graphic they draw: page/window id -> [[key,label],...] (the first is the default).
+var WINSTYLES={
+  'overview/where-it-went':[['donut','Donut'],['bars','Bars'],['list','List']],
+  'dash/where-it-went':[['donut','Donut'],['bars','Bars'],['list','List']],
+  'overview/last-six-months':[['bars','Bars'],['line','Lines']],
+  'overview/your-stocks':[['line','Line graph'],['pie','Pie'],['bars','Bars']],
+  'overview/budgets':[['bars','Bars'],['rings','Rings']],
+  'dash/budgets':[['bars','Bars'],['rings','Rings']],
+  'overview/net-worth':[['line','Line graph'],['bars','Bars']],
+  'dash/net-worth':[['line','Line graph'],['bars','Bars']],
+  'accounts/net-worth':[['line','Line graph'],['bars','Bars']]
+};
+function winSlug(t){return String(t==null?'':t).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,40)}
+function cleanLayout(raw){
+  var out={views:{}},idre=/^[a-z0-9-]{1,40}$/;
+  if(!raw||typeof raw!=='object'||Array.isArray(raw)||!raw.views||typeof raw.views!=='object')return out;
+  Object.keys(raw.views).slice(0,40).forEach(function(v){
+    if(!LAYOUT_VIEWS[v])return;var r=raw.views[v];if(!r||typeof r!=='object')return;
+    var ids=function(a){var seen={},o=[];(Array.isArray(a)?a:[]).slice(0,60).forEach(function(x){if(typeof x==='string'&&idre.test(x)&&!seen[x]){seen[x]=1;o.push(x)}});return o};
+    var size={},style={};
+    if(r.size&&typeof r.size==='object')Object.keys(r.size).slice(0,60).forEach(function(k){if(idre.test(k)&&(r.size[k]==='half'||r.size[k]==='full'))size[k]=r.size[k]});
+    if(r.style&&typeof r.style==='object')Object.keys(r.style).slice(0,60).forEach(function(k){if(idre.test(k)&&/^[a-z]{2,10}$/.test(r.style[k]||''))style[k]=r.style[k]});
+    out.views[v]={order:ids(r.order),hidden:ids(r.hidden),size:size,style:style};
+  });
+  return out;
+}
+// Which kind of graphic a window uses now: what was chosen if it is still on offer, else the first one. '' when the window has no choice.
+function winStyleOf(L,v,id){
+  var opts=WINSTYLES[v+'/'+id];if(!opts)return '';
+  var s=((L&&L.views&&L.views[v])||{style:{}}).style[id];
+  return opts.some(function(o){return o[0]===s})?s:opts[0][0];
+}
+/*LAYOUT-END*/
+var LAYOUT=cleanLayout(null),layoutEdit=false;
+try{LAYOUT=cleanLayout(JSON.parse(localStorage.getItem(PK('tally-layout-v1'))||'null'))}catch(e){}
+function saveLayout(){try{localStorage.setItem(PK('tally-layout-v1'),JSON.stringify(LAYOUT))}catch(e){}}
+function layV(v){if(!LAYOUT.views[v])LAYOUT.views[v]={order:[],hidden:[],size:{},style:{}};return LAYOUT.views[v]}
+function winStyle(v,id){return winStyleOf(LAYOUT,v,id)}
+function layoutSetOrder(v,ids){layV(v).order=ids;saveLayout();render()}
+function layoutButtons(){
+  if(!LAYOUT_VIEWS[view])return '';
+  return '<span class="laybtns"><button class="btn small'+(layoutEdit?' primary':'')+'" data-act="lay-edit" aria-pressed="'+layoutEdit+'" title="Move, resize, hide and restyle the windows on this page">'+(layoutEdit?'Done':'Customize')+'</button>'+(layoutEdit?'<button class="btn small" data-act="lay-reset" title="Put this page back the way it came">Reset layout</button>':'')+'</span>';
+}
+// Wraps every window of the page in a movable frame and puts them in the saved order. Runs after each draw of the page.
+function layoutApply(){
+  var m=$('#main');document.body.classList.toggle('layoutedit',!!(layoutEdit&&LAYOUT_VIEWS[view]));
+  if(!m||!LAYOUT_VIEWS[view])return;
+  var kids=[].slice.call(m.children),wins=[],pend=[],seen=false,first=null;
+  kids.forEach(function(el){
+    var tiles=el.matches('.grid.tiles'),panel=el.matches('section.panel'),grid=el.classList.contains('grid')&&!tiles&&el.children.length&&[].every.call(el.children,function(c){return c.matches('section.panel')});
+    if(el.matches('h2.sechead')){pend.push(el);return}
+    if(panel||tiles){wins.push({els:pend.concat([el]),half:false,core:el});pend=[];seen=true}
+    else if(grid){[].slice.call(el.children).forEach(function(c,i){wins.push({els:(i===0?pend:[]).concat([c]),half:true,core:c})});pend=[];seen=true;wins[wins.length-1].dropGrid=el}
+    else if(seen)pend.push(el);
+  });
+  if(!wins.length)return;
+  // anything between windows travels with the window after it; leftovers at the end stay at the end
+  var tail=pend;
+  var L=layV(view),ids={},items=wins.map(function(w,i){
+    var h=w.core.querySelector('h2,h3'),t=w.core.matches('.grid.tiles')?'tiles':(h&&h.firstChild&&h.firstChild.nodeType===3?h.firstChild.textContent:h?h.textContent:''),id=winSlug(t)||('w'+i);
+    while(ids[id])id+='-2';ids[id]=1;w.id=id;return w});
+  var ordered=ordApply(L.order,items,function(w){return w.id});
+  var board=document.createElement('div');board.className='winboard';board.dataset.reorder='win:'+view;
+  var anchor=wins[0].els[0];m.insertBefore(board,anchor);
+  ordered.forEach(function(w){
+    var size=L.size[w.id]||(w.half?'half':'full'),off=L.hidden.indexOf(w.id)>-1,fr=document.createElement('div');
+    fr.className='win '+size+(off?' winoff':'');fr.dataset.wid=w.id;
+    var opts=WINSTYLES[view+'/'+w.id],cur=winStyle(view,w.id);
+    var cfg=document.createElement('div');cfg.className='wincfg';
+    cfg.innerHTML='<span class="wgrip" title="Hold and drag to move this window" aria-label="Move this window">⋮⋮ Move</span><span class="grow"></span>'+
+      (opts?'<select class="winstyle" data-v="'+view+'" data-id="'+w.id+'" aria-label="Kind of graphic">'+opts.map(function(o){return '<option value="'+o[0]+'"'+(o[0]===cur?' selected':'')+'>'+esc(o[1])+'</option>'}).join('')+'</select>':'')+
+      '<button type="button" class="btn small" data-act="win-size" data-id="'+w.id+'" title="Half width or full width">'+(size==='full'?'Make half':'Make full')+'</button>'+
+      '<button type="button" class="btn small" data-act="win-hide" data-id="'+w.id+'">'+(off?'Show':'Hide')+'</button>';
+    fr.appendChild(cfg);w.els.forEach(function(e){fr.appendChild(e)});board.appendChild(fr);
+  });
+  wins.forEach(function(w){if(w.dropGrid&&w.dropGrid.parentNode)w.dropGrid.parentNode.removeChild(w.dropGrid)});
+  tail.forEach(function(e){m.appendChild(e)});
+}
+// What a spending-by-category window can draw besides the donut.
+function catViz(by,total,style){
+  if(style!=='bars'&&style!=='list')return donut(by,total);
+  var ents=Object.keys(by).sort(function(a,b){return by[b]-by[a]});
+  if(!ents.length)return '<div class="empty">No spending recorded this month.</div>';
+  var mx=by[ents[0]]||1;
+  return '<div class="catviz">'+ents.slice(style==='bars'?0:0,style==='bars'?8:14).map(function(c){var v=by[c],pct=total>0?v/total*100:0;
+    return style==='bars'?'<div class="cvrow"><div class="cvl"><span class="dot" style="background:'+col(c)+'"></span>'+esc(c)+'</div><div class="cvbar"><i style="width:'+(v/mx*100).toFixed(1)+'%;background:'+col(c)+'"></i></div><div class="cvv num">'+money0(v)+'</div></div>'
+      :'<div class="row"><span class="dot" style="background:'+col(c)+';display:inline-block;margin-right:8px"></span><div class="grow">'+esc(c)+'</div><div class="num">'+money0(v)+'</div><div class="sub" style="width:44px;text-align:right">'+pct.toFixed(0)+'%</div></div>'}).join('')+'</div>';
+}
+// A pie from a list of {v,color}.
+function pieSVG(parts,size,label){
+  var tot=parts.reduce(function(n,p){return n+p.v},0);if(!(tot>0))return '';
+  var c=size/2,r=size/2-3,a0=-Math.PI/2,out='';
+  parts.forEach(function(p){
+    if(!(p.v>0))return;var f=p.v/tot;
+    if(f>0.9999){out+='<circle cx="'+c+'" cy="'+c+'" r="'+r+'" fill="'+p.color+'"/>';return}
+    var a1=a0+f*2*Math.PI,x0=c+r*Math.cos(a0),y0=c+r*Math.sin(a0),x1=c+r*Math.cos(a1),y1=c+r*Math.sin(a1);
+    out+='<path d="M'+c+','+c+' L'+x0.toFixed(2)+','+y0.toFixed(2)+' A'+r+','+r+' 0 '+(f>0.5?1:0)+' 1 '+x1.toFixed(2)+','+y1.toFixed(2)+' Z" fill="'+p.color+'" stroke="var(--surface-solid,var(--bg))" stroke-width="2"/>';a0=a1});
+  return '<svg viewBox="0 0 '+size+' '+size+'" width="'+size+'" height="'+size+'" role="img" aria-label="'+esc(label||'Pie chart')+'">'+out+'</svg>';
+}
 var ORD={};try{ORD=JSON.parse(localStorage.getItem(PK('tally-order-v1'))||'{}')||{}}catch(e){ORD={}}
 function saveOrd(){try{localStorage.setItem(PK('tally-order-v1'),JSON.stringify(ORD))}catch(e){}}
 function orderBy(key,arr,idf){return ordApply(ORD[key],arr,idf)}
@@ -9852,6 +10001,8 @@ var RO=null,roSuppress=false;
     var n=t.closest('.nav[data-view]');
     if(n&&!n.classList.contains('searchbtn')){var bx=n.closest('#rail,#tabbar');if(bx)return {box:bx,item:n,sel:'.nav[data-view]:not(.searchbtn)',idf:function(x){return x.dataset.view},key:'nav'}}
     var it=t.closest('[data-rid]');if(it){var b2=it.closest('[data-reorder]');if(b2)return {box:b2,item:it,sel:'[data-rid]',idf:function(x){return x.dataset.rid},key:b2.dataset.reorder}}
+    var w=t.closest('.win[data-wid]');
+    if(w&&w.parentNode&&w.parentNode.classList.contains('winboard')&&t.closest('.wgrip,h2'))return {box:w.parentNode,item:w,sel:'.win[data-wid]',idf:function(x){return x.dataset.wid},key:w.parentNode.dataset.reorder};   // a window is picked up by its title (or its Move handle when customizing)
     return null;
   }
   function slotCenters(st){return st.rects.map(function(r){return {x:r.left+r.width/2,y:r.top+r.height/2}})}
@@ -9897,6 +10048,7 @@ var RO=null,roSuppress=false;
     if(!commit||st.to===st.from)return;
     var ids=st.items.map(st.g.idf),moved=ordMove(ids,st.from,st.to);
     if(st.g.key==='nav'){NAVP.order=ordMerge(navIds(),moved);saveNav();nav();toast('Moved '+((TABS.filter(function(t){return t[0]===ids[st.from]})[0]||[])[1]||'tab')+'.')}
+    else if(st.g.key.indexOf('win:')===0){layoutSetOrder(st.g.key.slice(4),moved)}
     else{ORD[st.g.key]=moved;saveOrd();render()}
     snd('pop');
   }
@@ -9904,7 +10056,7 @@ var RO=null,roSuppress=false;
     if(RO||(e.pointerType==='mouse'&&e.button!==0))return;
     var g=groupOf(e.target);if(!g)return;
     var st={g:g,id:e.pointerId,type:e.pointerType,x:e.clientX,y:e.clientY,cx:e.clientX,cy:e.clientY,active:false};
-    st.timer=setTimeout(function(){begin(st)},HOLD);RO=st;
+    st.timer=setTimeout(function(){begin(st)},document.body.classList.contains('layoutedit')?150:HOLD);RO=st;
   },true);
   document.addEventListener('pointermove',function(e){
     var st=RO;if(!st||e.pointerId!==st.id)return;
