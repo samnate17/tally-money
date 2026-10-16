@@ -459,6 +459,8 @@ body.reordering,body.reordering *{cursor:grabbing!important}
 .livedot{width:9px;height:9px;border-radius:50%;background:var(--muted);display:inline-block}.livedot.on{background:var(--good);animation:livepulse 1.6s ease-in-out infinite}
 @keyframes livepulse{0%,100%{box-shadow:0 0 0 0 rgba(22,163,74,.55)}50%{box-shadow:0 0 0 6px rgba(22,163,74,0)}}
 .ovhero{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-end;margin:4px 0 10px}.ovbig{font-size:34px;font-weight:700;line-height:1.1}.ovchg{text-align:right}
+.ovalloc{display:flex;height:14px;border-radius:99px;overflow:hidden;background:var(--surface2);margin:2px 0 6px}.ovalloc i{display:block;height:100%;min-width:3px}
+.ovleg{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--muted);margin:0 0 10px}.ovleg i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px}
 .ovrow{display:grid;grid-template-columns:minmax(86px,1.1fr) 84px minmax(80px,2fr) 70px 90px;gap:8px;align-items:center;padding:7px 0;border-top:1px solid var(--line)}
 .ovsym{display:flex;flex-direction:column}.ovprice,.ovpct{text-align:right;font-weight:600}.ovspark{display:flex;justify-content:flex-end}
 .dvbar{position:relative;height:10px;border-radius:99px;background:var(--surface2,rgba(127,127,127,.15))}.dvbar::before{content:"";position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:var(--line)}
@@ -1539,9 +1541,9 @@ function ovStatus(qs){
   if(!last)return '<span class="sub">'+(T&&T.quotes?'Prices not loaded yet':'Prices load in the desktop app')+'</span>';
   return '<span class="sub">'+(open?'Updated ':'Market closed · updated ')+ovAgo(last)+'</span>';
 }
-function ovLive(qs){
+function ovLive(qs,part){
   var ps=portfolioStats(S.holdings,qs),rows=ovStockRows(S.holdings,qs,holdingStats);
-  if(!ps.priced)return '<div class="empty" style="white-space:normal">'+(T&&T.quotes?'Loading prices for your stocks…':'Prices for your stocks load in the desktop app.')+'</div>';
+  if(!ps.priced)return part==='rows'?'':'<div class="empty" style="white-space:normal">'+(T&&T.quotes?'Loading prices for your stocks…':'Prices for your stocks load in the desktop app.')+'</div>';
   var up=ps.dayChg>=0,cls=up?'good':'bad',arrow=up?'▲':'▼';
   var hero='<div class="ovhero"><div><div class="sub">Value of your stocks</div><div class="num ovbig">'+money0(ps.value)+'</div></div><div class="ovchg"><span class="pill '+cls+'">'+arrow+' '+(ps.dayChg<0?'-':'+')+money0(Math.abs(ps.dayChg))+(ps.dayPct!==null?' ('+pctTxt(ps.dayPct,2)+')':'')+' today</span><div class="sub">'+(ps.gain>=0?'Up ':'Down ')+money0(Math.abs(ps.gain))+(ps.gainPct!==null?' ('+pctTxt(ps.gainPct,1)+')':'')+' since you bought</div></div></div>';
   var list=rows.map(function(r){
@@ -1550,22 +1552,38 @@ function ovLive(qs){
     var dp=st.dayPct,c=dp===null?'':dp>=0?'good':'bad',bar=dp===null?'':'<span class="dvbar" aria-hidden="true"><i class="'+(dp>=0?'up':'down')+'" style="width:'+r.bar+'%;'+(dp>=0?'left:50%':'right:50%')+'"></i></span>';
     return '<div class="ovrow"><div class="ovsym"><b>'+esc(sym)+'</b><span class="sub">'+(st.value!==null?money0(st.value):'no price')+'</span></div><div class="ovprice num'+flash+'">'+(st.price!==null?money(st.price):'—')+'</div>'+bar+'<div class="ovpct num '+c+'">'+(dp===null?'—':pctTxt(dp,2))+'</div><div class="ovspark">'+(r.q&&r.q.closes?spark(r.q.closes,dp>=0):'')+'</div></div>';
   }).join('');
-  return hero+'<div class="ovrows" role="list" aria-label="How each stock is doing today">'+list+'</div>';
+  if(part!=='rows')return hero;
+  return ovAlloc(qs)+'<div class="ovrows" role="list" aria-label="How each stock is doing today">'+list+'</div>';
+}
+// The value-over-time chart, or a plain note when there is not enough price history yet.
+function ovChartHtml(qs){
+  var ser=portfolioSeries(S.holdings,qs,OVS.range);
+  if(ser.length>1)return {k:ser.length+':'+Math.round(ser[ser.length-1][1]),html:lineChart(ser,{money:true,h:150,label:'Value of your stocks over time'})};
+  return {k:'none',html:'<div class="empty" style="white-space:normal">'+(portfolioStats(S.holdings,qs).priced?'No price history for these yet. Press Refresh now to load it.':'The chart appears when prices have loaded.')+'</div>'};
+}
+// One bar split by how much each holding is worth, so you can see at a glance where the money is.
+var OV_COLS=['var(--c1)','var(--c2)','var(--c3)','var(--c4)','var(--c5)','var(--c6)','var(--c7)','var(--c8)'];
+function ovAlloc(qs){
+  var rows=S.holdings.map(function(h){return {sym:h.symbol,v:holdingStats(h,qs[h.symbol]).value}}).filter(function(r){return r.v>0}).sort(function(a,b){return b.v-a.v});
+  var tot=rows.reduce(function(n,r){return n+r.v},0);if(rows.length<2||!(tot>0))return '';
+  var top=rows.slice(0,7),rest=rows.slice(7).reduce(function(n,r){return n+r.v},0);if(rest>0)top.push({sym:'Other',v:rest});
+  return '<div class="ovalloc" role="img" aria-label="How your stocks are split">'+top.map(function(r,i){return '<i style="width:'+(r.v/tot*100).toFixed(2)+'%;background:'+OV_COLS[i%8]+'" title="'+esc(r.sym)+' '+(r.v/tot*100).toFixed(0)+'%"></i>'}).join('')+'</div><div class="ovleg">'+top.map(function(r,i){return '<span><i style="background:'+OV_COLS[i%8]+'"></i>'+esc(r.sym)+' <b>'+(r.v/tot*100).toFixed(0)+'%</b></span>'}).join('')+'</div>';
 }
 function stocksPanel(){
   if(!S.holdings.length)return '';
-  var qs=quotesFor(),ser=portfolioSeries(S.holdings,qs,OVS.range);
+  var qs=quotesFor(),ch=ovChartHtml(qs);
   var chips=[[30,'1M'],[90,'3M'],[365,'1Y']].map(function(r){return '<button class="btn small'+(OVS.range===r[0]?' primary':'')+'" data-act="ov-range" data-d="'+r[0]+'" aria-pressed="'+(OVS.range===r[0])+'">'+r[1]+'</button>'}).join('');
-  return '<section class="panel stockpanel" id="ovstocks"><h2>Your stocks<small id="ov-status" class="ovstatus">'+ovStatus(qs)+'</small></h2><div id="ov-live">'+ovLive(qs)+'</div>'+
+  return '<section class="panel stockpanel" id="ovstocks"><h2>Your stocks<small id="ov-status" class="ovstatus">'+ovStatus(qs)+'</small></h2><div id="ov-hero">'+ovLive(qs,'hero')+'</div>'+
     '<div class="actions" style="justify-content:space-between;margin-top:10px;flex-wrap:wrap"><div class="actions" style="gap:6px">'+chips+'</div>'+(T&&T.quotes?'<button class="btn small" data-act="ov-refresh">Refresh now</button>':'')+'</div>'+
-    '<div id="ov-chart">'+(ser.length>1?lineChart(ser,{money:true,h:150,label:'Value of your stocks over time'}):'')+'</div>'+
+    '<div id="ov-chart" data-k="'+ch.k+'">'+ch.html+'</div><div id="ov-live" style="margin-top:12px">'+ovLive(qs,'rows')+'</div>'+
     '<p class="sub muted" style="margin:6px 0 0;font-size:12px;white-space:normal">Prices refresh about every minute while the market is open (9:30 to 4 New York time) and are delayed by the data provider. The chart uses the shares you hold today, so it shows how your current stocks did, not your past balance.</p></section>';
 }
 // Redraws just the numbers (not the whole page) when new prices arrive.
 function ovStocksUpdate(){
   if(view!=='overview')return;
-  var a=$('#ov-live'),b=$('#ov-status');if(!a||!b)return;
-  var qs=quotesFor();a.innerHTML=ovLive(qs);b.innerHTML=ovStatus(qs);
+  var a=$('#ov-live'),h0=$('#ov-hero'),b=$('#ov-status');if(!a||!b||!h0)return;
+  var qs=quotesFor();h0.innerHTML=ovLive(qs,'hero');a.innerHTML=ovLive(qs,'rows');b.innerHTML=ovStatus(qs);
+  var c=$('#ov-chart');if(c){var ch=ovChartHtml(qs);if(c.dataset.k!==ch.k){c.innerHTML=ch.html;c.dataset.k=ch.k}}
 }
 function ovPoll(){
   if(view!=='overview'||document.hidden||(typeof VLT!=='undefined'&&VLT.locked)||!(T&&T.quotes)||!S.holdings.length||invBusy||S.sample)return;
@@ -5072,7 +5090,7 @@ var billUI={edit:'',adding:false,adj:''};
 // What each tab is for and how to use it. Shown by the ? button on every tab and in the walkthrough (Settings, then Help).
 var HELP_START={t:'Welcome',what:'Tally Money keeps your money in one place on this computer: accounts, spending, bills, pay, taxes, goals and more. Your data stays on this computer; nothing is sent anywhere unless you choose an AI feature and give it your own key.',how:['Bring in your data. On Transactions, import a bank or card statement (a CSV or a PDF). On Accounts, add your accounts and balances.','The example data you see at first is made up so you can try everything. Clear it when you are ready to use your own.','Press Ctrl+K (Cmd+K on a Mac) or / to search or ask anything, such as next paycheck, bills due or tax refund.','If you change something by mistake, use Undo at the top of the page.','Open Settings to change how the app looks, reorder or hide tabs, set a password or Touch ID, back up your data and update the app.','Tap the ? button at the bottom right of any tab for a short guide to that tab.'],tip:'Nothing here moves money. The app only reads what you give it.'};
 var HELP={
-  overview:{t:'Overview',what:'A summary of the month: where your money went, income against spending over six months, your budgets and the bills coming up.',how:['Use the month arrows at the top to look at another month.','Read Where it went to see which categories took the most.','Budgets are listed most used first, so the ones you are close to overspending show at the top.','Bills coming up lists what is due in the next two weeks.','Your stocks shows what your investments are worth, how they moved today and how each stock is doing. It refreshes about every minute while the market is open.','Recent transactions lists your latest activity.','The row at the top switches between this summary and the Live dashboard.'],tip:'This is the page to glance at each morning. Open the other tabs for detail.'},
+  overview:{t:'Overview',what:'A summary of the month: where your money went, income against spending over six months, your budgets and the bills coming up.',how:['Use the month arrows at the top to look at another month.','Read Where it went to see which categories took the most.','Budgets are listed most used first, so the ones you are close to overspending show at the top.','Bills coming up lists what is due in the next two weeks.','Your stocks shows what your investments are worth, how they moved today, a chart of their value over time (1M, 3M or 1Y), a bar of how your money is split between them and how each stock is doing. It refreshes about every minute while the market is open.','Recent transactions lists your latest activity.','The row at the top switches between this summary and the Live dashboard.'],tip:'This is the page to glance at each morning. Open the other tabs for detail.'},
   dash:{t:'Dashboard',what:'A live view of your net worth, bills, loan payoff, goals and spending in one screen.',how:['Read the cards for your headline numbers.','Click a card to open the tab behind it.','Recent transactions shows your latest activity.','Leave it open: it updates on its own.'],tip:'Add accounts and balances first so the net worth card is accurate.'},
   accounts:{t:'Accounts',what:'Everything you own and owe, and your net worth (assets minus debts).',how:['Add an account with the form at the bottom: checking, savings, a card, a loan, a vehicle or a property.','Keep balances current: edit them, or import a statement on Transactions.','Assets and Debts show what adds to and what takes from your net worth.','The row at the top opens Assets (vehicles and valuables) and Investments, which live in this tab.'],tip:'The more accounts you add, the more the rest of the app can connect (bills from loans, payoff plans, net worth).'},
   pay:{t:'My pay',what:'Your paychecks: when the next one arrives, what comes out of each one and what changed since the last.',how:['Press Add a pay statement and choose the PDF from your payroll site (such as ADP). The app reads it on your computer.','Check the numbers it found, then save. Or press Add by hand to type them in.','Where your paycheck goes splits each check into taxes, benefits, retirement and take-home, with a chart and notes.','Add a statement each pay period so What changed and the yearly projection stay accurate.','With more than one job, the app tells them apart by the employer on each statement and shows each one: what it pays, when the next check comes and how it is doing.','Other income at the bottom is for gigs, payments from friends and gifts.','Taxes is the other page, along the top of this tab.'],tip:'A copy of each statement is filed in Documents for you.'},
@@ -5097,6 +5115,7 @@ var HELP={
 };
 // What changed in each version, in plain words. A test makes sure the version in package.json has an entry, so a release cannot go out without it.
 var WHATSNEW=[
+ ['1.8.30',['The stocks chart on the Overview now appears as soon as prices load (before, it could stay empty until you reopened the page). The Overview also shows a bar of how your stocks are split.']],
  ['1.8.29',['The 22 tabs are now 10. Tabs that held similar things became pages in one tab, shown as a row along the top: Overview (Summary, Live dashboard), Accounts (Accounts, Assets, Investments), Bills (Bills, Subscriptions, Energy), Budgets (Budgets, Monthly report, Goals, Can I afford it?), My pay (My pay, Taxes) and Debts (Loans, Credit cards, Mortgage, Credit score).','Settings is split into pages like Energy: You, Appearance, Security, Backup, App updates, Widget, More and Help.','App updates can now go back to an earlier version (save a backup first).','Users: share the computer with someone else, each with their own data, or add a demo user with made-up data. A setup guide walks a new user through everything worth filling in.','About you: your name and nickname. The Overview greets you by name.','IDs and records: an encrypted wallet in Documents for your ID card, passport and employment records, with expiry reminders.','The Overview shows your stocks live while the market is open, and your recent transactions.','The desktop widget can show what you choose, in the order you choose: net worth, investments, bills, next paycheck and more. Showing blurred amounts can ask for Touch ID.','Friends and family: I paid them, and They lent me (tracked until you pay them back).']],
  ['1.8.28',['What to update (Settings, Help) lists what is out of date and takes you there.','Renaming a job no longer merges your other jobs into it.']],
  ['1.8.27',['Student loans: forecast the auto-debit interest reduction.','Car loans add your vehicle for you.']]
@@ -9628,7 +9647,7 @@ document.addEventListener('click',function(e){
   else if(a==='wg-vis'){widgetSet('visible',!(WS&&WS.visible));return}
   else if(a==='wg-top'){widgetSet('onTop',b.checked);return}
   else if(a==='wg-hide'){widgetSet('hideAmounts',b.checked);return}
-  else if(a==='ov-range'){OVS.range=+b.dataset.d||90;var oc=$('#ov-chart');if(oc){var os=portfolioSeries(S.holdings,quotesFor(),OVS.range);oc.innerHTML=os.length>1?lineChart(os,{money:true,h:150,label:'Value of your stocks over time'}):'';document.querySelectorAll('[data-act=ov-range]').forEach(function(x){var on=+x.dataset.d===OVS.range;x.classList.toggle('primary',on);x.setAttribute('aria-pressed',on)})}return}
+  else if(a==='ov-range'){OVS.range=+b.dataset.d||90;var oc=$('#ov-chart');if(oc){var och=ovChartHtml(quotesFor());oc.innerHTML=och.html;oc.dataset.k=och.k;document.querySelectorAll('[data-act=ov-range]').forEach(function(x){var on=+x.dataset.d===OVS.range;x.classList.toggle('primary',on);x.setAttribute('aria-pressed',on)})}return}
   else if(a==='ov-refresh'){invRefresh(true);ovStocksUpdate();return}
   else if(a==='wg-auth'){widgetSet('requireAuth',b.checked);return}
   else if(a==='wg-sec'){wgToggle(b.dataset.id,b.checked);return}
