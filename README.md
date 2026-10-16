@@ -688,3 +688,5 @@ Payments to a student loan, car loan, other loan or credit card (found by the le
 ## Investments tab and card
 
 Investments is a tab of its own in the sidebar. The Investments card on the Overview shows your value, return and today's change, a 90-day graph of the value and a bar of how it is split between holdings.
+
+Payments count from the date a balance was last entered or stated (set it per account under **Balance as of** in the Debt payments window). Withdrawals that look like loan payments but match no lender are listed there with a menu to pick the debt. A payment that is not linked to a bank account lowers the debt but not any bank balance, so the window offers to link them to the account you choose; otherwise net worth reads too high by that amount.

@@ -3233,7 +3233,7 @@ test('layout: a window uses the graphic chosen for it, the first one when the ch
 // ---------- Debt payments follow the transactions ----------
 function debtBlock() {
   return new Function(srcBlock('/*LOAN-START*/', '/*LOAN-END*/') + srcBlock('/*BILLS-START*/', '/*BILLS-END*/') + srcBlock('/*DEBTPAY-START*/', '/*DEBTPAY-END*/') +
-    '\nreturn {dpOn, dpSplit, debtAllocate, debtDerive, debtApply, debtStats, dpAnchor};')();
+    '\nreturn {dpOn, dpSplit, debtAllocate, debtDerive, debtApply, debtStats, dpAnchor, dpUnmatched, dpUnlinked};')();
 }
 function dpAccts() {
   const ln = (id, name, bal, apr, min) => ({ id, name, type: 'student', lender: 'Granite Servicing', balance: bal, apr, minPay: min, history: [] });
@@ -3293,4 +3293,26 @@ test('debt payments: cards, banks, bank-linked accounts and forced matches', () 
   assert.strictEqual(D.dpOn(Object.assign({}, m, { track: true })), true);
   const st = D.debtStats(D.debtAllocate(a, txns), a, '2026-10-07');
   assert.ok(st.total >= 420 && st.rows.length >= 2);
+});
+test('debt payments: a balance from an old statement counts the payments made since it, and unmatched payments can be assigned', () => {
+  const D = debtBlock();
+  const loan = () => ({ id: 'l1', name: 'Group 1A', type: 'student', lender: 'Granite Servicing', balance: 1000, apr: 6, minPay: 100, history: [{ date: '2026-09-30', balance: 1000 }] });
+  const a = [loan(), { id: 'b1', name: 'Everyday checking', type: 'checking', balance: 5000, history: [{ date: '2026-10-01', balance: 5000 }] }];
+  const txns = [
+    { id: 'x1', date: '2026-10-05', name: 'ACH WITHDRAWAL 8842', amount: -400, cat: 'Debt and loans' },
+    { id: 'x2', date: '2026-09-20', name: 'GRANITE SERVICING STUDENT LN', amount: -100 },        // before the statement: already in it
+    { id: 'x3', date: '2026-10-08', name: 'GRANITE SERVICING STUDENT LN', amount: -100, acct: 'b1' },
+  ];
+  assert.deepStrictEqual(D.dpUnmatched(a, txns, '2026-10-16').map((x) => x.id), ['x1']);
+  D.debtApply(a, txns, '2026-10-16');
+  assert.ok(a[0].balance < 910 && a[0].balance > 880, 'the 8 Oct payment counts, the one before the statement does not: ' + a[0].balance);
+  assert.strictEqual(a[1].balance, 4900, 'the linked bank payment lowers the bank');
+  assert.deepStrictEqual(D.dpUnlinked(D.debtAllocate(a, txns), txns).map((x) => x.id), [], 'x3 is linked');
+  txns[0].payTo = 'l1'; D.debtApply(a, txns, '2026-10-16');
+  assert.ok(a[0].balance < 520 && a[0].balance > 480, 'assigning the withdrawal counts it: ' + a[0].balance);
+  assert.deepStrictEqual(D.dpUnmatched(a, txns, '2026-10-16'), []);
+  assert.deepStrictEqual(D.dpUnlinked(D.debtAllocate(a, txns), txns).map((x) => x.id), ['x1'], 'the assigned withdrawal is not linked to a bank');
+  // an account saved by 1.8.32 (started on the day it first ran) is moved back to its statement date
+  const old = loan(); old.sync = { bal: 1000, anchor: '2026-10-16', anchorBal: 1000, asOf: '' };
+  D.dpAnchor([old], '2026-10-16'); assert.strictEqual(old.sync.anchor, '2026-09-30');
 });
