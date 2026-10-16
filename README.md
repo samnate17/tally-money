@@ -652,3 +652,7 @@ Besides loans you made, you can record money a friend lent you. On a deposit in 
 ## Your stocks on the Overview
 
 If you have holdings, the Overview shows a **Your stocks** panel: the value of your stocks, today's change in dollars and percent, the gain since you bought, one row per stock (price, today's % with a green or red bar from a shared centre line, and a 90-day sparkline, biggest gainers first), and a 1M / 3M / 1Y chart. In the desktop app it refreshes prices about every minute while the US market is open (9:30 to 4 New York time) and every 15 minutes otherwise, only while the Overview is open; a green pulsing dot means live, and a price flashes green or red when it moves. Prices come from the same free source as the Investments tab, so they can be delayed.
+
+## Choose what the widget shows
+
+Settings → Desktop widget → **What the widget shows** lets you tick the sections you want and set their order with the arrows: Net worth, Investments (value, today's change, biggest movers), Budgets, Due soon, Next paycheck, This month, Goal, Debts, Subscriptions and Credit score. The floating widget scrolls and can be resized by dragging its edges (the size is remembered). The macOS desktop widget shows as many of the top sections as fit its size: 2 for small, 3 for medium, 6 for large. Sections with nothing to show (no holdings, no pay statement and so on) are skipped. The widget gets only plain totals, never transaction or account names.
