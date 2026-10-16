@@ -558,3 +558,39 @@ test('ai: reading a receipt photo returns tidy values, and the category must be 
   await assert.rejects(aiWith(() => final({ stop_reason: 'refusal', content: [] })).receipt({ image: img, cats }), /declined/);
   await assert.rejects(aiWith(() => final({}), '').receipt({ image: img, cats }), /API key/);
 });
+
+test('widget: showing blurred amounts needs Touch ID only when it is on and the Mac has it', () => {
+  const os = require('os'), fs = require('fs'), path = require('path');
+  const { createWidget } = require('../widget');
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'wg-')), 'widget.json');
+  const mk = (canAuth) => createWidget({ BrowserWindow: function () {}, screen: {}, file, preload: '', html: '', nativeFile: '', canAuth });
+  let w = mk(() => true);
+  assert.equal(w.status().touchId, true);
+  assert.equal(w.status().requireAuth, true, 'on by default');
+  assert.equal(w.needsAuth('hideAmounts', false), false, 'nothing is blurred yet, so nothing to unlock');
+  w.setHideAmounts(true);
+  assert.equal(w.needsAuth('hideAmounts', false), true, 'unblurring asks');
+  assert.equal(w.needsAuth('hideAmounts', true), false, 'blurring never asks');
+  assert.equal(w.needsAuth('requireAuth', false), true, 'turning the lock off asks too');
+  assert.equal(w.needsAuth('requireAuth', true), false);
+  assert.equal(w.needsAuth('onTop', true), false);
+  assert.equal(w.get().askAuth, true);
+  w.setRequireAuth(false);
+  assert.equal(w.needsAuth('hideAmounts', false), false, 'lock turned off');
+  assert.equal(w.get().askAuth, false);
+  // no Touch ID (Windows, an older Mac): never gets in the way
+  w = mk(() => false);
+  w.setRequireAuth(true); w.setHideAmounts(true);
+  assert.equal(w.needsAuth('hideAmounts', false), false);
+  assert.equal(w.status().touchId, false);
+  w = mk(() => { throw new Error('boom'); });
+  assert.equal(w.needsAuth('hideAmounts', false), false, 'a failing check never locks you out');
+});
+test('touch id helpers: availability and a cancelled prompt', async () => {
+  const { canTouchId, confirmTouchId } = require('../biometric');
+  assert.equal(canTouchId({ canPromptTouchID: () => true }, 'darwin'), true);
+  assert.equal(canTouchId({ canPromptTouchID: () => true }, 'win32'), false);
+  assert.equal(canTouchId({}, 'darwin'), false);
+  assert.equal(await confirmTouchId({ promptTouchID: async () => {} }, 'x'), true);
+  assert.equal(await confirmTouchId({ promptTouchID: async () => { throw new Error('cancelled'); } }, 'x'), false);
+});

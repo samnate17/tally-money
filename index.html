@@ -9075,6 +9075,7 @@ document.addEventListener('click',function(e){
   else if(a==='wg-vis'){widgetSet('visible',!(WS&&WS.visible));return}
   else if(a==='wg-top'){widgetSet('onTop',b.checked);return}
   else if(a==='wg-hide'){widgetSet('hideAmounts',b.checked);return}
+  else if(a==='wg-auth'){widgetSet('requireAuth',b.checked);return}
   else if(a==='acct-out'){signOut();return}
   else if(a==='acct-pw'){acctMode='pw';acctMsg=''}
   else if(a==='acct-closed'){var ca=S.accounts.filter(function(x){return x.id===id})[0];if(ca&&ca.type==='credit'){if(ca.closed)delete ca.closed;else ca.closed=true;toast(ca.closed?ca.name+' marked closed. It no longer counts toward utilization.':ca.name+' marked open.')}}
@@ -9661,13 +9662,13 @@ function widgetInit(){
   widgetPush();
 }
 function widgetSet(what,val){
-  window.tally.widget.set(what,val).then(function(r){if(r&&r.ok){WS=r.data;render()}},function(){});
+  window.tally.widget.set(what,val).then(function(r){if(r&&r.data)WS=r.data;if(r&&r.denied)toast('Touch ID was cancelled, so nothing changed.');render()},function(){render()});
 }
 function widgetPanel(){
   if(!window.tally||!window.tally.widget)return '';
   var on=WS&&WS.visible;
   var nat=WS&&WS.native?'<div class="banner" style="margin-bottom:12px"><span><b>macOS widget installed.</b> Right-click the desktop, choose Edit Widgets, and look for <b>Tally Money</b>. It refreshes about every 15 minutes, so it can lag behind the app. The first time, macOS may ask to let Tally Money access data from other apps; the widget needs that to read its numbers. If it does not appear in the list, see the README.</span></div>':'<p class="sub muted" style="margin:0 0 10px;font-size:12px">This build has no macOS widget embedded, so only the floating widget below is available.</p>';
-  return '<section class="panel"><h2>Desktop widget<small>net worth, budgets and bills at a glance</small></h2>'+nat+'<p class="sub muted" style="margin:0 0 10px;font-size:13px">The floating widget is a small window you can drag anywhere on your desktop. It shows your net worth, how much of your budgets you have used, bills due this week and your nearest goal. It updates whenever you change something in Tally.</p><div class="actions" style="justify-content:flex-start"><button class="btn '+(on?'':'primary')+'" data-act="wg-vis">'+(on?'Hide the widget':'Show the widget')+'</button><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-act="wg-top"'+(WS&&WS.onTop?' checked':'')+'> Keep on top</label><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-act="wg-hide"'+(WS&&WS.hideAmounts?' checked':'')+'> Blur amounts</label></div><p class="sub muted" style="margin:10px 0 0;font-size:12px">Blur amounts applies to both widgets. Use it if others can see your screen. The Widget menu has an option to open Tally when you log in.</p></section>';
+  return '<section class="panel"><h2>Desktop widget<small>net worth, budgets and bills at a glance</small></h2>'+nat+'<p class="sub muted" style="margin:0 0 10px;font-size:13px">The floating widget is a small window you can drag anywhere on your desktop. It shows your net worth, how much of your budgets you have used, bills due this week and your nearest goal. It updates whenever you change something in Tally.</p><div class="actions" style="justify-content:flex-start"><button class="btn '+(on?'':'primary')+'" data-act="wg-vis">'+(on?'Hide the widget':'Show the widget')+'</button><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-act="wg-top"'+(WS&&WS.onTop?' checked':'')+'> Keep on top</label><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-act="wg-hide"'+(WS&&WS.hideAmounts?' checked':'')+'> Blur amounts</label>'+(WS&&WS.touchId?'<label style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-act="wg-auth"'+(WS.requireAuth?' checked':'')+'> Touch ID to show amounts</label>':'')+'</div><p class="sub muted" style="margin:10px 0 0;font-size:12px">Blur amounts applies to both widgets. Use it if others can see your screen.'+(WS&&WS.touchId&&WS.requireAuth?' With Touch ID on, showing the amounts again (here, or with the eye button on the floating widget) asks for your fingerprint first. Blurring never asks.':'')+' The Widget menu has an option to open Tally when you log in.</p></section>';
 }
 /* ---------- Hosted accounts (web build only) ---------- */
 var CRYPTO=window.crypto;

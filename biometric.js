@@ -34,4 +34,12 @@ function createBiometric({ store, systemPreferences, platform = process.platform
   };
 }
 
-module.exports = { createBiometric, KEY, KEYS };
+// A plain Touch ID check with nothing stored: used to guard things like un-blurring the widget.
+function canTouchId(systemPreferences, platform = process.platform) {
+  try { return platform === 'darwin' && !!systemPreferences && typeof systemPreferences.canPromptTouchID === 'function' && !!systemPreferences.canPromptTouchID(); } catch (e) { return false; }
+}
+async function confirmTouchId(systemPreferences, reason) {
+  try { await systemPreferences.promptTouchID(String(reason || 'Confirm it is you')); return true; } catch (e) { return false; }
+}
+
+module.exports = { createBiometric, canTouchId, confirmTouchId, KEY, KEYS };

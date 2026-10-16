@@ -12,7 +12,7 @@ const { createDocs } = require('./docs');
 const { createWidget } = require('./widget');
 const glassLib = require('./glass');
 const { createUpdater } = require('./updater');
-const { createBiometric } = require('./biometric');
+const { createBiometric, canTouchId, confirmTouchId } = require('./biometric');
 const { createPhoneCapture } = require('./phonecapture');
 const qrcode = require('qrcode-generator');
 const { createLocalAI } = require('./local-ai');
@@ -108,19 +108,29 @@ function wireIpc() {
   const fromMain = (e) => mainWin && !mainWin.isDestroyed() && e.sender === mainWin.webContents;
   ipcMain.handle('widget:push', (e, summary) => ({ ok: !!(fromMain(e) && widget && widget.update(summary)) }));
   ipcMain.handle('widget:status', (e) => (fromMain(e) && widget ? { ok: true, data: { ...widget.status(), native: nativeWidgetBundled() } } : { ok: false }));
-  ipcMain.handle('widget:set', (e, what, value) => {
+  // Showing blurred amounts (or turning the lock off) needs Touch ID when it is on and available. One prompt at a time.
+  let authBusy = false;
+  const authorised = async (what, value) => {
+    if (!widget.needsAuth(what, value)) return true;
+    if (authBusy) return false;
+    authBusy = true;
+    try { return await confirmTouchId(systemPreferences, what === 'requireAuth' ? 'Turn off Touch ID for the widget' : 'Show the amounts on your Tally widget'); } finally { authBusy = false; }
+  };
+  ipcMain.handle('widget:set', async (e, what, value) => {
     if (!fromMain(e) || !widget) return { ok: false };
+    if (!(await authorised(what, value))) return { ok: false, denied: true, data: { ...widget.status(), native: nativeWidgetBundled() } };
     if (what === 'visible') { value ? widget.show() : widget.hide(); }
     else if (what === 'onTop') widget.setOnTop(!!value);
     else if (what === 'hideAmounts') widget.setHideAmounts(!!value);
+    else if (what === 'requireAuth') widget.setRequireAuth(!!value);
     else return { ok: false };
     buildMenu();
     return { ok: true, data: { ...widget.status(), native: nativeWidgetBundled() } };
   });
   ipcMain.handle('widget:get', (e) => (widget && widget.isWidgetContents(e.sender) ? widget.get() : null));
-  ipcMain.handle('widget:action', (e, name) => {
+  ipcMain.handle('widget:action', async (e, name) => {
     if (!widget || !widget.isWidgetContents(e.sender)) return false;
-    if (name === 'toggle-hide') widget.setHideAmounts(!widget.get().hideAmounts);
+    if (name === 'toggle-hide') { const next = !widget.get().hideAmounts; if (await authorised('hideAmounts', next)) widget.setHideAmounts(next); }
     else if (name === 'toggle-top') widget.setOnTop(!widget.get().onTop);
     else if (name === 'close') { widget.hide(); buildMenu(); }
     else if (name === 'open') showMain();
@@ -444,7 +454,7 @@ app.whenReady().then(() => {
     spawnImpl: spawn, quit: () => app.quit(),
   });
   wireIpc();
-  widget = createWidget({ BrowserWindow, screen, file: path.join(app.getPath('userData'), 'widget.json'), preload: path.join(__dirname, 'widget-preload.js'), html: path.join(__dirname, 'widget.html'), nativeFile: path.join(app.getPath('userData'), 'native-widget.json') });
+  widget = createWidget({ BrowserWindow, screen, file: path.join(app.getPath('userData'), 'widget.json'), preload: path.join(__dirname, 'widget-preload.js'), html: path.join(__dirname, 'widget.html'), nativeFile: path.join(app.getPath('userData'), 'native-widget.json'), canAuth: () => canTouchId(systemPreferences) });
   buildMenu();
   if (process.platform === 'darwin' && app.dock && !app.isPackaged) {
     try { app.dock.setIcon(path.join(__dirname, 'build', 'icon.png')); } catch (e) { /* dev-only nicety */ }
