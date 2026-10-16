@@ -638,3 +638,31 @@ test('widget: clear forgets the numbers so the next user does not see them', () 
   assert.equal(JSON.parse(fs.readFileSync(file, 'utf8')).summary, null);
   w.clear();   // clearing twice is harmless
 });
+
+test('wallet: files are encrypted on disk, round-trip, stay per user and reject bad input', () => {
+  const fs = require('fs'), os = require('os'), path = require('path');
+  const { createWallet, typeOf } = require('../wallet');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'wlt-'));
+  const fake = { isEncryptionAvailable: () => true, encryptString: (s) => Buffer.from(s.split('').reverse().join('')), decryptString: (b) => b.toString().split('').reverse().join('') };
+  const w = createWallet({ root, safeStorage: fake });
+  const pic = Buffer.from('not really a png but some bytes 1234567890');
+  const r = w.save('main', 'idcard', 'My ID.PNG', pic);
+  assert.equal(r.type, 'image/png'); assert.equal(r.size, pic.length); assert.match(r.id, /^[a-f0-9]{16}$/);
+  const disk = fs.readFileSync(path.join(root, 'main', 'idcard', r.id + '.bin'));
+  assert.ok(!disk.includes(pic), 'the bytes on disk are not the original file');
+  assert.ok(w.read('main', 'idcard', r.id).equals(pic), 'reading gives the original back');
+  assert.throws(() => w.read('u2', 'idcard', r.id), /not on this computer/, 'another user cannot read it');
+  assert.throws(() => w.save('main', 'idcard', 'malware.exe', pic), /photo/);
+  assert.throws(() => w.save('main', 'idcard', 'a.png', Buffer.alloc(0)), /empty/);
+  assert.throws(() => w.save('main', 'idcard', 'a.png', Buffer.alloc(16 * 1024 * 1024)), /15 MB/);
+  assert.throws(() => w.save('../x', 'idcard', 'a.png', pic), /Unknown user/);
+  assert.throws(() => w.read('main', '../..', 'abc'), /Unknown category/);
+  assert.throws(() => w.read('main', 'idcard', '../../secrets'), /Unknown file/);
+  assert.equal(typeOf('a.PDF'), 'application/pdf'); assert.equal(typeOf('a.heic'), null);
+  w.remove('main', 'idcard', r.id); assert.throws(() => w.read('main', 'idcard', r.id), /not on this computer/);
+  const r2 = w.save('main', 'passport', 'p.pdf', pic); w.removeCategory('main', 'passport'); assert.throws(() => w.read('main', 'passport', r2.id));
+  const r3 = w.save('u2', 'idcard', 'p.jpg', pic); w.removeOwner('u2'); assert.equal(fs.existsSync(path.join(root, 'u2')), false); assert.ok(r3.id);
+  // no encryption available: nothing is written
+  const off = createWallet({ root, safeStorage: { isEncryptionAvailable: () => false } });
+  assert.equal(off.available(), false); assert.throws(() => off.save('main', 'idcard', 'a.png', pic), /cannot encrypt/);
+});

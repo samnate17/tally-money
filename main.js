@@ -9,6 +9,7 @@ const { createMarket, SYMBOL } = require('./market');
 const { createFundamentals } = require('./fundamentals');
 const { createWeather } = require('./weather');
 const { createDocs } = require('./docs');
+const { createWallet } = require('./wallet');
 const { createWidget } = require('./widget');
 const glassLib = require('./glass');
 const { createUpdater } = require('./updater');
@@ -357,6 +358,14 @@ function wireIpc() {
   handle('ai:taxRates', (req) => ai.taxRates(req || {}));
   handle('ai:energyAdvice', (summary) => ai.energyAdvice(summary));
   const docsSvc = createDocs({ root: path.join(app.getPath('documents'), 'Tally Money'), shell });
+  // Wallet: encrypted photos and scans of IDs and records, one folder per user of the app.
+  const walletSvc = createWallet({ root: path.join(app.getPath('userData'), 'wallet'), safeStorage });
+  handle('wallet:status', () => ({ available: walletSvc.available() }));
+  handle('wallet:save', (owner, cat, name, buf) => walletSvc.save(String(owner), String(cat), String(name), Buffer.from(buf)));
+  handle('wallet:read', (owner, cat, id) => walletSvc.read(String(owner), String(cat), String(id)));
+  handle('wallet:remove', (owner, cat, id) => walletSvc.remove(String(owner), String(cat), String(id)));
+  handle('wallet:dropCat', (owner, cat) => walletSvc.removeCategory(String(owner), String(cat)));
+  handle('wallet:dropOwner', (owner) => walletSvc.removeOwner(String(owner)));
   handle('docs:categories', () => docsSvc.CATEGORIES);
   handle('docs:save', (cat, name, buf, year) => docsSvc.save(String(cat), String(name), Buffer.from(buf), year));
   handle('docs:list', () => ({ root: docsSvc.root(), folders: docsSvc.list() }));

@@ -666,3 +666,9 @@ Settings now has **About you** (name and nickname) and **Users**. The Overview g
 With more than one user the app asks "Who is using Tally Money?" each time it opens (you can turn that off), and the sidebar has a quick switcher. The first user keeps the original storage, so nothing existing is moved. Each user has their own Touch ID entry, and the desktop widget is cleared when you switch so the last user's totals do not stay on the desktop.
 
 This is not a lock: anyone who can open your computer account can reach every user's files. Give a user an app password (Settings, Security) while signed in as them to keep their data private. The names on the "who is using" screen are not encrypted. Users are not available in the hosted web version.
+
+## IDs and records wallet
+
+The top of the Documents tab (desktop app) is a wallet of cards: **ID Card**, **Passport** and **Employment Records** to start, plus **+ New Category** for anything else (a visa, property or health records). Each card shows a stack of cards, a pager, how many files it holds and its expiry date. **Add / Edit** names the category, sets an expiry date and a colour, and adds photos (PNG, JPG, WEBP) or PDFs up to 15 MB. Click the stack to view the files, or tick **Show previews** to see the front file on the card (off by default, so nobody glancing at your screen sees your ID).
+
+Every file is encrypted with the macOS Keychain (Electron's safeStorage) before it is written, lives in the app's own folder (not the Documents folder), is never uploaded, and belongs to one user of the app. If the computer cannot encrypt, nothing is saved. The wallet's list (names, dates, file names) is in your backup files, but the files themselves are not, and they cannot be decrypted on another computer, so keep the originals. A passport or ID within six months of expiring, or expired, shows up in Settings, Help, What to update.

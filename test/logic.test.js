@@ -3114,3 +3114,37 @@ test('touch id: each user has their own entry', () => {
   assert.equal(cleanSlot('vault:../../x'), 'vault', 'a bad slot falls back to the default');
   assert.equal(cleanSlot({}), 'vault');
 });
+// ---- wallet (IDs and records) ----
+function walletWorld() { return new Function(srcBlock('/*WALLET-START*/', '/*WALLET-END*/') + '\nreturn {cleanWallet, walletDefault, walletExpiry, walletKind};')(); }
+test('wallet: a new user gets ID Card, Passport and Employment Records; saved lists are cleaned', () => {
+  const W = walletWorld(); let n = 0; const id = () => 'x' + (++n);
+  assert.deepEqual(W.cleanWallet(undefined, id).map((c) => c.name), ['ID Card', 'Passport', 'Employment Records']);
+  assert.deepEqual(W.cleanWallet([], id), [], 'removing every category is respected');
+  const c = W.cleanWallet([{ id: 'a1', name: ' Business <b>Visa</b> ', color: 99, expires: '2027-08-30', files: [{ id: 'f1', name: 'scan<1>.png', size: 1234.6, type: 'image/png', added: '2026-10-01' }, { id: 'f1', name: 'dup', type: 'image/png' }, { id: 'f2', name: 'x.exe', type: 'application/x-msdownload' }, { id: 'bad id', name: 'y', type: 'image/png' }] }, { id: 'a1', name: 'duplicate id' }, { name: '' }, null], id);
+  assert.equal(c.length, 2);
+  assert.equal(c[0].id, 'a1'); assert.equal(c[0].color, 7); assert.equal(c[0].expires, '2027-08-30');
+  assert.ok(!/[<>"&]/.test(c[0].name));
+  assert.deepEqual(c[0].files.map((f) => [f.id, f.size]), [['f1', 1235]], 'duplicates, unknown types and bad ids are dropped');
+  assert.ok(!/[<>"&]/.test(c[0].files[0].name));
+  assert.notEqual(c[1].id, 'a1', 'a repeated id gets a new one');
+});
+test('wallet: expiry is flagged within six months and after the date', () => {
+  const W = walletWorld(), today = new Date(2026, 9, 16);
+  assert.equal(W.walletExpiry({ expires: '' }, today), null);
+  assert.deepEqual(W.walletExpiry({ expires: '2031-05-18' }, today).state, 'ok');
+  assert.equal(W.walletExpiry({ expires: '2027-03-01' }, today).state, 'soon');
+  assert.equal(W.walletExpiry({ expires: '2026-10-16' }, today).days, 0);
+  assert.equal(W.walletExpiry({ expires: '2026-10-15' }, today).state, 'expired');
+  assert.equal(W.walletExpiry({ expires: '2026-10-15' }, today).days, -1);
+  assert.equal(W.walletKind({ files: [] }), '');
+  assert.equal(W.walletKind({ files: [{ type: 'image/png' }] }), '1 image');
+  assert.equal(W.walletKind({ files: [{ type: 'image/png' }, { type: 'application/pdf' }] }), '2 files');
+});
+test('what to update: an expired or expiring ID is listed, soonest first', () => {
+  const U = updWorld(), t = U.updTasks(updFacts({ docs: { expiring: [{ id: 'p1', name: 'Passport', days: 90 }, { id: 'i1', name: 'ID Card', days: -3 }] } }));
+  const ids = t.map((x) => x.id);
+  assert.ok(ids.includes('doc-exp-p1') && ids.includes('doc-exp-i1'));
+  assert.equal(t.find((x) => x.id === 'doc-exp-i1').sev, 3);
+  assert.equal(t.find((x) => x.id === 'doc-exp-p1').sev, 2);
+  assert.ok(ids.indexOf('doc-exp-i1') < ids.indexOf('doc-exp-p1'));
+});

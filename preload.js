@@ -29,6 +29,14 @@ contextBridge.exposeInMainWorld('tally', {
   file: {
     save: (name, text) => ipcRenderer.invoke('file:save', { name, text }),
   },
+  wallet: {
+    status: inv('wallet:status'),
+    save: inv('wallet:save'),
+    read: inv('wallet:read'),
+    remove: inv('wallet:remove'),
+    dropCat: inv('wallet:dropCat'),
+    dropOwner: inv('wallet:dropOwner'),
+  },
   docs: {
     categories: inv('docs:categories'),
     save: inv('docs:save'),
