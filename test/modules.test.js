@@ -594,3 +594,33 @@ test('touch id helpers: availability and a cancelled prompt', async () => {
   assert.equal(await confirmTouchId({ promptTouchID: async () => {} }, 'x'), true);
   assert.equal(await confirmTouchId({ promptTouchID: async () => { throw new Error('cancelled'); } }, 'x'), false);
 });
+
+test('widget: the sections are cleaned, ordered and saved; the page list matches the widget list', () => {
+  const fs = require('fs'), os = require('os'), path = require('path');
+  const { createWidget, sanitize, cleanSections, SECTIONS, DEFAULT_SECTIONS } = require('../widget');
+  assert.deepEqual(cleanSections(['bills', 'bogus', 'bills', 'networth', 7, null]), ['bills', 'networth']);
+  assert.deepEqual(cleanSections([]), DEFAULT_SECTIONS);
+  assert.deepEqual(cleanSections('x'), DEFAULT_SECTIONS);
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'wgs-')), 'widget.json'), nat = file + '.native';
+  const w = createWidget({ BrowserWindow: function () {}, screen: {}, file, preload: '', html: '', nativeFile: nat });
+  w.update({ asOf: '2026-10-12', month: 'October 2026', daysLeft: 3, net: { net: 1, assets: 2, debts: 1 }, spend: {}, invest: { value: 5000, dayChg: -20, dayPct: -0.4, gain: 300, gainPct: 6.4, count: 2, top: [{ sym: 'AAA', pct: -1.2 }] } });
+  w.setSections(['invest', 'networth', 'nope']);
+  assert.deepEqual(w.get().sections, ['invest', 'networth']);
+  assert.deepEqual(w.status().sections, ['invest', 'networth']);
+  assert.deepEqual(JSON.parse(fs.readFileSync(nat, 'utf8')).sections, ['invest', 'networth'], 'the macOS widget reads the same order');
+  assert.deepEqual(JSON.parse(fs.readFileSync(file, 'utf8')).state.sections, ['invest', 'networth'], 'saved');
+  // the page list
+  const src = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const m = src.match(/var WG_SECTIONS=(\[\[[\s\S]*?\]\]);/);
+  const page = new Function('return ' + m[1])();
+  assert.deepEqual(page.map((x) => x[0]), SECTIONS.map((x) => x[0]));
+  // new data is trimmed to plain numbers and short strings
+  const s2 = sanitize({ invest: { value: '9', dayChg: 'x', top: [1, 2, 3, 4, 5].map((i) => ({ sym: 'S'.repeat(40), pct: i })) }, pay: { date: '2026-10-16', days: 4, net: 1234.567, job: 'J'.repeat(99) }, credit: { score: 701.6, diff: null }, debt: { total: 10, monthly: 1 }, subs: { monthly: 5, count: 2 } });
+  assert.equal(s2.invest.top.length, 3);
+  assert.equal(s2.invest.top[0].sym.length, 12);
+  assert.equal(s2.invest.value, 0, 'a text value becomes 0');
+  assert.equal(s2.pay.net, 1234.57);
+  assert.equal(s2.pay.job.length, 28);
+  assert.equal(s2.credit.score, 702);
+  assert.equal(sanitize({}).invest, null);
+});

@@ -3045,3 +3045,24 @@ test('overview stocks: rows are ordered gainers first and bars scale to the bigg
   assert.equal(rows[3].bar, 0);
   assert.deepEqual(O.ovStockRows([], {}, () => ({ dayPct: 0 })), []);
 });
+test('widget summary: investments, paycheck, subscriptions, debts and credit are plain numbers and skipped when empty', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const code = src.slice(src.indexOf('/*WIDGET-START*/'), src.indexOf('/*WIDGET-END*/'));
+  const mk = (S) => new Function('S,iso,quotesFor,portfolioStats,holdingStats,payNextAll,TODAY,activeSubs,perMonth,DEBT_TYPES', code + '\nreturn {widgetInvest, widgetPay, widgetSubs, widgetDebt, widgetCredit};')(
+    S, (d) => '2026-10-20', () => ({}), () => ({ priced: 2, value: 5000, dayChg: -50, dayPct: -1, gain: 400, gainPct: 8.7 }),
+    (h) => ({ dayPct: { AAA: -3, BBB: 0.5, CCC: 2, DDD: null }[h.symbol] }), () => ({ date: new Date(2026, 9, 20), days: 4, net: 1500, job: 'Test Job' }), new Date(2026, 9, 16),
+    () => S.subs || [], (x) => x.amount, { student: 1, credit: 1 });
+  const W = mk({ holdings: [{ symbol: 'AAA' }, { symbol: 'BBB' }, { symbol: 'CCC' }, { symbol: 'DDD' }], pay: { stubs: [{}] }, subs: [{ amount: 10 }, { amount: 5 }],
+    accounts: [{ type: 'student', balance: 1000, minPay: 50 }, { type: 'credit', balance: 200, minPay: 25 }, { type: 'checking', balance: 900 }, { type: 'student', balance: 0, minPay: 9 }],
+    credit: { scores: [{ date: '2026-09-01', score: 690, source: 'V', bureau: 'A' }, { date: '2026-10-01', score: 700, source: 'V', bureau: 'A' }] } });
+  const iv = W.widgetInvest();
+  assert.equal(iv.value, 5000); assert.equal(iv.count, 2);
+  assert.deepEqual(iv.top.map((t) => t.sym), ['AAA', 'CCC', 'BBB'], 'biggest movers first, unpriced left out');
+  assert.deepEqual(W.widgetPay(), { date: '2026-10-20', days: 4, net: 1500, job: 'Test Job' });
+  assert.deepEqual(W.widgetSubs(), { monthly: 15, count: 2 });
+  assert.deepEqual(W.widgetDebt(), { total: 1200, monthly: 75 });
+  assert.deepEqual(W.widgetCredit(), { score: 700, diff: 10, date: '2026-10-01' });
+  const E = mk({ holdings: [], pay: { stubs: [] }, subs: [], accounts: [], credit: { scores: [] } });
+  assert.equal(E.widgetInvest(), null); assert.equal(E.widgetPay(), null); assert.equal(E.widgetSubs(), null); assert.equal(E.widgetDebt(), null); assert.equal(E.widgetCredit(), null);
+  assert.ok(!/Test Job|Secret/.test(JSON.stringify(W.widgetInvest())));
+});

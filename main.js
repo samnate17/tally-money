@@ -123,6 +123,7 @@ function wireIpc() {
     else if (what === 'onTop') widget.setOnTop(!!value);
     else if (what === 'hideAmounts') widget.setHideAmounts(!!value);
     else if (what === 'requireAuth') widget.setRequireAuth(!!value);
+    else if (what === 'sections') widget.setSections(value);
     else return { ok: false };
     buildMenu();
     return { ok: true, data: { ...widget.status(), native: nativeWidgetBundled() } };

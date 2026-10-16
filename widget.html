@@ -13,6 +13,7 @@ html,body{margin:0;height:100%;background:transparent;font:13px/1.35 -apple-syst
 .btns button{border:0;background:none;color:var(--muted);width:26px;height:24px;border-radius:7px;font-size:14px;cursor:pointer}
 .btns button:hover{background:var(--track);color:var(--ink)}
 .btns button[aria-pressed=true]{color:var(--accent)}
+.big2{font-size:20px;font-weight:700;letter-spacing:-.02em}
 .big{font-size:28px;font-weight:700;letter-spacing:-.02em;line-height:1.1}
 .sub{color:var(--muted);font-size:12px}
 .bar{height:7px;border-radius:5px;background:var(--track);overflow:hidden;margin:5px 0 3px}
@@ -26,7 +27,8 @@ html,body{margin:0;height:100%;background:transparent;font:13px/1.35 -apple-syst
 .hide .amt{filter:blur(6px)}
 .empty{color:var(--muted);text-align:center;margin:auto;padding:20px 6px}
 a{color:var(--accent);cursor:pointer;-webkit-app-region:no-drag}
-.body{display:flex;flex-direction:column;gap:9px;cursor:default;min-height:0}
+.body{display:flex;flex-direction:column;gap:9px;cursor:default;min-height:0;overflow-y:auto;overflow-x:hidden;-webkit-app-region:no-drag;scrollbar-width:none}
+.body::-webkit-scrollbar{display:none}
 </style></head>
 <body><div class="card" id="card">
 <div class="top"><b id="ttl">Tally</b><div class="btns">
@@ -49,18 +51,34 @@ function draw(d){
   $('pin').setAttribute('aria-pressed',d&&d.onTop?'true':'false');
   if(!s){$('body').innerHTML='<div class="empty">Open Tally once to fill this in.</div>';return}
   $('ttl').textContent=s.sample?'Tally · example data':'Tally · '+s.month;
-  var h='';
-  if(s.net){h+='<div><div class="sub">Net worth</div><div class="big amt '+(s.net.net<0?'bad':'')+'">'+m0(s.net.net)+'</div><div class="sub amt">'+m0(s.net.assets)+' assets · '+m0(s.net.debts)+' debts</div></div>'}
-  var sp=s.spend;
-  if(sp.budgeted>0){
-    var p=Math.min(100,sp.budgetSpent/sp.budgeted*100),cls=sp.budgetSpent>sp.budgeted?'bad':(p>85?'warn':'');
-    h+='<div class="sec"><h3>Budgets</h3><div class="row"><span class="amt">'+m0(sp.budgetSpent)+' of '+m0(sp.budgeted)+'</span><span class="'+(sp.left<0?'bad':'good')+' amt">'+(sp.left<0?m0(-sp.left)+' over':m0(sp.left)+' left')+'</span></div><div class="bar"><i class="'+cls+'" style="width:'+p+'%"></i></div><div class="sub amt">'+(sp.left>0&&s.daysLeft>0?'About '+m0(sp.perDay)+' a day for '+s.daysLeft+' more days':(sp.left<0?'Over budget for the month':''))+'</div></div>';
-  }else{
-    h+='<div class="sec"><h3>This month</h3><div class="row"><span>Spent</span><span class="amt">'+m0(sp.spent)+'</span></div><div class="row"><span>Income</span><span class="amt">'+m0(sp.income)+'</span></div></div>';
-  }
-  if(s.over.length)h+='<div class="sec"><h3>Over budget</h3>'+s.over.map(function(o){return '<div class="row"><span>'+esc(o.cat)+'</span><span class="bad amt">'+m0(o.spent-o.budget)+' over</span></div>'}).join('')+'</div>';
-  if(s.bills.length)h+='<div class="sec"><h3>Due soon</h3>'+s.bills.map(function(b){return '<div class="row"><span>'+esc(b.name)+' <span class="sub">'+(b.days<=0?'today':b.days===1?'tomorrow':'in '+b.days+' days')+'</span></span><span class="amt">'+m0(b.amount)+'</span></div>'}).join('')+'</div>';
-  if(s.goal)h+='<div class="sec"><h3>Goal</h3><div class="row"><span>'+esc(s.goal.name)+'</span><span>'+s.goal.pct+'%</span></div><div class="bar"><i style="width:'+s.goal.pct+'%"></i></div></div>';
+  var sp=s.spend,S={};
+  S.networth=function(){return s.net?'<div><div class="sub">Net worth</div><div class="big amt '+(s.net.net<0?'bad':'')+'">'+m0(s.net.net)+'</div><div class="sub amt">'+m0(s.net.assets)+' assets · '+m0(s.net.debts)+' debts</div></div>':''};
+  S.invest=function(){
+    var v=s.invest;if(!v)return '';
+    var up=v.dayChg>=0,cls=up?'good':'bad',pc=function(x){return (x>0?'+':'')+x.toFixed(2)+'%'};
+    return '<div class="sec"><h3>Investments</h3><div class="row"><span class="big2 amt">'+m0(v.value)+'</span><span class="'+cls+' amt">'+(up?'▲ ':'▼ ')+m0(Math.abs(v.dayChg))+(v.dayPct===null?'':' ('+pc(v.dayPct)+')')+'</span></div>'+
+      '<div class="sub amt">'+(v.gain>=0?'Up ':'Down ')+m0(Math.abs(v.gain))+(v.gainPct===null?'':' ('+pc(v.gainPct)+')')+' overall</div>'+
+      v.top.map(function(t){return '<div class="row"><span>'+esc(t.sym)+'</span><span class="'+(t.pct>=0?'good':'bad')+'">'+pc(t.pct)+'</span></div>'}).join('')+'</div>';
+  };
+  S.budgets=function(){
+    var h='';
+    if(sp.budgeted>0){
+      var p=Math.min(100,sp.budgetSpent/sp.budgeted*100),cls=sp.budgetSpent>sp.budgeted?'bad':(p>85?'warn':'');
+      h+='<div class="sec"><h3>Budgets</h3><div class="row"><span class="amt">'+m0(sp.budgetSpent)+' of '+m0(sp.budgeted)+'</span><span class="'+(sp.left<0?'bad':'good')+' amt">'+(sp.left<0?m0(-sp.left)+' over':m0(sp.left)+' left')+'</span></div><div class="bar"><i class="'+cls+'" style="width:'+p+'%"></i></div>'+(sp.left>0&&s.daysLeft>0?'<div class="sub amt">About '+m0(sp.perDay)+' a day for '+s.daysLeft+' more days</div>':'')+'</div>';
+    }else h+=S.spending();
+    if(s.over.length)h+='<div class="sec"><h3>Over budget</h3>'+s.over.map(function(o){return '<div class="row"><span>'+esc(o.cat)+'</span><span class="bad amt">'+m0(o.spent-o.budget)+' over</span></div>'}).join('')+'</div>';
+    return h;
+  };
+  S.spending=function(){return '<div class="sec"><h3>This month</h3><div class="row"><span>Income</span><span class="amt">'+m0(sp.income)+'</span></div><div class="row"><span>Spent</span><span class="amt">'+m0(sp.spent)+'</span></div><div class="row"><span>Left over</span><span class="amt '+(sp.income-sp.spent<0?'bad':'good')+'">'+m0(sp.income-sp.spent)+'</span></div></div>'};
+  S.bills=function(){return s.bills.length?'<div class="sec"><h3>Due soon</h3>'+s.bills.map(function(b){return '<div class="row"><span>'+esc(b.name)+' <span class="sub">'+(b.days<=0?'today':b.days===1?'tomorrow':'in '+b.days+' days')+'</span></span><span class="amt">'+m0(b.amount)+'</span></div>'}).join('')+'</div>':'<div class="sec"><h3>Due soon</h3><div class="sub">Nothing due in the next 7 days.</div></div>'};
+  S.paycheck=function(){var v=s.pay;return v?'<div class="sec"><h3>Next paycheck</h3><div class="row"><span>'+(v.days<=0?'Today':v.days===1?'Tomorrow':'In '+v.days+' days')+(v.job?' <span class="sub">'+esc(v.job)+'</span>':'')+'</span><span class="good amt">'+m0(v.net)+'</span></div></div>':''};
+  S.goal=function(){return s.goal?'<div class="sec"><h3>Goal</h3><div class="row"><span>'+esc(s.goal.name)+'</span><span>'+s.goal.pct+'%</span></div><div class="bar"><i style="width:'+s.goal.pct+'%"></i></div></div>':''};
+  S.debts=function(){var v=s.debt;return v?'<div class="sec"><h3>Debts</h3><div class="row"><span>You owe</span><span class="amt">'+m0(v.total)+'</span></div>'+(v.monthly>0?'<div class="row"><span>Monthly payments</span><span class="amt">'+m0(v.monthly)+'</span></div>':'')+'</div>':''};
+  S.subs=function(){var v=s.subs;return v?'<div class="sec"><h3>Subscriptions</h3><div class="row"><span>'+v.count+' active</span><span class="amt">'+m0(v.monthly)+'/mo</span></div></div>':''};
+  S.credit=function(){var v=s.credit;return v&&v.score?'<div class="sec"><h3>Credit score</h3><div class="row"><span class="big2">'+v.score+'</span><span class="'+(v.diff>0?'good':v.diff<0?'bad':'sub')+'">'+(v.diff===null?'':v.diff>0?'▲ +'+v.diff:v.diff<0?'▼ '+v.diff:'no change')+'</span></div></div>':''};
+  var order=(d&&d.sections&&d.sections.length?d.sections:['networth','invest','budgets','bills','goal']),h='';
+  order.forEach(function(id){if(S[id])h+=S[id]()});
+  if(!h)h='<div class="empty">Nothing to show yet. Pick what to show in Tally: Settings, Desktop widget.</div>';
   $('body').innerHTML=h;
 }
 widget.onData(draw);widget.get().then(draw);

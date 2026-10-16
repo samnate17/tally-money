@@ -4280,7 +4280,33 @@ function widgetSummary(){
   return {asOf:iso(TODAY),sample:!!S.sample,month:monthLabel(mk),daysLeft:daysLeft,
     net:S.accounts.length?netWorth():null,
     spend:{income:incomeOf(mk),spent:sp.total,budgeted:b,budgetSpent:bs,left:left,perDay:left>0&&daysLeft>0?left/daysLeft:0},
-    over:over.slice(0,3),bills:bills,goal:goal};
+    over:over.slice(0,3),bills:bills,goal:goal,
+    invest:widgetInvest(),pay:widgetPay(),subs:widgetSubs(),debt:widgetDebt(),credit:widgetCredit()};
+}
+// Extra things the widget can show. Each returns null when there is nothing to show, so the widget skips that section.
+function widgetInvest(){
+  try{
+    if(!S.holdings||!S.holdings.length)return null;
+    var qs=quotesFor(),ps=portfolioStats(S.holdings,qs);if(!ps.priced)return null;
+    var top=S.holdings.map(function(h){return {sym:h.symbol,pct:holdingStats(h,qs[h.symbol]).dayPct}}).filter(function(x){return x.pct!==null}).sort(function(a,c){return Math.abs(c.pct)-Math.abs(a.pct)}).slice(0,3);
+    return {value:ps.value,dayChg:ps.dayChg,dayPct:ps.dayPct,gain:ps.gain,gainPct:ps.gainPct,count:ps.priced,top:top};
+  }catch(e){return null}
+}
+function widgetPay(){
+  try{var st=(S.pay&&S.pay.stubs)||[];if(!st.length)return null;var n=payNextAll(st,TODAY,S.pay);if(!n||!n.date)return null;return {date:iso(n.date),days:n.days,net:n.net,job:n.job||''}}catch(e){return null}
+}
+function widgetSubs(){
+  try{var a=activeSubs();if(!a.length)return null;return {monthly:a.reduce(function(t,x){return t+perMonth(x)},0),count:a.length}}catch(e){return null}
+}
+function widgetDebt(){
+  try{var d=S.accounts.filter(function(a){return DEBT_TYPES[a.type]&&!a.closed&&a.balance>0});if(!d.length)return null;return {total:d.reduce(function(t,a){return t+a.balance},0),monthly:d.reduce(function(t,a){return t+(+a.minPay||0)},0)}}catch(e){return null}
+}
+function widgetCredit(){
+  try{
+    var sc=((S.credit&&S.credit.scores)||[]).slice().sort(function(a,c){return a.date<c.date?-1:a.date>c.date?1:0});if(!sc.length)return null;
+    var l=sc[sc.length-1],prev=null;for(var i=sc.length-2;i>=0;i--)if(sc[i].source===l.source&&sc[i].bureau===l.bureau){prev=sc[i];break}
+    return {score:l.score,diff:prev?l.score-prev.score:null,date:l.date};
+  }catch(e){return null}
 }
 /*WIDGET-END*/
 /*SYNC-START*/
@@ -8486,7 +8512,7 @@ function invRefresh(quiet){
   tcall(T.quotes.get(S.holdings.map(function(h){return h.symbol}))).then(function(r){
     var bad=[];
     Object.keys(r).forEach(function(k){if(r[k]&&!r[k].error){r[k].fetched=Date.now();Q[k]=r[k]}else{bad.push(k+': '+(r[k]&&r[k].error||'no data'));if(Q[k]&&Q[k].error)Q[k]={error:r[k].error}; else if(!Q[k])Q[k]={error:r[k]&&r[k].error||'no data'}}});
-    saveQ();invMsg=bad.length?'Some prices could not be loaded. '+bad.join(' | '):'';
+    saveQ();try{widgetPush()}catch(e){}invMsg=bad.length?'Some prices could not be loaded. '+bad.join(' | '):'';
   }).catch(function(e){invMsg='Could not load prices: '+e.message}).then(function(){invBusy=false;if(view==='invest')render();else ovStocksUpdate()});
 }
 
@@ -9165,6 +9191,9 @@ document.addEventListener('click',function(e){
   else if(a==='ov-range'){OVS.range=+b.dataset.d||90;var oc=$('#ov-chart');if(oc){var os=portfolioSeries(S.holdings,quotesFor(),OVS.range);oc.innerHTML=os.length>1?lineChart(os,{money:true,h:150,label:'Value of your stocks over time'}):'';document.querySelectorAll('[data-act=ov-range]').forEach(function(x){var on=+x.dataset.d===OVS.range;x.classList.toggle('primary',on);x.setAttribute('aria-pressed',on)})}return}
   else if(a==='ov-refresh'){invRefresh(true);ovStocksUpdate();return}
   else if(a==='wg-auth'){widgetSet('requireAuth',b.checked);return}
+  else if(a==='wg-sec'){wgToggle(b.dataset.id,b.checked);return}
+  else if(a==='wg-up'){wgMove(b.dataset.id,-1);return}
+  else if(a==='wg-down'){wgMove(b.dataset.id,1);return}
   else if(a==='acct-out'){signOut();return}
   else if(a==='acct-pw'){acctMode='pw';acctMsg=''}
   else if(a==='acct-closed'){var ca=S.accounts.filter(function(x){return x.id===id})[0];if(ca&&ca.type==='credit'){if(ca.closed)delete ca.closed;else ca.closed=true;toast(ca.closed?ca.name+' marked closed. It no longer counts toward utilization.':ca.name+' marked open.')}}
@@ -9750,6 +9779,20 @@ function widgetInit(){
   window.tally.widget.status().then(function(r){if(r&&r.ok){WS=r.data;if(view==='transactions'||view==='look')render()}},function(){});
   widgetPush();
 }
+// Same list as SECTIONS in widget.js (a test keeps them in step).
+var WG_SECTIONS=[['networth','Net worth','What you own minus what you owe'],['invest','Investments','Value of your stocks, today\'s change and the biggest movers'],['budgets','Budgets','How much of this month\'s budgets you have used, and what is over'],['bills','Due soon','Bills and subscriptions due in the next 7 days'],['paycheck','Next paycheck','The date and amount of your next paycheck'],['spending','This month','Income, spending and what is left'],['goal','Goal','Your closest savings goal'],['debts','Debts','What you owe and your monthly payments'],['subs','Subscriptions','Monthly cost of your subscriptions'],['credit','Credit score','Your latest score and the change']];
+function wgOrder(){
+  var on=(WS&&WS.sections&&WS.sections.length?WS.sections:['networth','invest','budgets','bills','goal']).filter(function(id){return WG_SECTIONS.some(function(x){return x[0]===id})});
+  return on;
+}
+function wgSections(){
+  var on=wgOrder(),name={},desc={};WG_SECTIONS.forEach(function(x){name[x[0]]=x[1];desc[x[0]]=x[2]});
+  var rows=on.map(function(id,i){return '<div class="row wrap" style="align-items:center;padding:6px 0"><label class="grow" style="display:flex;gap:8px;align-items:center;flex-basis:220px"><input type="checkbox" data-act="wg-sec" data-id="'+id+'" checked><span><b>'+esc(name[id])+'</b><span class="sub" style="display:block;white-space:normal">'+esc(desc[id])+'</span></span></label><div class="actions" style="gap:4px"><button class="btn small" data-act="wg-up" data-id="'+id+'" aria-label="Move '+esc(name[id])+' up"'+(i===0?' disabled':'')+'>\u2191</button><button class="btn small" data-act="wg-down" data-id="'+id+'" aria-label="Move '+esc(name[id])+' down"'+(i===on.length-1?' disabled':'')+'>\u2193</button></div></div>'}).join('');
+  var off=WG_SECTIONS.filter(function(x){return on.indexOf(x[0])<0}).map(function(x){return '<div class="row wrap" style="align-items:center;padding:6px 0"><label class="grow" style="display:flex;gap:8px;align-items:center;flex-basis:220px"><input type="checkbox" data-act="wg-sec" data-id="'+x[0]+'"><span><b>'+esc(x[1])+'</b><span class="sub" style="display:block;white-space:normal">'+esc(x[2])+'</span></span></label></div>'}).join('');
+  return '<h3 style="font-size:15px;margin:14px 0 4px">What the widget shows</h3><p class="sub muted" style="margin:0 0 4px;font-size:12px;white-space:normal">Tick what you want and use the arrows to set the order. The floating widget scrolls and you can drag its edges to make it bigger. The small, medium and large macOS widgets show as many of the top sections as fit.</p>'+rows+off;
+}
+function wgMove(id,dir){var o=wgOrder().slice(),i=o.indexOf(id),j=i+dir;if(i<0||j<0||j>=o.length)return;var t=o[i];o[i]=o[j];o[j]=t;widgetSet('sections',o)}
+function wgToggle(id,on){var o=wgOrder().slice(),i=o.indexOf(id);if(on&&i<0)o.push(id);else if(!on&&i>-1){if(o.length<2){toast('Keep at least one thing on the widget.');render();return}o.splice(i,1)}widgetSet('sections',o)}
 function widgetSet(what,val){
   window.tally.widget.set(what,val).then(function(r){if(r&&r.data)WS=r.data;if(r&&r.denied)toast('Touch ID was cancelled, so nothing changed.');render()},function(){render()});
 }
@@ -9757,7 +9800,7 @@ function widgetPanel(){
   if(!window.tally||!window.tally.widget)return '';
   var on=WS&&WS.visible;
   var nat=WS&&WS.native?'<div class="banner" style="margin-bottom:12px"><span><b>macOS widget installed.</b> Right-click the desktop, choose Edit Widgets, and look for <b>Tally Money</b>. It refreshes about every 15 minutes, so it can lag behind the app. The first time, macOS may ask to let Tally Money access data from other apps; the widget needs that to read its numbers. If it does not appear in the list, see the README.</span></div>':'<p class="sub muted" style="margin:0 0 10px;font-size:12px">This build has no macOS widget embedded, so only the floating widget below is available.</p>';
-  return '<section class="panel"><h2>Desktop widget<small>net worth, budgets and bills at a glance</small></h2>'+nat+'<p class="sub muted" style="margin:0 0 10px;font-size:13px">The floating widget is a small window you can drag anywhere on your desktop. It shows your net worth, how much of your budgets you have used, bills due this week and your nearest goal. It updates whenever you change something in Tally.</p><div class="actions" style="justify-content:flex-start"><button class="btn '+(on?'':'primary')+'" data-act="wg-vis">'+(on?'Hide the widget':'Show the widget')+'</button><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-act="wg-top"'+(WS&&WS.onTop?' checked':'')+'> Keep on top</label><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-act="wg-hide"'+(WS&&WS.hideAmounts?' checked':'')+'> Blur amounts</label>'+(WS&&WS.touchId?'<label style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-act="wg-auth"'+(WS.requireAuth?' checked':'')+'> Touch ID to show amounts</label>':'')+'</div><p class="sub muted" style="margin:10px 0 0;font-size:12px">Blur amounts applies to both widgets. Use it if others can see your screen.'+(WS&&WS.touchId&&WS.requireAuth?' With Touch ID on, showing the amounts again (here, or with the eye button on the floating widget) asks for your fingerprint first. Blurring never asks.':'')+' The Widget menu has an option to open Tally when you log in.</p></section>';
+  return '<section class="panel"><h2>Desktop widget<small>choose what it shows</small></h2>'+nat+'<p class="sub muted" style="margin:0 0 10px;font-size:13px">The floating widget is a small window you can drag anywhere on your desktop. You choose what it shows below: net worth, investments, budgets, bills due soon, your next paycheck and more. It updates whenever you change something in Tally.</p><div class="actions" style="justify-content:flex-start"><button class="btn '+(on?'':'primary')+'" data-act="wg-vis">'+(on?'Hide the widget':'Show the widget')+'</button><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-act="wg-top"'+(WS&&WS.onTop?' checked':'')+'> Keep on top</label><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-act="wg-hide"'+(WS&&WS.hideAmounts?' checked':'')+'> Blur amounts</label>'+(WS&&WS.touchId?'<label style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-act="wg-auth"'+(WS.requireAuth?' checked':'')+'> Touch ID to show amounts</label>':'')+'</div>'+wgSections()+'<p class="sub muted" style="margin:10px 0 0;font-size:12px">Blur amounts applies to both widgets. Use it if others can see your screen.'+(WS&&WS.touchId&&WS.requireAuth?' With Touch ID on, showing the amounts again (here, or with the eye button on the floating widget) asks for your fingerprint first. Blurring never asks.':'')+' The Widget menu has an option to open Tally when you log in.</p></section>';
 }
 /* ---------- Hosted accounts (web build only) ---------- */
 var CRYPTO=window.crypto;
