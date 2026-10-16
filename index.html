@@ -382,7 +382,13 @@ canvas.confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:non
 :root[data-nav="top"] .rail .brand{padding:2px 12px 2px 4px;flex:none}
 :root[data-nav="top"] .rail .nav{flex:none;white-space:nowrap;padding:8px 12px}
 :root[data-nav="top"] .rail .railfoot{display:none}
-.rail .nav[draggable="true"]{cursor:grab}
+.rail .nav,#tabbar .nav,[data-rid]{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+body.reordering,body.reordering *{cursor:grabbing!important}
+.reorder-on .nav,.reorder-on [data-rid]{animation:ro-jiggle .38s ease-in-out infinite}
+.reorder-on .nav:nth-child(even),.reorder-on [data-rid]:nth-child(even){animation-delay:-.17s}
+@keyframes ro-jiggle{0%,100%{rotate:-1.2deg}50%{rotate:1.2deg}}
+.reorder-on .reorder-lift{animation:none!important;rotate:0deg;scale:1.07;z-index:70;position:relative;box-shadow:0 14px 30px rgba(0,0,0,.3);opacity:.97}
+@media (prefers-reduced-motion:reduce){.reorder-on .nav,.reorder-on [data-rid]{animation:none}}
 .rail .nav.dragging{opacity:.4}
 .rail .nav.drop-before{box-shadow:inset 0 2px 0 var(--accent)}
 .rail .nav.drop-after{box-shadow:inset 0 -2px 0 var(--accent)}
@@ -1023,7 +1029,7 @@ function saveNav(){try{localStorage.setItem('tally-nav-v1',JSON.stringify(NAVP))
 function navIds(){return navOrdered(TABS,NAVP.order).map(function(t){return t[0]})}
 function nav(){
   document.documentElement.setAttribute('data-nav',NAVP.layout);
-  function items(short){return navVisible(TABS,NAVP.order,NAVP.hidden).map(function(t){return '<button class="nav" data-view="'+t[0]+'"'+(short?'':' draggable="true" title="Drag to move this tab"')+(view===t[0]?' aria-current="page"':'')+'>'+tabChip(t[0])+'<span>'+(short&&t[2]||t[1])+'</span></button>'}).join('')}
+  function items(short){return navVisible(TABS,NAVP.order,NAVP.hidden).map(function(t){return '<button class="nav" data-view="'+t[0]+'"'+(short?'':' title="Hold, then drag to move this tab"')+(view===t[0]?' aria-current="page"':'')+'>'+tabChip(t[0])+'<span>'+(short&&t[2]||t[1])+'</span></button>'}).join('')}
   var h=items(false);
   $('#rail').innerHTML='<div class="brand"><svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="tl-bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1B2470"/><stop offset="1" stop-color="#05061A"/></linearGradient><linearGradient id="tl-bar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#8FA2FF"/></linearGradient></defs><rect width="24" height="24" fill="url(#tl-bg)"/><g fill="url(#tl-bar)"><rect x="5.2" y="5.4" width="2.1" height="13.2" rx="1.05"/><rect x="8.9" y="5.4" width="2.1" height="13.2" rx="1.05"/><rect x="12.6" y="5.4" width="2.1" height="13.2" rx="1.05"/><rect x="16.3" y="5.4" width="2.1" height="13.2" rx="1.05"/></g><path d="M4.6 17.2 19.4 7.4" stroke="#FFB45A" stroke-width="1.9" stroke-linecap="round" fill="none"/></svg>Tally</div><button class="nav searchbtn" data-act="spot-open" aria-label="Search the app" title="Search (Ctrl or Cmd + K)">'+ICON.search+'<span>Search</span><kbd class="kbd">'+(/Mac|iP(hone|ad)/.test(navigator.platform||'')?'\u2318K':'Ctrl K')+'</kbd></button>'+h+'<div class="railfoot"><span>'+(window.tally?'Your data stays on this computer. Bank sync and AI analysis send data only when you use them.':HOSTED?'Signed in as '+esc(AUTH.email)+'. Your data is encrypted before it leaves this browser.':'Your data stays in this browser. Nothing is uploaded.')+'</span></div>';
   $('#tabbar').innerHTML=(NAVP.layout==='bottom'?'<button class="nav searchbtn" data-act="spot-open" aria-label="Search the app" title="Search (Ctrl or Cmd + K)">'+ICON.search+'<span>Search</span></button>':'')+items(true);
@@ -5209,9 +5215,9 @@ var LOANFILTERS=[['all','All loans'],['student','Student'],['auto','Car'],['loan
 function debtList(incl){return S.accounts.filter(function(a){return isDebt(a)&&a.balance>0&&(incl||a.type!=='mortgage')}).map(function(a){return {id:a.id,name:a.name,type:a.type,balance:a.balance,apr:a.apr||0,minPay:a.minPay||0,closed:!!a.closed}})}
 function vLoansHub(){
   if(loanFilter==='credit'||(!LOANKIND[loanFilter]&&loanFilter!=='all'))loanFilter='all';
-  var chips=LOANFILTERS.map(function(f){var n=f[0]==='all'?debtList(false).length:S.accounts.filter(function(a){return a.type===f[0]}).length;
-    return '<button class="btn small'+(loanFilter===f[0]?' primary':'')+'" data-act="loan-filter" data-f="'+f[0]+'"'+(loanFilter===f[0]?' aria-current="true"':'')+'>'+f[1]+(n?' ('+n+')':'')+'</button>'}).join('');
-  var head='<div class="top"><h1>Loans</h1></div><div class="actions" style="justify-content:flex-start;margin:4px 0 14px;flex-wrap:wrap">'+chips+'</div>';
+  var chips=orderBy('loans',LOANFILTERS,function(f){return f[0]}).map(function(f){var n=f[0]==='all'?debtList(false).length:S.accounts.filter(function(a){return a.type===f[0]}).length;
+    return '<button class="btn small'+(loanFilter===f[0]?' primary':'')+'" data-rid="'+f[0]+'" title="Hold, then drag to move" data-act="loan-filter" data-f="'+f[0]+'"'+(loanFilter===f[0]?' aria-current="true"':'')+'>'+f[1]+(n?' ('+n+')':'')+'</button>'}).join('');
+  var head='<div class="top"><h1>Loans</h1></div><div class="actions" data-reorder="loans" style="justify-content:flex-start;margin:4px 0 14px;flex-wrap:wrap">'+chips+'</div>';
   if(loanFilter!=='all')return head+vLoans(loanFilter,true);
   return head+vDebtStrategy();
 }
@@ -6951,7 +6957,7 @@ function enSavePanel(c){
 }
 function enTabs(c){
   var items=[['all','Overview',0,''],['electric','Electricity',c.elec?c.elec.rows.length:0,FUEL_COL.electric]].concat(Object.keys(FUELS).map(function(k){return [k,FUELS[k].label,(S.fuel||[]).filter(function(r){return r.fuel===k}).length,FUEL_COL[k]]}));
-  return '<div class="actions" style="justify-content:flex-start;margin:4px 0 14px;flex-wrap:wrap" role="tablist" aria-label="Types of energy">'+items.map(function(i){return '<button class="btn small'+(enTab===i[0]?' primary':'')+'" data-act="en-tab" data-k="'+i[0]+'" role="tab" aria-selected="'+(enTab===i[0])+'">'+(i[3]?'<i style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+i[3]+';margin-right:6px"></i>':'')+esc(i[1])+(i[2]?' ('+i[2]+')':'')+'</button>'}).join('')+'</div>';
+  return '<div class="actions" data-reorder="energy" style="justify-content:flex-start;margin:4px 0 14px;flex-wrap:wrap" role="tablist" aria-label="Types of energy">'+orderBy('energy',items,function(i){return i[0]}).map(function(i){return '<button class="btn small'+(enTab===i[0]?' primary':'')+'" data-rid="'+i[0]+'" title="Hold, then drag to move" data-act="en-tab" data-k="'+i[0]+'" role="tab" aria-selected="'+(enTab===i[0])+'">'+(i[3]?'<i style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+i[3]+';margin-right:6px"></i>':'')+esc(i[1])+(i[2]?' ('+i[2]+')':'')+'</button>'}).join('')+'</div>';
 }
 // One card per type of energy on the Overview: what it cost over 12 months, or a prompt to add the first record.
 function enTypeCards(c){
@@ -7191,7 +7197,8 @@ function otherIncomePanel(){
 }
 
 function payJobTabs(J,sel){
-  return '<div class="actions" style="justify-content:flex-start;margin:0 0 10px;flex-wrap:wrap" role="tablist" aria-label="Jobs"><button class="btn small'+(sel==='all'?' primary':'')+'" data-act="pay-job" data-k="all" role="tab" aria-selected="'+(sel==='all')+'">All jobs</button>'+J.jobs.map(function(j){return '<button class="btn small'+(sel===j.key?' primary':'')+'" data-act="pay-job" data-k="'+esc(j.key)+'" role="tab" aria-selected="'+(sel===j.key)+'">'+esc(j.name)+'</button>'}).join('')+'</div>';
+  var tabs=orderBy('paytabs',[['all','All jobs']].concat(J.jobs.map(function(j){return [j.key,j.name]})),function(x){return x[0]});
+  return '<div class="actions" data-reorder="paytabs" style="justify-content:flex-start;margin:0 0 10px;flex-wrap:wrap" role="tablist" aria-label="Jobs">'+tabs.map(function(x){return '<button class="btn small'+(sel===x[0]?' primary':'')+'" data-rid="'+esc(x[0])+'" title="Hold, then drag to move" data-act="pay-job" data-k="'+esc(x[0])+'" role="tab" aria-selected="'+(sel===x[0])+'">'+esc(x[1])+'</button>'}).join('')+'</div>';
 }
 function payJobsNote(){
   if(!(S.pay&&S.pay.single)||payStubs().length<2)return '';
@@ -8866,7 +8873,7 @@ function navBioLoad(){if(!(T&&T.bio)||navBioState.loaded)return;navBioState.load
 function navPanel(){
   var ids=navIds(),byId={};TABS.forEach(function(t){byId[t[0]]=t});
   return '<section class="panel"><h2>Tabs<small>where they sit and in what order</small></h2><div class="lookrow"><span class="lbl">Placement<small>Down the side, in a bar across the top, or a dock along the bottom. Phones always use the bar at the bottom.</small></span><span class="ctl">'+seg('th-nav-layout',NAVP.layout,[['side','Side'],['top','Top'],['bottom','Bottom']])+'</span></div>'+
-    '<p class="sub" style="margin:10px 0 6px;white-space:normal">'+(NAVP.layout==='bottom'?'Use the arrows here':'Drag any tab in the '+(NAVP.layout==='top'?'top bar':'side list')+' to move it, or use the arrows here')+' (also works on a phone or with the keyboard).</p><div class="navlist">'+ids.map(function(id,i){var hid=NAVP.hidden.indexOf(id)>-1;return '<div class="row"><div class="grow"><span class="nm"'+(hid?' style="opacity:.55"':'')+'>'+esc(byId[id][1])+'</span>'+(hid?' <span class="pill mute">Hidden</span>':'')+'</div><div class="actions" style="flex:none;flex-wrap:nowrap">'+(id==='look'?'<span class="sub" style="align-self:center">Always shown</span>':'<button class="btn small" data-act="th-nav-hide" data-id="'+id+'" aria-pressed="'+hid+'">'+(hid?'Show':'Hide')+'</button>')+'<button class="btn small" data-act="th-nav-up" data-id="'+id+'"'+(i===0?' disabled':'')+' aria-label="Move '+esc(byId[id][1])+' up">&uarr;</button><button class="btn small" data-act="th-nav-down" data-id="'+id+'"'+(i===ids.length-1?' disabled':'')+' aria-label="Move '+esc(byId[id][1])+' down">&darr;</button></div></div>'}).join('')+'</div>'+
+    '<p class="sub" style="margin:10px 0 6px;white-space:normal">Hold any tab for a moment, then drag it where you want it (in the '+(NAVP.layout==='top'?'top bar':NAVP.layout==='bottom'?'dock':'side list')+'; the rows of choices inside a tab work the same way), or use the arrows here (also works on a phone or with the keyboard).</p><div class="navlist">'+ids.map(function(id,i){var hid=NAVP.hidden.indexOf(id)>-1;return '<div class="row"><div class="grow"><span class="nm"'+(hid?' style="opacity:.55"':'')+'>'+esc(byId[id][1])+'</span>'+(hid?' <span class="pill mute">Hidden</span>':'')+'</div><div class="actions" style="flex:none;flex-wrap:nowrap">'+(id==='look'?'<span class="sub" style="align-self:center">Always shown</span>':'<button class="btn small" data-act="th-nav-hide" data-id="'+id+'" aria-pressed="'+hid+'">'+(hid?'Show':'Hide')+'</button>')+'<button class="btn small" data-act="th-nav-up" data-id="'+id+'"'+(i===0?' disabled':'')+' aria-label="Move '+esc(byId[id][1])+' up">&uarr;</button><button class="btn small" data-act="th-nav-down" data-id="'+id+'"'+(i===ids.length-1?' disabled':'')+' aria-label="Move '+esc(byId[id][1])+' down">&darr;</button></div></div>'}).join('')+'</div>'+
     '<div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn small" data-act="th-nav-showall"'+(NAVP.hidden.length?'':' disabled')+'>Show all tabs</button><button class="btn small" data-act="th-nav-reset">Put the tabs back in the original order</button></div><p class="sub muted" style="margin:8px 0 0;font-size:12px;white-space:normal">A hidden tab is only taken out of the navigation. Its data is untouched, and links to it elsewhere in the app (a card on the Overview, say) still open it.</p>'+navProtPanel()+'</section>';
 }
 function vLook(){
@@ -8921,7 +8928,7 @@ function carAiRun(id){
 function thClick(a,b){
   if(a==='th-nav-layout'){NAVP.layout=b.dataset.v==='top'||b.dataset.v==='bottom'?b.dataset.v:'side';saveNav();render();return true}
   if(a==='th-nav-up'||a==='th-nav-down'){NAVP.order=navStep(navIds(),b.dataset.id,a==='th-nav-up'?-1:1);saveNav();render();return true}
-  if(a==='th-nav-reset'){NAVP.order=[];saveNav();render();return true}
+  if(a==='th-nav-reset'){NAVP.order=[];saveNav();ORD={};saveOrd();render();return true}
   if(a==='th-nav-hide'||a==='th-nav-showall'){
     var tid=b.dataset.id,tdo=function(){if(a==='th-nav-showall')NAVP.hidden=[];else{var hi=NAVP.hidden.indexOf(tid);if(tid!=='look'){if(hi<0)NAVP.hidden.push(tid);else NAVP.hidden.splice(hi,1)}}saveNav();render()};
     if(NAVP.protect){navAuth(a==='th-nav-showall'?'Show all hidden tabs.':'Hide or show this tab.',tdo);return true}
@@ -8936,23 +8943,97 @@ function thClick(a,b){
   else{var key={'th-mode':'mode','th-bg':'bg','th-size':'size','th-font':'font','th-motion':'motion'}[a];if(!key)return false;TH[key]=b.dataset.v}
   saveTheme();applyTheme();render();return true;
 }
+/*REORDER-START*/
+// Hold a tab (or a chip in a row of choices) for a moment, then drag it where you want it, like moving apps on an iPhone or a Mac Dock.
+function ordApply(saved,arr,idf){
+  if(!Array.isArray(saved)||!saved.length)return arr.slice();
+  var pos={};saved.forEach(function(id,i){if(pos[id]===undefined)pos[id]=i});
+  return arr.map(function(x,i){return {x:x,i:i}}).sort(function(a,b){var pa=pos[idf(a.x)],pb=pos[idf(b.x)];if(pa===undefined&&pb===undefined)return a.i-b.i;if(pa===undefined)return 1;if(pb===undefined)return -1;return pa-pb}).map(function(r){return r.x});
+}
+function ordNearest(centers,x,y){var best=0,bd=Infinity;centers.forEach(function(c,i){var d=(c.x-x)*(c.x-x)+(c.y-y)*(c.y-y);if(d<bd){bd=d;best=i}});return best}
+function ordMove(a,from,to){var b=a.slice(),x=b.splice(from,1)[0];b.splice(to,0,x);return b}
+// The shown tabs were reordered; hidden ones keep their places in the full list.
+function ordMerge(full,vis){var set={},k=0;vis.forEach(function(v){set[v]=1});return full.map(function(id){return set[id]&&k<vis.length?vis[k++]:id})}
+/*REORDER-END*/
+var ORD={};try{ORD=JSON.parse(localStorage.getItem('tally-order-v1')||'{}')||{}}catch(e){ORD={}}
+function saveOrd(){try{localStorage.setItem('tally-order-v1',JSON.stringify(ORD))}catch(e){}}
+function orderBy(key,arr,idf){return ordApply(ORD[key],arr,idf)}
+var RO=null,roSuppress=false;
 (function(){
-  var rail=document.getElementById('rail'),dragId='';
-  if(!rail)return;
-  var clear=function(){[].forEach.call(rail.querySelectorAll('.drop-before,.drop-after,.dragging'),function(n){n.classList.remove('drop-before','drop-after','dragging')})};
-  var navOf=function(e){return e.target&&e.target.closest?e.target.closest('.nav[data-view]'):null};
-  var after=function(b,e){var r=b.getBoundingClientRect();return NAVP.layout==='top'?e.clientX>r.left+r.width/2:e.clientY>r.top+r.height/2};
-  rail.addEventListener('dragstart',function(e){var b=navOf(e);if(!b)return;dragId=b.dataset.view;b.classList.add('dragging');try{e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',dragId)}catch(x){}});
-  rail.addEventListener('dragover',function(e){if(!dragId)return;var b=navOf(e);if(!b||b.dataset.view===dragId)return;e.preventDefault();[].forEach.call(rail.querySelectorAll('.drop-before,.drop-after'),function(n){n.classList.remove('drop-before','drop-after')});b.classList.add(after(b,e)?'drop-after':'drop-before')});
-  rail.addEventListener('drop',function(e){
-    if(!dragId)return;var b=navOf(e);if(!b||b.dataset.view===dragId){clear();dragId='';return}
-    e.preventDefault();
-    var vis=[].map.call(rail.querySelectorAll('.nav[data-view]'),function(n){return n.dataset.view}),ids=navIds(),t=b.dataset.view,before=t;
-    if(after(b,e)){var i=vis.indexOf(t);before=vis[i+1]===dragId?vis[i+2]:vis[i+1]}
-    NAVP.order=navMove(ids,dragId,before||'');saveNav();clear();dragId='';nav();
-  });
-  rail.addEventListener('dragend',function(){clear();dragId=''});
-  rail.addEventListener('wheel',function(e){if(NAVP.layout!=='top'||Math.abs(e.deltaY)<=Math.abs(e.deltaX))return;rail.scrollLeft+=e.deltaY;e.preventDefault()},{passive:false});   // the mouse wheel scrolls the top bar sideways
+  var HOLD=420,MOVE=8;
+  function groupOf(t){
+    if(!t||!t.closest)return null;
+    var n=t.closest('.nav[data-view]');
+    if(n&&!n.classList.contains('searchbtn')){var bx=n.closest('#rail,#tabbar');if(bx)return {box:bx,item:n,sel:'.nav[data-view]:not(.searchbtn)',idf:function(x){return x.dataset.view},key:'nav'}}
+    var it=t.closest('[data-rid]');if(it){var b2=it.closest('[data-reorder]');if(b2)return {box:b2,item:it,sel:'[data-rid]',idf:function(x){return x.dataset.rid},key:b2.dataset.reorder}}
+    return null;
+  }
+  function slotCenters(st){return st.rects.map(function(r){return {x:r.left+r.width/2,y:r.top+r.height/2}})}
+  function begin(st){
+    if(RO!==st)return;
+    st.items=[].slice.call(st.g.box.querySelectorAll(st.g.sel));st.from=st.items.indexOf(st.g.item);
+    if(st.from<0||st.items.length<2){RO=null;return}
+    st.rects=st.items.map(function(n){return n.getBoundingClientRect()});st.s0={x:st.g.box.scrollLeft,y:st.g.box.scrollTop};st.to=st.from;st.active=true;st.moved=false;
+    st.g.box.classList.add('reorder-on');st.g.item.classList.add('reorder-lift');document.body.classList.add('reordering');
+    st.items.forEach(function(n){if(n!==st.g.item)n.style.transition='transform .18s ease'});st.g.item.style.transition='none';
+    DOCK.drag=true;try{dockReset(st.g.box)}catch(e){}
+    try{st.g.item.setPointerCapture(st.id)}catch(e){}
+    if(st.type==='touch'&&navigator.vibrate)try{navigator.vibrate(12)}catch(e){}
+    st.tm=function(e){if(e.cancelable)e.preventDefault()};document.addEventListener('touchmove',st.tm,{passive:false});
+    snd('tick');
+  }
+  function layout(st){
+    var sd={x:st.g.box.scrollLeft-st.s0.x,y:st.g.box.scrollTop-st.s0.y},dx=st.cx-st.x,dy=st.cy-st.y,C=slotCenters(st),oc=C[st.from];
+    var to=ordNearest(C,oc.x+dx,oc.y+dy);st.to=to;
+    var order=ordMove(st.items.map(function(n,i){return i}),st.from,to);
+    st.items.forEach(function(n,j){
+      if(j===st.from){n.style.transform='translate('+(dx+sd.x)+'px,'+(dy+sd.y)+'px)';return}
+      var ni=order.indexOf(j),tx=C[ni].x-C[j].x,ty=C[ni].y-C[j].y;n.style.transform=ni===j?'':'translate('+tx+'px,'+ty+'px)'});
+  }
+  function autoscroll(st){
+    if(st.raf||!st.active)return;
+    var tick=function(){
+      st.raf=0;if(!st.active)return;var b=st.g.box,r=b.getBoundingClientRect(),vx=0,vy=0,E=40;
+      if(b.scrollWidth>b.clientWidth+2){if(st.cx<r.left+E)vx=-10;else if(st.cx>r.right-E)vx=10}
+      if(b.scrollHeight>b.clientHeight+2){if(st.cy<r.top+E)vy=-10;else if(st.cy>r.bottom-E)vy=10}
+      if(vx||vy){b.scrollLeft+=vx;b.scrollTop+=vy;layout(st);st.raf=requestAnimationFrame(tick)}};
+    st.raf=requestAnimationFrame(tick);
+  }
+  function end(commit){
+    var st=RO;if(!st)return;RO=null;clearTimeout(st.timer);
+    if(!st.active)return;
+    st.active=false;cancelAnimationFrame(st.raf);document.removeEventListener('touchmove',st.tm);
+    st.g.box.classList.remove('reorder-on');st.g.item.classList.remove('reorder-lift');document.body.classList.remove('reordering');
+    st.items.forEach(function(n){n.style.transform='';n.style.transition=''});
+    try{st.g.item.releasePointerCapture(st.id)}catch(e){}
+    DOCK.drag=false;
+    if(st.moved){roSuppress=true;setTimeout(function(){roSuppress=false},350)}
+    if(!commit||st.to===st.from)return;
+    var ids=st.items.map(st.g.idf),moved=ordMove(ids,st.from,st.to);
+    if(st.g.key==='nav'){NAVP.order=ordMerge(navIds(),moved);saveNav();nav();toast('Moved '+((TABS.filter(function(t){return t[0]===ids[st.from]})[0]||[])[1]||'tab')+'.')}
+    else{ORD[st.g.key]=moved;saveOrd();render()}
+    snd('pop');
+  }
+  document.addEventListener('pointerdown',function(e){
+    if(RO||(e.pointerType==='mouse'&&e.button!==0))return;
+    var g=groupOf(e.target);if(!g)return;
+    var st={g:g,id:e.pointerId,type:e.pointerType,x:e.clientX,y:e.clientY,cx:e.clientX,cy:e.clientY,active:false};
+    st.timer=setTimeout(function(){begin(st)},HOLD);RO=st;
+  },true);
+  document.addEventListener('pointermove',function(e){
+    var st=RO;if(!st||e.pointerId!==st.id)return;
+    st.cx=e.clientX;st.cy=e.clientY;
+    if(!st.active){if(Math.abs(st.cx-st.x)>MOVE||Math.abs(st.cy-st.y)>MOVE){clearTimeout(st.timer);RO=null}return}
+    if(Math.abs(st.cx-st.x)>6||Math.abs(st.cy-st.y)>6)st.moved=true;
+    e.preventDefault();layout(st);autoscroll(st);
+  },true);
+  document.addEventListener('pointerup',function(e){var st=RO;if(!st||e.pointerId!==st.id)return;end(true)},true);
+  document.addEventListener('pointercancel',function(e){var st=RO;if(!st||e.pointerId!==st.id)return;end(false)},true);
+  document.addEventListener('keydown',function(e){if(e.key==='Escape'&&RO&&RO.active)end(false)});
+  document.addEventListener('contextmenu',function(e){if(RO&&RO.active)e.preventDefault()},true);
+  document.addEventListener('click',function(e){if(roSuppress){e.preventDefault();e.stopPropagation()}},true);
+  var rail=document.getElementById('rail');
+  if(rail)rail.addEventListener('wheel',function(e){if(NAVP.layout!=='top'||Math.abs(e.deltaY)<=Math.abs(e.deltaX))return;rail.scrollLeft+=e.deltaY;e.preventDefault()},{passive:false});   // the mouse wheel scrolls the top bar sideways
 })();
 function thBind(m){
   var sv=$('#snd-vol',m);if(sv){sv.oninput=function(){SND.vol=clampN(sv.value,0,100,60);sndSave()};sv.onchange=function(){snd('pop')}}

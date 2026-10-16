@@ -622,3 +622,7 @@ The Energy tab is laid out like Loans: a row at the top with **Overview, Electri
 ## Vehicles from car loans
 
 Every open car loan now gets a matching vehicle under **Assets**, linked to the loan, so you never enter it twice. The name, year, make and model come from the loan contract (or the loan's name); the value is estimated from what was paid (a new vehicle drops about a fifth in its first year, then about 12% a year) or, with no contract, starts at what you still owe. Those vehicles are marked "From your car loan" until you give them a real value. If you already added the vehicle by hand, it is linked to the loan instead of duplicated; if two of your vehicles could match, nothing is guessed. Delete the vehicle, or unlink it, and it is not added again for that loan. Paid-off loans do not add a vehicle. Motorcycles, boats, RVs and ATVs are recognised from the description.
+
+## Hold and drag to rearrange
+
+Press and hold a tab for about half a second until it lifts and the others start to wiggle, then drag it where you want it and let go, like rearranging apps on an iPhone or the Dock on a Mac. It works for the tabs in the side list, the top bar and the bottom dock, and for the rows of choices inside a tab (the Loans types, the Energy types, the jobs on My pay). A quick click still just opens the tab, and a quick drag does not move anything. The new order is remembered; Settings → Tabs → Reset order puts everything back. The arrows in Settings still work (also with the keyboard), and Esc cancels a move in progress.

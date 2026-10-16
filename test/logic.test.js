@@ -2813,3 +2813,30 @@ test('vehicles: kind from the description', () => {
   assert.equal(V.vehKindOf('Bayliner boat'), 'boat');
   assert.equal(V.vehKindOf('2020 Toyota Tacoma'), 'car');
 });
+
+// ---------- hold and drag to reorder ----------
+function ordWorld() { return new Function(srcBlock('/*REORDER-START*/', '/*REORDER-END*/') + '\nreturn {ordApply, ordNearest, ordMove, ordMerge};')(); }
+test('reorder: a saved order is applied, new items go last in their own order, unknown saved ids are ignored', () => {
+  const O = ordWorld(), id = (x) => x;
+  assert.deepEqual(O.ordApply(['c', 'a', 'b'], ['a', 'b', 'c'], id), ['c', 'a', 'b']);
+  assert.deepEqual(O.ordApply(['c', 'zzz', 'a'], ['a', 'b', 'c', 'd'], id), ['c', 'a', 'b', 'd']);
+  assert.deepEqual(O.ordApply([], ['a', 'b'], id), ['a', 'b']);
+  assert.deepEqual(O.ordApply(null, ['a', 'b'], id), ['a', 'b']);
+  assert.deepEqual(O.ordApply(['b'], [['a', 1], ['b', 2]], (x) => x[0]), [['b', 2], ['a', 1]]);
+});
+test('reorder: the slot nearest the dragged item is the drop target, and moving rewrites the order', () => {
+  const O = ordWorld();
+  const centers = [{ x: 50, y: 20 }, { x: 150, y: 20 }, { x: 250, y: 20 }];
+  assert.equal(O.ordNearest(centers, 240, 30), 2);
+  assert.equal(O.ordNearest(centers, 10, 5), 0);
+  assert.equal(O.ordNearest([{ x: 10, y: 10 }, { x: 10, y: 60 }, { x: 10, y: 110 }], 12, 70), 1);
+  assert.deepEqual(O.ordMove(['a', 'b', 'c', 'd'], 0, 2), ['b', 'c', 'a', 'd']);
+  assert.deepEqual(O.ordMove(['a', 'b', 'c', 'd'], 3, 0), ['d', 'a', 'b', 'c']);
+  assert.deepEqual(O.ordMove(['a', 'b'], 1, 1), ['a', 'b']);
+});
+test('reorder: moving visible tabs keeps hidden tabs where they were', () => {
+  const O = ordWorld();
+  // full order a b c d e; c is hidden; the shown tabs a b d e are rearranged to d a b e
+  assert.deepEqual(O.ordMerge(['a', 'b', 'c', 'd', 'e'], ['d', 'a', 'b', 'e']), ['d', 'a', 'c', 'b', 'e']);
+  assert.deepEqual(O.ordMerge(['a', 'b', 'c'], ['c', 'b', 'a']), ['c', 'b', 'a']);
+});
