@@ -996,6 +996,7 @@ function undoStep(dir){
 }
 function undoButtons(){return '<span class="undo"><button class="btn small" data-act="undo" aria-label="Undo the last change" title="Undo the last change (Ctrl or Cmd + Z)"'+(UNDO.stack.length?'':' disabled')+'>&#8630; Undo</button>'+(UNDO.redo.length?'<button class="btn small" data-act="redo" aria-label="Redo" title="Redo (Ctrl or Cmd + Shift + Z)">&#8631; Redo</button>':'')+'</span>'}
 function save(opt){
+  try{var dm=debtApply(S.accounts,S.txns,iso(TODAY)).filter(function(m){return m.type!=='checking'&&m.type!=='savings'});if(dm.length)toast('Updated from your transactions: '+dm.slice(0,3).map(function(m){return m.name+' '+(m.to<m.from?'−':'+')+money0(Math.abs(m.to-m.from))}).join(', ')+(dm.length>3?' and '+(dm.length-3)+' more':'')+'.')}catch(e){}
   try{var vs=syncVehicleAssets();if(vs){var vn=vs.made.concat(vs.linked);toast(vs.made.length?'Added '+vs.made.join(', ')+' to Assets from your car loan. Its value is an estimate: update it there.':'Linked '+vs.linked.join(', ')+' to its car loan.')}}catch(e){}
   var j=null;try{j=JSON.stringify(S)}catch(e){}
   if(j)undoTrack(opt&&opt.noUndo?(UNDO.cur=j):j);
@@ -2280,6 +2281,150 @@ function autoBillItems(txns,items,mk,ignore,catOf){
   });
 }
 /*BILLS-END*/
+/*DEBTPAY-START*/
+// Keeps loan, card and bank balances in step with your transactions, and works out how each payment was split.
+// A balance is never nudged one payment at a time. Each account remembers the balance you last gave it (typed, imported or from a statement)
+// and the date of it; the balance shown is that balance plus every transaction dated after it. So deleting, editing or re-importing a transaction
+// can never double count, and entering a new balance simply starts again from it.
+var DP_LOAN={student:1,auto:1,loan:1,mortgage:1},DP_BANK={checking:1,savings:1};
+// Does this account follow the transactions? Not bank-linked ones (the bank already says), not the cash wallet (it has its own), and a mortgage
+// only when you turn it on, because its payment includes escrow that never reduces what you owe.
+function dpOn(a){
+  if(!a||a.closed||a.wallet===true||a.plaid||a.track===false)return false;
+  if(a.type==='mortgage')return a.track===true;
+  return !!(DP_LOAN[a.type]||a.type==='credit'||DP_BANK[a.type]);
+}
+function dpR2(n){return Math.round(n*100)/100}
+// Loans that are paid as one payment: a student lender's loans together, every other loan on its own.
+function dpGroups(accounts){
+  var gs=[],byL={};
+  accounts.forEach(function(a){
+    if(!DP_LOAN[a.type]||a.closed)return;
+    if(a.type==='student'&&a.lender){var k='grp:'+String(a.lender).toLowerCase();if(byL[k]){byL[k].loans.push(a);return}byL[k]={id:k,name:a.lender+' student loans',loans:[a],re:loanMatchRe(a)};gs.push(byL[k]);return}
+    gs.push({id:a.id,name:a.name,loans:[a],re:loanMatchRe(a)});
+  });
+  return gs;
+}
+function dpStart(a){return a.sync&&isFinite(a.sync.anchorBal)?a.sync.anchorBal:a.balance}
+function dpAnchorOf(a){return a.sync&&a.sync.anchor?a.sync.anchor:'9999-12-31'}
+// How one payment is divided between the loans of a group. Everyone's minimum first, in proportion if the payment is short, then whatever is left
+// goes to the highest rate first (what servicers do unless you tell them otherwise). A manual split on the transaction wins.
+function dpSplit(loans,P,bal,manual){
+  var parts={},act=loans.filter(function(l){return bal[l.id]>0.005});if(!act.length)act=loans.slice();
+  loans.forEach(function(l){parts[l.id]=0});
+  if(manual){var tot=0;Object.keys(manual).forEach(function(id){if(id in parts&&manual[id]>0){parts[id]=dpR2(manual[id]);tot+=parts[id]}});if(tot>0)return parts}
+  var mins=act.reduce(function(n,l){return n+(+l.minPay||0)},0),left=P;
+  if(mins>0){var base=Math.min(P,mins);act.forEach(function(l){parts[l.id]=dpR2(base*(+l.minPay||0)/mins)});left=P-base}
+  else{var bt=act.reduce(function(n,l){return n+Math.max(0,bal[l.id])},0);act.forEach(function(l){parts[l.id]=dpR2(bt>0?P*Math.max(0,bal[l.id])/bt:P/act.length)});left=0}
+  if(left>0.005){
+    var order=act.slice().sort(function(a,b){return (b.apr||0)-(a.apr||0)||bal[b.id]-bal[a.id]});
+    order.forEach(function(l){if(left<=0.005)return;var room=Math.max(0,bal[l.id]-parts[l.id]),t=Math.min(left,room);parts[l.id]=dpR2(parts[l.id]+t);left-=t});
+    if(left>0.005)parts[order[0].id]=dpR2(parts[order[0].id]+left);                       // paid more than is owed: shown on the first loan
+  }
+  var sum=0,big=act[0].id;Object.keys(parts).forEach(function(id){sum+=parts[id];if(parts[id]>parts[big])big=id});
+  if(Math.abs(sum-P)>0.004)parts[big]=dpR2(parts[big]+P-sum);                             // pennies lost to rounding
+  return parts;
+}
+function dpMatches(groups,x){
+  if(!(x.amount<0)||x.friend||x.cardPay===true||x.payTo==='none')return null;
+  var P=-x.amount;
+  if(x.payTo){for(var i=0;i<groups.length;i++)if(groups[i].loans.some(function(l){return l.id===x.payTo}))return groups[i];return null}
+  var hits=groups.filter(function(g){return g.re&&g.re.test(x.name||'')});
+  hits=hits.filter(function(g){var mn=g.loans.reduce(function(n,l){return n+(+l.minPay||0)},0);return !(mn>0)||(P>=mn*0.2&&P<=mn*5)});   // a $9 coffee at a lender-named shop is not a payment
+  if(hits.length===1)return hits[0];
+  if(hits.length>1){var best=null,bd=1;hits.forEach(function(g){var mn=g.loans.reduce(function(n,l){return n+(+l.minPay||0)},0);if(mn>0){var d=Math.abs(P-mn)/mn;if(d<bd){bd=d;best=g}}});return bd<=0.25?best:null}
+  return null;
+}
+// Every payment found in the transactions, oldest first, with its split. counted = dated after the balance was last set, so the balance already moved for it.
+function debtAllocate(accounts,txns){
+  var groups=dpGroups(accounts),per={},out=[];
+  groups.forEach(function(g){per[g.id]=[]});
+  (txns||[]).forEach(function(x){var g=dpMatches(groups,x);if(g)per[g.id].push(x)});
+  groups.forEach(function(g){
+    var bal={},ch=per[g.id].slice().sort(function(a,b){return a.date<b.date?-1:a.date>b.date?1:(a.id<b.id?-1:1)});
+    g.loans.forEach(function(l){bal[l.id]=dpStart(l)});
+    ch.forEach(function(x){
+      var P=-x.amount,parts=dpSplit(g.loans,P,bal,x.split&&typeof x.split==='object'?x.split:null),rows=[];
+      g.loans.forEach(function(l){
+        var amt=parts[l.id]||0;if(!(amt>0))return;
+        var counted=x.date>dpAnchorOf(l),b=bal[l.id],intr=Math.min(amt,Math.max(0,b)*(l.apr||0)/1200),pr=Math.min(amt-intr,Math.max(0,b));
+        rows.push({id:l.id,name:l.name,amount:amt,interest:dpR2(intr),principal:dpR2(pr),counted:counted});
+        if(counted)bal[l.id]=Math.max(0,b-pr);
+      });
+      out.push({id:x.id,date:x.date,name:x.name,amount:P,group:g.id,groupName:g.name,manual:!!x.split,forced:!!x.payTo,parts:rows});
+    });
+  });
+  // cards: a payment is money arriving on the card (from its statement) or, when the card's own transactions are not in the app, money leaving another account
+  accounts.forEach(function(c){
+    if(c.type!=='credit'||c.closed)return;
+    var mine=(txns||[]).filter(function(x){return x.acct===c.id}),re=cardMatchRe(c),seen=[];
+    mine.forEach(function(x){
+      if(!(x.amount>0)||!(x.cardPay===true||/payment|pmt|thank you/i.test(x.name||'')))return;
+      seen.push(x);out.push({id:x.id,date:x.date,name:x.name,amount:x.amount,group:c.id,groupName:c.name,parts:[{id:c.id,name:c.name,amount:x.amount,interest:0,principal:x.amount,counted:x.date>dpAnchorOf(c)}]});
+    });
+    (txns||[]).forEach(function(x){
+      if(!(x.amount<0)||x.acct===c.id||x.friend||x.payTo==='none'||x.cardPay===true)return;
+      var forced=x.payTo===c.id;if(!forced&&!(re&&re.test(x.name||'')))return;
+      if(!forced&&seen.some(function(s){return Math.abs(s.amount+x.amount)<0.005&&Math.abs((Date.parse(s.date)-Date.parse(x.date))/864e5)<=5}))return;   // the same payment, seen from the card's side
+      out.push({id:x.id,date:x.date,name:x.name,amount:-x.amount,group:c.id,groupName:c.name,viaBank:true,forced:forced,parts:[{id:c.id,name:c.name,amount:-x.amount,interest:0,principal:-x.amount,counted:x.date>dpAnchorOf(c)}]});
+    });
+  });
+  return out.sort(function(a,b){return a.date<b.date?-1:a.date>b.date?1:0});
+}
+// Gives each followed account its starting point. Runs before every calculation; a balance that was changed by something other than this code is a new start.
+function dpAnchor(accounts,todayISO){
+  accounts.forEach(function(a){
+    if(!dpOn(a)){if(a.sync)delete a.sync;return}
+    var s=a.sync,ao=a.asOf||'';
+    if(!s||!isFinite(s.bal)||Math.abs(a.balance-s.bal)>0.004||(s.asOf||'')!==ao)
+      a.sync={bal:a.balance,anchor:(s&&ao&&ao<=todayISO&&(s.asOf||'')!==ao)?ao:todayISO,anchorBal:a.balance,asOf:ao};   // first time: today, so nothing old is counted again
+  });
+}
+// The balances the transactions imply. Cards and banks use only the transactions linked to them; a payment found by name is used for a card
+// only when none of the card's own transactions are in the app (otherwise the same payment would count twice).
+function debtDerive(accounts,txns){
+  var allocs=debtAllocate(accounts,txns),bal={};
+  accounts.forEach(function(a){
+    if(!dpOn(a)||!a.sync)return;
+    var anchor=a.sync.anchor,b=a.sync.anchorBal;
+    if(DP_LOAN[a.type]){allocs.forEach(function(p){p.parts.forEach(function(r){if(r.id===a.id&&r.counted)b-=r.principal})});b=Math.max(0,b)}
+    else if(a.type==='credit'){
+      var linked=false;(txns||[]).forEach(function(x){if(x.acct===a.id){linked=true;if(x.date>anchor)b-=x.amount}});
+      if(!linked)allocs.forEach(function(p){if(p.viaBank&&p.group===a.id&&p.parts[0].counted)b-=p.amount});
+      b=Math.max(0,b);
+    }
+    else (txns||[]).forEach(function(x){if(x.acct===a.id&&x.date>anchor)b+=x.amount});
+    bal[a.id]=dpR2(b);
+  });
+  return {balances:bal,allocs:allocs};
+}
+// Sets the balances and returns what moved. Safe to call as often as you like.
+function debtApply(accounts,txns,todayISO){
+  dpAnchor(accounts,todayISO);
+  var d=debtDerive(accounts,txns),moved=[];
+  accounts.forEach(function(a){
+    var nb=d.balances[a.id];if(nb===undefined||Math.abs(nb-a.balance)<0.005)return;
+    moved.push({id:a.id,name:a.name,type:a.type,from:a.balance,to:nb});
+    a.balance=nb;a.sync.bal=nb;
+    if(!Array.isArray(a.history))a.history=[];
+    var h=a.history.filter(function(x){return x.date===todayISO})[0];if(h)h.balance=nb;else{a.history.push({date:todayISO,balance:nb});a.history.sort(function(x,y){return x.date<y.date?-1:x.date>y.date?1:0})}
+  });
+  return moved;
+}
+// For the Debt payments window: what was paid to each account, how it divided between interest and principal, and the newest payment of each group.
+function debtStats(allocs,accounts,todayISO){
+  var per={},groups={},byMonth={},yk=String(todayISO).slice(0,4);
+  allocs.forEach(function(p){
+    var g=groups[p.group]=groups[p.group]||{id:p.group,name:p.groupName,total:0,count:0,last:null};
+    g.total+=p.amount;g.count++;if(!g.last||p.date>=g.last.date)g.last=p;
+    p.parts.forEach(function(r){var e=per[r.id]=per[r.id]||{id:r.id,name:r.name,paid:0,interest:0,principal:0,count:0,year:0};e.paid+=r.amount;e.interest+=r.interest;e.principal+=r.principal;e.count++;if(p.date.slice(0,4)===yk)e.year+=r.amount});
+    var m=p.date.slice(0,7);byMonth[m]=(byMonth[m]||0)+p.amount;
+  });
+  Object.keys(per).forEach(function(k){var e=per[k];e.paid=dpR2(e.paid);e.interest=dpR2(e.interest);e.principal=dpR2(e.principal);e.year=dpR2(e.year);var a=accounts.filter(function(x){return x.id===k})[0];e.owe=a?a.balance:0});
+  var rows=Object.keys(per).map(function(k){return per[k]}).sort(function(a,b){return b.paid-a.paid});
+  return {rows:rows,groups:Object.keys(groups).map(function(k){return groups[k]}).sort(function(a,b){return a.last.date<b.last.date?1:-1}),total:dpR2(rows.reduce(function(n,r){return n+r.paid},0)),interest:dpR2(rows.reduce(function(n,r){return n+r.interest},0)),byMonth:byMonth};
+}
+/*DEBTPAY-END*/
 /*ASSETS-START*/
 // Things you own that lose value (cars, motorcycles, boats): value history, depreciation and maintenance due dates.
 var ASSET_KINDS={
@@ -5149,15 +5294,16 @@ var HELP={
   credit:{t:'Credit score',what:'Your credit scores over time, with what affects them graded from your own accounts.',how:['Type your scores from TransUnion, Equifax and Experian under Add your scores. Once a month is plenty.','Read For you for what the app noticed.','Look at What affects your score to see what to work on.'],tip:'The app cannot fetch your scores for you; you type them in.'},
   cards:{t:'Credit cards',what:'Each credit card on its own: progress paying it down, spending habits, cash back and interest and fees.',how:['Add a card on Accounts or here, with its limit, rate and minimum payment.','Open a card to see its balance trend, spending by category and cash back.','Use Pay it off faster to see what extra payments save.','Import a card statement on Transactions to keep it current.'],tip:'All your cards compare side by side at the top.'},
   invest:{t:'Investments',what:'Your holdings, how they are spread out and how much they swing.',how:['Add a holding with its symbol, shares and cost.','See Allocation and By topic to check you are not too concentrated.','Volatility watch shows which ones move the most; the Analysts pill shows what analysts think.'],tip:'Prices are for information only.'},
-  transactions:{t:'Transactions',what:'Every deposit and purchase. This is where you bring in your data.',how:['Import a statement (CSV or PDF) from your bank or card.','Use the filters and the search to find what you want.','Change a transaction\'s category, or fix many at once.','Transfers between your own accounts and card payments are left out of your spending so nothing counts twice.'],tip:'Import regularly. Most other tabs are built from what is here.'},
+  transactions:{t:'Transactions',what:'Every deposit and purchase. This is where you bring in your data.',how:['Import a statement (CSV or PDF) from your bank or card.','Use the filters and the search to find what you want.','Change a transaction\'s category, or fix many at once.','Transfers between your own accounts and card payments are left out of your spending so nothing counts twice.','Loan and card payments lower what you owe, and transactions linked to a checking or savings account move its balance. Typing a new balance on Accounts starts again from that balance.'],tip:'Import regularly. Most other tabs are built from what is here.'},
   goals:{t:'Goals',what:'Things you are saving for, with progress and a date.',how:['Create a goal with a name, a target and a date.','Link a goal to an account so progress follows its balance.','Turn on auto to put money toward it on a schedule.'],tip:'Pick the goal that matters most and fund it first.'},
-  loans:{t:'Loans',what:'Your car, student and other loans in one place, with plans to pay them off faster.',how:['Add a loan with its balance, rate, payment and due day.','Read The order to pay them and Debt-free by a date.','Import a statement from your lender to update a loan.','Try Would one new loan help? to compare consolidating or refinancing.','Credit cards, Mortgage and Credit score are the other pages along the top of this tab.'],tip:'A loan with a payment and a due day shows up on Bills.'},
+  loans:{t:'Loans',what:'Your car, student and other loans in one place, with plans to pay them off faster.',how:['Add a loan with its balance, rate, payment and due day.','Read The order to pay them and Debt-free by a date.','Import a statement from your lender to update a loan.','Payments you add or import to Transactions lower the matching loan or card by themselves. The Debt payments window shows how much you have paid and how your latest payment was split between loans. Change the split there if your statement differs, or pick the debt in a transaction\'s Edit form (Pays toward).','Try Would one new loan help? to compare consolidating or refinancing.','Credit cards, Mortgage and Credit score are the other pages along the top of this tab.'],tip:'A loan with a payment and a due day shows up on Bills.'},
   mortgage:{t:'Mortgage',what:'Your home loan: payment, interest, what you would save by paying extra and how it fits your budget.',how:['Press Edit details and enter your home value, loan, rate and payment.','Read My read for a plain explanation of your numbers.','Change the assumptions to test extra payments.'],tip:'Property tax and insurance are included in the monthly picture.'},
   assist:{t:'Assistant',what:'A private chat assistant that runs on this computer and answers questions about your money.',how:['Follow Set up the assistant once (about five minutes).','Ask a question in plain words, such as how much I spent on food last month.','Press Clear chat to start over.'],tip:'It runs on your computer, so your questions never leave it.'},
   look:{t:'Settings',what:'How the app looks and works: appearance, tabs, security, backups and updates.',how:['Settings has pages along the top: You, Appearance, Security, Backup, App updates, Widget, More and Help.','You: your name and nickname, and the other users of this computer (add a real person to get the setup guide, or a demo user with made-up data).','Appearance: sound, where the tabs sit and their order (hold and drag), the look, colour, glass, text and motion. Press Reset appearance to undo your styling.','Security: an app password and Touch ID, and moving to another computer.','Backup: save or restore everything you have entered.','App updates: check for a new version, or go back to an earlier one (save a backup first).','Widget: choose what the desktop widget shows and in what order (it draws graphs and rings, not just numbers), blur amounts, and ask for Touch ID before showing them.','Help: the tour, the guide, What to update and what is new.'],tip:'Search (Ctrl+K) finds any setting and opens its page.'}
 };
 // What changed in each version, in plain words. A test makes sure the version in package.json has an entry, so a release cannot go out without it.
 var WHATSNEW=[
+ ['1.8.32',['Your debts now follow your transactions. When a payment to a student loan, car loan, other loan or card shows up in Transactions, that balance goes down by itself, and a bank or savings balance moves with the transactions linked to it. Deleting or editing a transaction puts it right back, and typing a new balance starts again from that balance, so nothing counts twice.','New Debt payments window on Debts: how much you have paid so far, how much of it went toward what you owe and how much was interest, and how your latest payment was split between loans (for example a student loan payment shared across its loans). Draw it as bars, a donut or a list. Change the split if your statement shows something different.','Edit a transaction and use Pays toward to say which debt it belongs to, or that it is not a debt payment. Mortgages stay off until you turn them on, because the payment includes escrow. Bank-linked accounts are left alone.']],
  ['1.8.31',['Drag the windows on a page to change its layout: press Customize, then move, resize or hide each window, or hold a window by its title and drag it. Some windows can be drawn a different way: spending as a donut, bars or a list; the six months as bars or lines; your stocks as a line graph, pie or bars; budgets as bars or rings; net worth as a line or bars. Each user keeps their own layout.']],
  ['1.8.30',['The stocks chart on the Overview now appears as soon as prices load (before, it could stay empty until you reopened the page). The Overview also shows a bar of how your stocks are split.','The desktop widget now has live graphics: a net worth graph, an investments graph with movers, rings for budgets, your next paycheck and your goal, a spending donut, due-date dots and a credit score scale. A green dot shows when it was updated in the last few minutes.']],
  ['1.8.29',['The 22 tabs are now 10. Tabs that held similar things became pages in one tab, shown as a row along the top: Overview (Summary, Live dashboard), Accounts (Accounts, Assets, Investments), Bills (Bills, Subscriptions, Energy), Budgets (Budgets, Monthly report, Goals, Can I afford it?), My pay (My pay, Taxes) and Debts (Loans, Credit cards, Mortgage, Credit score).','Settings is split into pages like Energy: You, Appearance, Security, Backup, App updates, Widget, More and Help.','App updates can now go back to an earlier version (save a backup first).','Users: share the computer with someone else, each with their own data, or add a demo user with made-up data. A setup guide walks a new user through everything worth filling in.','About you: your name and nickname. The Overview greets you by name.','IDs and records: an encrypted wallet in Documents for your ID card, passport and employment records, with expiry reminders.','The Overview shows your stocks live while the market is open, and your recent transactions.','The desktop widget can show what you choose, in the order you choose: net worth, investments, bills, next paycheck and more. Showing blurred amounts can ask for Touch ID.','Friends and family: I paid them, and They lent me (tracked until you pay them back).']],
@@ -5719,7 +5865,7 @@ function vDebtStrategy(){
   var groups=LOANFILTERS.slice(1).map(function(f){var ds=debts.filter(function(d){return d.type===f[0]});if(!ds.length)return '';var t=ds.reduce(function(a,d){return a+d.balance},0),mn=ds.reduce(function(a,d){return a+d.minPay},0),w=ds.reduce(function(a,d){return a+d.balance*d.apr},0)/t;
     return '<div class="row"><div class="grow"><div class="nm">'+f[1]+'</div><div class="sub">'+ds.length+' debt'+(ds.length===1?'':'s')+' · '+w.toFixed(2)+'% average · '+money0(mn)+'/mo</div></div><div class="amt num">'+money0(t)+'</div><button class="btn small" data-act="loan-filter" data-f="'+f[0]+'">Open</button></div>'}).join('');
   var byGroup='<section class="panel"><h2>What you owe, by kind</h2>'+groups+(debtUI.incl?'':'<p class="sub muted" style="margin:10px 0 0;font-size:12px">Your mortgage is left out of this plan. It has its own tab.</p>')+'</section>';
-  return tiles+ctrl+cmp+adv+order+deadline+cons+byGroup;
+  return tiles+debtPayPanel('')+ctrl+cmp+adv+order+deadline+cons+byGroup;
 }
 /* ---------- Mortgage and home ---------- */
 var mortUI={edit:false,pre:null,imp:null,horizon:10,refi:{rate:'',years:'30',cost:''},tryExtra:''};
@@ -5880,6 +6026,36 @@ function loanChart(cur,fast){
   for(t=0;t<3;t++){var gv=mx*t/2.1,gy=Y(gv);g+='<line x1="0" x2="'+W+'" y1="'+gy+'" y2="'+gy+'" stroke="var(--line)"/><text x="2" y="'+(gy-3)+'" font-size="10">'+money0(gv)+'</text>'}
   var ticks=[0,Math.round(n/2),n].filter(function(v,i,a){return a.indexOf(v)===i}).map(function(i){return '<text x="'+X(i)+'" y="'+(H-7)+'" text-anchor="'+(i===0?'start':i===n?'end':'middle')+'" font-size="11">'+monthYear(addMonths(TODAY,i))+'</text>'}).join('');
   return '<svg viewBox="0 0 '+W+' '+H+'" width="100%" style="max-width:600px" role="img" aria-label="Balance owed over time, current plan and faster plan">'+g+line(cur.sched,'var(--muted)',true)+(fast!==cur?line(fast.sched,'var(--accent)'):'')+ticks+'</svg><div class="legend" style="flex-direction:row;gap:16px;margin-top:4px"><div><span style="display:inline-block;width:16px;border-top:2px dashed var(--muted)"></span> Current plan</div>'+(fast!==cur?'<div><span style="display:inline-block;width:16px;border-top:3px solid var(--accent)"></span> With your changes</div>':'')+'</div>';
+}
+/* ---------- Debt payments: where each payment went ---------- */
+var dpUI={sel:'',edit:false};
+var DP_COLORS=['var(--c1)','var(--c2)','var(--c3)','var(--c4)','var(--c5)','var(--c6)','var(--c7)','var(--c8)'];
+function debtPayPanel(kind){
+  var accts=S.accounts.filter(function(a){return isDebt(a)&&!a.closed&&(!kind||a.type===kind)});if(!accts.length)return '';
+  var ids={};accts.forEach(function(a){ids[a.id]=1});
+  var all=debtAllocate(S.accounts,S.txns).filter(function(p){return p.parts.some(function(r){return ids[r.id]})});
+  var tr=accts.filter(function(a){return dpOn(a)||a.type==='mortgage'});
+  var follow='<div style="margin-top:12px"><div class="sub muted" style="font-size:12px;margin-bottom:4px">Balances that follow your transactions</div>'+accts.map(function(a){
+    var on=dpOn(a),why=a.plaid?'Linked to your bank, which already reports it':a.type==='mortgage'&&!on?'Off: a mortgage payment includes escrow. Turn on if yours does not.':'';
+    return '<label class="row" style="gap:8px;align-items:center;font-size:13px"><input type="checkbox" data-act="dp-track" data-id="'+esc(a.id)+'"'+(on?' checked':'')+(a.plaid?' disabled':'')+'><span class="grow">'+esc(a.name)+'</span><span class="sub muted">'+esc(why||(on?'follows':'off'))+'</span></label>'}).join('')+'</div>';
+  if(!all.length)return '<section class="panel"><h2>Debt payments</h2><div class="empty" style="white-space:normal">No payments found yet. When a payment to one of these lenders shows up in your transactions, this window shows how it was split and your balance goes down by itself. If a payment has an unusual name, open it in Transactions, choose Edit, and pick the debt under "Pays toward".</div>'+follow+'</section>';
+  var st=debtStats(all,S.accounts,iso(TODAY)),style=winStyle('loans','debt-payments')||'bars';
+  var color={};st.rows.forEach(function(r,i){color[r.id]=DP_COLORS[i%DP_COLORS.length]});
+  var recent=all.slice().sort(function(a,b){return a.date<b.date?1:a.date>b.date?-1:0}).slice(0,8);
+  var sel=recent.filter(function(p){return p.id===dpUI.sel})[0]||recent[0];
+  var bar=function(parts,h){var tot=parts.reduce(function(n,r){return n+r.amount},0)||1;return '<div style="display:flex;height:'+h+'px;border-radius:8px;overflow:hidden;background:var(--line)" role="img" aria-label="How the payment was split">'+parts.map(function(r){return '<i title="'+esc(r.name)+' '+money(r.amount)+'" style="width:'+(r.amount/tot*100).toFixed(2)+'%;background:'+(color[r.id]||DP_COLORS[0])+'"></i>'}).join('')+'</div>'};
+  var split='<div class="panel" style="margin:10px 0 0;padding:12px"><div class="row" style="align-items:center"><div class="grow"><div class="nm">Latest payment: '+esc(sel.groupName)+'</div><div class="sub">'+shortDate(sel.date)+' · '+esc(sel.name)+(sel.viaBank?' · from another account':'')+'</div></div><div class="num" style="font-weight:700">'+money(sel.amount)+'</div></div>'+
+    (sel.parts.length>1||sel.manual?'<div style="margin:10px 0">'+bar(sel.parts,18)+'</div>':'')+
+    sel.parts.map(function(r){return '<div class="row" style="align-items:center;gap:8px"><span class="dot" style="background:'+(color[r.id]||DP_COLORS[0])+';display:inline-block;width:10px;height:10px;border-radius:50%"></span><div class="grow"><div class="nm">'+esc(r.name)+'</div><div class="sub">'+(r.interest>0?money(r.interest)+' interest · ':'')+money(r.principal)+' toward what you owe'+(r.counted?'':' · already in your balance')+'</div></div><div class="num">'+money(r.amount)+'</div></div>'}).join('')+
+    (sel.group&&sel.parts.length>1?'<div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn small" data-act="dp-edit" data-id="'+esc(sel.id)+'">'+(dpUI.edit&&dpUI.sel===sel.id?'Close':'Change how it was split')+'</button></div>':'')+
+    (dpUI.edit&&dpUI.sel===sel.id&&sel.parts.length>1?'<form class="dpform form" data-id="'+esc(sel.id)+'" style="align-items:end;margin-top:8px">'+sel.parts.map(function(r){return '<label>'+esc(r.name)+'<input name="'+esc(r.id)+'" type="number" min="0" step="0.01" value="'+r.amount.toFixed(2)+'" style="width:110px"></label>'}).join('')+'<button class="btn primary small">Save split</button>'+(sel.manual?'<button type="button" class="btn small" data-act="dp-split-reset" data-id="'+esc(sel.id)+'">Back to automatic</button>':'')+'<p class="sub muted" style="flex-basis:100%;margin:0;font-size:12px;white-space:normal">The amounts must add up to '+money(sel.amount)+'. Use this when your statement shows a different split than the estimate.</p></form>':'')+
+    '<p class="sub muted" style="margin:8px 0 0;font-size:12px;white-space:normal">The split is an estimate: minimums first, then the rest to the highest rate. Interest is one month of the rate on the balance, so a statement may differ by a few dollars.</p></div>';
+  var graphic;
+  if(style==='donut'){graphic='<div class="row" style="align-items:center;gap:16px;flex-wrap:wrap"><div>'+pieSVG(st.rows.map(function(r){return {v:r.paid,color:color[r.id]}}),150)+'</div><div class="grow">'+st.rows.map(function(r){return '<div class="row"><span class="dot" style="background:'+color[r.id]+';display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:8px"></span><div class="grow">'+esc(r.name)+'</div><div class="num">'+money0(r.paid)+'</div></div>'}).join('')+'</div></div>'}
+  else if(style==='list'){graphic=st.rows.map(function(r){return '<div class="row"><div class="grow"><div class="nm">'+esc(r.name)+'</div><div class="sub">'+r.count+' payment'+(r.count===1?'':'s')+' · '+money0(r.interest)+' interest · owe '+money0(r.owe)+'</div></div><div class="num">'+money0(r.paid)+'</div></div>'}).join('')}
+  else{var mx=st.rows[0]?st.rows[0].paid:1;graphic=st.rows.map(function(r){return '<div style="margin:8px 0"><div class="row" style="padding:0"><div class="grow nm">'+esc(r.name)+'</div><div class="num">'+money0(r.paid)+'</div></div><div style="display:flex;height:12px;border-radius:6px;overflow:hidden;background:var(--line);width:'+Math.max(4,r.paid/mx*100).toFixed(1)+'%" title="'+money0(r.principal)+' toward what you owe, '+money0(r.interest)+' interest"><i style="width:'+(r.paid>0?r.principal/r.paid*100:0).toFixed(1)+'%;background:'+color[r.id]+'"></i><i style="flex:1;background:var(--muted);opacity:.45"></i></div><div class="sub" style="font-size:12px">'+money0(r.principal)+' toward the balance · '+money0(r.interest)+' interest · still owe '+money0(r.owe)+'</div></div>'}).join('')}
+  var recentRows='<div style="margin-top:10px"><div class="sub muted" style="font-size:12px;margin-bottom:4px">Recent payments (tap one to see its split)</div>'+recent.map(function(p){return '<button class="row linkrow" data-act="dp-pick" data-id="'+esc(p.id)+'" style="width:100%;text-align:left;background:none;border:0;padding:6px 0;cursor:pointer;color:inherit'+(sel&&sel.id===p.id?';font-weight:700':'')+'"><div class="grow"><span class="nm">'+esc(p.groupName)+'</span> <span class="sub">'+shortDate(p.date)+'</span></div><div class="num">'+money(p.amount)+'</div></button>'}).join('')+'</div>';
+  return '<section class="panel"><h2>Debt payments<small>from your transactions</small></h2><div class="grid tiles">'+tile('Paid so far',money0(st.total),all.length+' payment'+(all.length===1?'':'s'))+tile('Toward what you owe',money0(st.total-st.interest),'principal')+tile('Interest',money0(st.interest),'estimate')+'</div>'+split+'<div style="margin-top:12px">'+graphic+'</div>'+recentRows+follow+'</section>';
 }
 function loanTips(kind){
   var t=kind==='credit'?[
@@ -6059,7 +6235,7 @@ function vLoans(kind,hub,x){
   loans.forEach(function(l){var re=loanMatchRe(l),k=re?re.source:'';if(!k)return;if(!groups[k]){groups[k]=[];gOrder.push(k)}groups[k].push(l)});
   var seen=gOrder.map(function(k){var ls=groups[k],l=ls[0];var p=paymentsSeen(S.txns,l);if(!p.length)return '';var typ=p[0].amount,diff=ls.length===1&&Math.abs(typ-l.minPay)>5&&l.minPay>0;return '<div style="margin-bottom:10px"><div class="nm">'+esc(ls.map(function(x){return x.name}).join(', '))+'</div>'+p.map(function(x){return '<div class="row"><div class="grow"><div class="sub">'+shortDate(x.date)+' · '+esc(x.name)+'</div></div><div class="amt num">'+money(x.amount)+'</div></div>'}).join('')+(diff?'<p class="sub warn" style="margin:4px 0 0">Your latest payment was '+money(typ)+' but you entered '+money(l.minPay)+'. Edit the loan if the amount changed.</p>':'')+'</div>'}).join('');
   var seenP=seen?'<section class="panel histpanel"><h2>'+(kind==='auto'?'Payment history':'Payments I found')+'<small>found in your transactions</small></h2>'+seen+'</section>':'';
-  return head+msg+csBlock+adding+(kind==='auto'?loans.map(autoHero).join(''):(x&&x.tiles||tiles))+(x?'':loanVisuals(kind,loans))+(kind==='credit'?(x?x.top:cashbackPanel()):'')+cards+contractPanels(loans)+faster+(kind==='student'?adPanel(loans):'')+pay+seenP+loanImportPanel(kind)+loanTips(kind);
+  return head+msg+csBlock+adding+(kind==='auto'?loans.map(autoHero).join(''):(x&&x.tiles||tiles))+(x?'':loanVisuals(kind,loans))+(x?'':debtPayPanel(kind))+(kind==='credit'?(x?x.top:cashbackPanel()):'')+cards+contractPanels(loans)+faster+(kind==='student'?adPanel(loans):'')+pay+seenP+loanImportPanel(kind)+loanTips(kind);
 }
 
 var adUI={open:false};
@@ -9667,6 +9843,10 @@ document.addEventListener('click',function(e){
   else if(a==='mort-cancel'){mortUI.edit=false;mortUI.pre=null;mortUI.imp=null}
   else if(a==='dp-usehist'){debtUI.monthly=b.dataset.v;S.debtMonthly=+b.dataset.v||0}
   else if(a==='loan-filter'){loanFilter=b.dataset.f}
+  else if(a==='dp-pick'){dpUI.sel=id;dpUI.edit=false}
+  else if(a==='dp-edit'){dpUI.sel=id;dpUI.edit=!dpUI.edit}
+  else if(a==='dp-split-reset'){var rt=S.txns.filter(function(x){return x.id===id})[0];if(rt){delete rt.split;dpUI.edit=false;toast('Back to the automatic split.')}}
+  else if(a==='dp-track'){var ta=S.accounts.filter(function(x){return x.id===id})[0];if(ta){var on=!dpOn(ta);ta.track=on;delete ta.sync;toast(on?ta.name+' now follows your transactions from today on.':ta.name+' no longer changes with your transactions.')}}
   else if(a==='card-toggle'){var cid=b.dataset.id,cur=cardUI.open[cid];if(cur===undefined)cur=S.accounts.filter(function(a2){return a2.type==='credit'&&(!a2.closed||a2.balance>0)}).length<=2;cardUI.open[cid]=!cur}
   else if(a==='loan-add'){loanUI[b.dataset.kind].adding=true;loanUI[b.dataset.kind].edit=''}
   else if(a==='loan-cancel'){loanUI[b.dataset.kind].adding=false;loanUI[b.dataset.kind].edit=''}
@@ -9901,7 +10081,8 @@ var WINSTYLES={
   'dash/budgets':[['bars','Bars'],['rings','Rings']],
   'overview/net-worth':[['line','Line graph'],['bars','Bars']],
   'dash/net-worth':[['line','Line graph'],['bars','Bars']],
-  'accounts/net-worth':[['line','Line graph'],['bars','Bars']]
+  'accounts/net-worth':[['line','Line graph'],['bars','Bars']],
+  'loans/debt-payments':[['bars','Bars'],['donut','Donut'],['list','List']]
 };
 function winSlug(t){return String(t==null?'':t).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,40)}
 function cleanLayout(raw){
@@ -10080,7 +10261,12 @@ function thBind(m){
     navLockMake(p1).then(function(rec){try{localStorage.setItem(PK('tally-nav-lock-v1'),JSON.stringify(rec))}catch(x){toast('This browser would not save it.');return}NAVP.protect='own';NAVAUTH.until=Date.now()+120000;saveNav();
       var done=function(extra){render();toast('Protection is on.'+(extra||''))};
       if(wantBio&&T&&T.bio)tcall(T.bio.enable(p1,bioSlot('tabs'))).then(function(){navBioState.enabled=true;done(' Touch ID is on too.')}).catch(function(err){done(' Touch ID was not turned on: '+((err&&err.message)||'cancelled')+'.')});else done()})}});
-  m.querySelectorAll('.txedit').forEach(function(fm){var cs=fm.elements['c'],us=fm.elements['u'];if(cs&&us)cs.onchange=function(){us.innerHTML=subOptions(cs.value,'')};fm.onsubmit=function(e){e.preventDefault();var g=function(n){return fm.elements[n]};var wt=S.txns.filter(function(x){return x.id===fm.dataset.id})[0],wOld=wt&&wt.fromWallet?wt.amount:null;var r=editTxn(fm.dataset.id,{date:g('d').value,name:g('n').value,amount:parseFloat(g('a').value),cat:g('c').value,sub:g('u').value},g('s').checked);if(wOld!==null&&walletAcct()&&wt.amount!==wOld)walletAdd(wt.amount-wOld);if(r)r.changed+=editTxnExtras(fm.dataset.id,g('k').value,g('ac').value,g('nt').value,g('s').checked,g('vh')?g('vh').value:undefined);if(r&&g('fk')){var ft=S.txns.filter(function(x){return x.id===fm.dataset.id})[0],fc=g('fk').value?friendClean(g('fk').value,g('fw').value):null;if(ft){if(fc)ft.friend=fc;else delete ft.friend}}editTx='';catMsg='';save();render();toast(r?(r.changed?'Saved. Also updated '+r.changed+' similar transaction'+(r.changed===1?'':'s')+'.':'Saved.'):'Could not save.')}});
+  m.querySelectorAll('.dpform').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();
+    var t=S.txns.filter(function(x){return x.id===fm.dataset.id})[0];if(!t)return;var sp={},tot=0;
+    [].forEach.call(fm.querySelectorAll('input[type=number]'),function(i){var v=Math.round((parseFloat(i.value)||0)*100)/100;if(v>0){sp[i.name]=v;tot+=v}});
+    if(Math.abs(tot-(-t.amount))>0.015){toast('The parts add up to '+money(tot)+', but the payment is '+money(-t.amount)+'.');return}
+    t.split=sp;dpUI.edit=false;save();render();toast('Saved how that payment was split.')}});
+  m.querySelectorAll('.txedit').forEach(function(fm){var cs=fm.elements['c'],us=fm.elements['u'];if(cs&&us)cs.onchange=function(){us.innerHTML=subOptions(cs.value,'')};fm.onsubmit=function(e){e.preventDefault();var g=function(n){return fm.elements[n]};var wt=S.txns.filter(function(x){return x.id===fm.dataset.id})[0],wOld=wt&&wt.fromWallet?wt.amount:null;var r=editTxn(fm.dataset.id,{date:g('d').value,name:g('n').value,amount:parseFloat(g('a').value),cat:g('c').value,sub:g('u').value},g('s').checked);if(wOld!==null&&walletAcct()&&wt.amount!==wOld)walletAdd(wt.amount-wOld);if(r)r.changed+=editTxnExtras(fm.dataset.id,g('k').value,g('ac').value,g('nt').value,g('s').checked,g('vh')?g('vh').value:undefined);if(r&&g('pt')){var pt=S.txns.filter(function(x){return x.id===fm.dataset.id})[0];if(pt){var pv=g('pt').value;var was=pt.payTo||'';if(pv&&(pv==='none'||S.accounts.some(function(a){return a.id===pv})))pt.payTo=pv;else delete pt.payTo;if(pv!==was)delete pt.split}}if(r&&g('fk')){var ft=S.txns.filter(function(x){return x.id===fm.dataset.id})[0],fc=g('fk').value?friendClean(g('fk').value,g('fw').value):null;if(ft){if(fc)ft.friend=fc;else delete ft.friend}}editTx='';catMsg='';save();render();toast(r?(r.changed?'Saved. Also updated '+r.changed+' similar transaction'+(r.changed===1?'':'s')+'.':'Saved.'):'Could not save.')}});
   m.querySelectorAll('[data-subs]').forEach(function(i){i.onchange=function(){var l=parseSubList(i.value);if(!S.subCats)S.subCats={};if(l.length)S.subCats[i.dataset.subs]=l;else delete S.subCats[i.dataset.subs];save();render();toast('Sub-categories for '+i.dataset.subs+' saved.')}});
   m.querySelectorAll('[data-loanfile]').forEach(function(inp){inp.onchange=function(){
     var kind=inp.dataset.loanfile,how=inp.dataset.how||'ai',f=inp.files[0];if(!f)return;
@@ -10272,9 +10458,14 @@ function editTxnExtras(id,kind,acct,note,similar,veh){
   }
   return n;
 }
+// "Pays toward": which debt a payment belongs to when the name alone does not say, or "none" when it only looks like one.
+function debtPayToSel(x){
+  if(!(x.amount<0))return '';var ds=S.accounts.filter(function(a){return isDebt(a)&&!a.closed});if(!ds.length)return '';
+  return '<label>Pays toward<select name="pt"><option value="">Automatic</option><option value="none"'+(x.payTo==='none'?' selected':'')+'>Not a debt payment</option>'+ds.map(function(a){return '<option value="'+esc(a.id)+'"'+(x.payTo===a.id?' selected':'')+'>'+esc(a.name)+'</option>'}).join('')+'</select></label>';
+}
 function txEditForm(x){
   return '<form class="txedit panel" data-id="'+x.id+'" style="margin:8px 0"><div class="form" style="align-items:end"><label>Date<input name="d" type="date" required value="'+esc(x.date)+'"></label><label style="flex:1 1 200px">Description<input name="n" required value="'+esc(x.name)+'" maxlength="120"></label><label>Amount<input name="a" type="number" step="0.01" required value="'+x.amount+'"></label><label>Category<select name="c">'+CATS.map(function(c){return '<option'+(c===x.cat?' selected':'')+'>'+esc(c)+'</option>'}).join('')+'</select></label><label>Sub-category<select name="u">'+subOptions(x.cat,x.sub)+'</select></label></div>'+
-   '<div class="form" style="align-items:end;margin-top:8px"><label>This is<select name="k">'+[['count','Real spending or income (counted)'],['cardpay','Credit card payment (not counted)'],['transfer','Transfer between my accounts (not counted)'],['cashback','Cash back or reward']].map(function(o){return '<option value="'+o[0]+'"'+(txKind(x,transferInfo(S.txns,S.cardPay))===o[0]?' selected':'')+'>'+o[1]+'</option>'}).join('')+'</select></label><label>Linked card<select name="ac"><option value="">None</option>'+S.accounts.filter(function(a){return a.type==='credit'||a.type==='checking'||a.type==='savings'}).map(function(a){return '<option value="'+esc(a.id)+'"'+(x.acct===a.id?' selected':'')+'>'+esc(a.name)+'</option>'}).join('')+'</select></label><label style="flex:1 1 200px">Note<input name="nt" maxlength="200" value="'+esc(x.note||'')+'"></label><label>Friends and family<select name="fk">'+friendOptions(x.friend?x.friend.k:'')+'</select></label><label>Who<input name="fw" maxlength="40" value="'+esc(x.friend?x.friend.who:'')+'" placeholder="optional" style="width:120px"></label>'+(assetAccts().length?'<label>Vehicle<select name="vh"><option value="">None</option>'+assetAccts().map(function(a){return '<option value="'+esc(a.id)+'"'+(x.veh===a.id?' selected':'')+'>'+esc(a.name)+'</option>'}).join('')+'</select></label>':'')+'</div>'+
+   '<div class="form" style="align-items:end;margin-top:8px"><label>This is<select name="k">'+[['count','Real spending or income (counted)'],['cardpay','Credit card payment (not counted)'],['transfer','Transfer between my accounts (not counted)'],['cashback','Cash back or reward']].map(function(o){return '<option value="'+o[0]+'"'+(txKind(x,transferInfo(S.txns,S.cardPay))===o[0]?' selected':'')+'>'+o[1]+'</option>'}).join('')+'</select></label><label>Linked card<select name="ac"><option value="">None</option>'+S.accounts.filter(function(a){return a.type==='credit'||a.type==='checking'||a.type==='savings'}).map(function(a){return '<option value="'+esc(a.id)+'"'+(x.acct===a.id?' selected':'')+'>'+esc(a.name)+'</option>'}).join('')+'</select></label><label style="flex:1 1 200px">Note<input name="nt" maxlength="200" value="'+esc(x.note||'')+'"></label><label>Friends and family<select name="fk">'+friendOptions(x.friend?x.friend.k:'')+'</select></label><label>Who<input name="fw" maxlength="40" value="'+esc(x.friend?x.friend.who:'')+'" placeholder="optional" style="width:120px"></label>'+(assetAccts().length?'<label>Vehicle<select name="vh"><option value="">None</option>'+assetAccts().map(function(a){return '<option value="'+esc(a.id)+'"'+(x.veh===a.id?' selected':'')+'>'+esc(a.name)+'</option>'}).join('')+'</select></label>':'')+debtPayToSel(x)+'</div>'+
    '<label style="display:flex;gap:8px;align-items:center;margin:10px 0 4px;font-size:13px"><input name="s" type="checkbox" checked> Do the same for every similar transaction (category, and payment or not), and remember it for future imports</label><p class="sub muted" style="margin:0 0 10px;font-size:12px">Amount: negative is money out, positive is money in.</p>'+
    '<div class="actions" style="justify-content:flex-start"><button class="btn primary small">Save</button><button type="button" class="btn small" data-act="tx-cancel">Cancel</button></div></form>';
 }

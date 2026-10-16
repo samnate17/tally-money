@@ -3229,3 +3229,68 @@ test('layout: a window uses the graphic chosen for it, the first one when the ch
   assert.equal(L.winStyleOf({ views: {} }, 'dash', 'net-worth'), 'line'); assert.equal(L.winStyleOf(null, 'dash', 'net-worth'), 'line');
   Object.keys(L.WINSTYLES).forEach((k) => { assert.ok(L.LAYOUT_VIEWS[k.split('/')[0]], k + ' is on a page that can be customized'); assert.ok(L.WINSTYLES[k].length >= 2); });
 });
+
+// ---------- Debt payments follow the transactions ----------
+function debtBlock() {
+  return new Function(srcBlock('/*LOAN-START*/', '/*LOAN-END*/') + srcBlock('/*BILLS-START*/', '/*BILLS-END*/') + srcBlock('/*DEBTPAY-START*/', '/*DEBTPAY-END*/') +
+    '\nreturn {dpOn, dpSplit, debtAllocate, debtDerive, debtApply, debtStats, dpAnchor};')();
+}
+function dpAccts() {
+  const ln = (id, name, bal, apr, min) => ({ id, name, type: 'student', lender: 'Granite Servicing', balance: bal, apr, minPay: min, history: [] });
+  return [ln('s1', 'Group 1A', 1000, 6, 100), ln('s2', 'Group 1B', 3000, 4, 200), ln('s3', 'Group 2', 2000, 8, 50),
+    { id: 'c1', name: 'Auto loan', type: 'auto', lender: 'Meridian Auto', balance: 9000, apr: 5, minPay: 300, history: [] },
+    { id: 'k1', name: 'Fern Card', type: 'credit', lender: 'Fern Bank', balance: 500, apr: 20, minPay: 25, history: [] },
+    { id: 'b1', name: 'Everyday checking', type: 'checking', balance: 1000, history: [] }];
+}
+test('debt payments: minimums go to each loan, the extra to the highest rate, and the parts add up to the payment', () => {
+  const D = debtBlock(), a = dpAccts();
+  const bal = { s1: 1000, s2: 3000, s3: 2000 };
+  const parts = D.dpSplit(a.slice(0, 3), 500, bal, null);
+  assert.ok(Math.abs(parts.s1 + parts.s2 + parts.s3 - 500) < 0.005);
+  assert.ok(parts.s3 > 50 && parts.s3 > parts.s1 - 100, 'extra went to the 8% loan');
+  assert.strictEqual(parts.s1, 100); assert.strictEqual(parts.s2, 200); assert.strictEqual(parts.s3, 200);
+  const short = D.dpSplit(a.slice(0, 3), 175, bal, null); // below the 350 of minimums: shared in proportion
+  assert.strictEqual(short.s1, 50); assert.strictEqual(short.s2, 100); assert.strictEqual(short.s3, 25);
+  const manual = D.dpSplit(a.slice(0, 3), 500, bal, { s1: 300, s2: 200 });
+  assert.strictEqual(manual.s1, 300); assert.strictEqual(manual.s3, 0);
+});
+test('debt payments: balances come from the last known balance plus later transactions, and never double count', () => {
+  const D = debtBlock(), a = dpAccts();
+  const txns = [
+    { id: 't1', date: '2026-10-10', name: 'GRANITE SERVICING STUDENT LN', amount: -350 }, // before the first run: already in the balances
+    { id: 't9', date: '2026-10-11', name: 'Coffee near Granite Street', amount: -6 },        // too small to be a payment
+  ];
+  assert.deepStrictEqual(D.debtApply(a, txns, '2026-10-12'), [], 'first run counts nothing old');
+  assert.strictEqual(a[0].balance, 1000);
+  txns.push({ id: 't2', date: '2026-10-13', name: 'GRANITE SERVICING STUDENT LN', amount: -350 });
+  const moved = D.debtApply(a, txns, '2026-10-14');
+  assert.strictEqual(moved.length, 3);
+  const owed = a.slice(0, 3).reduce((n, l) => n + l.balance, 0);
+  assert.ok(owed < 6000 && owed > 5600, 'interest was kept out of the reduction: ' + owed);
+  const again = D.debtApply(a, txns, '2026-10-14'); assert.deepStrictEqual(again, [], 'running again changes nothing');
+  txns.pop(); D.debtApply(a, txns, '2026-10-14');
+  assert.strictEqual(a[0].balance, 1000); assert.strictEqual(a[1].balance, 3000); assert.strictEqual(a[2].balance, 2000);   // deleting the payment puts it back
+  txns.push({ id: 't2', date: '2026-10-13', name: 'GRANITE SERVICING STUDENT LN', amount: -350 }); D.debtApply(a, txns, '2026-10-14');
+  a[0].balance = 700; a[1].balance = 2500; a[2].balance = 1800;       // you typed new balances: start again from them
+  assert.deepStrictEqual(D.debtApply(a, txns, '2026-10-15'), [], 'the payment on the 13th is before your new balances');
+  assert.strictEqual(a[0].balance, 700);
+});
+test('debt payments: cards, banks, bank-linked accounts and forced matches', () => {
+  const D = debtBlock(), a = dpAccts();
+  D.debtApply(a, [], '2026-10-01');
+  const txns = [
+    { id: 'p1', date: '2026-10-05', name: 'MERIDIAN AUTO PMT', amount: -300 },
+    { id: 'p2', date: '2026-10-05', name: 'Online transfer', amount: -120, acct: 'b1', payTo: 'k1' },   // you said it pays the card
+    { id: 'p3', date: '2026-10-06', name: 'Grocer', amount: -50, acct: 'b1' },
+    { id: 'p4', date: '2026-10-06', name: 'FERN BANK CARD PAYMENT', amount: -80, payTo: 'none' },       // you said it is not a payment
+  ];
+  const moved = D.debtApply(a, txns, '2026-10-07');
+  assert.ok(a[3].balance < 9000 && a[3].balance > 8700, 'auto loan went down');
+  assert.strictEqual(a[4].balance, 380, 'forced card payment, not the one marked as not a payment');
+  assert.strictEqual(a[5].balance, 1000 - 120 - 50);
+  a[5].plaid = { accountId: 'x' }; assert.strictEqual(D.dpOn(a[5]), false, 'a bank-linked account is left alone');
+  const m = Object.assign({}, a[3], { type: 'mortgage', track: undefined }); assert.strictEqual(D.dpOn(m), false, 'a mortgage is opt in');
+  assert.strictEqual(D.dpOn(Object.assign({}, m, { track: true })), true);
+  const st = D.debtStats(D.debtAllocate(a, txns), a, '2026-10-07');
+  assert.ok(st.total >= 420 && st.rows.length >= 2);
+});
