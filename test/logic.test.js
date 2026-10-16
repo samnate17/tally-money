@@ -2889,3 +2889,79 @@ test('auto debit: saved settings are cleaned', () => {
   const o = A.cleanAd({ enroll: 'bad', enhPts: 99, stdPts: '0.5', deadline: '2027-01-31', q: { ok1: 'yes', ok2: 'no', bad: 'maybe', 'bad key!': 'yes' } });
   assert.deepEqual([o.enroll, o.enhPts, o.stdPts, o.deadline, o.q], ['', 1, 0.5, '2027-01-31', { ok1: 'yes', ok2: 'no' }]);
 });
+
+// ---- What to update (synthetic facts only) ----
+function updWorld() { return new Function(srcBlock('/*UPDATES-START*/', '/*UPDATES-END*/') + '\nreturn {cleanUpd, updTasks, updFilter, updScore, updPrompt};')(); }
+function updFacts(over) {
+  return Object.assign({ today: '2026-10-16', sample: false,
+    accounts: [{ id: 'a1', name: 'Test Checking', type: 'checking', last: '2026-10-10', plaid: false, wallet: false }],
+    txn: { count: 120, last: '2026-10-14', linked: false, otherShare: 0.05, otherCount: 6 },
+    loans: [], student: { has: false, decided: true, days: null, deadline: '' },
+    pay: { stubCount: 2, hasIncome: true, late: [], ended: [] }, tax: { hasEmployer: true, hasW2: true, month: 10, prevYear: 2025, state: 'XX' },
+    credit: { count: 2, last: '2026-09-20' }, invest: {}, assets: [], energy: {}, bills: { overdue: 0, names: [] },
+    budgetCount: 5, oiCandidates: 0, friendCandidates: 0, backupAt: '2026-10-01' }, over || {});
+}
+test('what to update: a fully current set of facts has nothing to do and scores 100', () => {
+  const U = updWorld(), t = U.updTasks(updFacts());
+  assert.deepEqual(t, []);
+  assert.equal(U.updScore(t), 100);
+});
+test('what to update: example data asks to start fresh and nothing else', () => {
+  const U = updWorld(), t = U.updTasks(updFacts({ sample: true }));
+  assert.equal(t.length, 1);
+  assert.equal(t[0].id, 'sample');
+});
+test('what to update: stale balances, old transactions and backups are found and ranked by importance', () => {
+  const U = updWorld();
+  const t = U.updTasks(updFacts({
+    accounts: [{ id: 'a1', name: 'Old Savings', type: 'savings', last: '2026-07-01', plaid: false }, { id: 'a2', name: 'Linked Checking', type: 'checking', last: '2026-01-01', plaid: true }],
+    txn: { count: 120, last: '2026-09-01', linked: false, otherShare: 0.4, otherCount: 40 }, backupAt: '' }));
+  const ids = t.map(x => x.id);
+  assert.ok(ids.includes('acct-bal') && ids.includes('txn-stale') && ids.includes('uncat') && ids.includes('backup'));
+  assert.equal(t.find(x => x.id === 'acct-bal').items.length, 1, 'a bank-linked account is never listed as stale');
+  for (let i = 1; i < t.length; i++) assert.ok(t[i - 1].sev >= t[i].sev, 'most important first');
+  assert.ok(U.updScore(t) < 100);
+});
+test('what to update: late paychecks, W-2 season, loans and the auto-debit deadline', () => {
+  const U = updWorld();
+  const t = U.updTasks(updFacts({
+    pay: { stubCount: 4, hasIncome: true, late: [{ key: 'e:acme', name: 'Acme', late: 12, expected: '2026-10-04' }], ended: [{ key: 'e:old', name: 'Oldco', days: 200 }] },
+    tax: { hasEmployer: true, hasW2: false, month: 2, prevYear: 2025, state: '' },
+    loans: [{ id: 'l1', name: 'Test Student Loan', type: 'student', missing: ['the interest rate'], last: '2026-06-01', plaid: false }],
+    student: { has: true, decided: false, days: 40, deadline: 'Dec 31, 2026' } }));
+  const by = id => t.find(x => x.id === id);
+  assert.equal(by('pay-late-e:acme').sev, 3);
+  assert.ok(by('pay-ended-e:old'));
+  assert.ok(by('w2') && by('tax-state'));
+  assert.ok(by('loan-l1') && by('loan-bal'));
+  assert.equal(by('ad-deadline').sev, 3);
+  assert.deepEqual(by('loan-l1').go, { view: 'loans', sub: 'student' });
+});
+test('what to update: vehicles from loans, energy and bills', () => {
+  const U = updWorld();
+  const t = U.updTasks(updFacts({
+    assets: [{ id: 'v1', name: 'Test Car', unit: 'miles', auto: true, estimated: true, valueDays: 3, meterDays: 120, overdue: 2 }],
+    energy: { hasData: true, elecLast: '2026-05', elecMonthsOld: 5, weather: false },
+    bills: { overdue: 2, names: ['Test Power', 'Test Water'] }, oiCandidates: 4, friendCandidates: 1 }));
+  const ids = t.map(x => x.id);
+  ['veh-value-v1', 'asset-meter-v1', 'asset-maint-v1', 'elec-old', 'weather', 'bills-overdue', 'oi-review'].forEach(id => assert.ok(ids.includes(id), id));
+  assert.ok(!ids.includes('friend-review'), 'fewer than three payments is not worth nagging about');
+});
+test('what to update: hidden items are left out until they expire, and the score weighs importance', () => {
+  const U = updWorld(), t = U.updTasks(updFacts({ backupAt: '', credit: { count: 0 } }));
+  assert.ok(t.length >= 2);
+  const open = U.updFilter(t, { backup: '2026-10-20', 'credit-none': '2026-10-10' }, '2026-10-16');
+  assert.ok(!open.some(x => x.id === 'backup'), 'still hidden');
+  assert.ok(open.some(x => x.id === 'credit-none'), 'hide period over');
+  assert.equal(U.updScore([{ sev: 3 }, { sev: 2 }, { sev: 1 }]), 100 - 18 - 8 - 3);
+  assert.equal(U.updScore(Array(20).fill({ sev: 3 })), 0);
+});
+test('what to update: the assistant prompt carries only the listed items and saved hide settings are cleaned', () => {
+  const U = updWorld(), t = U.updTasks(updFacts({ backupAt: '' }));
+  const m = U.updPrompt(t, 97);
+  assert.equal(m[0].role, 'system'); assert.equal(m[1].role, 'user');
+  assert.ok(m[1].content.includes('97 out of 100') && m[1].content.includes('Back up your data'));
+  const o = U.cleanUpd({ backupAt: 'x', snooze: { ok: '2026-12-01', 'bad key!': '2026-12-01', bad: 'nope' } });
+  assert.deepEqual(o, { snooze: { ok: '2026-12-01' }, backupAt: '' });
+  assert.deepEqual(U.cleanUpd(null), { snooze: {}, backupAt: '' });
+});

@@ -404,6 +404,20 @@ body.reordering,body.reordering *{cursor:grabbing!important}
 .helpfab{position:fixed;right:18px;bottom:20px;z-index:40;width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:var(--accent);color:var(--accent-ink);font-size:20px;font-weight:800;line-height:1;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.28);display:flex;align-items:center;justify-content:center}
 .helpfab:hover{transform:translateY(-1px)}.helpfab:focus-visible{outline:3px solid var(--accent-soft);outline-offset:2px}.helpfab[hidden]{display:none}
 .helppop{position:fixed;right:18px;bottom:74px;z-index:41;width:min(380px,calc(100vw - 32px));max-height:min(70vh,560px);overflow:auto;background:var(--surface-solid,var(--bg));color:var(--ink);border:1px solid var(--line);border-radius:16px;box-shadow:0 24px 70px rgba(0,0,0,.35);padding:16px 18px}
+.updov{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:16px}
+.updbox{width:min(720px,100%);max-height:min(88vh,860px);overflow:auto;background:var(--surface-solid,var(--bg));color:var(--ink);border:1px solid var(--line);border-radius:18px;box-shadow:0 24px 70px rgba(0,0,0,.4);padding:18px 20px}
+.updhead{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:12px}
+.updmeter{display:flex;gap:16px;align-items:center;padding:12px 14px;border:1px solid var(--line);border-radius:14px;margin-bottom:12px}
+.updnum{font-size:38px;font-weight:700;line-height:1;min-width:64px;text-align:center}
+.updnum.good{color:var(--good,#16a34a)}.updnum.warn{color:var(--warn,#d97706)}.updnum.bad{color:var(--bad,#dc2626)}
+.updbar{height:8px;border-radius:99px;background:var(--surface2,rgba(127,127,127,.2));margin:6px 0;overflow:hidden}.updbar i{display:block;height:100%;border-radius:99px;background:var(--accent,#3b4cf0)}
+.updbar i.good{background:var(--good,#16a34a)}.updbar i.warn{background:var(--warn,#d97706)}.updbar i.bad{background:var(--bad,#dc2626)}
+.updai{padding:10px 12px;border-radius:12px;background:var(--accent-soft,rgba(59,76,240,.12));margin-bottom:6px}
+.updgrp{margin:16px 0 6px;font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.updtask{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--line)}
+.updact{display:flex;flex-direction:column;gap:6px;min-width:96px}.updact .btn{width:100%}
+.updlist{margin:4px 0 4px;padding-left:18px;font-size:13px;color:var(--muted)}
+@media (max-width:560px){.updtask{flex-direction:column}.updact{flex-direction:row;flex-wrap:wrap;min-width:0}.updact .btn{width:auto}}
 .helppop h3{margin:0 0 6px;font-size:17px}.helppop p{margin:0 0 8px;font-size:14px;line-height:1.45}.helppop ol{margin:0 0 8px;padding-left:20px;font-size:14px;line-height:1.5}.helppop li{margin:3px 0}
 .helppop .tipline{font-size:13px;color:var(--muted);background:var(--accent-soft,rgba(59,76,240,.12));padding:8px 10px;border-radius:10px;margin:0 0 10px}
 .walkwrap{position:fixed;inset:0;z-index:70;background:rgba(10,12,20,.5);display:flex;align-items:center;justify-content:center;padding:12px;backdrop-filter:blur(3px)}
@@ -799,7 +813,7 @@ try{var _lk=JSON.parse(localStorage.getItem('tally-lock-v1')||'{}');if(_lk&&_lk.
 function load(){try{if(localStorage.getItem('tally-vault-v1')){VLT.on=true;VLT.locked=true;S=sample();migrate();syncCats();return}}catch(e){}try{var j=localStorage.getItem('tally-money-v1');if(j){S=JSON.parse(j);migrate();syncCats();undoInit();return}}catch(e){}S=sample();migrate();syncCats();undoInit()}
 function defCredit(){return {scores:[],profile:{late:'unknown',inq:'unknown',oldest:'',derog:'unknown'}}}
 function syncXfer(){setXferContext(S.accounts.filter(function(a){return a.type==='credit'}).map(function(a){return a.id}),S.xferLearn)}
-function migrate(){S.catRules=cleanCatRules(S.catRules);S.pay=cleanPayState(S.pay,uid);S.tax=cleanTaxState(S.tax);taxApplyOnline(S.tax.online);if(!S.vehIgnore||typeof S.vehIgnore!=='object'||Array.isArray(S.vehIgnore))S.vehIgnore={};S.ad=cleanAd(S.ad);if(!Array.isArray(S.fuel))S.fuel=[];S.fuel=cleanFuel(S.fuel,uid);if(!S.energyCfg||typeof S.energyCfg!=='object'||Array.isArray(S.energyCfg))S.energyCfg={};if(S.weather&&!cleanWeather(S.weather))delete S.weather;if(!S.weather)S.weather={};if(!S.xferLearn||typeof S.xferLearn!=='object'||Array.isArray(S.xferLearn))S.xferLearn={};S.hideWords=cleanHideWords(S.hideWords);if(!Array.isArray(S.imports))S.imports=[];if(!S.payLinks||typeof S.payLinks!=='object'||Array.isArray(S.payLinks))S.payLinks={};if(!S.apple||typeof S.apple!=='object'||Array.isArray(S.apple))S.apple={};if(!S.billIgnore||typeof S.billIgnore!=='object'||Array.isArray(S.billIgnore))S.billIgnore={};if(S.cardPay!=='skip'&&S.cardPay!=='count')S.cardPay='auto';if(!S.home||typeof S.home!=='object'||Array.isArray(S.home))S.home={};if(!(S.debtMonthly>=0))S.debtMonthly=0;if(!Array.isArray(S.customCats))S.customCats=[];if(!Array.isArray(S.setAside))S.setAside=[];if(!S.merchantCats||typeof S.merchantCats!=='object'||Array.isArray(S.merchantCats))S.merchantCats={};if(!Array.isArray(S.energy))S.energy=[];if(!Array.isArray(S.bills))S.bills=[];if(!S.billMarks||typeof S.billMarks!=='object'||Array.isArray(S.billMarks))S.billMarks={};S.billAdj=cleanBillAdj(S.billAdj);if(!S.subCats||typeof S.subCats!=='object'||Array.isArray(S.subCats))S.subCats={};if(!S.merchantSubs||typeof S.merchantSubs!=='object'||Array.isArray(S.merchantSubs))S.merchantSubs={};if(!Array.isArray(S.holdings))S.holdings=S.sample?sampleHoldings():[];if(!S.credit||!Array.isArray(S.credit.scores))S.credit=S.sample?sampleCredit():defCredit();if(!Array.isArray(S.plaidIgnored))S.plaidIgnored=[];if(!Array.isArray(S.accounts))S.accounts=S.sample?sampleAccounts():[];if(typeof S.extraPay!=='number')S.extraPay=S.sample?100:0;try{if(syncVehicleAssets())vehPendingSave=true}catch(e){}}
+function migrate(){S.catRules=cleanCatRules(S.catRules);S.pay=cleanPayState(S.pay,uid);S.tax=cleanTaxState(S.tax);taxApplyOnline(S.tax.online);if(!S.vehIgnore||typeof S.vehIgnore!=='object'||Array.isArray(S.vehIgnore))S.vehIgnore={};S.ad=cleanAd(S.ad);S.upd=cleanUpd(S.upd);if(!Array.isArray(S.fuel))S.fuel=[];S.fuel=cleanFuel(S.fuel,uid);if(!S.energyCfg||typeof S.energyCfg!=='object'||Array.isArray(S.energyCfg))S.energyCfg={};if(S.weather&&!cleanWeather(S.weather))delete S.weather;if(!S.weather)S.weather={};if(!S.xferLearn||typeof S.xferLearn!=='object'||Array.isArray(S.xferLearn))S.xferLearn={};S.hideWords=cleanHideWords(S.hideWords);if(!Array.isArray(S.imports))S.imports=[];if(!S.payLinks||typeof S.payLinks!=='object'||Array.isArray(S.payLinks))S.payLinks={};if(!S.apple||typeof S.apple!=='object'||Array.isArray(S.apple))S.apple={};if(!S.billIgnore||typeof S.billIgnore!=='object'||Array.isArray(S.billIgnore))S.billIgnore={};if(S.cardPay!=='skip'&&S.cardPay!=='count')S.cardPay='auto';if(!S.home||typeof S.home!=='object'||Array.isArray(S.home))S.home={};if(!(S.debtMonthly>=0))S.debtMonthly=0;if(!Array.isArray(S.customCats))S.customCats=[];if(!Array.isArray(S.setAside))S.setAside=[];if(!S.merchantCats||typeof S.merchantCats!=='object'||Array.isArray(S.merchantCats))S.merchantCats={};if(!Array.isArray(S.energy))S.energy=[];if(!Array.isArray(S.bills))S.bills=[];if(!S.billMarks||typeof S.billMarks!=='object'||Array.isArray(S.billMarks))S.billMarks={};S.billAdj=cleanBillAdj(S.billAdj);if(!S.subCats||typeof S.subCats!=='object'||Array.isArray(S.subCats))S.subCats={};if(!S.merchantSubs||typeof S.merchantSubs!=='object'||Array.isArray(S.merchantSubs))S.merchantSubs={};if(!Array.isArray(S.holdings))S.holdings=S.sample?sampleHoldings():[];if(!S.credit||!Array.isArray(S.credit.scores))S.credit=S.sample?sampleCredit():defCredit();if(!Array.isArray(S.plaidIgnored))S.plaidIgnored=[];if(!Array.isArray(S.accounts))S.accounts=S.sample?sampleAccounts():[];if(typeof S.extraPay!=='number')S.extraPay=S.sample?100:0;try{if(syncVehicleAssets())vehPendingSave=true}catch(e){}}
 function ledger(){return ledgerOf(S.txns,S.cardPay)}
 function billCatOf(n){var c=guessCat(n);return {cat:c,sub:c==='Other'?'':(guessSub(c,n)||'')}}
 var showHidden=false;
@@ -1158,6 +1172,7 @@ function assistBind(){
     var t=$('#pull-txt'),bar=$('#pull-bar');if(t)t.textContent=pl.txt;if(bar&&pct!==null)bar.style.width=pct.toFixed(0)+'%';
   });
   window.tally.localAi.onToken(function(m){
+    if(m&&UPD.aiId&&m.id===UPD.aiId){UPD.ai+=String(m.text||'');var ue=document.getElementById('upd-ai');if(ue)ue.innerHTML=assistFmt(UPD.ai);return}
     if(!m||m.id!==ASSIST.id)return;
     var last=ASSIST.msgs[ASSIST.msgs.length-1];if(!last||last.role!=='assistant')return;
     last.content+=String(m.text||'');
@@ -1685,6 +1700,106 @@ function adCompare(loans,today,ad){
   return out;
 }
 /*ADREDUCE-END*/
+/*UPDATES-START*/
+// "What to update": looks at how fresh each part of your data is and lists what to do next, most important first.
+// f is a plain object of facts gathered by updFacts(); everything here is pure so it can be tested.
+function cleanUpd(raw){
+  var o={snooze:{},backupAt:''},dre=/^\d{4}-\d{2}-\d{2}$/;
+  if(raw&&typeof raw==='object'&&!Array.isArray(raw)){
+    if(dre.test(raw.backupAt||''))o.backupAt=raw.backupAt;
+    if(raw.snooze&&typeof raw.snooze==='object'&&!Array.isArray(raw.snooze))Object.keys(raw.snooze).slice(0,80).forEach(function(k){if(/^[\w.-]{1,50}$/.test(k)&&dre.test(raw.snooze[k]||''))o.snooze[k]=raw.snooze[k]});
+  }
+  return o;
+}
+function updTasks(f){
+  var out=[],today=f.today,days=function(d){return d?Math.max(0,Math.round((Date.parse(today)-Date.parse(d))/864e5)):null};
+  var add=function(t){t.items=t.items||[];t.mins=t.mins||2;out.push(t)};
+  var plural=function(n,w){return n+' '+w+(n===1?'':'s')};
+  if(f.sample){
+    add({id:'sample',area:'Overview',sev:3,title:'Replace the example data with your own',why:'You are looking at made-up accounts and transactions, so every number in the app is an example. Press Start fresh on the Overview, then add your accounts and transactions.',go:{view:'overview'},label:'Open Overview',mins:5});
+    return out;
+  }
+  // accounts
+  var accts=f.accounts||[];
+  if(!accts.length)add({id:'no-accounts',area:'Accounts',sev:3,title:'Add your accounts',why:'Net worth, safe-to-spend and most other tabs are built from your accounts. Add your checking, savings and any cards or loans.',go:{view:'accounts'},label:'Add accounts',mins:5});
+  var stale=accts.filter(function(a){return !a.plaid&&!a.wallet&&a.type!=='property'&&a.type!=='mortgage'&&a.last&&days(a.last)>=35}).sort(function(a,b){return days(b.last)-days(a.last)});
+  if(stale.length)add({id:'acct-bal',area:'Accounts',sev:days(stale[0].last)>=75?3:2,age:days(stale[0].last),title:'Update '+plural(stale.length,'account balance'),why:'These balances were last updated a while ago, so net worth and safe-to-spend are drifting from what you really have.',items:stale.slice(0,4).map(function(a){return a.name+': last updated '+days(a.last)+' days ago'}),go:{view:'accounts'},label:'Update balances',mins:Math.min(10,1+stale.length)});
+  // transactions
+  var tx=f.txn||{count:0};
+  if(accts.length&&!tx.count)add({id:'no-txns',area:'Transactions',sev:3,title:'Add your transactions',why:'Budgets, bills, income and the monthly report all come from your transactions. Link a bank or import a statement or CSV.',go:{view:'transactions'},label:'Add transactions',mins:5});
+  else if(tx.count){
+    var td=days(tx.last);
+    if(!tx.linked&&td>=10)add({id:'txn-stale',area:'Transactions',sev:td>=30?3:2,age:td,title:'Import your latest transactions',why:'Your newest transaction is '+td+' days old, so this month\'s spending, bills and income are incomplete.',go:{view:'transactions'},label:'Import',mins:5});
+    else if(tx.linked&&td>=14)add({id:'txn-stale',area:'Transactions',sev:2,age:td,title:'No new transactions in '+td+' days',why:'Your bank link is not bringing in new activity. Refresh it, or relink the bank in Settings.',go:{view:'transactions'},label:'Check the link',mins:3});
+    if(tx.count>=20&&tx.otherShare>=0.2)add({id:'uncat',area:'Transactions',sev:1,title:plural(tx.otherCount,'transaction')+' still in Other',why:'About '+Math.round(tx.otherShare*100)+'% of your spending is uncategorised, which weakens the budgets and the monthly report. Fix a few of the biggest merchants and the app learns the rest.',go:{view:'transactions'},label:'Categorise',mins:5});
+  }
+  // loans
+  (f.loans||[]).forEach(function(l){
+    if(l.missing&&l.missing.length)add({id:'loan-'+l.id,area:'Loans',sev:2,title:'Finish setting up '+l.name,why:'Missing '+l.missing.join(', ')+'. Without them the payoff date, interest and advice cannot be worked out.',go:{view:'loans',sub:l.type},label:'Edit the loan',mins:2});
+  });
+  var staleLoans=(f.loans||[]).filter(function(l){return !l.plaid&&l.last&&days(l.last)>=40});
+  if(staleLoans.length)add({id:'loan-bal',area:'Loans',sev:2,age:days(staleLoans[0].last),title:'Update '+plural(staleLoans.length,'loan balance'),why:'The balance you entered is more than a month old. Check your lender\'s site for the current amount owed and any new payment.',items:staleLoans.slice(0,4).map(function(l){return l.name+': '+days(l.last)+' days ago'}),go:{view:'loans',sub:staleLoans[0].type},label:'Update',mins:3});
+  // student loan auto-debit decision
+  if(f.student&&f.student.has&&!f.student.decided&&f.student.days!==null&&f.student.days>=0&&f.student.days<=150)add({id:'ad-deadline',area:'Loans',sev:f.student.days<=45?3:2,age:150-f.student.days,title:'Decide on student loan auto debit by '+f.student.deadline,why:'Enrolling by the deadline gets the larger interest cut ('+f.student.days+' days left). Mark which loans qualify and see what each month of waiting costs.',go:{view:'loans',sub:'student'},label:'See the forecast',mins:5});
+  // pay
+  var pay=f.pay||{};
+  if(!pay.stubCount&&pay.hasIncome)add({id:'no-pay',area:'My pay',sev:2,title:'Add a pay statement',why:'Payroll deposits show up in your income, but the app cannot predict your next paycheck, taxes or bonus without a statement.',go:{view:'pay'},label:'Add one',mins:3});
+  (pay.late||[]).forEach(function(j){add({id:'pay-late-'+j.key,area:'My pay',sev:j.late>=10?3:2,age:j.late,title:'Add '+(j.name?j.name+'\'s':'your')+' latest pay statement',why:'A paycheck was expected around '+j.expected+' ('+j.late+' days ago). Adding the statement keeps your next-paycheck date, take-home and year projection accurate.',go:{view:'pay'},label:'Add statement',mins:3})});
+  (pay.ended||[]).forEach(function(j){add({id:'pay-ended-'+j.key,area:'My pay',sev:1,title:j.name+' has had no pay for '+j.days+' days',why:'If you no longer work there, nothing to do: it is already left out of your monthly total. If you do, add its latest statement.',go:{view:'pay'},label:'Open My pay',mins:2})});
+  // taxes
+  var tax=f.tax||{};
+  if(tax.hasEmployer&&!tax.hasW2&&tax.month>=1&&tax.month<=4)add({id:'w2',area:'Taxes',sev:tax.month<=3?3:3,title:'Add last year\'s W-2',why:'Tax season: with your '+tax.prevYear+' W-2 the estimate uses your real wages and withholding instead of a projection.',go:{view:'tax'},label:'Add the W-2',mins:3});
+  if(tax.hasEmployer&&!tax.state)add({id:'tax-state',area:'Taxes',sev:1,title:'Set your state for the tax estimate',why:'Without a state the estimate leaves out state income tax.',go:{view:'tax'},label:'Open Taxes',mins:1});
+  // credit
+  var cr=f.credit||{};
+  if(!cr.count)add({id:'credit-none',area:'Credit score',sev:1,title:'Add a credit score',why:'The credit tab shows your score and how to improve it, but only once you add one.',go:{view:'credit'},label:'Add a score',mins:2});
+  else if(cr.last&&days(cr.last)>=60)add({id:'credit-old',area:'Credit score',sev:days(cr.last)>=120?2:1,age:days(cr.last),title:'Add your latest credit score',why:'Your last score is '+days(cr.last)+' days old. Most cards and Credit Karma show a fresh one each month.',go:{view:'credit'},label:'Add a score',mins:2});
+  // investments
+  var iv=f.invest||{};
+  if(iv.count){
+    if(iv.example)add({id:'inv-example',area:'Investments',sev:2,title:'Load real prices for your holdings',why:'The prices shown are made-up examples. Press Refresh prices in the desktop app.',go:{view:'invest'},label:'Open Investments',mins:1});
+    else if(iv.ageDays!==null&&iv.ageDays>=3)add({id:'inv-stale',area:'Investments',sev:1,age:iv.ageDays,title:'Refresh your prices',why:'Prices were last loaded '+iv.ageDays+' days ago.',go:{view:'invest'},label:'Refresh',mins:1});
+    if(iv.missingCost)add({id:'inv-cost',area:'Investments',sev:1,title:plural(iv.missingCost,'holding')+' with no cost entered',why:'Gain and loss cannot be shown without what you paid. Edit the holding.',go:{view:'invest'},label:'Edit holdings',mins:2});
+  }
+  // vehicles and assets
+  (f.assets||[]).forEach(function(a){
+    if(a.auto&&a.estimated)add({id:'veh-value-'+a.id,area:'Assets',sev:2,title:'Give '+a.name+' a real value',why:'It was added from your car loan with an estimated value. A dealer offer, Kelley Blue Book or listings make net worth and equity accurate.',go:{view:'assets'},label:'Update the value',mins:3});
+    else if(a.valueDays!==null&&a.valueDays>=180)add({id:'asset-value-'+a.id,area:'Assets',sev:1,age:a.valueDays,title:'Re-check what '+a.name+' is worth',why:'Its value was last set '+a.valueDays+' days ago. Values drift, especially for vehicles.',go:{view:'assets'},label:'Update the value',mins:3});
+    if(a.meterDays!==null&&a.meterDays>=90)add({id:'asset-meter-'+a.id,area:'Assets',sev:1,age:a.meterDays,title:'Update the '+a.unit+' on '+a.name,why:'Upkeep reminders are worked out from usage, and the last reading is '+a.meterDays+' days old.',go:{view:'assets'},label:'Enter a reading',mins:1});
+    if(a.overdue>0)add({id:'asset-maint-'+a.id,area:'Assets',sev:2,title:plural(a.overdue,'upkeep item')+' overdue on '+a.name,why:'Mark each one done when it was done, or add the service record, so the reminders stay right.',go:{view:'assets'},label:'Open',mins:2});
+  });
+  // energy
+  var en=f.energy||{};
+  if(en.hasData){
+    if(en.elecLast&&en.elecMonthsOld>=3)add({id:'elec-old',area:'Energy',sev:1,age:en.elecMonthsOld*30,title:'Add recent electricity bills',why:'Your latest electricity month is '+en.elecLast+', so the cost totals and forecasts are behind.',go:{view:'energy',sub:'electric'},label:'Add a month',mins:3});
+    if(!en.weather)add({id:'weather',area:'Energy',sev:1,title:'Set your location for the weather',why:'With the weather the app can tell how much of your use is just the cold, and forecast the next fill.',go:{view:'energy',sub:'all'},label:'Set it up',mins:1});
+  }
+  // bills and budgets
+  var bl=f.bills||{};
+  if(bl.overdue>0)add({id:'bills-overdue',area:'Bills',sev:2,title:plural(bl.overdue,'bill')+' look overdue',why:'Either they are unpaid, or the payment was not matched. Mark them paid, enter what you paid, or skip a bill that does not apply this month.',items:(bl.names||[]).slice(0,4),go:{view:'bills'},label:'Open Bills',mins:2});
+  if(!f.budgetCount&&tx.count>=30)add({id:'budgets',area:'Budgets',sev:1,title:'Set a few budgets',why:'You have enough history for the app to suggest realistic budgets. Press Fill on the Budgets tab.',go:{view:'budgets'},label:'Open Budgets',mins:3});
+  // deposits and payments to review
+  if(f.oiCandidates>=3)add({id:'oi-review',area:'My pay',sev:1,title:plural(f.oiCandidates,'deposit')+' to review as income',why:'Deposits that might be gigs, gifts or transfers between your own accounts are counted as income right now. Tag them or mark transfers.',go:{view:'pay'},label:'Review deposits',mins:3});
+  if(f.friendCandidates>=3)add({id:'friend-review',area:'Transactions',sev:1,title:plural(f.friendCandidates,'payment')+' to people, not tagged',why:'Venmo, Zelle and Cash App payments: say which are splits, gifts or loans so loans stay out of your spending.',go:{view:'transactions'},label:'Review',mins:3});
+  // backup
+  if(accts.length||tx.count){
+    var bd=f.backupAt?days(f.backupAt):null;
+    if(bd===null)add({id:'backup',area:'Settings',sev:1,title:'Back up your data',why:'Your data lives on this computer only. A backup file protects you if the computer is lost or the app is reinstalled.',go:{view:'look'},label:'Open Settings',mins:1});
+    else if(bd>=30)add({id:'backup',area:'Settings',sev:bd>=90?2:1,age:bd,title:'Back up your data again',why:'Your last backup was '+bd+' days ago.',go:{view:'look'},label:'Open Settings',mins:1});
+  }
+  out.sort(function(a,b){return b.sev-a.sev||(b.age||0)-(a.age||0)});
+  return out;
+}
+function updFilter(tasks,snooze,today){return tasks.filter(function(t){var u=snooze&&snooze[t.id];return !(u&&u>=today)})}
+// 100 means nothing to do; each open item lowers it by how important it is.
+function updScore(tasks){var n=0;tasks.forEach(function(t){n+=t.sev===3?18:t.sev===2?8:3});return Math.max(0,100-n)}
+function updPrompt(tasks,score){
+  var lines=tasks.slice(0,14).map(function(t,i){return (i+1)+'. ['+(t.sev===3?'urgent':t.sev===2?'soon':'later')+'] '+t.area+': '+t.title+(t.items.length?' ('+t.items.slice(0,3).join('; ')+')':'')+' - about '+t.mins+' min'});
+  return [{role:'system',content:'You are the private assistant inside Tally Money, a personal finance app, running on the user\'s own computer. The user wants to keep the app accurate. Below is the list of things the app says are out of date. Write a short plan in plain words (under 130 words): say which two or three to do first and why, group the quick ones together, and say roughly how long it all takes. Use only the items in the list. Do not invent numbers or tasks. No greetings.'},
+    {role:'user',content:'Data freshness score: '+score+' out of 100.\nOut of date:\n'+lines.join('\n')}];
+}
+/*UPDATES-END*/
+
 
 /*CONTRACT-START*/
 // What a signed car-loan contract tells you: the payment schedule, how far along you are, and what it would take to pay it off today.
@@ -7475,7 +7590,7 @@ function taxRead(inp){
 }
 /* ---------- Search: one box for everything in the app (Ctrl or Cmd + K, or press /) ---------- */
 var SPOT_KW={overview:'home summary today',dash:'live dashboard net worth',accounts:'banks balance checking savings',pay:'paycheck paystub salary adp gross net take-home',tax:'taxes refund owe w-2 1099 irs state withholding',docs:'documents folder files statements pdf',assets:'car vehicle motorcycle boat value depreciation maintenance modification',subscriptions:'subs recurring netflix streaming',bills:'due paid autopay upcoming',energy:'electric propane gas heating oil weather usage',budgets:'budget category limit keywords auto-sort',report:'monthly report income spending',afford:'can i afford purchase buy',credit:'credit score fico',cards:'credit card utilization cash back interest',invest:'stocks portfolio investments',transactions:'activity import csv filter edit expenses',goals:'savings goal target',loans:'debt student auto car loan payoff',mortgage:'house home rent buy',assist:'assistant chat ai ask',look:'settings appearance theme password backup security touch id hide tabs layout'};
-var SPOT_FEATURES=[['Help and walkthrough','look','help tutorial guide how to use walkthrough tour learn question mark'],['Hide or show tabs','look','navigation layout order drag top bar sidebar'],['Change the theme or colours','look','appearance dark mode light glass'],['Set an app password or Touch ID','look','security lock unlock encrypt'],['Back up or restore your data','look','backup export import file'],['Add a transaction','transactions','new expense income cash manually'],['Import transactions (CSV, PDF)','transactions','statement upload bank file'],['Auto-sort keywords for a budget','budgets','rules categorize merchant keyword'],['Hidden bills','look','hide bill keyword'],['Set a monthly budget','budgets','limit category'],['Credit card statement','cards','pdf import add card']];
+var SPOT_FEATURES=[['Help and walkthrough','look','help tutorial guide how to use walkthrough tour learn question mark'],['What to update','look','update stale outdated accurate keep current checklist freshness todo what needs attention'],['Hide or show tabs','look','navigation layout order drag top bar sidebar'],['Change the theme or colours','look','appearance dark mode light glass'],['Set an app password or Touch ID','look','security lock unlock encrypt'],['Back up or restore your data','look','backup export import file'],['Add a transaction','transactions','new expense income cash manually'],['Import transactions (CSV, PDF)','transactions','statement upload bank file'],['Auto-sort keywords for a budget','budgets','rules categorize merchant keyword'],['Hidden bills','look','hide bill keyword'],['Set a monthly budget','budgets','limit category'],['Credit card statement','cards','pdf import add card']];
 var SPOT_ORDER=['Pages','Budgets','Transactions','Bills','Accounts','Vehicles and assets','Goals','Subscriptions','Pay and taxes','Documents'];
 var spot={open:false,q:'',sel:0,res:[]};
 function spotMonthNames(){var o={},i;for(i=0;i<12;i++){var d=new Date(2000,i,1);o['0'.concat(i+1).slice(-2)]=d.toLocaleDateString('en-US',{month:'short'}).toLowerCase()+' '+d.toLocaleDateString('en-US',{month:'long'}).toLowerCase()}return o}
@@ -7624,6 +7739,104 @@ function helpPopOpen(){
   document.body.appendChild(el);helpUI.pop=true;helpUI.popView=view;snd('pop');
   var f=document.getElementById('helpfab');if(f)f.setAttribute('aria-expanded','true');
   var first=el.querySelector('button');if(first)first.focus();
+}
+/* ---------- What to update: gathers facts from the app, lists what is out of date, and can ask the private assistant for a plan ---------- */
+var UPD={ai:'',aiBusy:false,aiId:'',later:false};
+function updFacts(){
+  var today=iso(TODAY),dd=function(d){return d?Math.round((Date.parse(today)-Date.parse(d))/864e5):null};
+  var lastOf=function(a){var h=a.history||[];return h.length?h[h.length-1].date:''};
+  var acc=S.accounts||[],f={today:today,sample:!!S.sample,accounts:[],txn:{count:0,last:'',linked:false,otherShare:0,otherCount:0},loans:[],student:{has:false,decided:true,days:null,deadline:''},pay:{stubCount:0,hasIncome:false,late:[],ended:[]},tax:{},credit:{},invest:{},assets:[],energy:{},bills:{overdue:0,names:[]},budgetCount:0,oiCandidates:0,friendCandidates:0,backupAt:(S.upd&&S.upd.backupAt)||''};
+  acc.forEach(function(a){
+    if(a.asset)return;
+    f.accounts.push({id:a.id,name:a.name,type:a.type,last:lastOf(a),plaid:!!a.plaid,wallet:!!a.wallet});
+    if(DEBT_TYPES[a.type]&&a.type!=='credit'&&a.type!=='mortgage'&&!a.closed&&a.balance>0){
+      var miss=[];if(!(a.apr>0))miss.push('the interest rate');if(!(a.minPay>0))miss.push('the monthly payment');
+      f.loans.push({id:a.id,name:a.name,type:a.type==='student'||a.type==='auto'?a.type:'all',missing:miss,last:lastOf(a),plaid:!!a.plaid})}});
+  var tx=S.txns||[];f.txn.count=tx.length;f.txn.linked=acc.some(function(a){return a.plaid});
+  tx.forEach(function(x){if(x.date>f.txn.last)f.txn.last=x.date});
+  var cut=iso(new Date(TODAY.getFullYear(),TODAY.getMonth(),TODAY.getDate()-90)),out=tx.filter(function(x){return x.amount<0&&x.date>=cut&&!x.transfer&&!x.cardPay});
+  f.txn.otherCount=out.filter(function(x){return x.cat==='Other'}).length;f.txn.otherShare=out.length?f.txn.otherCount/out.length:0;
+  var ad=S.ad||cleanAd(null),stu=f.loans.filter(function(l){return l.type==='student'});
+  f.student={has:stu.length>0,decided:!!ad.enroll,days:dd(ad.deadline)===null?null:-dd(ad.deadline),deadline:shortDate(ad.deadline)};
+  try{
+    var stubs=(S.pay&&S.pay.stubs)||[],J=payJobs(stubs,S.pay);f.pay.stubCount=stubs.length;
+    f.pay.hasIncome=tx.some(function(x){return x.amount>0&&x.cat==='Income'&&x.date>=cut});
+    J.jobs.forEach(function(j){var st=payJobStats(j,TODAY);
+      if(st.active&&st.next&&st.next.date){var late=Math.round((TODAY-st.next.date)/864e5);if(late>=4)f.pay.late.push({key:j.key,name:J.multi?j.name:'',late:late,expected:iso(st.next.date)})}
+      else if(!st.active&&st.regular>0&&st.staleDays>=60&&st.staleDays<=500&&J.jobs.length>1)f.pay.ended.push({key:j.key,name:j.name,days:st.staleDays})});
+    f.pay.late=f.pay.late.slice(0,3);
+    f.tax={hasEmployer:stubs.length>0,hasW2:((S.tax&&S.tax.forms)||[]).some(function(x){return x.form==='W-2'&&+x.year===TODAY.getFullYear()-1}),month:TODAY.getMonth()+1,prevYear:TODAY.getFullYear()-1,state:(S.tax&&S.tax.state)||''};
+  }catch(e){}
+  var sc=(S.credit&&S.credit.scores)||[];f.credit={count:sc.length,last:sc.reduce(function(n,s){return s.date>n?s.date:n},'')};
+  var hs=S.holdings||[];
+  if(hs.length){var fa=0;hs.forEach(function(h){var q=Q[h.symbol];if(q&&q.fetched&&(!fa||q.fetched>fa))fa=q.fetched});
+    f.invest={count:hs.length,example:hs.some(function(h){return Q[h.symbol]&&Q[h.symbol].example}),ageDays:fa?Math.floor((Date.now()-fa)/864e5):null,missingCost:hs.filter(function(h){return !(h.invested>0)}).length}}
+  assetAccts().forEach(function(a){
+    var est=!!a.asset.auto&&(!a.asset.valueSource||a.asset.valueSource==='My estimate'||a.asset.valueSource==='Purchase price'),md=a.asset.meterDate?dd(a.asset.meterDate):null,ov=0;
+    (a.asset.maint||[]).forEach(function(m){try{if(maintDue(m,a.asset,TODAY).overdue)ov++}catch(e){}});
+    f.assets.push({id:a.id,name:a.name,unit:asUnit(a),auto:!!a.asset.auto,estimated:est,valueDays:lastOf(a)?dd(lastOf(a)):null,meterDays:a.asset.meter>0?md:null,overdue:ov})});
+  try{var ser=energySeries(S.energy||[]);
+    f.energy={hasData:ser.length>0||(S.fuel||[]).length>0,elecLast:ser.length?ser[ser.length-1].month:'',elecMonthsOld:ser.length?(TODAY.getFullYear()*12+TODAY.getMonth())-(+ser[ser.length-1].month.slice(0,4)*12+ +ser[ser.length-1].month.slice(5,7)-1):0,weather:!!enPlace()};
+    if(!ser.length)f.energy.elecLast='';
+  }catch(e){}
+  try{var bs=billsSummary(allBillItems(NOWKEY),NOWKEY,S.txns,S.billMarks,TODAY);f.bills.overdue=bs.overdue;f.bills.names=bs.rows.filter(function(r){return r.st.state==='overdue'&&!isHiddenName(r.item.name,S.hideWords)}).map(function(r){return r.item.name})}catch(e){}
+  f.budgetCount=Object.keys(S.budgets||{}).length;
+  try{var xi=transferInfo(S.txns,S.cardPay);
+    f.oiCandidates=oiCandidates(S.txns,TODAY,{days:120,limit:500,skip:function(x){return isTransfer(x,xi)||isCashback(x)||friendHeld(x)}}).length;
+    f.friendCandidates=friendCandidates(S.txns,TODAY,{days:120,limit:500,skip:function(x){return isTransfer(x,xi)}}).length}catch(e){}
+  return f;
+}
+function updList(){var f=updFacts(),all=updTasks(f),open=updFilter(all,(S.upd||{}).snooze,f.today);return {all:all,open:open,later:all.length-open.length,score:updScore(open)}}
+function updClose(){var el=document.getElementById('updov');if(el&&el.parentNode)el.parentNode.removeChild(el)}
+function updHtml(){
+  var L=updList(),sevName={3:'Do first',2:'Soon',1:'When you can'},sevCls={3:'bad',2:'warn',1:'mute'},mins=L.open.reduce(function(n,t){return n+t.mins},0);
+  var tone=L.score>=90?'good':L.score>=65?'warn':'bad',label=L.score>=90?'Up to date':L.score>=65?'Mostly current':'Needs attention';
+  var h='<div class="updbox" role="dialog" aria-modal="true" aria-label="What to update"><div class="updhead"><div><h3 style="margin:0">What to update</h3><div class="sub">Checked just now from your own data. Nothing leaves this computer.</div></div><button class="btn small" data-u="close" aria-label="Close">Close</button></div>';
+  h+='<div class="updmeter"><div class="updnum '+tone+'">'+L.score+'</div><div class="grow"><div class="nm">'+label+'</div><div class="updbar"><i class="'+tone+'" style="width:'+L.score+'%"></i></div><div class="sub">'+(L.open.length?L.open.length+' thing'+(L.open.length===1?'':'s')+' to do, about '+mins+' minute'+(mins===1?'':'s')+' in all':'Nothing needs your attention right now.')+'</div></div></div>';
+  if(L.open.length){
+    var local=!!(T&&T.localAi),run=!!(ASSIST.st&&ASSIST.st.running&&ASSIST.model);
+    if(UPD.ai||local)h+='<div class="updai">'+(UPD.ai?'<div class="nm">Suggested order</div><div id="upd-ai" style="white-space:pre-wrap;font-size:14px;line-height:1.5">'+assistFmt(UPD.ai)+'</div>':'')+(local?'<div class="actions" style="justify-content:flex-start;margin-top:'+(UPD.ai?8:0)+'px"><button class="btn small" data-u="plan"'+(run&&!UPD.aiBusy?'':' disabled')+'>'+(UPD.aiBusy?'Thinking…':UPD.ai?'Plan it again':'Plan it with my private assistant')+'</button>'+(run?'':'<span class="sub">Start the private assistant (Assistant tab) to use this.</span>')+'</div>':'')+'</div>';
+    var last='';
+    L.open.forEach(function(t){
+      if(t.sev!==last){last=t.sev;h+='<h4 class="updgrp">'+sevName[t.sev]+'</h4>'}
+      h+='<div class="updtask"><div class="grow"><div class="nm"><span class="pill '+sevCls[t.sev]+'">'+esc(t.area)+'</span> '+esc(t.title)+'</div><div class="sub" style="white-space:normal">'+esc(t.why)+'</div>'+(t.items.length?'<ul class="updlist">'+t.items.map(function(i){return '<li>'+esc(i)+'</li>'}).join('')+'</ul>':'')+'<div class="sub muted">About '+t.mins+' min</div></div><div class="updact"><button class="btn small primary" data-u="go" data-id="'+esc(t.id)+'">'+esc(t.label)+'</button><button class="btn small" data-u="snz" data-id="'+esc(t.id)+'" data-d="7" title="Hide for a week">Later</button><button class="btn small" data-u="snz" data-id="'+esc(t.id)+'" data-d="60" title="Hide for two months">Not needed</button></div></div>';
+    });
+  }else h+='<p class="sub" style="white-space:normal;margin:14px 0 0">Everything the app can check looks current. Come back after a few weeks, or when you make a big change.</p>';
+  if(L.later)h+='<div class="actions" style="justify-content:flex-start;margin-top:12px"><button class="btn small" data-u="unsnz">Show the '+L.later+' I hid</button></div>';
+  return h+'</div>';
+}
+function updRefresh(){var el=document.getElementById('updov');if(!el)return;var box=el.querySelector('.updbox'),top=box?box.scrollTop:0;el.innerHTML=updHtml();var b2=el.querySelector('.updbox');if(b2)b2.scrollTop=top}
+function updOpen(){
+  helpPopClose();updClose();
+  var el=document.createElement('div');el.id='updov';el.className='updov';
+  el.onclick=function(e){
+    if(e.target===el){updClose();return}
+    var b=e.target.closest&&e.target.closest('[data-u]');if(!b)return;var k=b.dataset.u;
+    if(k==='close')updClose();
+    else if(k==='go')updGo(b.dataset.id);
+    else if(k==='snz'){S.upd=cleanUpd(S.upd);var d=new Date(TODAY.getFullYear(),TODAY.getMonth(),TODAY.getDate()+(+b.dataset.d||7));S.upd.snooze[b.dataset.id]=iso(d);save();updRefresh();toast(+b.dataset.d>=60?'Hidden for two months.':'Hidden for a week.')}
+    else if(k==='unsnz'){S.upd=cleanUpd(S.upd);S.upd.snooze={};save();updRefresh()}
+    else if(k==='plan')updPlan();
+  };
+  el.innerHTML=updHtml();document.body.appendChild(el);snd('pop');
+  var fb=el.querySelector('button');if(fb)fb.focus();
+  if(T&&T.localAi&&!ASSIST.st)assistLoad();
+}
+function updGo(id){
+  var t=updList().all.filter(function(x){return x.id===id})[0];if(!t)return;
+  updClose();var g=t.go;
+  if(g.view==='loans'&&g.sub&&LOANKIND[g.sub])loanFilter=g.sub;else if(g.view==='loans')loanFilter='all';
+  if(g.view==='energy'&&g.sub)enTab=g.sub;
+  goTo(g.view);
+}
+function updPlan(){
+  if(UPD.aiBusy||!(T&&T.localAi)||!ASSIST.model||!(ASSIST.st&&ASSIST.st.running))return;
+  assistBind();var L=updList();if(!L.open.length)return;
+  UPD.aiBusy=true;UPD.ai='';UPD.aiId='u'+Date.now();var id=UPD.aiId;updRefresh();
+  T.localAi.chat({id:id,model:ASSIST.model,messages:updPrompt(L.open,L.score)}).then(function(r){
+    UPD.aiBusy=false;if(r&&r.ok===false)UPD.ai='The assistant could not answer ('+((r.error&&String(r.error).slice(0,120))||'unknown error')+'). The list above still applies.';
+    else if(r&&r.data&&typeof r.data.text==='string'&&!UPD.ai)UPD.ai=r.data.text;
+    updRefresh()},function(){UPD.aiBusy=false;UPD.ai='The assistant could not answer. The list above still applies.';updRefresh()});
 }
 function walkOpen(at){
   helpPopClose();spotClose();
@@ -8242,7 +8455,7 @@ function backupPanel(){
   return '<section class="panel"><h2>Backup<small>save or restore everything</small></h2><div class="actions" style="justify-content:flex-start"><button class="btn primary" data-act="exp">Download backup</button><label class="btn" style="cursor:pointer">Restore from file<input id="bk" type="file" accept=".json,application/json" hidden></label></div><p class="sub muted" style="margin:10px 0 0;font-size:13px">Your data lives only on this computer. Download a backup now and then, and use it to recover after clearing site data. To move to another computer, use <b>Move to another computer</b> above, which can protect the file with a password.</p>'+pendBanner()+'</section>';
 }
 function backupPayload(){
-  return {app:'tally-money',version:1,exported:new Date().toISOString(),data:{txns:S.txns,subs:S.subs,budgets:S.budgets,goals:S.goals,accounts:S.accounts,extraPay:S.extraPay,plaidIgnored:S.plaidIgnored,credit:S.credit,holdings:S.holdings,customCats:S.customCats,setAside:S.setAside,merchantCats:S.merchantCats,subCats:S.subCats,merchantSubs:S.merchantSubs,bills:S.bills,billMarks:S.billMarks,billAdj:S.billAdj,fuel:S.fuel,weather:S.weather,energyCfg:S.energyCfg,xferLearn:S.xferLearn,imports:S.imports,hideWords:S.hideWords,energy:S.energy,home:S.home,debtMonthly:S.debtMonthly,billIgnore:S.billIgnore,cardPay:S.cardPay,apple:S.apple,payLinks:S.payLinks,vehIgnore:S.vehIgnore||{},ad:S.ad,pay:S.pay,tax:S.tax,catRules:S.catRules}};
+  return {app:'tally-money',version:1,exported:new Date().toISOString(),data:{txns:S.txns,subs:S.subs,budgets:S.budgets,goals:S.goals,accounts:S.accounts,extraPay:S.extraPay,plaidIgnored:S.plaidIgnored,credit:S.credit,holdings:S.holdings,customCats:S.customCats,setAside:S.setAside,merchantCats:S.merchantCats,subCats:S.subCats,merchantSubs:S.merchantSubs,bills:S.bills,billMarks:S.billMarks,billAdj:S.billAdj,fuel:S.fuel,weather:S.weather,energyCfg:S.energyCfg,xferLearn:S.xferLearn,imports:S.imports,hideWords:S.hideWords,energy:S.energy,home:S.home,debtMonthly:S.debtMonthly,billIgnore:S.billIgnore,cardPay:S.cardPay,apple:S.apple,payLinks:S.payLinks,vehIgnore:S.vehIgnore||{},ad:S.ad,upd:{snooze:(S.upd||{}).snooze||{}},pay:S.pay,tax:S.tax,catRules:S.catRules}};
 }
 // Saves a file: through the desktop app's Save dialog when there is one (reliable on both Mac and Windows), else as a normal download.
 function saveFile(name,text,done){
@@ -8258,7 +8471,7 @@ function saveFile(name,text,done){
   var a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();
   setTimeout(function(){URL.revokeObjectURL(url)},1000);done('File downloaded.');
 }
-function exportData(){saveFile('tally-backup-'+iso(TODAY)+'.json',JSON.stringify(backupPayload(),null,2),function(m){if(m)toast(m)})}
+function exportData(){saveFile('tally-backup-'+iso(TODAY)+'.json',JSON.stringify(backupPayload(),null,2),function(m){if(m){if(/^(Saved to|File downloaded)/.test(m)){S.upd=cleanUpd(S.upd);S.upd.backupAt=iso(TODAY);save()}toast(m)}})}
 function readBackupFile(file){
   var rd=new FileReader();
   rd.onload=function(){
@@ -8428,7 +8641,7 @@ function cleanBackup(j){
     if(!hist.length)hist=[{date:iso(TODAY),balance:+x.balance}];
     var ac={id:String(x.id||uid()),name:String(x.name).slice(0,120),type:x.type,balance:+x.balance,apr:DEBT_TYPES[x.type]?Math.max(0,+x.apr||0):0,minPay:DEBT_TYPES[x.type]?Math.max(0,+x.minPay||0):0,history:hist};if(x.type==='credit'&&+x.limit>0)ac.limit=+x.limit;if(x.type==='credit'&&x.closed===true)ac.closed=true;if(DEBT_TYPES[x.type]&&x.contract){var cc=cleanContract(x.contract);if(cc)ac.contract=cc}if(DEBT_TYPES[x.type]){if(photoOk(x.photo))ac.photo=x.photo;if(/^#[0-9a-f]{6}$/i.test(x.carColor||''))ac.carColor=x.carColor;if(CAR_TYPES[x.carType])ac.carType=x.carType;if(/^\d{4}-\d{2}(-\d{2})?$/.test(x.opened||''))ac.opened=x.opened;if(/^\d{4}$/.test(x.last4||''))ac.last4=x.last4;if(typeof x.carSvg==='string'){var csv=cleanCarSvg(x.carSvg);if(csv)ac.carSvg=csv}if(x.showPhoto===true)ac.showPhoto=true}if(DEBT_TYPES[x.type]){var dd=Math.round(+x.dueDay);if(dd>=1&&dd<=31)ac.dueDay=dd;if(+x.origBalance>0)ac.origBalance=+x.origBalance;if(typeof x.lender==='string'&&x.lender)ac.lender=cleanSubName(x.lender).slice(0,40);var stm=cleanStmt(x);Object.keys(stm).forEach(function(k){ac[k]=stm[k]})}if(x.plaid&&typeof x.plaid.accountId==='string')ac.plaid={itemId:String(x.plaid.itemId||'').slice(0,100),accountId:x.plaid.accountId.slice(0,100)};if(x.wallet===true&&x.type==='cash')ac.wallet=true;if(x.autopay===true&&DEBT_TYPES[x.type])ac.autopay=true;if(x.type==='property'&&x.asset){var as1=cleanAsset(x.asset,uid);if(as1)ac.asset=as1}return ac});
   var home={};if(d.home&&typeof d.home==='object'&&!Array.isArray(d.home)){['purchasePrice','down','closing','origLoan','termYears','taxYear','insYear','hoaMonth','pmiMonth','maintPct','mgmtPct','vacancyPct','appreciation','ret','sellPct','rentGrowth','costGrowth','rentMonth','extra'].forEach(function(k){var n=parseFloat(d.home[k]);if(isFinite(n)&&n>=0&&n<1e9)home[k]=n});['purchaseDate','startDate'].forEach(function(k){if(/^\d{4}-\d{2}-\d{2}$/.test(d.home[k]||''))home[k]=d.home[k]});['mortId','valueId'].forEach(function(k){if(typeof d.home[k]==='string'&&/^[\w-]{1,40}$/.test(d.home[k])&&accounts.some(function(a){return a.id===d.home[k]}))home[k]=d.home[k]});if(d.home.setup===true&&home.valueId)home.setup=true;if(photoOk(d.home.photo))home.photo=d.home.photo}
-  return {catRules:cleanCatRules(d.catRules),tax:cleanTaxState(d.tax),pay:cleanPayState(d.pay,uid),fuel:cleanFuel(d.fuel,uid),weather:cleanWeather(d.weather)||{},energyCfg:(function(){var o={},c=d.energyCfg&&+d.energyCfg.cop;if(c>=1&&c<=6)o.cop=c;return o})(),xferLearn:cleanXferLearn(d.xferLearn),hideWords:cleanHideWords(d.hideWords),imports:cleanImports(d.imports,uid),txns:txns,subs:subs,budgets:budgets,goals:goals,accounts:accounts,extraPay:Math.max(0,+d.extraPay||0),plaidIgnored:(Array.isArray(d.plaidIgnored)?d.plaidIgnored:[]).filter(function(x){return typeof x==='string'}).slice(0,200),credit:cleanCredit(d.credit),holdings:cleanHoldings(d.holdings),customCats:custom,setAside:setAside,merchantCats:merchantCats,subCats:subCats,merchantSubs:merchantSubs,bills:bills,billMarks:billMarks,billAdj:cleanBillAdj(d.billAdj),energy:energy,home:home,debtMonthly:Math.max(0,+d.debtMonthly||0),billIgnore:(function(){var o={};if(d.billIgnore&&typeof d.billIgnore==='object'&&!Array.isArray(d.billIgnore))Object.keys(d.billIgnore).slice(0,500).forEach(function(k){if(k.length<=120&&k!=='__proto__')o[k]=1});return o})(),cardPay:d.cardPay==='skip'||d.cardPay==='count'?d.cardPay:'auto',apple:(function(){var a=d.apple||{},o={};if(typeof a.acct==='string'&&a.acct.length<=40)o.acct=a.acct;if(/^\d{4}-\d{2}-\d{2}$/.test(a.last||''))o.last=a.last;if(+a.count>=0)o.count=Math.min(1e6,Math.round(+a.count));return o})(),payLinks:cleanPayLinks(d.payLinks),ad:cleanAd(d.ad),vehIgnore:(function(v){var o={};if(v&&typeof v==='object'&&!Array.isArray(v))Object.keys(v).slice(0,200).forEach(function(k){if(/^[\w-]{1,40}$/.test(k)&&v[k])o[k]=1});return o})(d.vehIgnore)};
+  return {catRules:cleanCatRules(d.catRules),tax:cleanTaxState(d.tax),pay:cleanPayState(d.pay,uid),fuel:cleanFuel(d.fuel,uid),weather:cleanWeather(d.weather)||{},energyCfg:(function(){var o={},c=d.energyCfg&&+d.energyCfg.cop;if(c>=1&&c<=6)o.cop=c;return o})(),xferLearn:cleanXferLearn(d.xferLearn),hideWords:cleanHideWords(d.hideWords),imports:cleanImports(d.imports,uid),txns:txns,subs:subs,budgets:budgets,goals:goals,accounts:accounts,extraPay:Math.max(0,+d.extraPay||0),plaidIgnored:(Array.isArray(d.plaidIgnored)?d.plaidIgnored:[]).filter(function(x){return typeof x==='string'}).slice(0,200),credit:cleanCredit(d.credit),holdings:cleanHoldings(d.holdings),customCats:custom,setAside:setAside,merchantCats:merchantCats,subCats:subCats,merchantSubs:merchantSubs,bills:bills,billMarks:billMarks,billAdj:cleanBillAdj(d.billAdj),energy:energy,home:home,debtMonthly:Math.max(0,+d.debtMonthly||0),billIgnore:(function(){var o={};if(d.billIgnore&&typeof d.billIgnore==='object'&&!Array.isArray(d.billIgnore))Object.keys(d.billIgnore).slice(0,500).forEach(function(k){if(k.length<=120&&k!=='__proto__')o[k]=1});return o})(),cardPay:d.cardPay==='skip'||d.cardPay==='count'?d.cardPay:'auto',apple:(function(){var a=d.apple||{},o={};if(typeof a.acct==='string'&&a.acct.length<=40)o.acct=a.acct;if(/^\d{4}-\d{2}-\d{2}$/.test(a.last||''))o.last=a.last;if(+a.count>=0)o.count=Math.min(1e6,Math.round(+a.count));return o})(),payLinks:cleanPayLinks(d.payLinks),ad:cleanAd(d.ad),upd:cleanUpd(d.upd),vehIgnore:(function(v){var o={};if(v&&typeof v==='object'&&!Array.isArray(v))Object.keys(v).slice(0,200).forEach(function(k){if(/^[\w-]{1,40}$/.test(k)&&v[k])o[k]=1});return o})(d.vehIgnore)};
 }
 
 /* ---------- Goals ---------- */
@@ -8617,7 +8830,7 @@ document.addEventListener('click',function(e){
   else if(a==='sub-adddet'){var d=detect()[+b.dataset.i];if(d)S.subs.push({id:uid(),name:d.name,amount:d.amount,cycle:d.cycle,next:d.next,status:'active'})}
   else if(a==='tx-del'){var dtx=S.txns.filter(function(x){return x.id===id})[0];if(dtx&&dtx.fromWallet&&walletAcct()){walletAdd(-dtx.amount);toast('Deleted. The cash went back into your wallet.')}S.txns=S.txns.filter(function(x){return x.id!==id})}
   else if(a==='exp'){exportData();return}
-  else if(a==='imp-ok'){S={sample:false,catRules:pendingImport.catRules||{},pay:pendingImport.pay||{stubs:[]},tax:pendingImport.tax||{status:'single',kids:0,useForms:true,forms:[]},customCats:pendingImport.customCats,txns:pendingImport.txns,subs:pendingImport.subs,budgets:pendingImport.budgets,goals:pendingImport.goals,accounts:pendingImport.accounts,extraPay:pendingImport.extraPay,plaidIgnored:pendingImport.plaidIgnored,credit:pendingImport.credit,holdings:pendingImport.holdings,setAside:pendingImport.setAside||[],merchantCats:pendingImport.merchantCats||{},subCats:pendingImport.subCats||{},merchantSubs:pendingImport.merchantSubs||{},bills:pendingImport.bills||[],fuel:pendingImport.fuel||[],weather:pendingImport.weather||{},energyCfg:pendingImport.energyCfg||{},xferLearn:pendingImport.xferLearn||{},imports:pendingImport.imports||[],hideWords:pendingImport.hideWords||[],billMarks:pendingImport.billMarks||{},billAdj:pendingImport.billAdj||{},energy:pendingImport.energy||[],home:pendingImport.home||{},debtMonthly:pendingImport.debtMonthly||0,billIgnore:pendingImport.billIgnore||{},cardPay:pendingImport.cardPay||'auto',apple:pendingImport.apple||{},payLinks:pendingImport.payLinks||{},vehIgnore:pendingImport.vehIgnore||{},ad:pendingImport.ad||null};pendingImport=null;migrate();syncCats();Object.keys(PL.items).forEach(function(k){PL.items[k].cursor=''});savePL();toast('Backup restored.')}
+  else if(a==='imp-ok'){S={sample:false,catRules:pendingImport.catRules||{},pay:pendingImport.pay||{stubs:[]},tax:pendingImport.tax||{status:'single',kids:0,useForms:true,forms:[]},customCats:pendingImport.customCats,txns:pendingImport.txns,subs:pendingImport.subs,budgets:pendingImport.budgets,goals:pendingImport.goals,accounts:pendingImport.accounts,extraPay:pendingImport.extraPay,plaidIgnored:pendingImport.plaidIgnored,credit:pendingImport.credit,holdings:pendingImport.holdings,setAside:pendingImport.setAside||[],merchantCats:pendingImport.merchantCats||{},subCats:pendingImport.subCats||{},merchantSubs:pendingImport.merchantSubs||{},bills:pendingImport.bills||[],fuel:pendingImport.fuel||[],weather:pendingImport.weather||{},energyCfg:pendingImport.energyCfg||{},xferLearn:pendingImport.xferLearn||{},imports:pendingImport.imports||[],hideWords:pendingImport.hideWords||[],billMarks:pendingImport.billMarks||{},billAdj:pendingImport.billAdj||{},energy:pendingImport.energy||[],home:pendingImport.home||{},debtMonthly:pendingImport.debtMonthly||0,billIgnore:pendingImport.billIgnore||{},cardPay:pendingImport.cardPay||'auto',apple:pendingImport.apple||{},payLinks:pendingImport.payLinks||{},vehIgnore:pendingImport.vehIgnore||{},ad:pendingImport.ad||null,upd:pendingImport.upd||null};pendingImport=null;migrate();syncCats();Object.keys(PL.items).forEach(function(k){PL.items[k].cursor=''});savePL();toast('Backup restored.')}
   else if(a==='imp-no'){pendingImport=null;pendingEnc=null;secMsg=''}
   else if(a==='undo'){undoStep('undo');return}
   else if(a==='redo'){undoStep('redo');return}
@@ -8788,6 +9001,7 @@ document.addEventListener('click',function(e){
   else if(a==='help-walk'){setTimeout(function(){tourStart()},0)}
   else if(a==='help-guide'){setTimeout(function(){walkOpen(0)},0)}
   else if(a==='help-here'){setTimeout(helpPopOpen,0)}
+  else if(a==='upd-open'){setTimeout(updOpen,0)}
   else if(a==='pay-kind'){var pk=S.pay.stubs.filter(function(x){return x.id===id})[0];if(pk){payMark('changed '+payDateLabel(pk.payDate)+' to '+(payKind(pk)==='bonus'?'a regular paycheck':'a bonus check'));pk.kind=payKind(pk)==='bonus'?'regular':'bonus'}}
   else if(a==='bill-add'){billUI.adding=true;billUI.edit=''}
   else if(a==='bill-cancel'){billUI.adding=false;billUI.edit=''}
@@ -8948,7 +9162,7 @@ function navPanel(){
 function vLook(){
   var sw=PRESETS.map(function(p){return '<button type="button" class="sw'+(TH.preset===p.id?' on':'')+'" data-act="th-preset" data-v="'+p.id+'" style="--sw:'+p.accent+'" aria-pressed="'+(TH.preset===p.id)+'">'+p.name+'</button>'}).join('');
   return '<div class="top"><h1>Settings</h1><button class="btn small" data-act="th-reset">Reset appearance</button></div>'+
-  '<h2 class="setsec">Help</h2><section class="panel"><h2>Help<small>how to use the app</small></h2><p class="sub" style="margin:0 0 10px;white-space:normal">A guided tour that opens every tab for you, scrolls to what matters and lights it up (press Play to let it run by itself). You can also tap the <b>?</b> button at the bottom right of any tab for a short guide to just that tab.</p><div class="actions" style="justify-content:flex-start;flex-wrap:wrap"><button class="btn primary" data-act="help-walk">Start the walkthrough</button><button class="btn" data-act="help-guide">Read the guide</button><button class="btn" data-act="help-here">What does this tab do?</button></div><p class="sub muted" style="margin:10px 0 0;font-size:12px;white-space:normal">Shortcuts: Ctrl+K (Cmd+K on a Mac) or / opens search and questions. Undo is at the top of each page.</p></section>'+
+  '<h2 class="setsec">Help</h2><section class="panel"><h2>Help<small>how to use the app</small></h2><p class="sub" style="margin:0 0 10px;white-space:normal">A guided tour that opens every tab for you, scrolls to what matters and lights it up (press Play to let it run by itself). You can also tap the <b>?</b> button at the bottom right of any tab for a short guide to just that tab.</p><div class="actions" style="justify-content:flex-start;flex-wrap:wrap"><button class="btn primary" data-act="help-walk">Start the walkthrough</button><button class="btn" data-act="help-guide">Read the guide</button><button class="btn" data-act="help-here">What does this tab do?</button><button class="btn" data-act="upd-open">What to update</button></div><p class="sub muted" style="margin:10px 0 0;font-size:12px;white-space:normal">Shortcuts: Ctrl+K (Cmd+K on a Mac) or / opens search and questions. Undo is at the top of each page.</p></section>'+
   '<h2 class="setsec">Sound</h2><section class="panel"><h2>Sound<small>clicks, chimes and whooshes</small></h2><div class="lookrow"><span class="lbl">Sound effects<small>Soft sounds when you switch tabs, press buttons, save something or take the tour. Each tab has its own.</small></span><span class="ctl">'+seg('snd-on',SND.on?'on':'off',[['on','On'],['off','Off']])+'</span></div><div class="lookrow"><span class="lbl">Volume</span><span class="ctl"><input id="snd-vol" type="range" min="0" max="100" value="'+SND.vol+'" aria-label="Sound volume"'+(SND.on?'':' disabled')+'></span></div><div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn small" data-act="snd-test"'+(SND.on?'':' disabled')+'>Play a test sound</button></div></section>'+
   '<h2 class="setsec">Appearance</h2>'+navPanel()+
   '<section class="panel"><h2>Look<small>one tap changes the whole app</small></h2><div class="lookcards"><button type="button" class="lookcard'+(TH.bg==='studio'?' on':'')+'" data-act="th-look" data-v="studio"><div class="pv" style="background:radial-gradient(120px 60px at 50% 0%,#3e6ae155,transparent),#0a0c10;border:1px solid #1e222a"></div><b>Studio</b><div class="sub">Dark and cinematic, like a car app. Big light numbers, a lit stage for your car and home.</div></button><button type="button" class="lookcard'+(TH.bg!=='studio'?' on':'')+'" data-act="th-look" data-v="glass"><div class="pv" style="background:linear-gradient(135deg,#c7d2ff,#f3c6ff);border:1px solid #fff8"></div><b>Glass</b><div class="sub">Light, frosted and colourful.</div></button></div></section>'+

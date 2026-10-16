@@ -634,3 +634,9 @@ Builds no longer start by themselves. All four workflows (Build Mac app, Check n
 ## Student loans: auto-debit rate reduction forecast
 
 On the Student loans page, **Auto-debit rate reduction** forecasts what enrolling in auto debit would do: payoff date, interest from now and money saved, for not enrolling, for the standard cut, and for the larger limited-time cut (1.00 point by default, for loans that qualify and enrol by the deadline, then the standard 0.25 after the end date). Mark each loan as qualifies, does not qualify or not sure (not sure is counted as qualifying in the best case), pick your enrolment date, and the page shows what each month of waiting costs. The terms are the ones in the servicer's notice and can be edited (points, deadline, end date). Use each loan's rate before any auto-debit discount. The app cannot verify the servicer's rules, so confirm with them.
+
+## What to update
+
+Settings → Help → **What to update** checks how fresh each part of your data is and lists what to do next, most important first, with a 0–100 freshness score and a rough time for each item. It looks at: example data, account balances, the newest transaction, uncategorised spending, unfinished or out-of-date loans, the student loan auto-debit deadline, late or ended pay statements, last year's W-2 in tax season, credit score age, investment prices and costs, vehicles with estimated values, old odometer readings and overdue upkeep, old electricity bills, overdue bills, missing budgets, deposits and payments to review, and backup age.
+
+Each item has a button that jumps to the right place, **Later** (hides it for a week) and **Not needed** (hides it for two months). If the private assistant is running, **Plan it with my private assistant** writes a short suggested order on your own computer; nothing is sent anywhere. Hidden items and the last backup date are saved with your data and included in backups.
