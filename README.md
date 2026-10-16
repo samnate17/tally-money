@@ -630,3 +630,7 @@ Press and hold a tab for about half a second until it lifts and the others start
 ## Keeping GitHub build minutes free
 
 Builds no longer start by themselves. All four workflows (Build Mac app, Check native glass, Check native widget, Check updater) run only when started by hand from the Actions tab (Run workflow), or by the release steps in this repo's release rule (Build Mac app with a `release_tag`). Mac runners count 10 times against the free monthly allowance of private repositories, and one release uses roughly 140 allowance minutes, so a handful of releases a month fits; pushing many tags or commits that each started builds once used a whole month's allowance in minutes.
+
+## Student loans: auto-debit rate reduction forecast
+
+On the Student loans page, **Auto-debit rate reduction** forecasts what enrolling in auto debit would do: payoff date, interest from now and money saved, for not enrolling, for the standard cut, and for the larger limited-time cut (1.00 point by default, for loans that qualify and enrol by the deadline, then the standard 0.25 after the end date). Mark each loan as qualifies, does not qualify or not sure (not sure is counted as qualifying in the best case), pick your enrolment date, and the page shows what each month of waiting costs. The terms are the ones in the servicer's notice and can be edited (points, deadline, end date). Use each loan's rate before any auto-debit discount. The app cannot verify the servicer's rules, so confirm with them.

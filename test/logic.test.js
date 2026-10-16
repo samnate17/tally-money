@@ -2840,3 +2840,52 @@ test('reorder: moving visible tabs keeps hidden tabs where they were', () => {
   assert.deepEqual(O.ordMerge(['a', 'b', 'c', 'd', 'e'], ['d', 'a', 'b', 'e']), ['d', 'a', 'c', 'b', 'e']);
   assert.deepEqual(O.ordMerge(['a', 'b', 'c'], ['c', 'b', 'a']), ['c', 'b', 'a']);
 });
+
+// ---------- auto-debit rate reduction on student loans ----------
+function adWorld() { return new Function(srcBlock('/*LOAN-START*/', '/*LOAN-END*/') + srcBlock('/*ADREDUCE-START*/', '/*ADREDUCE-END*/') + '\nreturn {amortize, cleanAd, adRate, adSim, adCompare};')(); }
+test('auto debit: the rate in effect follows enrolment, the deadline and the end of the larger cut', () => {
+  const A = adWorld(), ad = A.cleanAd(null);
+  assert.deepEqual([ad.enhPts, ad.stdPts, ad.enhEnd, ad.deadline], [1, 0.25, '2028-06-30', '2026-12-31']);
+  assert.equal(A.adRate(6.5, '2026-11-01', 'none', true, ad, '2026-11-01'), 6.5);
+  assert.equal(A.adRate(6.5, '2026-10-01', 'enh', true, ad, '2026-11-01'), 6.5, 'before you enrol nothing changes');
+  assert.equal(A.adRate(6.5, '2027-03-01', 'enh', true, ad, '2026-11-01'), 5.5, 'larger cut while enrolled');
+  assert.equal(A.adRate(6.5, '2028-07-01', 'enh', true, ad, '2026-11-01'), 6.25, 'steps down to the standard cut after the end date');
+  assert.equal(A.adRate(6.5, '2027-03-01', 'enh', false, ad, '2026-11-01'), 6.25, 'a loan that does not qualify gets only the standard cut');
+  assert.equal(A.adRate(6.5, '2027-03-01', 'enh', true, ad, '2027-01-15'), 6.25, 'enrolling after the deadline: standard cut only');
+  assert.equal(A.adRate(6.5, '2027-03-01', 'std', true, ad, '2026-11-01'), 6.25);
+  assert.equal(A.adRate(0.1, '2027-03-01', 'enh', true, ad, '2026-11-01'), 0, 'a rate never goes below zero');
+});
+test('auto debit: with a constant rate the simulation matches the plain loan maths', () => {
+  const A = adWorld(), today = new Date(2026, 9, 15), ad = Object.assign(A.cleanAd(null), { enhEnd: '2100-01-01' });
+  const base = A.amortize(10000, 6.5, 200), none = A.adSim(10000, 6.5, 200, today, 'none', true, ad, '2026-10-15');
+  assert.equal(none.months, base.months);
+  assert.ok(Math.abs(none.interest - base.interest) < 0.05);
+  const std = A.adSim(10000, 6.5, 200, today, 'std', true, ad, '2026-10-15'), s2 = A.amortize(10000, 6.25, 200);
+  assert.equal(std.months, s2.months);
+  assert.ok(Math.abs(std.interest - s2.interest) < 0.05);
+  const enh = A.adSim(10000, 6.5, 200, today, 'enh', true, ad, '2026-10-15'), e2 = A.amortize(10000, 5.5, 200);
+  assert.ok(Math.abs(enh.interest - e2.interest) < 0.05);
+  assert.ok(enh.interest < std.interest && std.interest < none.interest);
+});
+test('auto debit: a comparison totals the loans, treats unsure as qualifying, and notices a missed deadline', () => {
+  const A = adWorld(), today = new Date(2026, 9, 15), ad = A.cleanAd(null);
+  const loans = [{ id: 'a', name: 'Loan A', bal: 8000, apr: 6.8, pay: 150 }, { id: 'b', name: 'Loan B', bal: 4000, apr: 4.5, pay: 80 }];
+  const c = A.adCompare(loans, today, ad);
+  assert.equal(c.rows.length, 2);
+  assert.equal(c.unsure, 2);
+  assert.ok(c.none.interest > c.std.interest && c.std.interest > c.enh.interest);
+  assert.ok(Math.abs(c.none.interest - c.rows.reduce((n, r) => n + r.none.interest, 0)) < 0.001);
+  assert.equal(c.missed, false);
+  assert.ok(c.monthlyCost > 0);
+  const no = A.adCompare(loans, today, Object.assign(A.cleanAd(null), { q: { a: 'no', b: 'no' } }));
+  assert.ok(Math.abs(no.enh.interest - no.std.interest) < 0.001, 'nothing qualifies, so enhanced equals standard');
+  const late = A.adCompare(loans, today, Object.assign(A.cleanAd(null), { enroll: '2027-02-01' }));
+  assert.equal(late.missed, true);
+  assert.ok(Math.abs(late.enh.interest - late.std.interest) < 0.001, 'after the deadline there is no larger cut');
+  assert.equal(A.adCompare([{ id: 'z', name: 'No payment', bal: 5000, apr: 5, pay: 0 }], today, ad).none.ok, false);
+});
+test('auto debit: saved settings are cleaned', () => {
+  const A = adWorld();
+  const o = A.cleanAd({ enroll: 'bad', enhPts: 99, stdPts: '0.5', deadline: '2027-01-31', q: { ok1: 'yes', ok2: 'no', bad: 'maybe', 'bad key!': 'yes' } });
+  assert.deepEqual([o.enroll, o.enhPts, o.stdPts, o.deadline, o.q], ['', 1, 0.5, '2027-01-31', { ok1: 'yes', ok2: 'no' }]);
+});
