@@ -2887,7 +2887,7 @@ function payJobs(stubs,cfg){
     var cands=groups.filter(function(g){return !g.stubs.some(function(x){return payConflict(x,s)})});
     if(!cands.length){rest.push(s);return}
     var best=null,bs=-1;cands.forEach(function(g){var sc=payScore(s,g);if(sc>bs){bs=sc;best=g}});
-    if(groups.length>1&&payKind(s)!=='bonus'&&bs<0.45){rest.push(s);return}
+    if((groups.length>1||best.source==='manual')&&payKind(s)!=='bonus'&&bs<0.45){rest.push(s);return}   // once you have named or moved a job by hand, a different-looking statement is not swallowed into it
     best.stubs.push(s);refresh(best)});
   var made=0;
   rest.forEach(function(s){
@@ -7417,11 +7417,16 @@ function payJobsPanel(J){
 function payJobMaterialize(J,key){
   var j=J.jobs.filter(function(x){return x.key===key})[0];if(!j)return key;
   if(key[0]==='m')return key;
-  var nk='m:j'+Math.random().toString(36).slice(2,6),ids={};j.stubs.forEach(function(x){ids[x.id]=1});
-  S.pay.stubs.forEach(function(x){if(ids[x.id])x.job=nk});
-  if(S.pay.jobNames&&S.pay.jobNames[key]){S.pay.jobNames[nk]=S.pay.jobNames[key];delete S.pay.jobNames[key]}
-  if(mypayUI.job===key)mypayUI.job=nk;
-  return nk;
+  var nk='';
+  // every guessed job is fixed in place at the same time, so naming one cannot make the others merge into it
+  J.jobs.forEach(function(g){
+    if(g.key[0]==='m'||g.key[0]==='e')return;
+    var k2='m:j'+Math.random().toString(36).slice(2,6),ids={};g.stubs.forEach(function(x){ids[x.id]=1});
+    S.pay.stubs.forEach(function(x){if(ids[x.id])x.job=k2});
+    if(S.pay.jobNames&&S.pay.jobNames[g.key]){S.pay.jobNames[k2]=S.pay.jobNames[g.key];delete S.pay.jobNames[g.key]}
+    if(mypayUI.job===g.key)mypayUI.job=k2;
+    if(g.key===key)nk=k2});
+  return nk||key;
 }
 function payJobAssign(id,key){
   var J=payJobs(payStubs(),S.pay),st=S.pay.stubs.filter(function(x){return x.id===id})[0];if(!st)return;

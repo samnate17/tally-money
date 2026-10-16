@@ -2965,3 +2965,17 @@ test('what to update: the assistant prompt carries only the listed items and sav
   assert.deepEqual(o, { snooze: { ok: '2026-12-01' }, backupAt: '' });
   assert.deepEqual(U.cleanUpd(null), { snooze: {}, backupAt: '' });
 });
+test('jobs: naming a guessed job keeps the other jobs separate (they used to merge into it and the Jobs panel vanished)', () => {
+  const P = jobWorld(), s = [];
+  const ben = { lines: [{ section: 'benefit', name: 'Medical', amount: 80 }, { section: 'retirement', name: '401K', amount: 100 }] };
+  ['2026-08-07', '2026-08-21', '2026-09-04', '2026-09-18'].forEach((d) => s.push(jobStub(P, d, 2000, '', ben)));
+  ['2026-08-14', '2026-08-28', '2026-09-11', '2026-09-25'].forEach((d) => s.push(jobStub(P, d, 600, '')));
+  let J = P.payJobs(s, {});
+  assert.equal(J.multi, true);
+  // what the app does when you rename the first job: only that job's statements are tagged by hand
+  const ids = {}; J.jobs[0].stubs.forEach((x) => { ids[x.id] = 1; });
+  s.forEach((x) => { if (ids[x.id]) x.job = 'm:abcd'; });
+  J = P.payJobs(s, { jobNames: { 'm:abcd': 'Main' } });
+  assert.equal(J.multi, true, 'still two jobs after naming one');
+  assert.deepEqual(J.jobs.map((j) => [j.name, j.stubs.length]).sort(), [['Job 2', 4], ['Main', 4]].sort());
+});
