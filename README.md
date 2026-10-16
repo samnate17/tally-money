@@ -626,3 +626,7 @@ Every open car loan now gets a matching vehicle under **Assets**, linked to the 
 ## Hold and drag to rearrange
 
 Press and hold a tab for about half a second until it lifts and the others start to wiggle, then drag it where you want it and let go, like rearranging apps on an iPhone or the Dock on a Mac. It works for the tabs in the side list, the top bar and the bottom dock, and for the rows of choices inside a tab (the Loans types, the Energy types, the jobs on My pay). A quick click still just opens the tab, and a quick drag does not move anything. The new order is remembered; Settings → Tabs → Reset order puts everything back. The arrows in Settings still work (also with the keyboard), and Esc cancels a move in progress.
+
+## Keeping GitHub build minutes free
+
+Builds no longer start by themselves. All four workflows (Build Mac app, Check native glass, Check native widget, Check updater) run only when started by hand from the Actions tab (Run workflow), or by the release steps in this repo's release rule (Build Mac app with a `release_tag`). Mac runners count 10 times against the free monthly allowance of private repositories, and one release uses roughly 140 allowance minutes, so a handful of releases a month fits; pushing many tags or commits that each started builds once used a whole month's allowance in minutes.

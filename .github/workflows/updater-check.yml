@@ -1,9 +1,10 @@
 name: Check updater
 
+# Manual only: runs when you press Run workflow. It no longer starts by itself on a push, because Mac runners use 10x the free
+# Actions minutes and pushing many tags or commits once used the whole month's allowance.
+
 on:
   workflow_dispatch:
-  push:
-    paths: ['updater.js', 'test/updater.mac.smoke.js', '.github/workflows/updater-check.yml']
 
 jobs:
   mac:
