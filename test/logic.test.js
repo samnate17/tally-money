@@ -576,7 +576,7 @@ test('widget summary: only plain totals, budgets, bills, goal', () => {
     () => S.subs, (x) => (x.name === 'Netflix' ? new Date(2026, 9, 14) : new Date(2026, 10, 20)),
     (a, b) => Math.round((b - a) / 864e5), (d) => '2026-10-12', () => 'October 2026', () => ({ net: 5000, assets: 7000, debts: 2000 }), () => bills, () => [], (n) => (/therapy/i.test(n) ? 'Hidden bill' : n), (n) => /therapy/i.test(n));
   const w = f();
-  assert.deepStrictEqual(w.spend, { income: 2400, spent: 320, budgeted: 400, budgetSpent: 280, left: 120, perDay: 120 / 20 });
+  assert.deepStrictEqual(w.spend, { income: 2400, spent: 320, budgeted: 400, budgetSpent: 280, left: 120, perDay: 120 / 20, cats: [{ cat: 'Dining', amt: 160 }, { cat: 'Groceries', amt: 120 }, { cat: 'Other', amt: 40 }] });
   assert.deepStrictEqual(w.over, [{ cat: 'Dining', spent: 160, budget: 100 }]);
   assert.deepStrictEqual(w.bills, [{ name: 'Hidden bill', amount: 120, days: 1 }, { name: 'Netflix', amount: 15, days: 2 }, { name: 'Rent', amount: 1500, days: 3 }]);   // bills from the Bills tab first, hidden names masked, subscriptions added
   assert.deepStrictEqual(w.goal, { name: 'Car', pct: 50 });
@@ -3058,7 +3058,7 @@ test('widget summary: investments, paycheck, subscriptions, debts and credit are
   const iv = W.widgetInvest();
   assert.equal(iv.value, 5000); assert.equal(iv.count, 2);
   assert.deepEqual(iv.top.map((t) => t.sym), ['AAA', 'CCC', 'BBB'], 'biggest movers first, unpriced left out');
-  assert.deepEqual(W.widgetPay(), { date: '2026-10-20', days: 4, net: 1500, job: 'Test Job' });
+  assert.deepEqual(W.widgetPay(), { date: '2026-10-20', days: 4, net: 1500, job: 'Test Job', cycle: 0 });
   assert.deepEqual(W.widgetSubs(), { monthly: 15, count: 2 });
   assert.deepEqual(W.widgetDebt(), { total: 1200, monthly: 75 });
   assert.deepEqual(W.widgetCredit(), { score: 700, diff: 10, date: '2026-10-01' });

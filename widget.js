@@ -10,15 +10,17 @@ function sanitize(s) {
   if (!s || typeof s !== 'object') return null;
   const o = { asOf: str(s.asOf, 30), sample: !!s.sample, month: str(s.month, 24), daysLeft: Math.max(0, Math.round(num(s.daysLeft))) };
   o.accent = /^#[0-9a-f]{6}$/i.test(s.accent || '') ? String(s.accent).toLowerCase() : '';
-  o.net = s.net && typeof s.net === 'object' ? { net: num(s.net.net), assets: num(s.net.assets), debts: num(s.net.debts) } : null;
+  const series = (a, n) => (Array.isArray(a) ? a : []).slice(-n).map(num);
+  o.net = s.net && typeof s.net === 'object' ? { net: num(s.net.net), assets: num(s.net.assets), debts: num(s.net.debts), spark: series(s.net.spark, 12) } : null;
   const m = s.spend && typeof s.spend === 'object' ? s.spend : {};
-  o.spend = { income: num(m.income), spent: num(m.spent), budgeted: num(m.budgeted), budgetSpent: num(m.budgetSpent), left: num(m.left), perDay: num(m.perDay) };
+  o.spend = { income: num(m.income), spent: num(m.spent), budgeted: num(m.budgeted), budgetSpent: num(m.budgetSpent), left: num(m.left), perDay: num(m.perDay),
+    cats: (Array.isArray(m.cats) ? m.cats : []).slice(0, 6).map((x) => ({ cat: str(x && x.cat, 24), amt: Math.max(0, num(x && x.amt)) })).filter((x) => x.amt > 0) };
   o.over = (Array.isArray(s.over) ? s.over : []).slice(0, 3).map((x) => ({ cat: str(x && x.cat, 24), spent: num(x && x.spent), budget: num(x && x.budget) }));
   o.bills = (Array.isArray(s.bills) ? s.bills : []).slice(0, 4).map((x) => ({ name: str(x && x.name, 28), amount: num(x && x.amount), days: Math.round(num(x && x.days)) }));
   const iv = s.invest && typeof s.invest === 'object' ? s.invest : null;
-  o.invest = iv ? { value: num(iv.value), dayChg: num(iv.dayChg), dayPct: iv.dayPct == null ? null : num(iv.dayPct), gain: num(iv.gain), gainPct: iv.gainPct == null ? null : num(iv.gainPct), count: Math.max(0, Math.round(num(iv.count))),
+  o.invest = iv ? { value: num(iv.value), dayChg: num(iv.dayChg), dayPct: iv.dayPct == null ? null : num(iv.dayPct), gain: num(iv.gain), gainPct: iv.gainPct == null ? null : num(iv.gainPct), count: Math.max(0, Math.round(num(iv.count))), spark: series(iv.spark, 40),
     top: (Array.isArray(iv.top) ? iv.top : []).slice(0, 3).map((x) => ({ sym: str(x && x.sym, 12), pct: num(x && x.pct) })) } : null;
-  o.pay = s.pay && typeof s.pay === 'object' ? { date: str(s.pay.date, 12), days: Math.round(num(s.pay.days)), net: num(s.pay.net), job: str(s.pay.job, 28) } : null;
+  o.pay = s.pay && typeof s.pay === 'object' ? { date: str(s.pay.date, 12), days: Math.round(num(s.pay.days)), net: num(s.pay.net), job: str(s.pay.job, 28), cycle: Math.max(0, Math.min(400, Math.round(num(s.pay.cycle)))) } : null;
   o.subs = s.subs && typeof s.subs === 'object' ? { monthly: num(s.subs.monthly), count: Math.max(0, Math.round(num(s.subs.count))) } : null;
   o.debt = s.debt && typeof s.debt === 'object' ? { total: num(s.debt.total), monthly: num(s.debt.monthly) } : null;
   o.credit = s.credit && typeof s.credit === 'object' ? { score: Math.round(num(s.credit.score)), diff: s.credit.diff == null ? null : Math.round(num(s.credit.diff)), date: str(s.credit.date, 12) } : null;
@@ -50,7 +52,7 @@ function cleanSections(v) {
 const DEFAULTS = { visible: false, onTop: false, hideAmounts: false, requireAuth: true, sections: DEFAULT_SECTIONS, w: null, h: null, x: null, y: null };
 
 function createWidget({ BrowserWindow, screen, file, preload, html, nativeFile, canAuth = () => false }) {
-  let win = null, state = { ...DEFAULTS }, summary = null;
+  let win = null, state = { ...DEFAULTS }, summary = null, updatedAt = 0;
   try {
     const j = JSON.parse(fs.readFileSync(file, 'utf8'));
     state = { ...DEFAULTS, ...(j.state || {}) };
@@ -73,7 +75,7 @@ function createWidget({ BrowserWindow, screen, file, preload, html, nativeFile, 
   }
   const alive = () => win && !win.isDestroyed();
   const touchId = () => { try { return !!canAuth(); } catch (e) { return false; } };
-  function payload() { return { summary, hideAmounts: state.hideAmounts, onTop: state.onTop, askAuth: !!(state.requireAuth && touchId()), sections: state.sections }; }
+  function payload() { return { summary, hideAmounts: state.hideAmounts, onTop: state.onTop, askAuth: !!(state.requireAuth && touchId()), sections: state.sections, at: updatedAt }; }
   function send() { if (alive()) win.webContents.send('widget:data', payload()); }
   function applyLevel() {
     if (!alive()) return;
@@ -107,7 +109,7 @@ function createWidget({ BrowserWindow, screen, file, preload, html, nativeFile, 
     show() { state.visible = true; persist(); open(); },
     hide() { state.visible = false; persist(); if (alive()) win.close(); },
     toggle() { return state.visible && alive() ? (this.hide(), false) : (this.show(), true); },
-    update(raw) { const s = sanitize(raw); if (!s) return false; summary = s; persist(); writeNative(); send(); return true; },
+    update(raw) { const s = sanitize(raw); if (!s) return false; summary = s; updatedAt = Date.now(); persist(); writeNative(); send(); return true; },
     setOnTop(v) { state.onTop = !!v; persist(); applyLevel(); send(); },
     setHideAmounts(v) { state.hideAmounts = !!v; persist(); writeNative(); send(); },
     // Forget the numbers (when another user takes over the app, so the last user's totals do not stay on the desktop).

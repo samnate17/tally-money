@@ -4420,22 +4420,27 @@ function widgetSummary(){
   bills.sort(function(a,c){return a.days-c.days});bills=bills.slice(0,4);
   var goal=null;S.goals.forEach(function(g){if(!(g.target>0)||g.saved>=g.target)return;var p=g.saved/g.target*100;if(!goal||p>goal.pct)goal={name:g.name,pct:p}});
   return {asOf:iso(TODAY),sample:!!S.sample,month:monthLabel(mk),daysLeft:daysLeft,
-    net:S.accounts.length?netWorth():null,
-    spend:{income:incomeOf(mk),spent:sp.total,budgeted:b,budgetSpent:bs,left:left,perDay:left>0&&daysLeft>0?left/daysLeft:0},
+    net:S.accounts.length?widgetNet():null,
+    spend:{income:incomeOf(mk),spent:sp.total,budgeted:b,budgetSpent:bs,left:left,perDay:left>0&&daysLeft>0?left/daysLeft:0,cats:Object.keys(sp.by||{}).sort(function(a,c){return sp.by[c]-sp.by[a]}).slice(0,5).map(function(c){return {cat:c,amt:sp.by[c]}})},
     over:over.slice(0,3),bills:bills,goal:goal,
     invest:widgetInvest(),pay:widgetPay(),subs:widgetSubs(),debt:widgetDebt(),credit:widgetCredit()};
 }
 // Extra things the widget can show. Each returns null when there is nothing to show, so the widget skips that section.
+// Net worth plus its last few month-end values, for the widget's little graph.
+function widgetNet(){
+  var n=netWorth();try{n.spark=nwSeries().map(function(p){return p.v})}catch(e){n.spark=[]}return n;
+}
 function widgetInvest(){
   try{
     if(!S.holdings||!S.holdings.length)return null;
     var qs=quotesFor(),ps=portfolioStats(S.holdings,qs);if(!ps.priced)return null;
     var top=S.holdings.map(function(h){return {sym:h.symbol,pct:holdingStats(h,qs[h.symbol]).dayPct}}).filter(function(x){return x.pct!==null}).sort(function(a,c){return Math.abs(c.pct)-Math.abs(a.pct)}).slice(0,3);
-    return {value:ps.value,dayChg:ps.dayChg,dayPct:ps.dayPct,gain:ps.gain,gainPct:ps.gainPct,count:ps.priced,top:top};
+    var sp=[];try{var ser=portfolioSeries(S.holdings,qs,60),step=Math.max(1,Math.ceil(ser.length/30));ser.forEach(function(p,i){if(i%step===0||i===ser.length-1)sp.push(Math.round(p[1]*100)/100)})}catch(e){}
+    return {value:ps.value,dayChg:ps.dayChg,dayPct:ps.dayPct,gain:ps.gain,gainPct:ps.gainPct,count:ps.priced,top:top,spark:sp};
   }catch(e){return null}
 }
 function widgetPay(){
-  try{var st=(S.pay&&S.pay.stubs)||[];if(!st.length)return null;var n=payNextAll(st,TODAY,S.pay);if(!n||!n.date)return null;return {date:iso(n.date),days:n.days,net:n.net,job:n.job||''}}catch(e){return null}
+  try{var st=(S.pay&&S.pay.stubs)||[];if(!st.length)return null;var n=payNextAll(st,TODAY,S.pay);if(!n||!n.date)return null;return {date:iso(n.date),days:n.days,net:n.net,job:n.job||'',cycle:(n.freq&&n.freq.days)||0}}catch(e){return null}
 }
 function widgetSubs(){
   try{var a=activeSubs();if(!a.length)return null;return {monthly:a.reduce(function(t,x){return t+perMonth(x)},0),count:a.length}}catch(e){return null}
@@ -5111,11 +5116,11 @@ var HELP={
   loans:{t:'Loans',what:'Your car, student and other loans in one place, with plans to pay them off faster.',how:['Add a loan with its balance, rate, payment and due day.','Read The order to pay them and Debt-free by a date.','Import a statement from your lender to update a loan.','Try Would one new loan help? to compare consolidating or refinancing.','Credit cards, Mortgage and Credit score are the other pages along the top of this tab.'],tip:'A loan with a payment and a due day shows up on Bills.'},
   mortgage:{t:'Mortgage',what:'Your home loan: payment, interest, what you would save by paying extra and how it fits your budget.',how:['Press Edit details and enter your home value, loan, rate and payment.','Read My read for a plain explanation of your numbers.','Change the assumptions to test extra payments.'],tip:'Property tax and insurance are included in the monthly picture.'},
   assist:{t:'Assistant',what:'A private chat assistant that runs on this computer and answers questions about your money.',how:['Follow Set up the assistant once (about five minutes).','Ask a question in plain words, such as how much I spent on food last month.','Press Clear chat to start over.'],tip:'It runs on your computer, so your questions never leave it.'},
-  look:{t:'Settings',what:'How the app looks and works: appearance, tabs, security, backups and updates.',how:['Settings has pages along the top: You, Appearance, Security, Backup, App updates, Widget, More and Help.','You: your name and nickname, and the other users of this computer (add a real person to get the setup guide, or a demo user with made-up data).','Appearance: sound, where the tabs sit and their order (hold and drag), the look, colour, glass, text and motion. Press Reset appearance to undo your styling.','Security: an app password and Touch ID, and moving to another computer.','Backup: save or restore everything you have entered.','App updates: check for a new version, or go back to an earlier one (save a backup first).','Widget: choose what the desktop widget shows and in what order, blur amounts, and ask for Touch ID before showing them.','Help: the tour, the guide, What to update and what is new.'],tip:'Search (Ctrl+K) finds any setting and opens its page.'}
+  look:{t:'Settings',what:'How the app looks and works: appearance, tabs, security, backups and updates.',how:['Settings has pages along the top: You, Appearance, Security, Backup, App updates, Widget, More and Help.','You: your name and nickname, and the other users of this computer (add a real person to get the setup guide, or a demo user with made-up data).','Appearance: sound, where the tabs sit and their order (hold and drag), the look, colour, glass, text and motion. Press Reset appearance to undo your styling.','Security: an app password and Touch ID, and moving to another computer.','Backup: save or restore everything you have entered.','App updates: check for a new version, or go back to an earlier one (save a backup first).','Widget: choose what the desktop widget shows and in what order (it draws graphs and rings, not just numbers), blur amounts, and ask for Touch ID before showing them.','Help: the tour, the guide, What to update and what is new.'],tip:'Search (Ctrl+K) finds any setting and opens its page.'}
 };
 // What changed in each version, in plain words. A test makes sure the version in package.json has an entry, so a release cannot go out without it.
 var WHATSNEW=[
- ['1.8.30',['The stocks chart on the Overview now appears as soon as prices load (before, it could stay empty until you reopened the page). The Overview also shows a bar of how your stocks are split.']],
+ ['1.8.30',['The stocks chart on the Overview now appears as soon as prices load (before, it could stay empty until you reopened the page). The Overview also shows a bar of how your stocks are split.','The desktop widget now has live graphics: a net worth graph, an investments graph with movers, rings for budgets, your next paycheck and your goal, a spending donut, due-date dots and a credit score scale. A green dot shows when it was updated in the last few minutes.']],
  ['1.8.29',['The 22 tabs are now 10. Tabs that held similar things became pages in one tab, shown as a row along the top: Overview (Summary, Live dashboard), Accounts (Accounts, Assets, Investments), Bills (Bills, Subscriptions, Energy), Budgets (Budgets, Monthly report, Goals, Can I afford it?), My pay (My pay, Taxes) and Debts (Loans, Credit cards, Mortgage, Credit score).','Settings is split into pages like Energy: You, Appearance, Security, Backup, App updates, Widget, More and Help.','App updates can now go back to an earlier version (save a backup first).','Users: share the computer with someone else, each with their own data, or add a demo user with made-up data. A setup guide walks a new user through everything worth filling in.','About you: your name and nickname. The Overview greets you by name.','IDs and records: an encrypted wallet in Documents for your ID card, passport and employment records, with expiry reminders.','The Overview shows your stocks live while the market is open, and your recent transactions.','The desktop widget can show what you choose, in the order you choose: net worth, investments, bills, next paycheck and more. Showing blurred amounts can ask for Touch ID.','Friends and family: I paid them, and They lent me (tracked until you pay them back).']],
  ['1.8.28',['What to update (Settings, Help) lists what is out of date and takes you there.','Renaming a job no longer merges your other jobs into it.']],
  ['1.8.27',['Student loans: forecast the auto-debit interest reduction.','Car loans add your vehicle for you.']]
