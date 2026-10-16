@@ -5,14 +5,15 @@ import SwiftUI
 //   ~/Library/Application Support/Tally Money/native-widget.json
 // The extension is sandboxed; its entitlements allow read-only access to that one folder.
 
-struct Net: Codable { var net: Double; var assets: Double; var debts: Double }
-struct Spend: Codable { var income: Double; var spent: Double; var budgeted: Double; var budgetSpent: Double; var left: Double; var perDay: Double }
+struct Net: Codable { var net: Double; var assets: Double; var debts: Double; var spark: [Double]? }
+struct Spend: Codable { var income: Double; var spent: Double; var budgeted: Double; var budgetSpent: Double; var left: Double; var perDay: Double; var cats: [CatAmt]? }
+struct CatAmt: Codable { var cat: String; var amt: Double }
 struct Over: Codable { var cat: String; var spent: Double; var budget: Double }
 struct Bill: Codable { var name: String; var amount: Double; var days: Int }
 struct Goal: Codable { var name: String; var pct: Int }
 struct Mover: Codable { var sym: String; var pct: Double }
-struct Invest: Codable { var value: Double; var dayChg: Double; var dayPct: Double?; var gain: Double; var gainPct: Double?; var top: [Mover]? }
-struct PayNext: Codable { var days: Int; var net: Double; var job: String? }
+struct Invest: Codable { var value: Double; var dayChg: Double; var dayPct: Double?; var gain: Double; var gainPct: Double?; var top: [Mover]?; var spark: [Double]? }
+struct PayNext: Codable { var days: Int; var net: Double; var job: String?; var cycle: Int? }
 struct SubsInfo: Codable { var monthly: Double; var count: Int }
 struct DebtInfo: Codable { var total: Double; var monthly: Double }
 struct CreditInfo: Codable { var score: Int; var diff: Int? }
@@ -89,6 +90,55 @@ struct Amount: View {
     var body: some View { Text(hide ? "•••••" : money(value)) }
 }
 
+// A small line graph with a soft fill, drawn from a list of values.
+struct Sparkline: View {
+    let values: [Double]
+    let tint: Color
+    var body: some View {
+        GeometryReader { g in
+            let lo: Double = values.min() ?? 0
+            let hi: Double = values.max() ?? 1
+            let span: Double = max(hi - lo, 0.0001)
+            let steps: Int = max(values.count - 1, 1)
+            let pts: [CGPoint] = values.enumerated().map { pair in
+                CGPoint(x: g.size.width * CGFloat(pair.offset) / CGFloat(steps),
+                        y: g.size.height * (1 - CGFloat((pair.element - lo) / span)))
+            }
+            ZStack {
+                Path { p in
+                    guard let first = pts.first else { return }
+                    p.move(to: CGPoint(x: first.x, y: g.size.height))
+                    for pt in pts { p.addLine(to: pt) }
+                    p.addLine(to: CGPoint(x: g.size.width, y: g.size.height))
+                    p.closeSubpath()
+                }
+                .fill(tint.opacity(0.18))
+                Path { p in
+                    guard let first = pts.first else { return }
+                    p.move(to: first)
+                    for pt in pts.dropFirst() { p.addLine(to: pt) }
+                }
+                .stroke(tint, style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+            }
+        }
+    }
+}
+
+// A ring that fills to a fraction between 0 and 1.
+struct Ring: View {
+    let fraction: Double
+    let tint: Color
+    var body: some View {
+        ZStack {
+            Circle().stroke(Color.secondary.opacity(0.25), lineWidth: 6)
+            Circle()
+                .trim(from: 0, to: CGFloat(min(max(fraction, 0), 1)))
+                .stroke(tint, style: StrokeStyle(lineWidth: 6, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+        }
+    }
+}
+
 struct BudgetBar: View {
     let spent: Double
     let total: Double
@@ -162,6 +212,11 @@ struct TallyWidgetView: View {
                     .font(.system(size: family == .systemSmall ? 24 : 30, weight: .bold, design: .rounded))
                     .foregroundStyle(n.net < 0 ? Color.red : Color.primary)
                     .minimumScaleFactor(0.6).lineLimit(1)
+                if let sp = n.spark, sp.count > 1, family != .systemSmall {
+                    Sparkline(values: sp, tint: (sp.last ?? 0) >= (sp.first ?? 0) ? Color.green : Color.red)
+                        .frame(height: 30)
+                        .padding(.top, 4)
+                }
             }
         }
     }
@@ -184,6 +239,10 @@ struct TallyWidgetView: View {
                     }
                     .font(.caption).foregroundStyle(up ? Color.green : Color.red)
                 }
+                if let sp = v.spark, sp.count > 1, family != .systemSmall {
+                    Sparkline(values: sp, tint: (sp.last ?? 0) >= (sp.first ?? 0) ? Color.green : Color.red)
+                        .frame(height: 28)
+                }
                 if family != .systemSmall, let t = v.top, !t.isEmpty {
                     ForEach(Array(t.prefix(family == .systemLarge ? 3 : 2)), id: \.sym) { m in
                         HStack {
@@ -201,6 +260,15 @@ struct TallyWidgetView: View {
     func budgetSection(_ s: Summary, _ hide: Bool) -> some View {
         if s.spend.budgeted > 0 {
             VStack(alignment: .leading, spacing: 3) {
+                if family != .systemSmall {
+                    HStack(spacing: 10) {
+                        Ring(fraction: s.spend.budgetSpent / s.spend.budgeted,
+                             tint: s.spend.budgetSpent > s.spend.budgeted ? Color.red : Color.accentColor)
+                            .frame(width: 34, height: 34)
+                        Text("\(Int((s.spend.budgetSpent / s.spend.budgeted * 100).rounded()))% of your budgets used")
+                            .font(.caption)
+                    }
+                }
                 HStack {
                     Text("Budgets").font(.caption).foregroundStyle(.secondary)
                     Spacer()
@@ -256,6 +324,10 @@ struct TallyWidgetView: View {
         if let p = s.pay {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Next paycheck").font(.caption2).textCase(.uppercase).foregroundStyle(.secondary)
+                if family != .systemSmall {
+                    Ring(fraction: 1 - Double(max(p.days, 0)) / Double(max(p.cycle ?? 14, 1)), tint: Color.green)
+                        .frame(width: 30, height: 30)
+                }
                 HStack {
                     Text(p.days <= 0 ? "Today" : (p.days == 1 ? "Tomorrow" : "In \(p.days) days")).font(.caption)
                     Spacer()
@@ -277,9 +349,14 @@ struct TallyWidgetView: View {
     @ViewBuilder
     func goalSection(_ s: Summary) -> some View {
         if let g = s.goal {
-            VStack(alignment: .leading, spacing: 3) {
-                HStack { Text(g.name).font(.caption); Spacer(); Text("\(g.pct)%").font(.caption) }
-                BudgetBar(spent: Double(g.pct), total: 100)
+            HStack(spacing: 10) {
+                Ring(fraction: Double(g.pct) / 100, tint: Color.accentColor)
+                    .frame(width: 34, height: 34)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(g.name).font(.caption).lineLimit(1)
+                    Text("\(g.pct)% of the way").font(.caption2).foregroundStyle(.secondary)
+                }
+                Spacer()
             }
         }
     }
