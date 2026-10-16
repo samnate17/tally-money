@@ -2770,3 +2770,46 @@ test('the whole page script compiles (a syntax error anywhere would stop the app
   assert.ok(scripts.length >= 1);
   scripts.forEach((src, i) => assert.doesNotThrow(() => new vm.Script(src, { filename: 'index.html#script' + i }), 'script ' + i + ' has a syntax error'));
 });
+
+// ---------- vehicles from car loans ----------
+function vehSyncWorld() { return new Function(srcBlock('/*VEHSYNC-START*/', '/*VEHSYNC-END*/') + '\nreturn {vehParse, vehKindOf, vehTokens, vehSame, vehValue, vehSyncPlan};')(); }
+test('vehicles: a car loan gets a linked vehicle, valued from what was paid', () => {
+  const V = vehSyncWorld(), today = new Date(2026, 9, 15);
+  const loan = { id: 'L1', type: 'auto', name: 'Civic Car Loan', balance: 9600, contract: { vehicle: '2021 Honda Civic EX', cashPrice: 24000, downPayment: 2000, amountFinanced: 22000, firstDate: '2021-06-15', condition: 'used' } };
+  const plan = V.vehSyncPlan([loan], {}, today);
+  assert.equal(plan.links.length, 0);
+  assert.equal(plan.creates.length, 1);
+  const c = plan.creates[0];
+  assert.deepEqual([c.loanId, c.name, c.kind, c.year, c.make, c.model, c.trim], ['L1', '2021 Honda Civic EX', 'car', 2021, 'Honda', 'Civic', 'EX']);
+  assert.equal(c.purchasePrice, 24000);
+  assert.equal(c.purchaseDate, '2021-05-15');
+  assert.equal(c.source, 'Purchase price');
+  assert.ok(c.value > 8000 && c.value < 16000, 'about 5 years of ~12% a year: ' + c.value);
+});
+test('vehicles: with no contract the value falls back to what is owed, and the name loses "loan"', () => {
+  const V = vehSyncWorld(), plan = V.vehSyncPlan([{ id: 'L2', type: 'auto', name: 'Tacoma auto loan', balance: 15000 }], {}, new Date(2026, 9, 15));
+  assert.equal(plan.creates[0].name, 'Tacoma');
+  assert.equal(plan.creates[0].value, 15000);
+  assert.equal(plan.creates[0].source, 'My estimate');
+});
+test('vehicles: nothing is added twice, ignored loans and closed loans are left alone, and a matching manual vehicle is linked instead', () => {
+  const V = vehSyncWorld(), today = new Date(2026, 9, 15);
+  const loan = { id: 'L1', type: 'auto', name: 'Civic Car Loan', balance: 9000, contract: { vehicle: '2021 Honda Civic EX', amountFinanced: 20000, firstDate: '2021-06-15' } };
+  const linkedAsset = { id: 'A1', type: 'property', name: 'My car', asset: { kind: 'car', loanId: 'L1' } };
+  assert.deepEqual(V.vehSyncPlan([loan, linkedAsset], {}, today), { links: [], creates: [] }, 'already linked');
+  assert.deepEqual(V.vehSyncPlan([loan], { L1: 1 }, today), { links: [], creates: [] }, 'ignored after the person removed it');
+  assert.deepEqual(V.vehSyncPlan([Object.assign({}, loan, { closed: true })], {}, today), { links: [], creates: [] }, 'paid-off loans are not added');
+  const manual = { id: 'A2', type: 'property', name: 'Honda Civic', asset: { kind: 'car', year: 2021, make: 'Honda', model: 'Civic' } };
+  const p = V.vehSyncPlan([loan, manual], {}, today);
+  assert.deepEqual(p.links, [{ assetId: 'A2', loanId: 'L1' }]);
+  assert.equal(p.creates.length, 0, 'linked, not duplicated');
+  const other = { id: 'A3', type: 'property', name: 'Ford F-150', asset: { kind: 'car', year: 2018, make: 'Ford', model: 'F-150' } };
+  assert.equal(V.vehSyncPlan([loan, other], {}, today).creates.length, 1, 'an unrelated vehicle does not block it');
+  assert.equal(V.vehSyncPlan([loan, manual, Object.assign({}, manual, { id: 'A4' })], {}, today).creates.length, 0, 'two possible matches: leave it to the person');
+});
+test('vehicles: kind from the description', () => {
+  const V = vehSyncWorld();
+  assert.equal(V.vehKindOf('2019 Harley Davidson Sportster'), 'motorcycle');
+  assert.equal(V.vehKindOf('Bayliner boat'), 'boat');
+  assert.equal(V.vehKindOf('2020 Toyota Tacoma'), 'car');
+});

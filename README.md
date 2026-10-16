@@ -618,3 +618,7 @@ On the Transactions tab, **Friends and family** lists payments that look like th
 ## Energy: one page per type
 
 The Energy tab is laid out like Loans: a row at the top with **Overview, Electricity, Propane, Heating oil, Natural gas and Wood** (with how many records each has). The Overview shows the totals, a card for each type, the weather and the savings advice. Each type has its own page: Electricity has the usage import, its own tiles (12-month cost, kWh, price per kWh) and the weather comparison; each fuel has its deliveries or bills, add and import forms, cost, use and price charts, and the tips that mention it. Switching type closes any half-filled form.
+
+## Vehicles from car loans
+
+Every open car loan now gets a matching vehicle under **Assets**, linked to the loan, so you never enter it twice. The name, year, make and model come from the loan contract (or the loan's name); the value is estimated from what was paid (a new vehicle drops about a fifth in its first year, then about 12% a year) or, with no contract, starts at what you still owe. Those vehicles are marked "From your car loan" until you give them a real value. If you already added the vehicle by hand, it is linked to the loan instead of duplicated; if two of your vehicles could match, nothing is guessed. Delete the vehicle, or unlink it, and it is not added again for that loan. Paid-off loans do not add a vehicle. Motorcycles, boats, RVs and ATVs are recognised from the description.
