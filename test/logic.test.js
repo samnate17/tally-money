@@ -3162,12 +3162,12 @@ test('tabs: every page lives in exactly one tab, and each tab opens on the page 
   H.pages.forEach((p) => assert.ok(seen[p[0]], 'page ' + p[0] + ' is in no tab'));
   assert.deepEqual(Object.keys(seen).sort(), H.pages.map((p) => p[0]).sort(), 'no tab lists a page that does not exist');
   assert.deepEqual(H.tabs.map((t) => t[0]), H.HUBS.map((h) => h[0]), 'the sidebar shows the tabs, in the same order');
-  assert.ok(H.tabs.length <= 10);
+  assert.ok(H.tabs.length <= 11);
 });
 test('tabs: old links still work: any page or alias maps to its tab', () => {
   const H = hubWorld();
   assert.equal(H.hubOf('tax'), 'pay'); assert.equal(H.hubOf('dash'), 'overview'); assert.equal(H.hubOf('cards'), 'loans'); assert.equal(H.hubOf('credit'), 'loans');
-  assert.equal(H.hubOf('subscriptions'), 'bills'); assert.equal(H.hubOf('energy'), 'bills'); assert.equal(H.hubOf('afford'), 'budgets'); assert.equal(H.hubOf('invest'), 'accounts');
+  assert.equal(H.hubOf('subscriptions'), 'bills'); assert.equal(H.hubOf('energy'), 'bills'); assert.equal(H.hubOf('afford'), 'budgets'); assert.equal(H.hubOf('invest'), 'invest'); assert.equal(H.hubOf('assets'), 'accounts');
   assert.equal(H.hubOf('carloan'), 'loans'); assert.equal(H.hubOf('student'), 'loans'); assert.equal(H.hubPageOf('student'), 'loans'); assert.equal(H.hubOf('cashback'), 'loans');
   assert.equal(H.hubOf('look'), 'look'); assert.equal(H.hubOf('nonsense'), 'nonsense');
   assert.deepEqual(H.hubPages('budgets'), ['budgets', 'report', 'goals', 'afford']); assert.deepEqual(H.hubPages('assist'), ['assist']);

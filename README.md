@@ -684,3 +684,7 @@ On most pages (Overview, Dashboard, Accounts, Assets, Investments, Budgets, Mont
 ## Debts follow your transactions
 
 Payments to a student loan, car loan, other loan or credit card (found by the lender's name, or by choosing **Pays toward** when you edit a transaction) lower that balance by themselves, and transactions linked to a checking or savings account move its balance. Each account remembers the balance you last gave it and its date, and shows that balance plus the transactions after it, so deleting, editing or re-importing never double counts, and entering a new balance starts again from it. Bank-linked accounts and the cash wallet are not touched, and a mortgage is off until you turn it on (its payment includes escrow). The **Debt payments** window on Debts shows what has been paid, the interest and principal parts, and how the latest payment was split between loans: minimums first, the rest to the highest rate, with interest estimated as one month of the rate. You can change a split to match your statement. Draw it as bars, a donut or a list with Customize.
+
+## Investments tab and card
+
+Investments is a tab of its own in the sidebar. The Investments card on the Overview shows your value, return and today's change, a 90-day graph of the value and a bar of how it is split between holdings.
