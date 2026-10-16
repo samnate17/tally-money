@@ -418,6 +418,17 @@ body.reordering,body.reordering *{cursor:grabbing!important}
 .updact{display:flex;flex-direction:column;gap:6px;min-width:96px}.updact .btn{width:100%}
 .updlist{margin:4px 0 4px;padding-left:18px;font-size:13px;color:var(--muted)}
 @media (max-width:560px){.updtask{flex-direction:column}.updact{flex-direction:row;flex-wrap:wrap;min-width:0}.updact .btn{width:auto}}
+.ovstatus{display:inline-flex;gap:6px;align-items:center;margin-left:8px}
+.livedot{width:9px;height:9px;border-radius:50%;background:var(--muted);display:inline-block}.livedot.on{background:var(--good);animation:livepulse 1.6s ease-in-out infinite}
+@keyframes livepulse{0%,100%{box-shadow:0 0 0 0 rgba(22,163,74,.55)}50%{box-shadow:0 0 0 6px rgba(22,163,74,0)}}
+.ovhero{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-end;margin:4px 0 10px}.ovbig{font-size:34px;font-weight:700;line-height:1.1}.ovchg{text-align:right}
+.ovrow{display:grid;grid-template-columns:minmax(86px,1.1fr) 84px minmax(80px,2fr) 70px 90px;gap:8px;align-items:center;padding:7px 0;border-top:1px solid var(--line)}
+.ovsym{display:flex;flex-direction:column}.ovprice,.ovpct{text-align:right;font-weight:600}.ovspark{display:flex;justify-content:flex-end}
+.dvbar{position:relative;height:10px;border-radius:99px;background:var(--surface2,rgba(127,127,127,.15))}.dvbar::before{content:"";position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:var(--line)}
+.dvbar i{position:absolute;top:0;bottom:0;border-radius:99px;transition:width .6s ease}.dvbar i.up{background:var(--good)}.dvbar i.down{background:var(--bad)}
+.tickup{animation:tickup 1.4s ease-out}.tickdown{animation:tickdown 1.4s ease-out}
+@keyframes tickup{0%{background:rgba(22,163,74,.35)}100%{background:transparent}}@keyframes tickdown{0%{background:rgba(220,38,38,.3)}100%{background:transparent}}
+@media (max-width:620px){.ovrow{grid-template-columns:1fr auto auto}.ovrow .dvbar,.ovrow .ovspark{display:none}}
 .helppop h3{margin:0 0 6px;font-size:17px}.helppop p{margin:0 0 8px;font-size:14px;line-height:1.45}.helppop ol{margin:0 0 8px;padding-left:20px;font-size:14px;line-height:1.5}.helppop li{margin:3px 0}
 .helppop .tipline{font-size:13px;color:var(--muted);background:var(--accent-soft,rgba(59,76,240,.12));padding:8px 10px;border-radius:10px;margin:0 0 10px}
 .walkwrap{position:fixed;inset:0;z-index:70;background:rgba(10,12,20,.5);display:flex;align-items:center;justify-content:center;padding:12px;backdrop-filter:blur(3px)}
@@ -1379,9 +1390,79 @@ function vOverview(){
    tile('Subscriptions',money0(subTotal)+'<span class="muted" style="font-size:14px">/mo</span>',activeSubs().length+' active · '+money0(subTotal*12)+'/yr')+billsTile()+'</div>';
   var upH=up.length?up.map(function(o){var n=dayDiff(TODAY,o.d);return '<div class="row">'+logo(o.s.name)+'<div class="grow"><div class="nm">'+esc(o.s.name)+'</div><div class="sub">'+(n===0?'Today':n===1?'Tomorrow':'In '+n+' days')+' · '+shortDate(iso(o.d))+'</div></div><div class="amt num">'+money(o.s.amount)+'</div></div>'}).join(''):'<div class="empty">Nothing due in the next 14 days.</div>';
   return '<div class="top"><h1>Overview</h1>'+monthNav()+'</div>'+lookOffer()+homeScreen(sp,inc,nw)+'<h2 class="sechead">'+monthLabel(month)+' in detail</h2>'+tiles+
-   '<div class="grid two"><section class="panel"><h2>Where it went</h2>'+donut(sp.by,sp.total)+'</section><section class="panel"><h2>Last six months</h2>'+trend()+'</section></div>'+
+   stocksPanel()+'<div class="grid two"><section class="panel"><h2>Where it went</h2>'+donut(sp.by,sp.total)+'</section><section class="panel"><h2>Last six months</h2>'+trend()+'</section></div>'+
    '<div class="grid two"><section class="panel"><h2>Budgets<small>most used first</small></h2>'+budgetRows(5,month)+'</section><section class="panel"><h2>Bills coming up<small>next 14 days</small></h2>'+upH+'</section></div>'+waffleOverview(sp,inc)+historyPanel();
 }
+/*OVSTOCK-START*/
+// Is the US stock market open? Weekdays 9:30am to 4pm New York time (holidays are not known, so on those days prices just stay the same).
+function marketOpen(d){
+  try{
+    var parts=new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',weekday:'short',hour:'numeric',minute:'numeric',hour12:false}).formatToParts(d||new Date()),o={};
+    parts.forEach(function(p){o[p.type]=p.value});
+    if(o.weekday==='Sat'||o.weekday==='Sun')return false;
+    var mins=(+o.hour%24)*60+(+o.minute);return mins>=570&&mins<960;
+  }catch(e){return false}
+}
+// How long a quote may be before the Overview asks for fresh ones: a minute while the market is open, a quarter of an hour otherwise.
+function ovQuoteTtl(d){return marketOpen(d)?60*1000:15*60*1000}
+function ovQuotesStale(holdings,Qs,now,d){
+  var ttl=ovQuoteTtl(d);
+  return holdings.some(function(h){var q=Qs[h.symbol];return !q||!q.fetched||now-q.fetched>ttl});
+}
+// Rows for the stock panel: biggest gainers first; bar widths are shared so the biggest mover of the day fills half the track.
+function ovStockRows(holdings,quotes,stat){
+  var rows=holdings.map(function(h){var q=quotes[h.symbol],st=stat(h,q);return {h:h,q:q,st:st}});
+  rows.sort(function(a,b){var x=a.st.dayPct,y=b.st.dayPct;if(x===null&&y===null)return a.h.symbol<b.h.symbol?-1:1;if(x===null)return 1;if(y===null)return -1;return y-x});
+  var mx=0;rows.forEach(function(r){if(r.st.dayPct!==null)mx=Math.max(mx,Math.abs(r.st.dayPct))});
+  rows.forEach(function(r){r.bar=r.st.dayPct===null||mx<=0?0:Math.round(Math.abs(r.st.dayPct)/mx*100)/100*50});
+  return rows;
+}
+/*OVSTOCK-END*/
+var OVS={range:90,prices:{},timer:0};
+function ovAgo(ms){var m=Math.round((Date.now()-ms)/60000);return m<1?'just now':m<60?m+' min ago':Math.round(m/60)+' h ago'}
+function ovStatus(qs){
+  var ex=S.holdings.some(function(h){return qs[h.symbol]&&qs[h.symbol].example}),last=0;
+  S.holdings.forEach(function(h){var q=qs[h.symbol];if(q&&q.fetched&&q.fetched>last)last=q.fetched});
+  var open=marketOpen(),live=!!(T&&T.quotes)&&open&&last&&Date.now()-last<3*60*1000;
+  if(ex)return '<span class="pill mute">Example prices</span>';
+  if(invBusy)return '<span class="livedot"></span><span class="sub">Updating…</span>';
+  if(live)return '<span class="livedot on"></span><span class="sub"><b>Live</b> · updated '+ovAgo(last)+'</span>';
+  if(!last)return '<span class="sub">'+(T&&T.quotes?'Prices not loaded yet':'Prices load in the desktop app')+'</span>';
+  return '<span class="sub">'+(open?'Updated ':'Market closed · updated ')+ovAgo(last)+'</span>';
+}
+function ovLive(qs){
+  var ps=portfolioStats(S.holdings,qs),rows=ovStockRows(S.holdings,qs,holdingStats);
+  if(!ps.priced)return '<div class="empty" style="white-space:normal">'+(T&&T.quotes?'Loading prices for your stocks…':'Prices for your stocks load in the desktop app.')+'</div>';
+  var up=ps.dayChg>=0,cls=up?'good':'bad',arrow=up?'▲':'▼';
+  var hero='<div class="ovhero"><div><div class="sub">Value of your stocks</div><div class="num ovbig">'+money0(ps.value)+'</div></div><div class="ovchg"><span class="pill '+cls+'">'+arrow+' '+(ps.dayChg<0?'-':'+')+money0(Math.abs(ps.dayChg))+(ps.dayPct!==null?' ('+pctTxt(ps.dayPct,2)+')':'')+' today</span><div class="sub">'+(ps.gain>=0?'Up ':'Down ')+money0(Math.abs(ps.gain))+(ps.gainPct!==null?' ('+pctTxt(ps.gainPct,1)+')':'')+' since you bought</div></div></div>';
+  var list=rows.map(function(r){
+    var st=r.st,sym=r.h.symbol,prev=OVS.prices[sym],flash=prev&&st.price!==null&&prev!==st.price?(st.price>prev?' tickup':' tickdown'):'';
+    if(st.price!==null)OVS.prices[sym]=st.price;
+    var dp=st.dayPct,c=dp===null?'':dp>=0?'good':'bad',bar=dp===null?'':'<span class="dvbar" aria-hidden="true"><i class="'+(dp>=0?'up':'down')+'" style="width:'+r.bar+'%;'+(dp>=0?'left:50%':'right:50%')+'"></i></span>';
+    return '<div class="ovrow"><div class="ovsym"><b>'+esc(sym)+'</b><span class="sub">'+(st.value!==null?money0(st.value):'no price')+'</span></div><div class="ovprice num'+flash+'">'+(st.price!==null?money(st.price):'—')+'</div>'+bar+'<div class="ovpct num '+c+'">'+(dp===null?'—':pctTxt(dp,2))+'</div><div class="ovspark">'+(r.q&&r.q.closes?spark(r.q.closes,dp>=0):'')+'</div></div>';
+  }).join('');
+  return hero+'<div class="ovrows" role="list" aria-label="How each stock is doing today">'+list+'</div>';
+}
+function stocksPanel(){
+  if(!S.holdings.length)return '';
+  var qs=quotesFor(),ser=portfolioSeries(S.holdings,qs,OVS.range);
+  var chips=[[30,'1M'],[90,'3M'],[365,'1Y']].map(function(r){return '<button class="btn small'+(OVS.range===r[0]?' primary':'')+'" data-act="ov-range" data-d="'+r[0]+'" aria-pressed="'+(OVS.range===r[0])+'">'+r[1]+'</button>'}).join('');
+  return '<section class="panel stockpanel" id="ovstocks"><h2>Your stocks<small id="ov-status" class="ovstatus">'+ovStatus(qs)+'</small></h2><div id="ov-live">'+ovLive(qs)+'</div>'+
+    '<div class="actions" style="justify-content:space-between;margin-top:10px;flex-wrap:wrap"><div class="actions" style="gap:6px">'+chips+'</div>'+(T&&T.quotes?'<button class="btn small" data-act="ov-refresh">Refresh now</button>':'')+'</div>'+
+    '<div id="ov-chart">'+(ser.length>1?lineChart(ser,{money:true,h:150,label:'Value of your stocks over time'}):'')+'</div>'+
+    '<p class="sub muted" style="margin:6px 0 0;font-size:12px;white-space:normal">Prices refresh about every minute while the market is open (9:30 to 4 New York time) and are delayed by the data provider. The chart uses the shares you hold today, so it shows how your current stocks did, not your past balance.</p></section>';
+}
+// Redraws just the numbers (not the whole page) when new prices arrive.
+function ovStocksUpdate(){
+  if(view!=='overview')return;
+  var a=$('#ov-live'),b=$('#ov-status');if(!a||!b)return;
+  var qs=quotesFor();a.innerHTML=ovLive(qs);b.innerHTML=ovStatus(qs);
+}
+function ovPoll(){
+  if(view!=='overview'||document.hidden||(typeof VLT!=='undefined'&&VLT.locked)||!(T&&T.quotes)||!S.holdings.length||invBusy||S.sample)return;
+  if(ovQuotesStale(S.holdings,Q,Date.now()))invRefresh(true);else ovStocksUpdate();
+}
+setInterval(ovPoll,30*1000);
 // If you earned $100 this month, where did it go? One square per dollar.
 function waffleOverview(sp,inc){
   if(!(inc>0)&&!(sp.total>0))return '';
@@ -8406,7 +8487,7 @@ function invRefresh(quiet){
     var bad=[];
     Object.keys(r).forEach(function(k){if(r[k]&&!r[k].error){r[k].fetched=Date.now();Q[k]=r[k]}else{bad.push(k+': '+(r[k]&&r[k].error||'no data'));if(Q[k]&&Q[k].error)Q[k]={error:r[k].error}; else if(!Q[k])Q[k]={error:r[k]&&r[k].error||'no data'}}});
     saveQ();invMsg=bad.length?'Some prices could not be loaded. '+bad.join(' | '):'';
-  }).catch(function(e){invMsg='Could not load prices: '+e.message}).then(function(){invBusy=false;if(view==='invest')render()});
+  }).catch(function(e){invMsg='Could not load prices: '+e.message}).then(function(){invBusy=false;if(view==='invest')render();else ovStocksUpdate()});
 }
 
 /* ---------- Monthly report ---------- */
@@ -8791,6 +8872,7 @@ function bindView(){
     }else{h.activity.push({id:uid(),date:date,type:'buy',shares:sh,amount:amt});h.shares+=sh;h.invested+=amt;toast('Purchase recorded.')}
     invTrade=null;save();render()}});
   m.querySelectorAll('.holdform').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();var h=S.holdings.filter(function(x){return x.id===fm.dataset.id})[0],ins=fm.querySelectorAll('input'),sh=parseFloat(ins[0].value),iv=parseFloat(ins[1].value);if(!h||!(sh>0)||!(iv>=0))return;h.shares=sh;h.invested=iv;var tsel=fm.querySelector('select');if(tsel){if(tsel.value===(TOPIC_SYMS[h.symbol]===undefined?'Other':TOPICS[TOPIC_SYMS[h.symbol]]))delete h.topic;else h.topic=tsel.value}invEdit='';save();render()}});
+  if(view==='overview'&&T&&T.quotes&&!S.sample&&S.holdings.length&&!invBusy&&ovQuotesStale(S.holdings,Q,Date.now()))invRefresh(true);
   if(view==='invest'&&T&&!invAuto&&S.holdings.length&&!invBusy){invAuto=true;var stale=S.holdings.some(function(h){var q=Q[h.symbol];return !q||!q.fetched||Date.now()-q.fetched>15*60*1000});if(stale)invRefresh(true)}
   var cf=$('#catform',m);
   if(cf)cf.onsubmit=function(e){e.preventDefault();
@@ -9080,6 +9162,8 @@ document.addEventListener('click',function(e){
   else if(a==='wg-vis'){widgetSet('visible',!(WS&&WS.visible));return}
   else if(a==='wg-top'){widgetSet('onTop',b.checked);return}
   else if(a==='wg-hide'){widgetSet('hideAmounts',b.checked);return}
+  else if(a==='ov-range'){OVS.range=+b.dataset.d||90;var oc=$('#ov-chart');if(oc){var os=portfolioSeries(S.holdings,quotesFor(),OVS.range);oc.innerHTML=os.length>1?lineChart(os,{money:true,h:150,label:'Value of your stocks over time'}):'';document.querySelectorAll('[data-act=ov-range]').forEach(function(x){var on=+x.dataset.d===OVS.range;x.classList.toggle('primary',on);x.setAttribute('aria-pressed',on)})}return}
+  else if(a==='ov-refresh'){invRefresh(true);ovStocksUpdate();return}
   else if(a==='wg-auth'){widgetSet('requireAuth',b.checked);return}
   else if(a==='acct-out'){signOut();return}
   else if(a==='acct-pw'){acctMode='pw';acctMsg=''}

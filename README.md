@@ -648,3 +648,7 @@ On a Mac with Touch ID, Settings → Desktop widget has **Touch ID to show amoun
 ## Money you borrowed from friends
 
 Besides loans you made, you can record money a friend lent you. On a deposit in My pay → deposits to review, choose **They lent me (not income, I owe it)**, or pick it from Friends and family when editing a transaction, and add who it was from. It stays out of your income, and your **I paid them (settling what I owed)** payments count it down. Transactions → Friends and family shows **You owe** per person.
+
+## Your stocks on the Overview
+
+If you have holdings, the Overview shows a **Your stocks** panel: the value of your stocks, today's change in dollars and percent, the gain since you bought, one row per stock (price, today's % with a green or red bar from a shared centre line, and a 90-day sparkline, biggest gainers first), and a 1M / 3M / 1Y chart. In the desktop app it refreshes prices about every minute while the US market is open (9:30 to 4 New York time) and every 15 minutes otherwise, only while the Overview is open; a green pulsing dot means live, and a price flashes green or red when it moves. Prices come from the same free source as the Investments tab, so they can be delayed.

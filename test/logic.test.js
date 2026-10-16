@@ -3010,3 +3010,38 @@ test('friends: "They lent me" is not income and what you owe goes down as you pa
   const paid = F.friendSummary(tx.concat([{ id: 'd', date: '2026-10-07', name: 'Venmo', amount: -150, friend: { k: 'paidback', who: 'Test Friend' } }]), 2026, '2026-10');
   assert.deepEqual(paid.owe.map((o) => o.who), ['Other Friend'], 'fully paid back drops off the list');
 });
+// ---- Overview stocks panel ----
+function ovWorld() { return new Function(srcBlock('/*OVSTOCK-START*/', '/*OVSTOCK-END*/') + '\nreturn {marketOpen, ovQuoteTtl, ovQuotesStale, ovStockRows};')(); }
+test('overview stocks: the market is open weekdays 9:30 to 4 New York time', () => {
+  const O = ovWorld();
+  // 2026-10-14 is a Wednesday; 14:00 UTC is 10:00 in New York (daylight time)
+  assert.equal(O.marketOpen(new Date('2026-10-14T14:00:00Z')), true);
+  assert.equal(O.marketOpen(new Date('2026-10-14T13:29:00Z')), false, '9:29');
+  assert.equal(O.marketOpen(new Date('2026-10-14T13:30:00Z')), true, '9:30');
+  assert.equal(O.marketOpen(new Date('2026-10-14T19:59:00Z')), true, '3:59');
+  assert.equal(O.marketOpen(new Date('2026-10-14T20:00:00Z')), false, '4:00');
+  assert.equal(O.marketOpen(new Date('2026-10-17T15:00:00Z')), false, 'Saturday');
+  assert.equal(O.marketOpen(new Date('2026-10-18T15:00:00Z')), false, 'Sunday');
+  assert.equal(O.marketOpen(new Date('2026-12-15T15:00:00Z')), true, 'winter time: 10:00 in New York');
+  assert.equal(O.ovQuoteTtl(new Date('2026-10-14T14:00:00Z')), 60000);
+  assert.equal(O.ovQuoteTtl(new Date('2026-10-17T15:00:00Z')), 900000);
+});
+test('overview stocks: quotes are stale after a minute when the market is open and after 15 minutes when closed', () => {
+  const O = ovWorld(), hs = [{ symbol: 'AAA' }, { symbol: 'BBB' }], open = new Date('2026-10-14T14:00:00Z'), closed = new Date('2026-10-17T15:00:00Z'), now = Date.now();
+  assert.equal(O.ovQuotesStale(hs, {}, now, open), true, 'nothing loaded yet');
+  const fresh = { AAA: { fetched: now - 30000 }, BBB: { fetched: now - 30000 } };
+  assert.equal(O.ovQuotesStale(hs, fresh, now, open), false);
+  assert.equal(O.ovQuotesStale(hs, { AAA: { fetched: now - 120000 }, BBB: { fetched: now } }, now, open), true);
+  assert.equal(O.ovQuotesStale(hs, { AAA: { fetched: now - 120000 }, BBB: { fetched: now } }, now, closed), false);
+});
+test('overview stocks: rows are ordered gainers first and bars scale to the biggest mover', () => {
+  const O = ovWorld();
+  const hs = [{ symbol: 'LOW' }, { symbol: 'NOP' }, { symbol: 'TOP' }, { symbol: 'MID' }];
+  const pct = { LOW: -4, NOP: null, TOP: 2, MID: 1 };
+  const rows = O.ovStockRows(hs, {}, (h) => ({ dayPct: pct[h.symbol] }));
+  assert.deepEqual(rows.map((r) => r.h.symbol), ['TOP', 'MID', 'LOW', 'NOP']);
+  assert.equal(rows[2].bar, 50, 'the biggest mover fills half the track');
+  assert.equal(rows[0].bar, 25);
+  assert.equal(rows[3].bar, 0);
+  assert.deepEqual(O.ovStockRows([], {}, () => ({ dayPct: 0 })), []);
+});
