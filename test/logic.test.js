@@ -2762,3 +2762,11 @@ test('friends: clean tag, and payments to people are suggested (untagged, recent
   assert.deepEqual(F.friendCandidates(tx, today).map((x) => x.id), ['1']);
   assert.deepEqual(F.friendCandidates(tx, today, { days: 400 }).map((x) => x.id), ['1', '6']);
 });
+
+test('the whole page script compiles (a syntax error anywhere would stop the app from loading)', () => {
+  const vm = require('node:vm');
+  const html = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'index.html'), 'utf8');
+  const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
+  assert.ok(scripts.length >= 1);
+  scripts.forEach((src, i) => assert.doesNotThrow(() => new vm.Script(src, { filename: 'index.html#script' + i }), 'script ' + i + ' has a syntax error'));
+});

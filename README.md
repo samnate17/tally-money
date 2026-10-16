@@ -614,3 +614,7 @@ In My pay → Other income, **Already in your accounts?** lists deposits that cu
 ## Payments to friends and family
 
 On the Transactions tab, **Friends and family** lists payments that look like they went to a person (Venmo, Zelle, Cash App, PayPal) and lets you say what each was: a split bill or paying someone back, a gift, a **loan** (money you expect back) or other, with who it went to. Any transaction can also be tagged from **Edit**. Splits, gifts and other payments count as spending as before, with a summary by kind and person. A loan is kept out of your spending until the person pays you back; tag the money coming back as **They paid me back (not income)** (in My pay → Other income, or Edit) and the panel shows who still owes you what. Untag removes the tag and it counts as usual again.
+
+## Energy: one page per type
+
+The Energy tab is laid out like Loans: a row at the top with **Overview, Electricity, Propane, Heating oil, Natural gas and Wood** (with how many records each has). The Overview shows the totals, a card for each type, the weather and the savings advice. Each type has its own page: Electricity has the usage import, its own tiles (12-month cost, kWh, price per kWh) and the weather comparison; each fuel has its deliveries or bills, add and import forms, cost, use and price charts, and the tips that mention it. Switching type closes any half-filled form.

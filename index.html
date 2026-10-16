@@ -4675,7 +4675,7 @@ var HELP={
   assets:{t:'Assets',what:'Your vehicles and other valuable things: what they are worth, how fast they lose value, upkeep and modifications.',how:['Add the asset on Accounts, or open it here.','Keep its value current, or use the value lookup if you have set up AI.','Add maintenance so Upkeep coming up shows what to budget for.','Add modifications you installed; they add value.','Link a car loan to its vehicle.'],tip:'Upkeep that is due also shows up on the Bills tab.'},
   subscriptions:{t:'Subscriptions',what:'Your recurring charges (streaming, apps, memberships) and what they cost you a year.',how:['Add a subscription by hand, or press Track on one the app spotted in your transactions.','Press Cancelled it when you cancel one, and Restore if you change your mind.','Look at the yearly total to decide what is worth keeping.'],tip:'Import a few months of transactions so the app can spot the recurring ones for you.'},
   bills:{t:'Bills',what:'What is due this month, what you have paid and what is still pending.',how:['A bill turns Paid when a matching payment shows up in your transactions, or when you press Mark paid.','Press Edit to change the amount or due day, enter what you have paid so far (the rest shows as left), or skip a month you are not expecting.','Turn on Autopay for bills that come out by themselves.','Press Add a bill for anything missing. Car loans, student loans and cards appear on their own.','Add a pay link to open your lender\'s payment page.'],tip:'Use the arrows to look ahead a few months.'},
-  energy:{t:'Energy',what:'What electricity, gas and heating fuel cost you, by month, with weather and delivery history.',how:['Press Add a delivery for propane or heating oil (gallons and price per gallon), or Add a bill for gas or electric.','Import your utility\'s usage file, or press Add a month by hand.','Read What energy costs you to compare months.','Load the weather for your area to see how cold months drive your use.','The estimate for your next fuel delivery shows on Bills until you record it.'],tip:'If you have set up your Anthropic key, you can add a fuel invoice (PDF) and the app reads the gallons and price for you.'},
+  energy:{t:'Energy',what:'What electricity, gas and heating fuel cost you, by month, with weather and delivery history.',how:['Pick a type of energy in the row at the top: Electricity, Propane, Heating oil, Natural gas or Wood. Each has its own page.','On a fuel page press Add a delivery (gallons and price) or Add a bill. On Electricity import your utility\'s usage file, or press Add a month by hand.','The Overview adds them all up in What energy costs you.','Load the weather for your area to see how cold months drive your use.','The estimate for your next fuel delivery shows on Bills until you record it.'],tip:'If you have set up your Anthropic key, you can add a fuel invoice (PDF) and the app reads the gallons and price for you.'},
   budgets:{t:'Budgets',what:'A monthly limit for each spending category, and how close you are to it.',how:['Set an amount for a category.','Click a category to see its past months, top merchants and a forecast.','Add auto-sort keywords so matching transactions land in the right category, including on the built-in ones.','Use the suggestion buttons to adopt a budget based on your history.'],tip:'Create your own categories when the built-in ones do not fit.'},
   report:{t:'Monthly report',what:'A plain look back at a month: income, where it went, top merchants, biggest purchases and how you could save.',how:['Use the month arrows to choose a month.','Read Where your income came from and Where it went.','Look at How you can save and the 50/30/20 check for ideas.'],tip:'Look at it at the end of each month and set next month\'s budgets from it.'},
   afford:{t:'Can I afford it?',what:'Tell the app what you want to buy and it checks it against your money and shows a plan to get there.',how:['Enter what it is and what it costs.','Choose how soon you want it with the time buttons.','Read whether it fits now, and what to cut or earn to afford it.','Tick or untick the suggested cuts to see how the plan changes.'],tip:'It uses your real income, bills and goals, so keep those up to date.'},
@@ -4755,9 +4755,8 @@ var TOURS={
   {f:['btn','Add a bill'],t:'Add a bill',x:'Add anything that is missing. Loans and cards appear on their own.'}],
  energy:[
   {f:['tiles'],t:'The numbers',x:'What energy cost you over 12 months, per month, and when your next fill is due.'},
+  {f:['h2','Your energy types'],t:'One page for each type',x:'Electricity, propane, heating oil, natural gas and wood each have their own page. Press a card, or a name in the row at the top, to open it and add its bills or deliveries.'},
   {f:['h2','Weather'],t:'Weather',x:'Load your area\'s weather to see how cold months drive your use.',opt:true},
-  {f:['h2','Electricity'],t:'Electricity',x:'Import your utility\'s usage file, or add a month by hand.'},
-  {f:['h2','Heating fuel'],t:'Heating fuel',x:'Add propane, oil, gas or wood deliveries. Two or more deliveries are enough to work out how much you use between fills.'},
   {f:['h2','How to save'],t:'How to save',x:'Advice from your own numbers.',opt:true}],
  budgets:[
   {f:['tiles'],t:'Your budgets',x:'Each tile is a category with its limit and how much you have used.'},
@@ -6709,6 +6708,7 @@ function asAiRun(id,web){
   tcall((web?T.ai.assetWeb:T.ai.assetValue)({kind:a.asset.kind,year:a.asset.year||'',make:a.asset.make||'',model:a.asset.model||'',trim:a.asset.trim||'',mileage:a.asset.meter||'',condition:'',today:iso(TODAY)})).then(function(r){asUI.busy='';asUI.ai={id:id,res:r};render()}).catch(function(e){asUI.busy='';asUI.msg=(e&&e.message)||'Could not get an estimate.';asUI.msgId=id;render()});
 }
 // ---------- Energy tab: electricity, heating fuel, weather and savings ----------
+var enTab='all';
 var enUI={fuel:'propane',adding:false,imp:null,msg:'',busy:'',pasteOpen:false,txOpen:false,place:'',places:null,wmsg:'',wbusy:false,wtried:false,advice:null,adviceBusy:false,adviceMsg:''};
 var FUEL_COL={electric:'var(--accent)',propane:'var(--c6)',oil:'var(--c4)',gas:'var(--c2)',wood:'var(--c8)'};
 var FUEL_TX={propane:/propane|amerigas|ferrellgas|suburban propane|star gas|blue rhino|heritage propane/i,oil:/heating oil|fuel oil|oil delivery|kerosene|irving oil|crowley|petro|bottini|sun oil/i,gas:/national grid|eversource gas|nstar gas|columbia gas|natural gas|piedmont|atmos|spire|southwest gas|dominion energy|peoples gas|nicor|con ?ed gas|gas co\b/i,wood:/firewood|cord of wood|wood delivery|pellet/i};
@@ -6822,8 +6822,7 @@ function enElecPanel(c){
   return h+'</section>';
 }
 function enFuelPanel(c){
-  var f=enUI.fuel,F=FUELS[f],rec=c.fuels.filter(function(x){return x.fuel===f})[0],h='<section class="panel" id="enfuel"><h2>Heating fuel<small>propane, oil, natural gas and wood</small></h2>';
-  h+='<div class="actions" style="justify-content:flex-start;flex-wrap:wrap;margin:0 0 10px">'+Object.keys(FUELS).map(function(k){var n=(S.fuel||[]).filter(function(r){return r.fuel===k}).length;return '<button class="btn small'+(f===k?' primary':'')+'" data-act="en-fuel" data-f="'+k+'">'+FUELS[k].label+(n?' ('+n+')':'')+'</button>'}).join('')+'</div>';
+  var f=enUI.fuel,F=FUELS[f],rec=c.fuels.filter(function(x){return x.fuel===f})[0],h='<section class="panel" id="enfuel"><h2>'+F.label+'<small>'+(F.delivered?'deliveries, use and price':'bills, use and price')+'</small></h2>';
   var unitName=f==='gas'?'therms':F.unit==='gal'?'gallons':'cords';
   var recs=(S.fuel||[]).filter(function(r){return r.fuel===f}).slice().sort(function(a,b){return a.date<b.date?1:-1});
   if(!recs.length)h+='<p class="sub muted" style="margin:0 0 10px;font-size:13px;white-space:normal">'+(F.delivered?'Add each delivery with its date, how many '+unitName+' and what it cost. Two or more deliveries are enough to work out how much you use between fills.':'Add each bill with the date it ends, the '+unitName+' or CCF used and what it cost.')+' You can also upload your supplier\'s history, paste it in, or pull the costs from your transactions.</p>';
@@ -6883,10 +6882,46 @@ function enSavePanel(c){
   }
   return h+'</section>';
 }
+function enTabs(c){
+  var items=[['all','Overview',0,''],['electric','Electricity',c.elec?c.elec.rows.length:0,FUEL_COL.electric]].concat(Object.keys(FUELS).map(function(k){return [k,FUELS[k].label,(S.fuel||[]).filter(function(r){return r.fuel===k}).length,FUEL_COL[k]]}));
+  return '<div class="actions" style="justify-content:flex-start;margin:4px 0 14px;flex-wrap:wrap" role="tablist" aria-label="Types of energy">'+items.map(function(i){return '<button class="btn small'+(enTab===i[0]?' primary':'')+'" data-act="en-tab" data-k="'+i[0]+'" role="tab" aria-selected="'+(enTab===i[0])+'">'+(i[3]?'<i style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+i[3]+';margin-right:6px"></i>':'')+esc(i[1])+(i[2]?' ('+i[2]+')':'')+'</button>'}).join('')+'</div>';
+}
+// One card per type of energy on the Overview: what it cost over 12 months, or a prompt to add the first record.
+function enTypeCards(c){
+  var l12=function(rows){return rows.slice(-12)},cards=[];
+  var e=c.elec,eCost=e?l12(e.rows).reduce(function(a,r){return a+(r.cost||0)},0):0;
+  cards.push(['electric','Electricity',e?(eCost>0?money0(eCost):'—'):'No data yet',e?'last 12 months · '+e.rows.length+' month'+(e.rows.length===1?'':'s')+' of usage':'Import a usage file or add a month',FUEL_COL.electric]);
+  Object.keys(FUELS).forEach(function(k){
+    var f=c.fuels.filter(function(x){return x.fuel===k})[0],yr=f?annualOf(l12(f.months)):null,n=(S.fuel||[]).filter(function(r){return r.fuel===k}).length;
+    cards.push([k,FUELS[k].label,n?(yr?money0(yr.cost):'—'):'No data yet',n?'last 12 months · '+n+' '+(FUELS[k].delivered?'deliver'+(n===1?'y':'ies'):'bill'+(n===1?'':'s')):(FUELS[k].delivered?'Add a delivery':'Add a bill'),FUEL_COL[k]]);
+  });
+  return '<section class="panel"><h2>Your energy types<small>open one for its own page</small></h2><div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px">'+cards.map(function(x){
+    return '<button class="tile" data-act="en-tab" data-k="'+x[0]+'" style="text-align:left;cursor:pointer;border-top:3px solid '+x[4]+'"><div class="sub" style="font-weight:700">'+esc(x[1])+'</div><div class="num" style="font-size:24px;font-weight:700;margin:4px 0">'+x[2]+'</div><div class="sub muted" style="font-size:12px;white-space:normal">'+esc(x[3])+'</div></button>'}).join('')+'</div></section>';
+}
+function enElecTiles(c){
+  var e=c.elec;if(!e)return '';
+  var l12=e.rows.slice(-12),kwh=l12.reduce(function(a,r){return a+r.kwh},0),cost=l12.reduce(function(a,r){return a+(r.cost||0)},0),last=e.rows[e.rows.length-1];
+  return '<div class="grid tiles">'+tile('Last 12 months',cost>0?money0(cost):'n/a',Math.round(kwh).toLocaleString('en-US')+' kWh')+tile('Per month',cost>0?money0(cost/Math.max(1,l12.length)):'n/a','average over '+l12.length+' month'+(l12.length===1?'':'s'))+tile('Price per kWh',c.kwhPrice>0?'$'+c.kwhPrice.toFixed(3):'n/a','what you actually paid')+tile('Latest month',last&&last.cost?money0(last.cost):'n/a',last?monthTitle(last.month)+' · '+Math.round(last.kwh)+' kWh':'')+'</div>';
+}
+// Savings tips that mention one type of energy (the Overview shows all of them).
+function enTipsFor(c,kind){
+  var re=kind==='electric'?/electric|kwh/i:new RegExp(FUELS[kind].label.toLowerCase().replace(/ /g,'\\s'),'i');
+  var tips=(c.tips||[]).filter(function(t){return re.test(t.title||'')||re.test(t.detail||'')});
+  if(!tips.length)return '';
+  return '<section class="panel"><h2>What stands out<small>'+(kind==='electric'?'electricity':FUELS[kind].label.toLowerCase())+'</small></h2>'+tips.map(function(x){return '<div class="row wrap" style="align-items:flex-start"><span class="pill '+(x.k==='warn'?'warn':x.k==='good'?'good':'mute')+'">'+(x.k==='warn'?'Look at':x.k==='good'?'Good':'Note')+'</span><div class="grow" style="flex-basis:240px"><div class="nm" style="white-space:normal">'+esc(x.title)+'</div>'+(x.detail?'<div class="sub" style="white-space:normal">'+esc(x.detail)+'</div>':'')+'</div></div>'}).join('')+'</section>';
+}
+function enWeatherHint(c){
+  if(Object.keys(c.weather).length)return '';
+  return '<p class="sub muted" style="margin:0 0 12px;white-space:normal">Charts that compare use with the cold need your area\'s weather. <button class="btn small" data-act="en-tab" data-k="all">Set it up on the Overview</button></p>';
+}
 function vEnergy(){
   var c=energyCtx();
+  if(!(enTab==='all'||enTab==='electric'||FUELS[enTab]))enTab='all';
+  if(FUELS[enTab])enUI.fuel=enTab;
   if(T&&T.weather&&enPlace()&&!enUI.wtried){enUI.wtried=true;var w=S.weather;if(!w.fetched||w.fetched<iso(TODAY))enLoadWeather(true)}
-  var head='<div class="top"><h1>Energy</h1></div>';
+  var head='<div class="top"><h1>Energy</h1></div>'+enTabs(c);
+  if(enTab==='electric')return '<div class="en-green">'+head+enElecTiles(c)+enWeatherHint(c)+energyPanel()+enElecPanel(c)+enTipsFor(c,'electric')+'</div>';
+  if(FUELS[enTab])return '<div class="en-green">'+head+enWeatherHint(c)+enFuelPanel(c)+enTipsFor(c,enTab)+'</div>';
   var stack='';
   var all={};c.fuels.forEach(function(f){f.months.forEach(function(m){all[m.month]=1})});if(c.elec)c.elec.rows.forEach(function(r){all[r.month]=1});
   var ms=Object.keys(all).sort().slice(-14);
@@ -6896,7 +6931,7 @@ function vEnergy(){
     c.fuels.forEach(function(f){series.push({name:f.label,col:FUEL_COL[f.fuel],vals:ms.map(function(m){var r=f.months.filter(function(x){return x.month===m})[0];return r?r.cost:0})})});
     stack='<section class="panel"><h2>What energy costs you<small>by month, all fuels</small></h2>'+enStack(ms,series,{label:'Energy cost by month'})+'</section>';
   }
-  return '<div class="en-green">'+head+enHero()+enTiles(c)+stack+enWeatherPanel(c)+energyPanel()+enElecPanel(c)+enFuelPanel(c)+enSavePanel(c)+'</div>';
+  return '<div class="en-green">'+head+enHero()+enTiles(c)+enTypeCards(c)+stack+enWeatherPanel(c)+enSavePanel(c)+'</div>';
 }
 function enLoadWeather(quiet){
   var p=enPlace();if(!p||!T||!T.weather||enUI.wbusy)return;
@@ -8527,6 +8562,7 @@ document.addEventListener('click',function(e){
     else if(ba.indexOf('acct:')===0){var bq=ba.slice(5);if(S.accounts.some(function(a){return a.id===bq}))bl.forEach(function(t){if(t.acct!==bq){t.acct=bq;bn++}})}
     filter.bulk='';filter.bulkKind='';filter.bulkCat='';filter.bulkAcct='';filter.bulkOpen=false;syncXfer();toast(bn?bn+' transaction'+(bn===1?'':'s')+' changed. Undo is at the top if that was a mistake.':'Nothing needed changing.');
   }
+  else if(a==='en-tab'){enTab=(b.dataset.k==='all'||b.dataset.k==='electric'||FUELS[b.dataset.k])?b.dataset.k:'all';if(FUELS[enTab])enUI.fuel=enTab;enUI.adding=false;enUI.pasteOpen=false;enUI.txOpen=false;enUI.imp=null;enUI.msg='';energyUI.adding=false;window.scrollTo(0,0)}
   else if(a==='en-fuel'){enUI.fuel=FUELS[b.dataset.f]?b.dataset.f:'propane';enUI.adding=false;enUI.pasteOpen=false;enUI.txOpen=false;enUI.imp=null;enUI.msg=''}
   else if(a==='en-fadd'){enUI.adding=true;enUI.pasteOpen=false;enUI.txOpen=false;enUI.msg=''}
   else if(a==='en-fpaste'){enUI.pasteOpen=true;enUI.adding=false;enUI.txOpen=false;enUI.msg=''}
