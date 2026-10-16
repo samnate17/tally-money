@@ -624,3 +624,17 @@ test('widget: the sections are cleaned, ordered and saved; the page list matches
   assert.equal(s2.credit.score, 702);
   assert.equal(sanitize({}).invest, null);
 });
+
+test('widget: clear forgets the numbers so the next user does not see them', () => {
+  const fs = require('fs'), os = require('os'), path = require('path');
+  const { createWidget } = require('../widget');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'wgc-')), file = path.join(dir, 'widget.json'), nat = path.join(dir, 'native.json');
+  const w = createWidget({ BrowserWindow: function () {}, screen: {}, file, preload: '', html: '', nativeFile: nat });
+  w.update({ asOf: '2026-10-12', month: 'October 2026', daysLeft: 3, net: { net: 4321, assets: 5000, debts: 679 }, spend: {} });
+  assert.ok(fs.existsSync(nat));
+  w.clear();
+  assert.equal(w.get().summary, null);
+  assert.equal(fs.existsSync(nat), false, 'the macOS widget file is removed');
+  assert.equal(JSON.parse(fs.readFileSync(file, 'utf8')).summary, null);
+  w.clear();   // clearing twice is harmless
+});

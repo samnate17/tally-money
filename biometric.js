@@ -3,7 +3,14 @@
 // only after the system Touch ID prompt succeeds. The password itself stays the real key: Touch ID is a shortcut to it.
 const KEY = 'vaultPw';
 const KEYS = { vault: KEY, tabs: 'tabsPw' };          // the app password, and the separate password that protects hiding and showing tabs
-const keyOf = (slot) => KEYS[slot] || KEY;
+// A slot is 'vault' or 'tabs', optionally followed by ':' and a user id (each user of the app has their own Touch ID entry).
+const SLOT_RE = /^(vault|tabs)(:[a-z0-9]{1,16})?$/;
+const cleanSlot = (slot) => (typeof slot === 'string' && SLOT_RE.test(slot) ? slot : 'vault');
+const keyOf = (slot) => {
+  const s = cleanSlot(slot), at = s.indexOf(':'), base = at < 0 ? s : s.slice(0, at), who = at < 0 ? '' : s.slice(at);
+  return (KEYS[base] || KEY) + who;
+};
+const isTabs = (slot) => cleanSlot(slot).indexOf('tabs') === 0;
 
 function createBiometric({ store, systemPreferences, platform = process.platform }) {
   const available = () => {
@@ -19,7 +26,7 @@ function createBiometric({ store, systemPreferences, platform = process.platform
       if (!available()) throw new Error('Touch ID is not available on this computer.');
       const pw = String(password || '');
       if (!pw || pw.length > 500) throw new Error('Enter your password first.');
-      await prompt(slot === 'tabs' ? 'Turn on Touch ID for hiding and showing tabs' : 'Turn on Touch ID for Tally Money');
+      await prompt(isTabs(slot) ? 'Turn on Touch ID for hiding and showing tabs' : 'Turn on Touch ID for Tally Money');
       store.set(keyOf(slot), pw);
       return true;
     },
@@ -27,7 +34,7 @@ function createBiometric({ store, systemPreferences, platform = process.platform
       if (!available()) throw new Error('Touch ID is not available on this computer.');
       const pw = store.get(keyOf(slot));
       if (typeof pw !== 'string' || !pw) throw new Error('Touch ID is not turned on.');
-      await prompt(slot === 'tabs' ? 'Change which tabs are hidden' : 'Unlock Tally Money');
+      await prompt(isTabs(slot) ? 'Change which tabs are hidden' : 'Unlock Tally Money');
       return pw;
     },
     disable(slot) { try { if (store.isAvailable()) store.del(keyOf(slot)); } catch (e) { /* nothing to remove */ } return true; },
@@ -42,4 +49,4 @@ async function confirmTouchId(systemPreferences, reason) {
   try { await systemPreferences.promptTouchID(String(reason || 'Confirm it is you')); return true; } catch (e) { return false; }
 }
 
-module.exports = { createBiometric, canTouchId, confirmTouchId, KEY, KEYS };
+module.exports = { createBiometric, canTouchId, confirmTouchId, cleanSlot, keyOf, KEY, KEYS };

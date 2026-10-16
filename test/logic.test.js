@@ -3066,3 +3066,51 @@ test('widget summary: investments, paycheck, subscriptions, debts and credit are
   assert.equal(E.widgetInvest(), null); assert.equal(E.widgetPay(), null); assert.equal(E.widgetSubs(), null); assert.equal(E.widgetDebt(), null); assert.equal(E.widgetCredit(), null);
   assert.ok(!/Test Job|Secret/.test(JSON.stringify(W.widgetInvest())));
 });
+// ---- users (profiles) ----
+function profWorld() { return new Function(srcBlock('/*PROFILE-START*/', '/*PROFILE-END*/') + '\nreturn {profClean, profKey, profName, profInitial, profGreet, profNewId, profStr};')(); }
+test('users: the first user keeps the original storage names, others get "@id", shared names never change', () => {
+  const U = profWorld();
+  assert.equal(U.profKey('tally-money-v1', 'main'), 'tally-money-v1');
+  assert.equal(U.profKey('tally-money-v1', 'u1a2b'), 'tally-money-v1@u1a2b');
+  assert.equal(U.profKey('tally-vault-v1', 'u1a2b'), 'tally-vault-v1@u1a2b');
+  assert.equal(U.profKey('tally-quotes-v1', 'u1a2b'), 'tally-quotes-v1', 'prices are shared');
+  assert.equal(U.profKey('tally-sound-v1', 'u1a2b'), 'tally-sound-v1');
+});
+test('users: the saved list is cleaned and always has a main user', () => {
+  const U = profWorld();
+  assert.deepEqual(U.profClean(null).list.map((p) => p.id), ['main']);
+  assert.equal(U.profClean(null).active, 'main');
+  const c = U.profClean({ active: 'u2', pick: false, list: [{ id: 'u2', name: ' Test <b>Person</b> ', nick: 'T'.repeat(50), demo: true, color: 99, skip: { accounts: 1, 'bad key!': 1 } }, { id: 'u2', name: 'dup' }, { id: 'Bad Id!' }, null, 5] });
+  assert.deepEqual(c.list.map((p) => p.id), ['main', 'u2'], 'main is added in front; bad and duplicate entries are dropped');
+  const u2 = c.list[1];
+  assert.equal(u2.name, 'Test bPerson/b', 'the angle brackets are stripped');
+  assert.ok(!/[<>"&]/.test(u2.name));
+  assert.equal(u2.nick.length, 20);
+  assert.equal(u2.color, 7);
+  assert.deepEqual(u2.skip, { accounts: 1 });
+  assert.equal(u2.demo, true);
+  assert.equal(c.active, 'u2'); assert.equal(c.pick, false);
+  assert.equal(U.profClean({ active: 'ghost', list: [] }).active, 'main', 'an unknown active user falls back to main');
+  assert.equal(U.profClean({ list: new Array(40).fill(0).map((_, i) => ({ id: 'u' + i })) }).list.length <= 13, true, 'a sane limit');
+});
+test('users: greeting uses the nickname, then the first name, and never invents one', () => {
+  const U = profWorld();
+  assert.equal(U.profGreet(20, { name: 'Samuel Mwangi', nick: 'Sam' }), 'Good evening, Sam');
+  assert.equal(U.profGreet(9, { name: 'Samuel Mwangi', nick: '' }), 'Good morning, Samuel');
+  assert.equal(U.profGreet(14, { name: '', nick: '' }), 'Good afternoon');
+  assert.equal(U.profGreet(3, null), 'Good evening');
+  assert.equal(U.profGreet(5, { name: 'A', nick: '' }), 'Good morning, A');
+  assert.equal(U.profName({ name: 'Ann', nick: 'Annie' }), 'Annie');
+  assert.equal(U.profInitial({ name: 'ann', nick: '' }), 'A');
+  assert.equal(U.profInitial({ name: '', nick: '', demo: true }), 'D');
+  assert.equal(U.profInitial({ name: '', nick: '' }), '?');
+  const ids = new Set(); for (let i = 0; i < 200; i++) { const id = U.profNewId(i / 200); assert.match(id, /^u[a-z0-9]{1,11}$/); ids.add(id); }
+  assert.ok(ids.size > 150);
+});
+test('touch id: each user has their own entry', () => {
+  const { keyOf, cleanSlot } = require('../biometric');
+  assert.equal(keyOf('vault'), 'vaultPw'); assert.equal(keyOf(undefined), 'vaultPw'); assert.equal(keyOf('tabs'), 'tabsPw');
+  assert.equal(keyOf('vault:u1a2b'), 'vaultPw:u1a2b'); assert.equal(keyOf('tabs:u1a2b'), 'tabsPw:u1a2b');
+  assert.equal(cleanSlot('vault:../../x'), 'vault', 'a bad slot falls back to the default');
+  assert.equal(cleanSlot({}), 'vault');
+});

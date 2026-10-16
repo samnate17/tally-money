@@ -418,6 +418,23 @@ body.reordering,body.reordering *{cursor:grabbing!important}
 .updact{display:flex;flex-direction:column;gap:6px;min-width:96px}.updact .btn{width:100%}
 .updlist{margin:4px 0 4px;padding-left:18px;font-size:13px;color:var(--muted)}
 @media (max-width:560px){.updtask{flex-direction:column}.updact{flex-direction:row;flex-wrap:wrap;min-width:0}.updact .btn{width:auto}}
+.whopick{position:fixed;inset:0;z-index:200;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:20px;overflow:auto}
+.whobox{text-align:center;max-width:760px}.whobox h1{font-size:30px;margin:0 0 28px}
+.whogrid{display:flex;gap:20px;flex-wrap:wrap;justify-content:center}
+.whocard{background:none;border:0;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:8px;color:var(--ink);font:inherit;font-size:15px;padding:14px;border-radius:20px;min-width:120px}
+.whocard:hover,.whocard:focus-visible{background:var(--surface2);outline:2px solid var(--accent)}.whosub{font-size:12px;color:var(--muted);min-height:14px}
+.whoav{width:84px;height:84px;border-radius:24px;display:flex;align-items:center;justify-content:center;font-size:36px;font-weight:700;color:#fff;flex:0 0 auto}
+.whoav.c0{background:#3b4cf0}.whoav.c1{background:#16a085}.whoav.c2{background:#e8833a}.whoav.c3{background:#c2399a}.whoav.c4{background:#2e9fd8}.whoav.c5{background:#8a63d2}.whoav.c6{background:#b8860b}.whoav.c7{background:#7a8aa0}
+.profrow .whoav,.profpick .whoav,.railuser .whoav{width:34px;height:34px;border-radius:11px;font-size:15px}
+.profpick{display:flex;width:100%;align-items:center;gap:12px;margin:0 0 8px;padding:8px 12px;text-align:left}
+.railuser{display:flex;align-items:center;gap:8px;width:100%;margin-bottom:8px}.railuser span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tourblock.passthru{pointer-events:none}.tourblock.passthru.nohole{background:rgba(8,10,20,.2)}
+.tourhole.soft{box-shadow:0 0 0 100vmax rgba(8,10,20,.3),0 0 0 3px var(--accent),0 0 26px 4px var(--accent);animation:tkglow 2.2s ease-in-out infinite}
+@keyframes tkglow{0%,100%{box-shadow:0 0 0 100vmax rgba(8,10,20,.3),0 0 0 3px var(--accent),0 0 10px 2px var(--accent)}50%{box-shadow:0 0 0 100vmax rgba(8,10,20,.3),0 0 0 4px var(--accent),0 0 34px 8px var(--accent)}}
+.tourcard.setupcard{width:min(420px,calc(100vw - 24px))}
+.tklist{margin:0 0 12px;padding-left:18px;font-size:13px;line-height:1.5;color:var(--muted)}.tklist li{margin:3px 0}
+.tkstat{font-size:13px;padding:8px 10px;border-radius:10px;background:var(--surface2);color:var(--muted);margin:0 0 12px}.tkstat.ok{background:var(--good-soft);color:var(--good);font-weight:600}
+.tourcard .btn.pulse{animation:tkpulse 1.4s ease-in-out infinite}@keyframes tkpulse{0%,100%{box-shadow:0 0 0 0 rgba(59,76,240,.5)}50%{box-shadow:0 0 0 7px rgba(59,76,240,0)}}
 .ovstatus{display:inline-flex;gap:6px;align-items:center;margin-left:8px}
 .livedot{width:9px;height:9px;border-radius:50%;background:var(--muted);display:inline-block}.livedot.on{background:var(--good);animation:livepulse 1.6s ease-in-out infinite}
 @keyframes livepulse{0%,100%{box-shadow:0 0 0 0 rgba(22,163,74,.55)}50%{box-shadow:0 0 0 6px rgba(22,163,74,0)}}
@@ -637,6 +654,58 @@ body.reordering,body.reordering *{cursor:grabbing!important}
 <div id="toast" class="toast" hidden></div>
 
 <script>
+/*PROFILE-START*/
+// Users of the app. The first user ("main") keeps the original storage names, so nothing already saved moves. Every other user's data lives under the same names plus "@id".
+var PROF_KEY='tally-profiles-v1';
+var PK_SHARED={'tally-quotes-v1':1,'tally-sound-v1':1,'tally-profiles-v1':1};
+function profStr(v,n){return String(v==null?'':v).replace(/[<>"&\u0000-\u001f]/g,'').replace(/\s+/g,' ').trim().slice(0,n)}
+function profClean(raw){
+  var o={v:1,active:'main',pick:true,list:[]},seen={};
+  if(raw&&typeof raw==='object'&&!Array.isArray(raw)){
+    (Array.isArray(raw.list)?raw.list:[]).slice(0,12).forEach(function(p){
+      if(!p||typeof p!=='object')return;var id=String(p.id||'');if(!/^[a-z0-9]{1,12}$/.test(id)||seen[id])return;seen[id]=1;
+      var sk={};if(p.skip&&typeof p.skip==='object'&&!Array.isArray(p.skip))Object.keys(p.skip).slice(0,40).forEach(function(k){if(/^[a-z0-9]{1,16}$/.test(k)&&p.skip[k])sk[k]=1});
+      o.list.push({id:id,name:profStr(p.name,30),nick:profStr(p.nick,20),demo:p.demo===true,setup:p.setup===true,fresh:p.fresh===true,skip:sk,color:Math.max(0,Math.min(7,Math.round(+p.color||0))),created:/^\d{4}-\d{2}-\d{2}$/.test(p.created||'')?p.created:''})});
+    if(raw.pick===false)o.pick=false;
+    if(typeof raw.active==='string'&&seen[raw.active])o.active=raw.active;
+  }
+  if(!seen.main)o.list.unshift({id:'main',name:'',nick:'',demo:false,setup:false,fresh:false,skip:{},color:0,created:''});
+  return o;
+}
+function profKey(base,id){return id==='main'||PK_SHARED[base]?base:base+'@'+id}
+function profName(p){return p?(p.nick||p.name||''):''}
+function profInitial(p){var n=profName(p)||(p&&p.demo?'D':'');return n?n.charAt(0).toUpperCase():'?'}
+// "Good evening, Sam". The first name is used when there is no nickname.
+function profGreet(hour,p){
+  var g=hour<5?'Good evening':hour<12?'Good morning':hour<18?'Good afternoon':'Good evening',n=p?(p.nick||String(p.name||'').split(' ')[0]):'';
+  return n?g+', '+n:g;
+}
+function profNewId(rnd){var id='u'+Math.floor((rnd===undefined?Math.random():rnd)*36*36*36*36*36).toString(36);return id.slice(0,12)}
+/*PROFILE-END*/
+var PROFS=profClean(null);
+try{PROFS=profClean(JSON.parse(localStorage.getItem(PROF_KEY)||'null'))}catch(e){}
+var PROF=PROFS.list.filter(function(p){return p.id===PROFS.active})[0]||PROFS.list[0];
+function PK(k){return profKey(k,PROF.id)}
+function profsSave(){try{localStorage.setItem(PROF_KEY,JSON.stringify(PROFS))}catch(e){}}
+// More than one user: ask who is using the app each time it opens.
+(function(){
+  var picked=false;try{picked=sessionStorage.getItem('tally-picked')==='1'}catch(e){}
+  if(!PROFS.pick||PROFS.list.length<2||picked)return;
+  window.__TALLY_PICK=true;
+  var go=function(id){PROFS.active=id;profsSave();try{sessionStorage.setItem('tally-picked','1')}catch(e){}location.reload()};
+  var draw=function(){
+    var el=document.getElementById('whopick');if(!el){el=document.createElement('div');el.id='whopick';el.className='whopick';document.body.appendChild(el)}
+    el.innerHTML='<div class="whobox"><h1>Who is using Tally Money?</h1><div class="whogrid">'+PROFS.list.map(function(p){
+      var nm=profName(p)||(p.id==='main'?'Main user':'New user');
+      return '<button type="button" class="whocard" data-id="'+p.id+'"><span class="whoav c'+p.color+'">'+(p.demo?'★':profInitial(p))+'</span><b>'+nm.replace(/&/g,'&amp;')+'</b><span class="whosub">'+(p.demo?'Demo':'')+'</span></button>'}).join('')+'</div></div>';
+    el.onclick=function(e){var b=e.target.closest&&e.target.closest('.whocard');if(b)go(b.dataset.id)};
+    var f=el.querySelector('.whocard');if(f)f.focus();
+  };
+  if(document.body)draw();else document.addEventListener('DOMContentLoaded',draw);
+})();
+</script>
+<script>
+if(window.__TALLY_PICK)throw 'Waiting for the user to choose who is using the app.';
 (function(){
 'use strict';
 /* ---------- helpers ---------- */
@@ -820,8 +889,8 @@ function xferPack(payload,pw){var text=JSON.stringify(payload);if(!pw)return Pro
 function xferKind(j){return j&&j.app==='tally-money'&&j.encrypted===true&&vaultEnvOk(j)?'locked':'plain'}
 /*VAULT-END*/
 var VLT={on:false,locked:false,key:null,salt:'',it:0,busy:false,dirty:false,min:5};
-try{var _lk=JSON.parse(localStorage.getItem('tally-lock-v1')||'{}');if(_lk&&_lk.min>=0&&_lk.min<=240)VLT.min=+_lk.min}catch(e){}
-function load(){try{if(localStorage.getItem('tally-vault-v1')){VLT.on=true;VLT.locked=true;S=sample();migrate();syncCats();return}}catch(e){}try{var j=localStorage.getItem('tally-money-v1');if(j){S=JSON.parse(j);migrate();syncCats();undoInit();return}}catch(e){}S=sample();migrate();syncCats();undoInit()}
+try{var _lk=JSON.parse(localStorage.getItem(PK('tally-lock-v1'))||'{}');if(_lk&&_lk.min>=0&&_lk.min<=240)VLT.min=+_lk.min}catch(e){}
+function load(){try{if(localStorage.getItem(PK('tally-vault-v1'))){VLT.on=true;VLT.locked=true;S=sample();migrate();syncCats();return}}catch(e){}try{var j=localStorage.getItem(PK('tally-money-v1'));if(j){S=JSON.parse(j);migrate();syncCats();undoInit();return}}catch(e){}S=sample();migrate();syncCats();undoInit()}
 function defCredit(){return {scores:[],profile:{late:'unknown',inq:'unknown',oldest:'',derog:'unknown'}}}
 function syncXfer(){setXferContext(S.accounts.filter(function(a){return a.type==='credit'}).map(function(a){return a.id}),S.xferLearn)}
 function migrate(){S.catRules=cleanCatRules(S.catRules);S.pay=cleanPayState(S.pay,uid);S.tax=cleanTaxState(S.tax);taxApplyOnline(S.tax.online);if(!S.vehIgnore||typeof S.vehIgnore!=='object'||Array.isArray(S.vehIgnore))S.vehIgnore={};S.ad=cleanAd(S.ad);S.upd=cleanUpd(S.upd);if(!Array.isArray(S.fuel))S.fuel=[];S.fuel=cleanFuel(S.fuel,uid);if(!S.energyCfg||typeof S.energyCfg!=='object'||Array.isArray(S.energyCfg))S.energyCfg={};if(S.weather&&!cleanWeather(S.weather))delete S.weather;if(!S.weather)S.weather={};if(!S.xferLearn||typeof S.xferLearn!=='object'||Array.isArray(S.xferLearn))S.xferLearn={};S.hideWords=cleanHideWords(S.hideWords);if(!Array.isArray(S.imports))S.imports=[];if(!S.payLinks||typeof S.payLinks!=='object'||Array.isArray(S.payLinks))S.payLinks={};if(!S.apple||typeof S.apple!=='object'||Array.isArray(S.apple))S.apple={};if(!S.billIgnore||typeof S.billIgnore!=='object'||Array.isArray(S.billIgnore))S.billIgnore={};if(S.cardPay!=='skip'&&S.cardPay!=='count')S.cardPay='auto';if(!S.home||typeof S.home!=='object'||Array.isArray(S.home))S.home={};if(!(S.debtMonthly>=0))S.debtMonthly=0;if(!Array.isArray(S.customCats))S.customCats=[];if(!Array.isArray(S.setAside))S.setAside=[];if(!S.merchantCats||typeof S.merchantCats!=='object'||Array.isArray(S.merchantCats))S.merchantCats={};if(!Array.isArray(S.energy))S.energy=[];if(!Array.isArray(S.bills))S.bills=[];if(!S.billMarks||typeof S.billMarks!=='object'||Array.isArray(S.billMarks))S.billMarks={};S.billAdj=cleanBillAdj(S.billAdj);if(!S.subCats||typeof S.subCats!=='object'||Array.isArray(S.subCats))S.subCats={};if(!S.merchantSubs||typeof S.merchantSubs!=='object'||Array.isArray(S.merchantSubs))S.merchantSubs={};if(!Array.isArray(S.holdings))S.holdings=S.sample?sampleHoldings():[];if(!S.credit||!Array.isArray(S.credit.scores))S.credit=S.sample?sampleCredit():defCredit();if(!Array.isArray(S.plaidIgnored))S.plaidIgnored=[];if(!Array.isArray(S.accounts))S.accounts=S.sample?sampleAccounts():[];if(typeof S.extraPay!=='number')S.extraPay=S.sample?100:0;try{if(syncVehicleAssets())vehPendingSave=true}catch(e){}}
@@ -893,10 +962,10 @@ function save(opt){
   var j=null;try{j=JSON.stringify(S)}catch(e){}
   if(j)undoTrack(opt&&opt.noUndo?(UNDO.cur=j):j);
   if(VLT.on){if(VLT.key)vaultFlush();widgetPush();return}
-  try{localStorage.setItem('tally-money-v1',j||JSON.stringify(S))}catch(e){}if(HOSTED)schedulePush();widgetPush()}
+  try{localStorage.setItem(PK('tally-money-v1'),j||JSON.stringify(S))}catch(e){}if(HOSTED)schedulePush();widgetPush()}
 // Encrypted saves are coalesced: one write in flight at a time, and a newer state replaces any queued one.
 function vaultCommit(key,salt,it){
-  return vaultEnc(key,JSON.stringify(S)).then(function(e){localStorage.setItem('tally-vault-v1',JSON.stringify({v:1,it:it,salt:salt,iv:e.iv,ct:e.ct}));return true})}
+  return vaultEnc(key,JSON.stringify(S)).then(function(e){localStorage.setItem(PK('tally-vault-v1'),JSON.stringify({v:1,it:it,salt:salt,iv:e.iv,ct:e.ct}));return true})}
 function vaultFlush(){
   if(!VLT.key||VLT.locked)return;
   if(VLT.busy){VLT.dirty=true;return}
@@ -1049,14 +1118,14 @@ function cleanNavPref(raw,validIds){
 function navVisible(tabs,order,hidden){return navOrdered(tabs,order).filter(function(t){return t[0]==='look'||(hidden||[]).indexOf(t[0])<0})}
 /*NAV-END*/
 var NAVP=cleanNavPref(null,[]);
-try{NAVP=cleanNavPref(JSON.parse(localStorage.getItem('tally-nav-v1')||'null'),TABS.map(function(t){return t[0]}))}catch(e){}
-function saveNav(){try{localStorage.setItem('tally-nav-v1',JSON.stringify(NAVP))}catch(e){}}
+try{NAVP=cleanNavPref(JSON.parse(localStorage.getItem(PK('tally-nav-v1'))||'null'),TABS.map(function(t){return t[0]}))}catch(e){}
+function saveNav(){try{localStorage.setItem(PK('tally-nav-v1'),JSON.stringify(NAVP))}catch(e){}}
 function navIds(){return navOrdered(TABS,NAVP.order).map(function(t){return t[0]})}
 function nav(){
   document.documentElement.setAttribute('data-nav',NAVP.layout);
   function items(short){return navVisible(TABS,NAVP.order,NAVP.hidden).map(function(t){return '<button class="nav" data-view="'+t[0]+'"'+(short?'':' title="Hold, then drag to move this tab"')+(view===t[0]?' aria-current="page"':'')+'>'+tabChip(t[0])+'<span>'+(short&&t[2]||t[1])+'</span></button>'}).join('')}
   var h=items(false);
-  $('#rail').innerHTML='<div class="brand"><svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="tl-bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1B2470"/><stop offset="1" stop-color="#05061A"/></linearGradient><linearGradient id="tl-bar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#8FA2FF"/></linearGradient></defs><rect width="24" height="24" fill="url(#tl-bg)"/><g fill="url(#tl-bar)"><rect x="5.2" y="5.4" width="2.1" height="13.2" rx="1.05"/><rect x="8.9" y="5.4" width="2.1" height="13.2" rx="1.05"/><rect x="12.6" y="5.4" width="2.1" height="13.2" rx="1.05"/><rect x="16.3" y="5.4" width="2.1" height="13.2" rx="1.05"/></g><path d="M4.6 17.2 19.4 7.4" stroke="#FFB45A" stroke-width="1.9" stroke-linecap="round" fill="none"/></svg>Tally</div><button class="nav searchbtn" data-act="spot-open" aria-label="Search the app" title="Search (Ctrl or Cmd + K)">'+ICON.search+'<span>Search</span><kbd class="kbd">'+(/Mac|iP(hone|ad)/.test(navigator.platform||'')?'\u2318K':'Ctrl K')+'</kbd></button>'+h+'<div class="railfoot"><span>'+(window.tally?'Your data stays on this computer. Bank sync and AI analysis send data only when you use them.':HOSTED?'Signed in as '+esc(AUTH.email)+'. Your data is encrypted before it leaves this browser.':'Your data stays in this browser. Nothing is uploaded.')+'</span></div>';
+  $('#rail').innerHTML='<div class="brand"><svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="tl-bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1B2470"/><stop offset="1" stop-color="#05061A"/></linearGradient><linearGradient id="tl-bar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#8FA2FF"/></linearGradient></defs><rect width="24" height="24" fill="url(#tl-bg)"/><g fill="url(#tl-bar)"><rect x="5.2" y="5.4" width="2.1" height="13.2" rx="1.05"/><rect x="8.9" y="5.4" width="2.1" height="13.2" rx="1.05"/><rect x="12.6" y="5.4" width="2.1" height="13.2" rx="1.05"/><rect x="16.3" y="5.4" width="2.1" height="13.2" rx="1.05"/></g><path d="M4.6 17.2 19.4 7.4" stroke="#FFB45A" stroke-width="1.9" stroke-linecap="round" fill="none"/></svg>Tally</div><button class="nav searchbtn" data-act="spot-open" aria-label="Search the app" title="Search (Ctrl or Cmd + K)">'+ICON.search+'<span>Search</span><kbd class="kbd">'+(/Mac|iP(hone|ad)/.test(navigator.platform||'')?'\u2318K':'Ctrl K')+'</kbd></button>'+h+'<div class="railfoot">'+((PROFS.list.length>1||profName(PROF))&&!HOSTED?'<button class="btn small railuser" data-act="prof-menu" title="Switch user">'+profAvatar(PROF)+'<span>'+esc(profLabel(PROF))+'</span></button>':'')+'<span>'+(window.tally?'Your data stays on this computer. Bank sync and AI analysis send data only when you use them.':HOSTED?'Signed in as '+esc(AUTH.email)+'. Your data is encrypted before it leaves this browser.':'Your data stays in this browser. Nothing is uploaded.')+'</span></div>';
   $('#tabbar').innerHTML=(NAVP.layout==='bottom'?'<button class="nav searchbtn" data-act="spot-open" aria-label="Search the app" title="Search (Ctrl or Cmd + K)">'+ICON.search+'<span>Search</span></button>':'')+items(true);
   if(NAVP.layout==='bottom'){var tb=$('#tabbar'),tc=tb&&tb.querySelector('.nav[aria-current="page"]');if(tc){var tl=tc.offsetLeft,tr=tl+tc.offsetWidth;if(tl<tb.scrollLeft||tr>tb.scrollLeft+tb.clientWidth)tb.scrollLeft=Math.max(0,tl-60)}}
   if(NAVP.layout==='top'){var rl=$('#rail'),cur=rl&&rl.querySelector('.nav[aria-current="page"]');if(cur){var l=cur.offsetLeft,r=l+cur.offsetWidth;if(l<rl.scrollLeft||r>rl.scrollLeft+rl.clientWidth)rl.scrollLeft=Math.max(0,l-60)}}   // keep the open tab visible in the top bar
@@ -1082,7 +1151,7 @@ function render(){
   fuelTxMapCache=null;syncXfer();syncGoals();nav();
   var f={energy:vEnergy,bills:vBills,loans:vLoansHub,mortgage:vMortgage,carloan:function(){loanFilter='auto';return vLoansHub()},student:function(){loanFilter='student';return vLoansHub()},look:vLook,overview:vOverview,dash:vDash,assist:vAssist,accounts:vAccounts,assets:vAssets,afford:vAfford,credit:vCredit,cards:vCards,pay:vPay,tax:vTax,docs:vDocs,invest:vInvest,report:vReport,subscriptions:vSubs,budgets:vBudgets,transactions:vTx,goals:vGoals}[view];
   var cb=HOSTED&&AUTH.conflict?'<div class="banner" id="conflict"><span><b>This account changed on another device.</b> Choose which version to keep.</span><span style="flex:0 0 auto;display:flex;gap:8px"><button class="btn small" data-act="cf-remote">Use the other version</button><button class="btn small primary" data-act="cf-local">Keep this device\'s version</button></span></div>':'';
-  var banner=cb+updBanner()+(S.sample?'<div class="banner"><span><b>Example data.</b> These accounts and transactions are made up so you can try everything. Clear them to start with your own, or import a CSV from your bank.</span><button class="btn primary small" data-act="clear">Start fresh</button></div>':'');
+  var banner=cb+updBanner()+(S.sample&&PROF.demo?'<div class="banner"><span><b>Demo user.</b> Everything here is made up, so it is safe to explore, add and delete. Nothing is real.</span><button class="btn small" data-act="prof-reset-demo">Reset the demo</button></div>':S.sample?'<div class="banner"><span><b>Example data.</b> These accounts and transactions are made up so you can try everything. Clear them to start with your own, or import a CSV from your bank.</span><button class="btn primary small" data-act="clear">Start fresh</button></div>':'');
   var body=f();
   if(view!=='invest'&&view!=='look'&&view!=='assist')body=body.replace(/(<div class="top"><h1>[^<]*<\/h1>)/,'$1<button class="btn small refresh" data-act="refresh" aria-label="Refresh this page"'+(refreshing?' disabled':'')+'>'+(refreshing?'Refreshing…':'&#8635; Refresh')+'</button>');
   body=body.replace(/(<div class="top"><h1>[^<]*<\/h1>)/,'$1'+undoButtons());
@@ -1132,8 +1201,8 @@ function budgetRows(limit,mk){
 
 /* ---------- Private assistant (runs on this computer through Ollama) ---------- */
 var ASSIST={st:null,model:'',msgs:[],busy:false,id:'',useData:true,loading:false,pull:null};
-try{var _as=JSON.parse(localStorage.getItem('tally-assist-v1')||'{}');if(typeof _as.model==='string')ASSIST.model=_as.model;if(_as.useData===false)ASSIST.useData=false}catch(e){}
-function assistSave(){try{localStorage.setItem('tally-assist-v1',JSON.stringify({model:ASSIST.model,useData:ASSIST.useData}))}catch(e){}}
+try{var _as=JSON.parse(localStorage.getItem(PK('tally-assist-v1'))||'{}');if(typeof _as.model==='string')ASSIST.model=_as.model;if(_as.useData===false)ASSIST.useData=false}catch(e){}
+function assistSave(){try{localStorage.setItem(PK('tally-assist-v1'),JSON.stringify({model:ASSIST.model,useData:ASSIST.useData}))}catch(e){}}
 var ASSIST_SYSTEM='You are the private assistant inside Tally Money, a personal finance app. You run on the user\'s own computer. Answer using only the figures in the DATA block below. Be concrete, short and friendly. If the data does not contain what is needed, say so instead of guessing. Never invent numbers, and do your arithmetic carefully, showing the figures you use. You are not a financial adviser: for investments, tax or legal questions give general information and suggest a professional. Amounts are US dollars.';
 function assistContext(){
   var m=function(v){return '$'+Math.round(v).toLocaleString('en-US')},mk=NOWKEY,L=[],nw=netWorth(),sp=spendBy(mk),inc=incomeOf(mk);
@@ -1156,7 +1225,7 @@ function assistContext(){
   var out=L.join('\n');return out.length>9000?out.slice(0,9000)+'\n(shortened)':out;
 }
 function assistMessages(){
-  var sys=ASSIST_SYSTEM+(ASSIST.useData?'\n\nDATA (from the user\'s Tally Money app):\n'+assistContext():'\n\nThe user chose not to share their finance data, so answer generally and say when you would need their numbers.');
+  var sys=ASSIST_SYSTEM+(profName(PROF)?'\n\nThe user\'s name is '+profName(PROF)+'. Call them that.':'')+(ASSIST.useData?'\n\nDATA (from the user\'s Tally Money app):\n'+assistContext():'\n\nThe user chose not to share their finance data, so answer generally and say when you would need their numbers.');
   var hist=ASSIST.msgs.filter(function(x){return x.role==='user'||(x.role==='assistant'&&x.content)}).slice(-12).map(function(x){return {role:x.role,content:x.content}});
   return [{role:'system',content:sys}].concat(hist);
 }
@@ -1251,8 +1320,8 @@ function vAssist(){
 
 /* ---------- Live dashboard ---------- */
 var DASH={auto:false,last:0,syncing:false};
-try{var _d=JSON.parse(localStorage.getItem('tally-dash-v1')||'{}');DASH.auto=!!_d.auto}catch(e){}
-function dashSave(){try{localStorage.setItem('tally-dash-v1',JSON.stringify({auto:DASH.auto}))}catch(e){}}
+try{var _d=JSON.parse(localStorage.getItem(PK('tally-dash-v1'))||'{}');DASH.auto=!!_d.auto}catch(e){}
+function dashSave(){try{localStorage.setItem(PK('tally-dash-v1'),JSON.stringify({auto:DASH.auto}))}catch(e){}}
 function dashTime(){return new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',second:'2-digit'})}
 function vDash(){
   var mk=NOWKEY,nw=netWorth(),sp=spendBy(mk),inc=incomeOf(mk),left=inc-sp.total;
@@ -1319,7 +1388,7 @@ function sparkPath(vals,W,H,pad){
 }
 function hcard(view,title,body,extra){return '<div class="hcard" role="link" tabindex="0" data-view="'+view+'" aria-label="'+esc(title)+'"><div class="hct">'+esc(title)+'</div>'+body+(extra||'')+'</div>'}
 function homeScreen(sp,inc,nw){
-  var hr=TODAY.getHours?new Date().getHours():9,greet=hr<5?'Good evening':hr<12?'Good morning':hr<18?'Good afternoon':'Good evening';
+  var hr=TODAY.getHours?new Date().getHours():9,greet=profGreet(hr,PROF);
   var series=S.accounts.length?netWorthTrail(S.accounts,isDebt,TODAY,90,30):[],chg=series.length>1?series[series.length-1]-series[0]:null;
   var pts=sparkPath(series,360,70,4);
   var up=chg!==null&&chg>=0;
@@ -1374,7 +1443,7 @@ function homeScreen(sp,inc,nw){
 function qaView(icon,label,view){return '<button type="button" data-view="'+view+'"><i class="ni" style="--ic:'+tabColor(view)+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+icon+'</svg></i>'+label+'</button>'}
 
 function lookOffer(){
-  var seen=false;try{seen=localStorage.getItem('tally-look-offer')==='1'}catch(e){}
+  var seen=false;try{seen=localStorage.getItem(PK('tally-look-offer'))==='1'}catch(e){}
   if(seen||TH.bg==='studio')return '';
   return '<div class="banner" style="margin-bottom:12px;align-items:center"><span><b>New look: Studio.</b> Dark and cinematic, with a lit stage for your car and home. You can switch back any time in Settings.</span><span class="actions" style="flex:none"><button class="btn small primary" data-act="th-look" data-v="studio">Try it</button><button class="btn small" data-act="look-dismiss">Not now</button></span></div>';
 }
@@ -6310,8 +6379,8 @@ function loanImportPanel(kind){
 /* ---------- Bank sync (Mac app) ---------- */
 var T=window.tally||null;
 var PL={items:{}},plSt=null,plBusy='',plMsg=null,plConfirm='';
-try{var _p=localStorage.getItem('tally-plaid-v1');if(_p)PL=JSON.parse(_p);if(!PL.items)PL.items={}}catch(e){}
-function savePL(){try{localStorage.setItem('tally-plaid-v1',JSON.stringify(PL))}catch(e){}}
+try{var _p=localStorage.getItem(PK('tally-plaid-v1'));if(_p)PL=JSON.parse(_p);if(!PL.items)PL.items={}}catch(e){}
+function savePL(){try{localStorage.setItem(PK('tally-plaid-v1'),JSON.stringify(PL))}catch(e){}}
 function tcall(p){return p.then(function(r){if(!r||!r.ok){var e=new Error((r&&r.error)||'Something went wrong.');e.code=r&&r.code;throw e}return r.data})}
 function plShell(){return '<section class="panel" id="plaidpanel">'+plInner()+'</section>'}
 function plInner(){
@@ -7707,7 +7776,7 @@ function taxRead(inp){
 }
 /* ---------- Search: one box for everything in the app (Ctrl or Cmd + K, or press /) ---------- */
 var SPOT_KW={overview:'home summary today',dash:'live dashboard net worth',accounts:'banks balance checking savings',pay:'paycheck paystub salary adp gross net take-home',tax:'taxes refund owe w-2 1099 irs state withholding',docs:'documents folder files statements pdf',assets:'car vehicle motorcycle boat value depreciation maintenance modification',subscriptions:'subs recurring netflix streaming',bills:'due paid autopay upcoming',energy:'electric propane gas heating oil weather usage',budgets:'budget category limit keywords auto-sort',report:'monthly report income spending',afford:'can i afford purchase buy',credit:'credit score fico',cards:'credit card utilization cash back interest',invest:'stocks portfolio investments',transactions:'activity import csv filter edit expenses',goals:'savings goal target',loans:'debt student auto car loan payoff',mortgage:'house home rent buy',assist:'assistant chat ai ask',look:'settings appearance theme password backup security touch id hide tabs layout'};
-var SPOT_FEATURES=[['Help and walkthrough','look','help tutorial guide how to use walkthrough tour learn question mark'],['What to update','look','update stale outdated accurate keep current checklist freshness todo what needs attention'],['Hide or show tabs','look','navigation layout order drag top bar sidebar'],['Change the theme or colours','look','appearance dark mode light glass'],['Set an app password or Touch ID','look','security lock unlock encrypt'],['Back up or restore your data','look','backup export import file'],['Add a transaction','transactions','new expense income cash manually'],['Import transactions (CSV, PDF)','transactions','statement upload bank file'],['Auto-sort keywords for a budget','budgets','rules categorize merchant keyword'],['Hidden bills','look','hide bill keyword'],['Set a monthly budget','budgets','limit category'],['Credit card statement','cards','pdf import add card']];
+var SPOT_FEATURES=[['Help and walkthrough','look','help tutorial guide how to use walkthrough tour learn question mark'],['Add a user or switch user','look','profile account person share family demo switch who is using'],['Setup guide','look','setup guide walkthrough fill in upload new user onboarding'],['Your name and nickname','look','about you name nickname greeting personal information'],['What to update','look','update stale outdated accurate keep current checklist freshness todo what needs attention'],['Hide or show tabs','look','navigation layout order drag top bar sidebar'],['Change the theme or colours','look','appearance dark mode light glass'],['Set an app password or Touch ID','look','security lock unlock encrypt'],['Back up or restore your data','look','backup export import file'],['Add a transaction','transactions','new expense income cash manually'],['Import transactions (CSV, PDF)','transactions','statement upload bank file'],['Auto-sort keywords for a budget','budgets','rules categorize merchant keyword'],['Hidden bills','look','hide bill keyword'],['Set a monthly budget','budgets','limit category'],['Credit card statement','cards','pdf import add card']];
 var SPOT_ORDER=['Pages','Budgets','Transactions','Bills','Accounts','Vehicles and assets','Goals','Subscriptions','Pay and taxes','Documents'];
 var spot={open:false,q:'',sel:0,res:[]};
 function spotMonthNames(){var o={},i;for(i=0;i<12;i++){var d=new Date(2000,i,1);o['0'.concat(i+1).slice(-2)]=d.toLocaleDateString('en-US',{month:'short'}).toLowerCase()+' '+d.toLocaleDateString('en-US',{month:'long'}).toLowerCase()}return o}
@@ -7955,6 +8024,164 @@ function updPlan(){
     else if(r&&r.data&&typeof r.data.text==='string'&&!UPD.ai)UPD.ai=r.data.text;
     updRefresh()},function(){UPD.aiBusy=false;UPD.ai='The assistant could not answer. The list above still applies.';updRefresh()});
 }
+/* ---------- Users, personal information and the guided setup ---------- */
+var USER_KEYS=['tally-money-v1','tally-vault-v1','tally-lock-v1','tally-nav-lock-v1','tally-nav-v1','tally-assist-v1','tally-dash-v1','tally-look-offer','tally-plaid-v1','tally-theme-v1','tally-order-v1','tally-owner'];
+// The Touch ID slot for this user: the first user keeps the original names.
+function bioSlot(base){return PROF.id==='main'?(base==='tabs'?'tabs':undefined):(base||'vault')+':'+PROF.id}
+var profUI={del:'',msg:''};
+function profAvatar(p){return '<span class="whoav c'+p.color+'" aria-hidden="true">'+(p.demo?'★':esc(profInitial(p)))+'</span>'}
+function profLabel(p){return profName(p)||(p.id==='main'?'Main user':p.demo?'Demo':'New user')}
+function profFresh(){return {sample:false,txns:[],subs:[],budgets:{},goals:[],accounts:[],extraPay:0,plaidIgnored:[],credit:defCredit(),holdings:[],customCats:[],pay:{stubs:[]}}}
+function profSwitch(id){
+  if(id===PROF.id||!PROFS.list.some(function(p){return p.id===id}))return;
+  var go=function(){setTimeout(function(){PROFS.active=id;profsSave();try{sessionStorage.setItem('tally-picked','1')}catch(e){}location.reload()},180)};
+  // the desktop widget must not keep showing the last user's numbers
+  if(window.tally&&window.tally.widget&&window.tally.widget.set)window.tally.widget.set('clear',1).then(go,go);else go();
+}
+function profCreate(o){
+  if(PROFS.list.length>=12){toast('That is the most users this app can hold.');return}
+  var id=profNewId();while(PROFS.list.some(function(p){return p.id===id}))id=profNewId();
+  var p={id:id,name:profStr(o.name,30)||(o.demo?'Demo':''),nick:profStr(o.nick,20),demo:!!o.demo,setup:!o.demo,fresh:!o.demo,skip:{},color:PROFS.list.length%8,created:iso(TODAY)};
+  if(!p.demo){try{localStorage.setItem(profKey('tally-money-v1',id),JSON.stringify(profFresh()))}catch(e){toast('This browser would not save the new user.');return}}
+  PROFS.list.push(p);profsSave();profSwitch(id);
+}
+function profDelete(id){
+  var p=PROFS.list.filter(function(x){return x.id===id})[0];if(!p||id==='main'||id===PROF.id)return;
+  try{var pl=JSON.parse(localStorage.getItem(profKey('tally-plaid-v1',id))||'null');if(T&&T.plaid&&pl&&pl.items)Object.keys(pl.items).forEach(function(k){try{T.plaid.remove(k).catch(function(){})}catch(e){}})}catch(e){}
+  USER_KEYS.forEach(function(k){try{localStorage.removeItem(profKey(k,id))}catch(e){}});
+  if(T&&T.bio){try{T.bio.disable('vault:'+id).catch(function(){});T.bio.disable('tabs:'+id).catch(function(){})}catch(e){}}
+  PROFS.list=PROFS.list.filter(function(x){return x.id!==id});profsSave();
+}
+function profDemoReset(){
+  if(!PROF.demo)return;
+  try{localStorage.removeItem(PK('tally-money-v1'));localStorage.removeItem(PK('tally-vault-v1'))}catch(e){}
+  location.reload();
+}
+function profBoot(){
+  if(HOSTED||VLT.locked||S.sample)return;
+  if(PROF.fresh&&PROF.setup){PROF.fresh=false;profsSave();setTimeout(function(){if(!VLT.locked)setupStart(false)},900)}
+}
+// The "About you" and "Users" parts of Settings.
+function profPanels(){
+  if(HOSTED)return '';
+  var info='<h2 class="setsec">About you</h2><section class="panel"><h2>About you<small>so the app knows who it is talking to</small></h2>'+
+    '<form class="profform form" style="align-items:end"><label>Name<input name="n" maxlength="30" autocomplete="off" placeholder="e.g. Samuel Mwangi" value="'+esc(PROF.name)+'"></label><label>Nickname<input name="k" maxlength="20" autocomplete="off" placeholder="e.g. Sam" value="'+esc(PROF.nick)+'"></label><button class="btn primary small">Save</button></form>'+
+    '<p class="sub muted" style="margin:10px 0 0;font-size:12px;white-space:normal">The Overview greets you with your nickname (or your first name), for example <b>'+esc(profGreet(new Date().getHours(),{name:PROF.name||'Sam Smith',nick:PROF.nick}))+'</b>. The private assistant uses it too. It stays on this computer.</p>'+
+    '<div class="actions" style="justify-content:flex-start;margin-top:10px"><button class="btn small" data-act="setup-start">'+(PROF.setup?'Continue the setup guide':'Run the setup guide')+'</button><span class="sub muted" style="align-self:center;font-size:12px">A walk through everything worth filling in so the numbers are accurate.</span></div></section>';
+  var rows=PROFS.list.map(function(p){
+    var me=p.id===PROF.id,conf=profUI.del===p.id;
+    return '<div class="row wrap profrow" style="align-items:center"><div style="display:flex;gap:10px;align-items:center;flex:1 1 200px">'+profAvatar(p)+'<div><div class="nm">'+esc(profLabel(p))+(me?' <span class="pill good">You are here</span>':'')+(p.demo?' <span class="pill mute">Demo</span>':'')+(p.setup&&!p.demo?' <span class="pill warn">Setup not finished</span>':'')+'</div><div class="sub">'+(p.demo?'Made-up data to try things out':p.id==='main'?'The original user':'Own accounts, transactions and settings')+'</div></div></div>'+
+      '<div class="actions">'+(me?(p.demo?'<button class="btn small" data-act="prof-reset-demo">Reset the demo</button>':''):'<button class="btn small primary" data-act="prof-switch" data-id="'+p.id+'">Switch to '+esc(profLabel(p))+'</button>')+
+      (p.id!=='main'&&!me?(conf?'<span class="sub warn">Delete everything for '+esc(profLabel(p))+'?</span><button class="btn small danger" data-act="prof-del-yes" data-id="'+p.id+'">Yes, delete</button><button class="btn small" data-act="prof-del-no">No</button>':'<button class="btn small danger" data-act="prof-del" data-id="'+p.id+'">Delete</button>'):'')+'</div></div>'}).join('');
+  var users='<h2 class="setsec">Users</h2><section class="panel"><h2>Users<small>share this computer without sharing your money</small></h2>'+rows+
+    '<div class="actions" style="justify-content:flex-start;margin-top:10px"><button class="btn primary small" data-act="prof-add">Add a user</button>'+(PROFS.list.length>1?'<label style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-act="prof-pick"'+(PROFS.pick?' checked':'')+'> Ask who is using the app when it opens</label>':'')+'</div>'+
+    '<p class="sub muted" style="margin:10px 0 0;font-size:12px;white-space:normal">Each user has their own accounts, transactions, settings and look. This keeps things tidy, but it is <b>not a lock</b>: anyone who can open your computer account can reach every user\'s files. To keep a user private, give them an app password (Settings, Security) while signed in as them. Names shown on the "who is using" screen are not encrypted.</p></section>';
+  return info+users;
+}
+function profAddOpen(){
+  updClose();var old=document.getElementById('profadd');if(old&&old.parentNode)old.parentNode.removeChild(old);
+  var el=document.createElement('div');el.id='profadd';el.className='updov';
+  el.innerHTML='<form class="updbox" style="max-width:480px" role="dialog" aria-modal="true" aria-label="Add a user"><h3 style="margin:0 0 4px">Add a user</h3><p class="sub" style="white-space:normal;margin:0 0 12px">Their data is kept apart from yours.</p>'+
+    '<label class="lookrow" style="cursor:pointer;align-items:flex-start;gap:10px"><input type="radio" name="kind" value="real" checked style="margin-top:4px"><span class="lbl"><b>A real person</b><small>I will walk them through everything worth filling in or uploading, step by step, so the numbers are accurate.</small></span></label>'+
+    '<label class="lookrow" style="cursor:pointer;align-items:flex-start;gap:10px"><input type="radio" name="kind" value="demo" style="margin-top:4px"><span class="lbl"><b>A demo user</b><small>Filled with made-up accounts and transactions for demonstrations and trying things out. Nothing in it is real.</small></span></label>'+
+    '<div class="form" style="margin-top:10px"><label>Name<input name="n" maxlength="30" autocomplete="off" placeholder="Name"></label><label>Nickname (optional)<input name="k" maxlength="20" autocomplete="off" placeholder="What to call them"></label></div>'+
+    '<div class="actions" style="justify-content:flex-end;margin-top:14px"><button type="button" class="btn small" data-x="cancel">Cancel</button><button class="btn primary small">Create and switch</button></div></form>';
+  el.onclick=function(e){if(e.target===el||(e.target.dataset&&e.target.dataset.x==='cancel'))el.parentNode.removeChild(el)};
+  el.querySelector('form').onsubmit=function(e){e.preventDefault();var f=e.target,demo=f.elements['kind'].value==='demo',n=f.elements['n'].value,k=f.elements['k'].value;
+    if(!demo&&!profStr(n,30)){toast('Enter a name first.');return}
+    el.parentNode.removeChild(el);profCreate({name:n,nick:k,demo:demo})};
+  document.body.appendChild(el);snd('pop');var fi=el.querySelector('input[name=n]');if(fi)fi.focus();
+}
+// Quick switcher from the sidebar.
+function profMenuOpen(){
+  var old=document.getElementById('profmenu');if(old&&old.parentNode){old.parentNode.removeChild(old);return}
+  var el=document.createElement('div');el.id='profmenu';el.className='updov';
+  el.innerHTML='<div class="updbox" style="max-width:420px" role="dialog" aria-modal="true" aria-label="Switch user"><h3 style="margin:0 0 10px">Switch user</h3>'+PROFS.list.map(function(p){return '<button type="button" class="btn profpick" data-id="'+p.id+'"'+(p.id===PROF.id?' disabled':'')+'>'+profAvatar(p)+'<span style="flex:1;text-align:left"><b>'+esc(profLabel(p))+'</b>'+(p.demo?' <span class="sub">Demo</span>':'')+'</span>'+(p.id===PROF.id?'<span class="sub">You are here</span>':'')+'</button>'}).join('')+
+    '<div class="actions" style="justify-content:space-between;margin-top:12px"><button type="button" class="btn small" data-x="add">Add a user</button><button type="button" class="btn small" data-x="close">Close</button></div></div>';
+  el.onclick=function(e){
+    if(e.target===el){el.parentNode.removeChild(el);return}
+    var b=e.target.closest&&e.target.closest('.profpick');if(b){el.parentNode.removeChild(el);profSwitch(b.dataset.id);return}
+    var x=e.target.dataset&&e.target.dataset.x;if(x==='close')el.parentNode.removeChild(el);else if(x==='add'){el.parentNode.removeChild(el);profAddOpen()}};
+  document.body.appendChild(el);snd('pop');
+}
+// ---- the guided setup: points at each place you need to fill in or upload something, and ticks it off when it sees the data arrive ----
+function setupSteps(){
+  var acc=S.accounts.filter(function(a){return !a.asset}),of=function(types){return acc.filter(function(a){return types.indexOf(a.type)>-1})};
+  var cnt=function(n,w){return n+' '+w+(n===1?'':'s')};
+  var steps=[
+   {id:'you',form:true,t:'First, who am I helping?',x:'Tell me your name and what you like to be called. The app uses it to greet you, and your data stays apart from anyone else who uses this computer.'},
+   {id:'gather',t:'Gather a few things',x:'Have these handy if you can. Skip whatever you do not have; every step can be finished later (Settings, Help, What to update shows what is missing).',list:['Bank and card statements (CSV or PDF), or your online banking login if you want to link a bank','Your latest pay statement (the PDF from your payroll site)','Last year\'s W-2 (PDF) if it is tax season','Loan statements or balances: student and car','Your credit scores (Credit Karma or your card app)','Investments: tickers, shares and what you paid','Your car: year, make and mileage. Your home: value and mortgage details']},
+   {id:'accounts',tab:'accounts',f:['h2','Add an account'],t:'Add your accounts',x:'Start with the basics: your checking and savings accounts, then cards and loans. Type each one in, or link your bank in the next step. Net worth, safe-to-spend and most other tabs are built from these.',check:function(){return acc.length?cnt(acc.length,'account')+' added':false}}];
+  if(T&&T.plaid)steps.push({id:'bank',opt:1,tab:'accounts',f:['h2','Bank sync'],t:'Link your bank (optional)',x:'Linking brings in balances and transactions automatically, so you do not have to import files. It needs the Plaid keys set up once. Skip this if you would rather import statements.',check:function(){var n=Object.keys((PL&&PL.items)||{}).length;return n?cnt(n,'bank')+' linked':false}});
+  steps=steps.concat([
+   {id:'txns',tab:'transactions',f:['h2','Import statements'],t:'Bring in your transactions',x:'Import a CSV or PDF statement from your bank or card, or add spending by hand. This is the most important step: budgets, bills, income and reports all come from your transactions. Three months or more makes the app much smarter.',check:function(){return S.txns.length?cnt(S.txns.length,'transaction')+' in the app':false}},
+   {id:'pay',opt:1,tab:'pay',f:['btn','Add a pay statement'],t:'Add a pay statement',x:'Choose the PDF from your payroll site. The app reads it on this computer, shows what it found and you check it before saving. Add a few and it learns your schedule, your taxes and your next paycheck. If you have more than one job, add statements from each.',check:function(){var n=((S.pay&&S.pay.stubs)||[]).length;return n?cnt(n,'pay statement')+' added':false}},
+   {id:'loans',opt:1,tab:'loans',f:['btn','Add a loan'],t:'Add your loans',x:'Student loans and car loans. Press Add a loan, or choose a lender statement and let the app read it. A car loan adds your vehicle on its own, so you do not enter it twice.',check:function(){var n=of(['student','auto','loan']).length;return n?cnt(n,'loan')+' added':false}},
+   {id:'cards',opt:1,tab:'cards',f:['btn','Add a card'],t:'Add your credit cards',x:'Balance, limit, rate and minimum payment. With them the app shows how much of your limit you use and how to pay cards off faster.',check:function(){var n=of(['credit']).length;return n?cnt(n,'card')+' added':false}},
+   {id:'credit',opt:1,tab:'credit',f:['h2','Add your scores'],t:'Add your credit scores',x:'Type in the score from TransUnion, Equifax or Experian, or share a screenshot. Once a month is plenty.',check:function(){var n=((S.credit&&S.credit.scores)||[]).length;return n?cnt(n,'score')+' saved':false}},
+   {id:'invest',opt:1,tab:'invest',f:['h2','Add a holding'],t:'Add your investments',x:'Enter the ticker, how many shares and what you paid. Prices load on their own in the Mac app, and the Overview shows how your stocks are doing.',check:function(){var n=(S.holdings||[]).length;return n?cnt(n,'holding')+' added':false}},
+   {id:'assets',opt:1,tab:'assets',f:['h2','Add an asset'],t:'Add a car or other valuables',x:'Vehicles bought with a loan appear on their own. Add anything else worth tracking, with what you paid and when. Mileage lets the app time upkeep.',check:function(){var n=assetAccts().length;return n?cnt(n,'asset')+' tracked':false}},
+   {id:'home',opt:1,tab:'mortgage',f:['h2','Tell me about your home'],t:'Your home',x:'Home value, mortgage balance, rate and payment. Skip this if you rent.',check:function(){return S.home&&Object.keys(S.home).length?'Home details saved':false}},
+   {id:'bills',tab:'bills',f:['btn','Add a bill'],t:'Check your bills',x:'Loans and cards show up here on their own, and the app spots repeating payments in your transactions. Add anything that is missing, like rent or utilities, with its due day.',check:function(){return (S.bills||[]).length?cnt(S.bills.length,'bill')+' added':false}},
+   {id:'budgets',tab:'budgets',f:['h2','By category'],t:'Set your budgets',x:'Give each category a monthly limit. If you have a few months of transactions, press Fill and the app suggests realistic amounts from your own spending.',check:function(){var n=Object.keys(S.budgets||{}).length;return n?cnt(n,'budget')+' set':false}},
+   {id:'energy',opt:1,tab:'energy',f:['h2','Your energy types'],t:'Energy bills',x:'Electricity, propane, oil, gas or wood: add the bills or deliveries for each so the app can show your costs and when the next fill is due.',check:function(){var n=(S.energy||[]).length+(S.fuel||[]).length;return n?cnt(n,'record')+' added':false}},
+   {id:'tax',opt:1,tab:'tax',f:['h2','Your tax situation'],t:'Your taxes',x:'Choose your state, filing status and children. Add last year\'s W-2 to make the estimate use your real numbers.',check:function(){return S.tax&&S.tax.state?'State set to '+S.tax.state:false}},
+   {id:'goals',opt:1,tab:'goals',f:['h2','New goal'],t:'Set a goal',x:'Saving for something? Give it a name, a target and a date, and link it to an account so progress follows the balance.',check:function(){return (S.goals||[]).length?cnt(S.goals.length,'goal')+' set':false}},
+   {id:'secure',opt:1,tab:'look',f:['h2','Security'],t:'Protect it',x:'Set an app password (and Touch ID on a Mac) so nobody else on this computer can open your data. Then save a backup file somewhere safe from the Backup section.',check:function(){return VLT.on?'App password is on':false}},
+   {id:'finish',finish:true,t:'You are set up',x:'The more you add, the smarter the app gets. Anything you skipped is listed in Settings, Help, What to update, with a button to take you there.'}]);
+  return steps;
+}
+function setupStart(resume){
+  if(VLT.locked)return;
+  spotClose();helpPopClose();updClose();var w=document.getElementById('walk');if(w&&w.parentNode)w.parentNode.removeChild(w);
+  if(TOUR.on)tourClose(false);
+  TOUR.steps=setupSteps();TOUR.i=0;TOUR.startView=view;TOUR.play=false;TOUR.on=true;TOUR.setup=true;TOUR.lastDone=null;
+  if(resume){var at=-1;TOUR.steps.forEach(function(s0,n){if(at>-1||s0.finish||s0.id==='gather')return;var dn=s0.form?!!profName(PROF):(!!PROF.skip[s0.id]||!!(s0.check&&s0.check()));if(!dn)at=n});TOUR.i=at>-1?at:TOUR.steps.length-1}
+  var b=document.createElement('div');b.id='tourblock';b.className='tourblock nohole passthru';document.body.appendChild(b);
+  var h=document.createElement('div');h.id='tourhole';h.className='tourhole soft';document.body.appendChild(h);
+  var c=document.createElement('div');c.id='tourcard';c.className='tourcard setupcard';c.setAttribute('role','dialog');c.setAttribute('aria-live','polite');c.setAttribute('aria-label','Setup guide');document.body.appendChild(c);
+  c.onclick=function(e){var bt=e.target.closest&&e.target.closest('[data-sk]');if(!bt)return;setupAct(bt.dataset.sk)};
+  window.addEventListener('resize',tourReplace);window.addEventListener('scroll',tourReplace,true);document.addEventListener('keydown',setupKey,true);
+  clearInterval(TOUR.spoll);TOUR.spoll=setInterval(function(){
+    if(!TOUR.on||!TOUR.setup){clearInterval(TOUR.spoll);return}
+    var st=TOUR.steps[TOUR.i];if(!st||!st.check)return;var d=!!st.check();if(d!==TOUR.lastDone)setupDrawCard()},1000);
+  snd('tourstart');tourShow(TOUR.i,1);
+}
+function setupKey(e){if(TOUR.on&&TOUR.setup&&e.key==='Escape'){e.preventDefault();e.stopPropagation();setupAct('pause')}}
+function setupSaveYou(){
+  var n=document.getElementById('sk-name'),k=document.getElementById('sk-nick');if(!n)return true;
+  var nm=profStr(n.value,30),nk=profStr(k?k.value:'',20);
+  if(!nm&&!nk){toast('Type your name so I know what to call you.');n.focus();return false}
+  PROF.name=nm;PROF.nick=nk;profsSave();return true;
+}
+function setupAct(a){
+  var st=TOUR.steps[TOUR.i];if(!st)return;
+  if(a==='pause'){tourClose(false);toast('Paused. Pick it up any time from Settings, About you.');return}
+  if(a==='finish'||a==='left'){PROF.setup=false;profsSave();tourClose(false);snd('finish');render();if(a==='left')setTimeout(updOpen,200);return}
+  if(a==='back'){tourGo(-1);return}
+  if(a==='skip'){if(st.id){PROF.skip[st.id]=1;profsSave()}tourGo(1);return}
+  if(a==='next'){
+    if(st.form&&!setupSaveYou())return;
+    if(st.id&&PROF.skip[st.id]&&st.check&&st.check()){delete PROF.skip[st.id];profsSave()}
+    tourGo(1);
+  }
+}
+function setupDrawCard(){
+  var c=document.getElementById('tourcard');if(!c)return;
+  var st=TOUR.steps[TOUR.i],n=TOUR.steps.length,res=st.check?st.check():false,done=!!res;TOUR.lastDone=done;
+  var checks=TOUR.steps.filter(function(x){return x.check}),doneN=checks.filter(function(x){return x.check()}).length,skipN=checks.filter(function(x){return !x.check()&&PROF.skip[x.id]}).length;
+  var h='<div class="tkicker"><span>Setup guide</span>'+(st.opt?'<span class="pill mute" style="font-size:10px">Optional</span>':'')+'<span style="margin-left:auto">'+(TOUR.i+1)+'/'+n+'</span></div><h3>'+esc(st.t)+'</h3><p>'+esc(st.x)+'</p>';
+  if(st.list)h+='<ul class="tklist">'+st.list.map(function(x){return '<li>'+esc(x)+'</li>'}).join('')+'</ul>';
+  if(st.form)h+='<div class="form" style="margin:0 0 12px"><label>Name<input id="sk-name" maxlength="30" autocomplete="off" placeholder="e.g. Samuel Mwangi" value="'+esc(PROF.name)+'"></label><label>Nickname<input id="sk-nick" maxlength="20" autocomplete="off" placeholder="e.g. Sam" value="'+esc(PROF.nick)+'"></label></div>';
+  if(st.check)h+='<div class="tkstat'+(done?' ok':'')+'">'+(done?'✓ '+esc(res)+'. Press Next when you are ready.':PROF.skip[st.id]?'Skipped for now':'Not done yet. Do it on the page behind this card; I will tick it when I see it.')+'</div>';
+  if(st.finish)h+='<div class="tkstat ok">✓ '+doneN+' of '+checks.length+' parts filled in'+(skipN?', '+skipN+' skipped':'')+'</div>';
+  h+='<div class="tkbar"><i style="width:'+((TOUR.i+1)/n*100)+'%"></i></div><div class="tkrow">';
+  if(st.finish)h+='<button type="button" class="btn small primary" data-sk="finish" id="tknext">Finish</button>'+(checks.length-doneN>0?'<button type="button" class="btn small" data-sk="left">See what is left</button>':'')+'<button type="button" class="btn small" data-sk="back">Back</button>';
+  else h+='<button type="button" class="btn small" data-sk="back"'+(TOUR.i===0?' disabled':'')+'>Back</button>'+(st.check&&!done?'<button type="button" class="btn small" data-sk="skip">Skip</button>':'')+'<button type="button" class="btn small primary'+(done?' pulse':'')+'" data-sk="next" id="tknext">'+(done?'Done, next':'Next')+'</button><span class="grow"></span><button type="button" class="btn small" data-sk="pause" title="Esc">Pause</button>';
+  c.innerHTML=h+'</div>';c.className='tourcard setupcard';
+  var f=c.querySelector('#sk-name');if(f&&document.activeElement!==f&&!f.value)f.focus({preventScroll:true});
+  tourReplace();
+}
 function walkOpen(at){
   helpPopClose();spotClose();
   if(VLT.locked)return;
@@ -8051,6 +8278,7 @@ function tourFind(st){
   return hit;
 }
 function tourClose(restore){
+  if(TOUR.setup){TOUR.setup=false;clearInterval(TOUR.spoll);document.removeEventListener('keydown',setupKey,true)}
   TOUR.on=false;TOUR.play=false;clearTimeout(TOUR.timer);cancelAnimationFrame(TOUR.raf);TOUR.token++;
   ['tourblock','tourhole','tourcard'].forEach(function(id){var e=document.getElementById(id);if(e&&e.parentNode)e.parentNode.removeChild(e)});
   window.removeEventListener('resize',tourReplace);window.removeEventListener('scroll',tourReplace,true);document.removeEventListener('keydown',tourKey,true);
@@ -8135,6 +8363,7 @@ function tourFocus(el){
   })();
 }
 function tourDrawCard(){
+  if(TOUR.setup)return setupDrawCard();
   var c=document.getElementById('tourcard');if(!c)return;
   var st=TOUR.steps[TOUR.i],n=TOUR.steps.length,last=TOUR.i>=n-1,tabName=st.tab?((TABS.filter(function(t){return t[0]===st.tab})[0]||[0,''])[1]):'';
   var inTab=TOUR.steps.filter(function(x){return x.tab===st.tab&&!x.welcome&&!x.finish}),pos=inTab.indexOf(st)+1;
@@ -8636,33 +8865,33 @@ function secBind(m){
     secBusy=true;secMsg='';render();
     vaultNew(a).then(function(k){return vaultCommit(k.key,k.salt,k.it).then(function(){
       // Read it back before the plain copy is removed.
-      return vaultDec(k.key,JSON.parse(localStorage.getItem('tally-vault-v1')))}).then(function(t){
+      return vaultDec(k.key,JSON.parse(localStorage.getItem(PK('tally-vault-v1'))))}).then(function(t){
         if(t.length!==JSON.stringify(S).length)throw new Error('verify');
-        localStorage.removeItem('tally-money-v1');VLT.key=k.key;VLT.salt=k.salt;VLT.it=k.it;VLT.on=true;VLT.locked=false;idleReset();secBusy=false;secMsg='Password is on. The app will ask for it next time it opens.';render()})
+        localStorage.removeItem(PK('tally-money-v1'));VLT.key=k.key;VLT.salt=k.salt;VLT.it=k.it;VLT.on=true;VLT.locked=false;idleReset();secBusy=false;secMsg='Password is on. The app will ask for it next time it opens.';render()})
     }).catch(function(){say('Could not turn on the password. Your data was not changed.')});
   };
   if((f=$('#vchgform',m)))f.onsubmit=function(e){
     e.preventDefault();secPanel='p';var o=$('#vc-0').value,a=$('#vc-1').value,b=$('#vc-2').value;
     var bad=passwordProblem(a,'');if(bad)return say(bad);if(a!==b)return say('The two new passwords do not match.');
-    var cur=null;try{cur=JSON.parse(localStorage.getItem('tally-vault-v1'))}catch(x){}
-    vaultOpen(cur,o).then(function(){return vaultNew(a)}).then(function(k){return vaultCommit(k.key,k.salt,k.it).then(function(){VLT.key=k.key;VLT.salt=k.salt;VLT.it=k.it;if(BIO.enabled&&T&&T.bio){T.bio.disable();BIO.enabled=false}say('Password changed.'+(BIO.available?' Touch ID was turned off; turn it on again with the new password.':''))})}).catch(function(){say('The current password is not right.')});
+    var cur=null;try{cur=JSON.parse(localStorage.getItem(PK('tally-vault-v1')))}catch(x){}
+    vaultOpen(cur,o).then(function(){return vaultNew(a)}).then(function(k){return vaultCommit(k.key,k.salt,k.it).then(function(){VLT.key=k.key;VLT.salt=k.salt;VLT.it=k.it;if(BIO.enabled&&T&&T.bio){T.bio.disable(bioSlot());BIO.enabled=false}say('Password changed.'+(BIO.available?' Touch ID was turned off; turn it on again with the new password.':''))})}).catch(function(){say('The current password is not right.')});
   };
   if((f=$('#bioform',m)))f.onsubmit=function(e){
-    e.preventDefault();secPanel='p';var cur=null;try{cur=JSON.parse(localStorage.getItem('tally-vault-v1'))}catch(x){}var pw=$('#bio-pw').value;
-    vaultOpen(cur,pw).then(function(){return tcall(T.bio.enable(pw))}).then(function(){BIO.enabled=true;say('Touch ID is on. Next time, use your fingerprint.')}).catch(function(err){say(/Touch ID/.test((err&&err.message)||'')?err.message:'The password is not right.')});
+    e.preventDefault();secPanel='p';var cur=null;try{cur=JSON.parse(localStorage.getItem(PK('tally-vault-v1')))}catch(x){}var pw=$('#bio-pw').value;
+    vaultOpen(cur,pw).then(function(){return tcall(T.bio.enable(pw,bioSlot()))}).then(function(){BIO.enabled=true;say('Touch ID is on. Next time, use your fingerprint.')}).catch(function(err){say(/Touch ID/.test((err&&err.message)||'')?err.message:'The password is not right.')});
   };
   if((f=$('#voffform',m)))f.onsubmit=function(e){
-    e.preventDefault();secPanel='p';var cur=null;try{cur=JSON.parse(localStorage.getItem('tally-vault-v1'))}catch(x){}
+    e.preventDefault();secPanel='p';var cur=null;try{cur=JSON.parse(localStorage.getItem(PK('tally-vault-v1')))}catch(x){}
     vaultOpen(cur,$('#vo-0').value).then(function(){
-      localStorage.setItem('tally-money-v1',JSON.stringify(S));
-      localStorage.removeItem('tally-vault-v1');if(T&&T.bio){T.bio.disable();BIO.enabled=false}VLT.on=false;VLT.key=null;clearTimeout(idleT);say('Password is off. Your data is stored without encryption again.');
+      localStorage.setItem(PK('tally-money-v1'),JSON.stringify(S));
+      localStorage.removeItem(PK('tally-vault-v1'));if(T&&T.bio){T.bio.disable(bioSlot());BIO.enabled=false}VLT.on=false;VLT.key=null;clearTimeout(idleT);say('Password is off. Your data is stored without encryption again.');
     }).catch(function(){say('The password is not right.')});
   };
-  if((f=$('#vp-min',m)))f.onchange=function(){VLT.min=+f.value;try{localStorage.setItem('tally-lock-v1',JSON.stringify({min:VLT.min}))}catch(e){}idleReset()};
+  if((f=$('#vp-min',m)))f.onchange=function(){VLT.min=+f.value;try{localStorage.setItem(PK('tally-lock-v1'),JSON.stringify({min:VLT.min}))}catch(e){}idleReset()};
 }
 // ---- Touch ID (Mac) ----
 var BIO={available:false,enabled:false,loaded:false};
-function bioLoad(cb){if(!(T&&T.bio)){BIO.loaded=true;if(cb)cb();return}tcall(T.bio.status()).then(function(st){BIO={available:!!st.available,enabled:!!st.enabled,loaded:true};if(cb)cb()}).catch(function(){BIO.loaded=true;if(cb)cb()})}
+function bioLoad(cb){if(!(T&&T.bio)){BIO.loaded=true;if(cb)cb();return}tcall(T.bio.status(bioSlot())).then(function(st){BIO={available:!!st.available,enabled:!!st.enabled,loaded:true};if(cb)cb()}).catch(function(){BIO.loaded=true;if(cb)cb()})}
 function bioBlock(){
   if(!(T&&T.bio)||!BIO.available)return '';
   if(BIO.enabled)return '<div style="margin:0 0 14px"><span class="pill good">Touch ID is on</span> <span class="sub">Open the app with your fingerprint.</span> <button class="btn small" data-act="bio-off" style="margin-left:6px">Turn off Touch ID</button></div>';
@@ -8670,7 +8899,7 @@ function bioBlock(){
 }
 function bioUnlock(){
   if(!(T&&T.bio))return;
-  tcall(T.bio.unlock()).then(function(pw){showLock('',true);tryUnlock(pw)}).catch(function(e){showLock((e&&e.message)||'Touch ID did not work. Type your password.')});
+  tcall(T.bio.unlock(bioSlot())).then(function(pw){showLock('',true);tryUnlock(pw)}).catch(function(e){showLock((e&&e.message)||'Touch ID did not work. Type your password.')});
 }
 // ---- Lock screen ----
 function showLock(msg,busy){
@@ -8680,15 +8909,15 @@ function showLock(msg,busy){
    '<p class="sub muted" style="margin:16px 0 0;font-size:13px;white-space:normal">Forgot it? Nobody can recover it. You can <a href="#" id="lk-erase">erase this computer\'s data</a> and restore from a backup file.</p></div>';
   var f=$('#lockform',el);f.onsubmit=function(e){e.preventDefault();var pw=$('#lk-pw').value;showLock('',true);tryUnlock(pw)};
   var bb=$('#lk-bio',el);if(bb)bb.onclick=bioUnlock;
-  $('#lk-erase',el).onclick=function(e){e.preventDefault();if(confirm('Erase all Tally Money data on this computer? This cannot be undone. You can then restore from a backup file.')){try{localStorage.removeItem('tally-vault-v1');localStorage.removeItem('tally-money-v1')}catch(x){}location.reload()}};
+  $('#lk-erase',el).onclick=function(e){e.preventDefault();if(confirm('Erase all Tally Money data on this computer? This cannot be undone. You can then restore from a backup file.')){try{localStorage.removeItem(PK('tally-vault-v1'));localStorage.removeItem(PK('tally-money-v1'))}catch(x){}location.reload()}};
   var i=$('#lk-pw',el);if(i&&!busy)i.focus();
 }
 function tryUnlock(pw){
-  var env=null;try{env=JSON.parse(localStorage.getItem('tally-vault-v1'))}catch(e){}
+  var env=null;try{env=JSON.parse(localStorage.getItem(PK('tally-vault-v1')))}catch(e){}
   if(!vaultEnvOk(env))return showLock('The saved data could not be read.');
   vaultKey(pw,env.salt,env.it).then(function(key){return vaultDec(key,env).then(function(t){
     var o=JSON.parse(t);S=o;migrate();syncCats();undoInit();VLT.key=key;VLT.salt=env.salt;VLT.it=env.it;VLT.locked=false;
-    try{localStorage.removeItem('tally-money-v1')}catch(e){}
+    try{localStorage.removeItem(PK('tally-money-v1'))}catch(e){}
     var g=$('#gate');if(g)g.remove();idleReset();render();widgetInit();
   })}).catch(function(){showLock('That password is not right.')});
 }
@@ -8840,6 +9069,7 @@ function bindView(){
     var t={id:uid(),date:d,name:note||oiLabel(ty),amount:amt,cat:'Income',sub:ty,manual:true};
     if(wh==='cash'){t.cash=true;if(walletAcct()){t.fromWallet=true;walletAdd(t.amount)}}
     S.txns.push(t);S.txns.sort(function(x,y){return x.date<y.date?1:-1});save();render();toast('Added '+money(amt)+' of '+oiLabel(ty).toLowerCase()+'.')}});
+  m.querySelectorAll('.profform').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();PROF.name=profStr(fm.elements['n'].value,30);PROF.nick=profStr(fm.elements['k'].value,20);profsSave();toast(PROF.name||PROF.nick?'Saved. Nice to meet you, '+(PROF.nick||PROF.name.split(' ')[0])+'.':'Saved.');render()}});
   m.querySelectorAll('.frtag').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();var x=S.txns.filter(function(q){return q.id===fm.dataset.id})[0],fc=friendClean(fm.elements['k'].value,fm.elements['w'].value);if(!x||!fc)return;x.friend=fc;save();render();toast(fc.k==='loan'?'Marked as a loan. It is left out of your spending until they pay you back.':'Tagged as '+friendKindLabel(fc.k).toLowerCase()+'.')}});
   m.querySelectorAll('.oitag').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();var ty=fm.elements['t'].value,x=S.txns.filter(function(q){return q.id===fm.dataset.id})[0];if(!x||!ty)return;if(ty==='__lentme'){x.friend=friendClean('lentme','');save();render();toast('Marked as borrowed. It no longer counts as income. Tag who it was from on the Transactions tab.');return}if(ty==='__repaid'){x.friend=friendClean('repaid','');save();render();toast('Marked as a payback. It no longer counts as income.');return}x.cat='Income';x.sub=ty;save();render();toast('Tagged as '+oiLabel(ty).toLowerCase()+'.')}});
   m.querySelectorAll('.jobname').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();var nm=fm.elements['n'].value.replace(/[<>"]/g,'').trim().slice(0,40);if(!nm)return;
@@ -9059,7 +9289,7 @@ document.addEventListener('click',function(e){
     var n1=0;(creditShot.rows||[]).forEach(function(r){if(!r.on||!(r.score>=300&&r.score<=850))return;var d=/^\d{4}-\d{2}-\d{2}$/.test(r.date||'')?r.date:iso(TODAY),e={date:d,score:r.score,source:SCORE_MODELS.indexOf(r.model)>-1?r.model:'Other'};if(BUREAUS.indexOf(r.bureau)>-1)e.bureau=r.bureau;
       S.credit.scores=S.credit.scores.filter(function(x){return !(x.date===d&&scoreBureau(x)===scoreBureau(e)&&x.source===e.source)});S.credit.scores.push(e);n1++});
     S.credit.scores.sort(function(a,b){return a.date<b.date?-1:1});creditShot={msg:'',rows:null,busy:false};toast(n1+' score'+(n1===1?'':'s')+' saved.')}
-  else if(a==='bio-off'){if(T&&T.bio)T.bio.disable();BIO.enabled=false;secPanel='p';secMsg='Touch ID is off.'}
+  else if(a==='bio-off'){if(T&&T.bio)T.bio.disable(bioSlot());BIO.enabled=false;secPanel='p';secMsg='Touch ID is off.'}
   else if(a==='car-ai'){carAiRun(id);return}
   else if(a==='car-ai-clear'){var cb=S.accounts.filter(function(x){return x.id===id})[0];if(cb)delete cb.carSvg}
   else if(a==='car-showphoto'){var ca=S.accounts.filter(function(x){return x.id===id})[0];if(ca)ca.showPhoto=!ca.showPhoto}
@@ -9120,6 +9350,15 @@ document.addEventListener('click',function(e){
   else if(a==='help-guide'){setTimeout(function(){walkOpen(0)},0)}
   else if(a==='help-here'){setTimeout(helpPopOpen,0)}
   else if(a==='upd-open'){setTimeout(updOpen,0)}
+  else if(a==='setup-start'){setTimeout(function(){setupStart(true)},0)}
+  else if(a==='prof-add'){setTimeout(profAddOpen,0)}
+  else if(a==='prof-menu'){setTimeout(profMenuOpen,0)}
+  else if(a==='prof-switch'){profSwitch(b.dataset.id);return}
+  else if(a==='prof-del'){profUI.del=b.dataset.id}
+  else if(a==='prof-del-no'){profUI.del=''}
+  else if(a==='prof-del-yes'){profDelete(b.dataset.id);profUI.del='';toast('User deleted.')}
+  else if(a==='prof-reset-demo'){if(confirm('Put the demo back to its starting example data? Anything you changed in it will be lost.'))profDemoReset();return}
+  else if(a==='prof-pick'){PROFS.pick=!!b.checked;profsSave()}
   else if(a==='pay-kind'){var pk=S.pay.stubs.filter(function(x){return x.id===id})[0];if(pk){payMark('changed '+payDateLabel(pk.payDate)+' to '+(payKind(pk)==='bonus'?'a regular paycheck':'a bonus check'));pk.kind=payKind(pk)==='bonus'?'regular':'bonus'}}
   else if(a==='bill-add'){billUI.adding=true;billUI.edit=''}
   else if(a==='bill-cancel'){billUI.adding=false;billUI.edit=''}
@@ -9154,7 +9393,7 @@ document.addEventListener('click',function(e){
     loanUI[kk].imp={stage:'idle',msg:'Saved '+cnt+' loan'+(cnt===1?'':'s')+'.'+(skipOld?' '+skipOld+' statement'+(skipOld===1?' was':'s were')+' older than the one already saved, so the newer balance and terms were kept.':'')};
   }
   else if(a==='contract-bal'){var ca=S.accounts.filter(function(x){return x.id===id})[0],ci=ca&&contractInput(ca),cs=ci&&contractSchedule(ci);if(cs){var cst=contractStatus(ci,cs,TODAY);acctSetBalance(ca,Math.round(cst.principal*100)/100);toast('Balance set to '+money(cst.principal)+'.')}}
-  else if(a==='look-dismiss'){try{localStorage.setItem('tally-look-offer','1')}catch(e){}}
+  else if(a==='look-dismiss'){try{localStorage.setItem(PK('tally-look-offer'),'1')}catch(e){}}
   else if(a==='car-color'){var cca=S.accounts.filter(function(x){return x.id===id})[0];if(cca&&/^#[0-9a-f]{6}$/i.test(b.dataset.c))cca.carColor=b.dataset.c}
   else if(a==='photo-del'){var pk=String(b.dataset.k).split(':');if(pk[0]==='home')delete S.home.photo;else{var pa=S.accounts.filter(function(x){return x.id===pk[1]})[0];if(pa)delete pa.photo}}
   else if(a==='contract-del'){var cd=S.accounts.filter(function(x){return x.id===id})[0];if(cd){delete cd.contract;toast('Contract details removed.')}}
@@ -9211,7 +9450,7 @@ document.addEventListener('click',function(e){
 
 /* ---------- Appearance (theme, motion) ---------- */
 var TH=cleanTheme(null),lastView='',GS=null;
-try{TH=cleanTheme(JSON.parse(localStorage.getItem('tally-theme-v1')||'null'))}catch(e){}
+try{TH=cleanTheme(JSON.parse(localStorage.getItem(PK('tally-theme-v1'))||'null'))}catch(e){}
 var mqDark=window.matchMedia?window.matchMedia('(prefers-color-scheme: dark)'):null,mqRM=window.matchMedia?window.matchMedia('(prefers-reduced-motion: reduce)'):null;
 function applyTheme(){
   if(window.tally&&window.tally.glassActive)document.documentElement.setAttribute('data-native','glass');
@@ -9221,7 +9460,7 @@ function applyTheme(){
   r.setAttribute('data-motion',TH.motion==='reduced'||(mqRM&&mqRM.matches)?'reduced':'full');
   if(window.tally&&window.tally.theme){try{window.tally.theme.mode(TH.mode==='auto'?'system':TH.mode).catch(function(){})}catch(e){}}
 }
-function saveTheme(){try{localStorage.setItem('tally-theme-v1',JSON.stringify(TH))}catch(e){}}
+function saveTheme(){try{localStorage.setItem(PK('tally-theme-v1'),JSON.stringify(TH))}catch(e){}}
 if(mqDark&&mqDark.addEventListener)mqDark.addEventListener('change',applyTheme);
 document.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('[data-scrollto]');if(!b)return;var t=document.querySelector(b.dataset.scrollto);if(t){if(t.tagName==='DETAILS')t.open=true;if(t.scrollIntoView)t.scrollIntoView({behavior:'smooth',block:'start'})}});
 applyTheme();
@@ -9237,12 +9476,12 @@ function glassPanel(){
 
 // ---- Asking for the password before hiding or showing tabs ----
 var NAVAUTH={until:0};
-function navLockRec(){try{return navLockClean(JSON.parse(localStorage.getItem('tally-nav-lock-v1')||'null'))}catch(e){return null}}
+function navLockRec(){try{return navLockClean(JSON.parse(localStorage.getItem(PK('tally-nav-lock-v1'))||'null'))}catch(e){return null}}
 function navMode(){if(!NAVP.protect)return '';if(NAVP.protect==='own'&&navLockRec())return 'own';if(NAVP.protect==='app'&&VLT.on)return 'app';return 'broken'}
-function navSlot(){return navMode()==='own'?'tabs':'vault'}
+function navSlot(){return bioSlot(navMode()==='own'?'tabs':'vault')}
 function navVerify(pw){
   if(navMode()==='own')return navLockCheck(navLockRec(),pw);
-  var env=null;try{env=JSON.parse(localStorage.getItem('tally-vault-v1'))}catch(e){}
+  var env=null;try{env=JSON.parse(localStorage.getItem(PK('tally-vault-v1')))}catch(e){}
   return env?vaultOpen(env,pw).then(function(){return true},function(){return false}):Promise.resolve(false);
 }
 // Runs cb(password) once the person has proved it is them (password, or Touch ID on a Mac). Two minutes of grace after a success so a few changes in a row do not ask each time.
@@ -9276,7 +9515,7 @@ function navProtPanel(){
   return h+'<p class="sub muted" style="margin:10px 0 0;font-size:12px;white-space:normal">This is a lock on the Hide and Show buttons, to stop someone casually changing your layout. It does not encrypt anything: the lock lives on this device, and a person who can use the open app can still reach every tab. To keep people out of your data, set an app password under Settings > Security (that one encrypts it). Touch ID works on a Mac only; the app has no Face ID, and on Windows the password is used.</p>';
 }
 var navBioState={enabled:false,loaded:false};
-function navBioLoad(){if(!(T&&T.bio)||navBioState.loaded)return;navBioState.loaded=true;tcall(T.bio.status('tabs')).then(function(st){navBioState.enabled=!!st.enabled;if(view==='look')render()}).catch(function(){})}
+function navBioLoad(){if(!(T&&T.bio)||navBioState.loaded)return;navBioState.loaded=true;tcall(T.bio.status(bioSlot('tabs'))).then(function(st){navBioState.enabled=!!st.enabled;if(view==='look')render()}).catch(function(){})}
 function navPanel(){
   var ids=navIds(),byId={};TABS.forEach(function(t){byId[t[0]]=t});
   return '<section class="panel"><h2>Tabs<small>where they sit and in what order</small></h2><div class="lookrow"><span class="lbl">Placement<small>Down the side, in a bar across the top, or a dock along the bottom. Phones always use the bar at the bottom.</small></span><span class="ctl">'+seg('th-nav-layout',NAVP.layout,[['side','Side'],['top','Top'],['bottom','Bottom']])+'</span></div>'+
@@ -9286,7 +9525,7 @@ function navPanel(){
 function vLook(){
   var sw=PRESETS.map(function(p){return '<button type="button" class="sw'+(TH.preset===p.id?' on':'')+'" data-act="th-preset" data-v="'+p.id+'" style="--sw:'+p.accent+'" aria-pressed="'+(TH.preset===p.id)+'">'+p.name+'</button>'}).join('');
   return '<div class="top"><h1>Settings</h1><button class="btn small" data-act="th-reset">Reset appearance</button></div>'+
-  '<h2 class="setsec">Help</h2><section class="panel"><h2>Help<small>how to use the app</small></h2><p class="sub" style="margin:0 0 10px;white-space:normal">A guided tour that opens every tab for you, scrolls to what matters and lights it up (press Play to let it run by itself). You can also tap the <b>?</b> button at the bottom right of any tab for a short guide to just that tab.</p><div class="actions" style="justify-content:flex-start;flex-wrap:wrap"><button class="btn primary" data-act="help-walk">Start the walkthrough</button><button class="btn" data-act="help-guide">Read the guide</button><button class="btn" data-act="help-here">What does this tab do?</button><button class="btn" data-act="upd-open">What to update</button></div><p class="sub muted" style="margin:10px 0 0;font-size:12px;white-space:normal">Shortcuts: Ctrl+K (Cmd+K on a Mac) or / opens search and questions. Undo is at the top of each page.</p></section>'+
+  profPanels()+'<h2 class="setsec">Help</h2><section class="panel"><h2>Help<small>how to use the app</small></h2><p class="sub" style="margin:0 0 10px;white-space:normal">A guided tour that opens every tab for you, scrolls to what matters and lights it up (press Play to let it run by itself). You can also tap the <b>?</b> button at the bottom right of any tab for a short guide to just that tab.</p><div class="actions" style="justify-content:flex-start;flex-wrap:wrap"><button class="btn primary" data-act="help-walk">Start the walkthrough</button><button class="btn" data-act="help-guide">Read the guide</button><button class="btn" data-act="help-here">What does this tab do?</button><button class="btn" data-act="upd-open">What to update</button></div><p class="sub muted" style="margin:10px 0 0;font-size:12px;white-space:normal">Shortcuts: Ctrl+K (Cmd+K on a Mac) or / opens search and questions. Undo is at the top of each page.</p></section>'+
   '<h2 class="setsec">Sound</h2><section class="panel"><h2>Sound<small>clicks, chimes and whooshes</small></h2><div class="lookrow"><span class="lbl">Sound effects<small>Soft sounds when you switch tabs, press buttons, save something or take the tour. Each tab has its own.</small></span><span class="ctl">'+seg('snd-on',SND.on?'on':'off',[['on','On'],['off','Off']])+'</span></div><div class="lookrow"><span class="lbl">Volume</span><span class="ctl"><input id="snd-vol" type="range" min="0" max="100" value="'+SND.vol+'" aria-label="Sound volume"'+(SND.on?'':' disabled')+'></span></div><div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn small" data-act="snd-test"'+(SND.on?'':' disabled')+'>Play a test sound</button></div></section>'+
   '<h2 class="setsec">Appearance</h2>'+navPanel()+
   '<section class="panel"><h2>Look<small>one tap changes the whole app</small></h2><div class="lookcards"><button type="button" class="lookcard'+(TH.bg==='studio'?' on':'')+'" data-act="th-look" data-v="studio"><div class="pv" style="background:radial-gradient(120px 60px at 50% 0%,#3e6ae155,transparent),#0a0c10;border:1px solid #1e222a"></div><b>Studio</b><div class="sub">Dark and cinematic, like a car app. Big light numbers, a lit stage for your car and home.</div></button><button type="button" class="lookcard'+(TH.bg!=='studio'?' on':'')+'" data-act="th-look" data-v="glass"><div class="pv" style="background:linear-gradient(135deg,#c7d2ff,#f3c6ff);border:1px solid #fff8"></div><b>Glass</b><div class="sub">Light, frosted and colourful.</div></button></div></section>'+
@@ -9341,11 +9580,11 @@ function thClick(a,b){
     if(NAVP.protect){navAuth(a==='th-nav-showall'?'Show all hidden tabs.':'Hide or show this tab.',tdo);return true}
     tdo();return true}
   if(a==='th-nav-prot-app'){if(VLT.on){NAVP.protect='app';saveNav();render();toast('Protection is on. It uses your app password.')}return true}
-  if(a==='th-nav-prot-off'){navAuth('Turn off protection for hiding and showing tabs.',function(){NAVP.protect='';try{localStorage.removeItem('tally-nav-lock-v1')}catch(e){}if(T&&T.bio){T.bio.disable('tabs');navBioState.enabled=false}saveNav();render();toast('Protection is off.')});return true}
-  if(a==='th-nav-bio-on'){navAuth('Turn on Touch ID for hiding and showing tabs. Type the tab password once.',function(pw){if(!pw){toast('Type the tab password to turn on Touch ID.');return}tcall(T.bio.enable(pw,'tabs')).then(function(){navBioState.enabled=true;render();toast('Touch ID is on for this.')}).catch(function(e){toast((e&&e.message)||'Touch ID did not turn on.')})});return true}
-  if(a==='th-nav-bio-off'){if(T&&T.bio)T.bio.disable('tabs');navBioState.enabled=false;render();return true}
+  if(a==='th-nav-prot-off'){navAuth('Turn off protection for hiding and showing tabs.',function(){NAVP.protect='';try{localStorage.removeItem(PK('tally-nav-lock-v1'))}catch(e){}if(T&&T.bio){T.bio.disable(bioSlot('tabs'));navBioState.enabled=false}saveNav();render();toast('Protection is off.')});return true}
+  if(a==='th-nav-bio-on'){navAuth('Turn on Touch ID for hiding and showing tabs. Type the tab password once.',function(pw){if(!pw){toast('Type the tab password to turn on Touch ID.');return}tcall(T.bio.enable(pw,bioSlot('tabs'))).then(function(){navBioState.enabled=true;render();toast('Touch ID is on for this.')}).catch(function(e){toast((e&&e.message)||'Touch ID did not turn on.')})});return true}
+  if(a==='th-nav-bio-off'){if(T&&T.bio)T.bio.disable(bioSlot('tabs'));navBioState.enabled=false;render();return true}
   if(a==='th-preset'){var p=PRESETS.filter(function(x){return x.id===b.dataset.v})[0];if(p){TH.preset=p.id;TH.accent=p.accent}}
-  else if(a==='th-look'){if(b.dataset.v==='studio'){TH.bg='studio';TH.mode='dark';TH.preset='tesla';TH.accent='#3e6ae1';TH.frost=15;TH.radius=14;TH.font='system'}else{TH.bg='aurora';TH.mode='auto';TH.preset='indigo';TH.accent='#3b4cf0';TH.frost=60;TH.radius=16;TH.font='modern'}try{localStorage.setItem('tally-look-offer','1')}catch(e){}}
+  else if(a==='th-look'){if(b.dataset.v==='studio'){TH.bg='studio';TH.mode='dark';TH.preset='tesla';TH.accent='#3e6ae1';TH.frost=15;TH.radius=14;TH.font='system'}else{TH.bg='aurora';TH.mode='auto';TH.preset='indigo';TH.accent='#3b4cf0';TH.frost=60;TH.radius=16;TH.font='modern'}try{localStorage.setItem(PK('tally-look-offer'),'1')}catch(e){}}
   else if(a==='th-reset'){TH=cleanTheme(null)}
   else{var key={'th-mode':'mode','th-bg':'bg','th-size':'size','th-font':'font','th-motion':'motion'}[a];if(!key)return false;TH[key]=b.dataset.v}
   saveTheme();applyTheme();render();return true;
@@ -9362,8 +9601,8 @@ function ordMove(a,from,to){var b=a.slice(),x=b.splice(from,1)[0];b.splice(to,0,
 // The shown tabs were reordered; hidden ones keep their places in the full list.
 function ordMerge(full,vis){var set={},k=0;vis.forEach(function(v){set[v]=1});return full.map(function(id){return set[id]&&k<vis.length?vis[k++]:id})}
 /*REORDER-END*/
-var ORD={};try{ORD=JSON.parse(localStorage.getItem('tally-order-v1')||'{}')||{}}catch(e){ORD={}}
-function saveOrd(){try{localStorage.setItem('tally-order-v1',JSON.stringify(ORD))}catch(e){}}
+var ORD={};try{ORD=JSON.parse(localStorage.getItem(PK('tally-order-v1'))||'{}')||{}}catch(e){ORD={}}
+function saveOrd(){try{localStorage.setItem(PK('tally-order-v1'),JSON.stringify(ORD))}catch(e){}}
 function orderBy(key,arr,idf){return ordApply(ORD[key],arr,idf)}
 var RO=null,roSuppress=false;
 (function(){
@@ -9446,9 +9685,9 @@ function thBind(m){
   var sv=$('#snd-vol',m);if(sv){sv.oninput=function(){SND.vol=clampN(sv.value,0,100,60);sndSave()};sv.onchange=function(){snd('pop')}}
   m.querySelectorAll('.navprotform').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();var p1=fm.elements['p1'].value,p2=fm.elements['p2'].value,wantBio=!!(fm.elements['bio']&&fm.elements['bio'].checked);
     if(p1.length<6){toast('Use at least 6 characters.');return}if(p1!==p2){toast('The two passwords are not the same.');return}
-    navLockMake(p1).then(function(rec){try{localStorage.setItem('tally-nav-lock-v1',JSON.stringify(rec))}catch(x){toast('This browser would not save it.');return}NAVP.protect='own';NAVAUTH.until=Date.now()+120000;saveNav();
+    navLockMake(p1).then(function(rec){try{localStorage.setItem(PK('tally-nav-lock-v1'),JSON.stringify(rec))}catch(x){toast('This browser would not save it.');return}NAVP.protect='own';NAVAUTH.until=Date.now()+120000;saveNav();
       var done=function(extra){render();toast('Protection is on.'+(extra||''))};
-      if(wantBio&&T&&T.bio)tcall(T.bio.enable(p1,'tabs')).then(function(){navBioState.enabled=true;done(' Touch ID is on too.')}).catch(function(err){done(' Touch ID was not turned on: '+((err&&err.message)||'cancelled')+'.')});else done()})}});
+      if(wantBio&&T&&T.bio)tcall(T.bio.enable(p1,bioSlot('tabs'))).then(function(){navBioState.enabled=true;done(' Touch ID is on too.')}).catch(function(err){done(' Touch ID was not turned on: '+((err&&err.message)||'cancelled')+'.')});else done()})}});
   m.querySelectorAll('.txedit').forEach(function(fm){var cs=fm.elements['c'],us=fm.elements['u'];if(cs&&us)cs.onchange=function(){us.innerHTML=subOptions(cs.value,'')};fm.onsubmit=function(e){e.preventDefault();var g=function(n){return fm.elements[n]};var wt=S.txns.filter(function(x){return x.id===fm.dataset.id})[0],wOld=wt&&wt.fromWallet?wt.amount:null;var r=editTxn(fm.dataset.id,{date:g('d').value,name:g('n').value,amount:parseFloat(g('a').value),cat:g('c').value,sub:g('u').value},g('s').checked);if(wOld!==null&&walletAcct()&&wt.amount!==wOld)walletAdd(wt.amount-wOld);if(r)r.changed+=editTxnExtras(fm.dataset.id,g('k').value,g('ac').value,g('nt').value,g('s').checked,g('vh')?g('vh').value:undefined);if(r&&g('fk')){var ft=S.txns.filter(function(x){return x.id===fm.dataset.id})[0],fc=g('fk').value?friendClean(g('fk').value,g('fw').value):null;if(ft){if(fc)ft.friend=fc;else delete ft.friend}}editTx='';catMsg='';save();render();toast(r?(r.changed?'Saved. Also updated '+r.changed+' similar transaction'+(r.changed===1?'':'s')+'.':'Saved.'):'Could not save.')}});
   m.querySelectorAll('[data-subs]').forEach(function(i){i.onchange=function(){var l=parseSubList(i.value);if(!S.subCats)S.subCats={};if(l.length)S.subCats[i.dataset.subs]=l;else delete S.subCats[i.dataset.subs];save();render();toast('Sub-categories for '+i.dataset.subs+' saved.')}});
   m.querySelectorAll('[data-loanfile]').forEach(function(inp){inp.onchange=function(){
@@ -9808,10 +10047,10 @@ var HOSTED=false,AUTH={email:'',key:null,version:0,status:'',dirty:false,busy:fa
 function api(method,path,body){
   return fetch(path,{method:method,credentials:'same-origin',headers:{'content-type':'application/json','x-tally':'1'},body:body===undefined?undefined:JSON.stringify(body)}).then(function(r){return r.json().catch(function(){return {ok:false,error:'Unexpected reply.'}}).then(function(j){j.status=r.status;return j})});
 }
-function wipeLocal(){try{['tally-money-v1','tally-plaid-v1','tally-quotes-v1','tally-owner'].forEach(function(k){localStorage.removeItem(k)})}catch(e){}}
-function ownerGet(){try{return localStorage.getItem('tally-owner')||''}catch(e){return ''}}
-function ownerSet(v){try{localStorage.setItem('tally-owner',v)}catch(e){}}
-function adopt(obj){S=obj;migrate();syncCats();undoInit();try{localStorage.setItem('tally-money-v1',JSON.stringify(S))}catch(e){}}
+function wipeLocal(){try{['tally-money-v1','tally-plaid-v1','tally-quotes-v1','tally-owner'].forEach(function(k){localStorage.removeItem(PK(k))})}catch(e){}}
+function ownerGet(){try{return localStorage.getItem(PK('tally-owner'))||''}catch(e){return ''}}
+function ownerSet(v){try{localStorage.setItem(PK('tally-owner'),v)}catch(e){}}
+function adopt(obj){S=obj;migrate();syncCats();undoInit();try{localStorage.setItem(PK('tally-money-v1'),JSON.stringify(S))}catch(e){}}
 function showGate(mode,msg){gate={mode:mode,msg:msg||'',busy:false};drawGate()}
 function drawGate(){
   var el=$('#gate');if(!gate){if(el)el.remove();return}
@@ -9858,7 +10097,7 @@ function afterAuth(email,key,isNew){
       return openJson(key,r.data).then(function(obj){adopt(obj);ownerSet(email);finishGate()},function(er){AUTH.key=null;gateFail(er.message)});
     }
     // Nothing stored yet for this account.
-    var own=ownerGet(),local=null;try{local=JSON.parse(localStorage.getItem('tally-money-v1')||'null')}catch(e){}
+    var own=ownerGet(),local=null;try{local=JSON.parse(localStorage.getItem(PK('tally-money-v1'))||'null')}catch(e){}
     if(local&&own===email){S=local;migrate();syncCats()}
     else if(local&&!own&&!local.sample&&window.confirm('This browser already has Tally data that was saved before accounts. Add it to your new account?\n\nOK adds it. Cancel starts the account empty.')){S=local;migrate();syncCats()}
     else{wipeLocal();S=sample();migrate();syncCats()}
@@ -9934,7 +10173,7 @@ document.addEventListener('keydown',function(e){
 });
 function bootHosted(){
   var done=false;
-  function local(){if(done)return;done=true;load();if(VLT.locked){showLock();bioLoad(function(){if(BIO.enabled){showLock();bioUnlock()}});return}render();widgetInit()}
+  function local(){if(done)return;done=true;load();if(VLT.locked){showLock();bioLoad(function(){if(BIO.enabled){showLock();bioUnlock()}});return}render();widgetInit();profBoot()}
   if(window.tally||!/^https?:$/.test(location.protocol))return local();
   fetch('/api/health',{credentials:'same-origin'}).then(function(r){return r.ok?r.json():null}).then(function(j){
     if(!j||!j.hosted)return local();

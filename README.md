@@ -656,3 +656,13 @@ If you have holdings, the Overview shows a **Your stocks** panel: the value of y
 ## Choose what the widget shows
 
 Settings → Desktop widget → **What the widget shows** lets you tick the sections you want and set their order with the arrows: Net worth, Investments (value, today's change, biggest movers), Budgets, Due soon, Next paycheck, This month, Goal, Debts, Subscriptions and Credit score. The floating widget scrolls and can be resized by dragging its edges (the size is remembered). The macOS desktop widget shows as many of the top sections as fit its size: 2 for small, 3 for medium, 6 for large. Sections with nothing to show (no holdings, no pay statement and so on) are skipped. The widget gets only plain totals, never transaction or account names.
+
+## Users, the setup guide and your name
+
+Settings now has **About you** (name and nickname) and **Users**. The Overview greets you as, for example, "Good evening, Sam", and the private assistant knows what to call you.
+
+**Add a user** lets someone else share this computer with their own accounts, transactions, settings and look. Choose **A real person** and the app creates them, switches to them and starts the **setup guide**: a walkthrough in the style of the tour that opens each tab, lights up the place to fill in or upload, ticks it off when it sees the data arrive, and lets you skip, go back or pause (Esc). It covers your name, accounts, bank link, transactions, pay statements, loans, cards, credit scores, investments, vehicles and assets, home, bills, budgets, energy, taxes, goals and an app password. Run it again any time from Settings, About you. Choose **A demo user** for a profile filled with made-up data to demonstrate or experiment in; **Reset the demo** puts it back.
+
+With more than one user the app asks "Who is using Tally Money?" each time it opens (you can turn that off), and the sidebar has a quick switcher. The first user keeps the original storage, so nothing existing is moved. Each user has their own Touch ID entry, and the desktop widget is cleared when you switch so the last user's totals do not stay on the desktop.
+
+This is not a lock: anyone who can open your computer account can reach every user's files. Give a user an app password (Settings, Security) while signed in as them to keep their data private. The names on the "who is using" screen are not encrypted. Users are not available in the hosted web version.

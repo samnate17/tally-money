@@ -12,7 +12,7 @@ const { createDocs } = require('./docs');
 const { createWidget } = require('./widget');
 const glassLib = require('./glass');
 const { createUpdater } = require('./updater');
-const { createBiometric, canTouchId, confirmTouchId } = require('./biometric');
+const { createBiometric, canTouchId, confirmTouchId, cleanSlot } = require('./biometric');
 const { createPhoneCapture } = require('./phonecapture');
 const qrcode = require('qrcode-generator');
 const { createLocalAI } = require('./local-ai');
@@ -124,6 +124,7 @@ function wireIpc() {
     else if (what === 'hideAmounts') widget.setHideAmounts(!!value);
     else if (what === 'requireAuth') widget.setRequireAuth(!!value);
     else if (what === 'sections') widget.setSections(value);
+    else if (what === 'clear') widget.clear();
     else return { ok: false };
     buildMenu();
     return { ok: true, data: { ...widget.status(), native: nativeWidgetBundled() } };
@@ -190,10 +191,10 @@ function wireIpc() {
   mainOnly('phone:stop', () => { if (phone) phone.stop(); return true; });
   mainOnly('phone:status', () => (phone ? phone.status() : { on: false, url: '', expires: 0, received: 0 }));
   // Touch ID unlock for the app password (see biometric.js).
-  mainOnly('bio:status', (slot) => createBiometric({ store, systemPreferences }).status(slot === 'tabs' ? 'tabs' : 'vault'));
-  mainOnly('bio:enable', (pw, slot) => createBiometric({ store, systemPreferences }).enable(pw, slot === 'tabs' ? 'tabs' : 'vault'));
-  mainOnly('bio:unlock', (slot) => createBiometric({ store, systemPreferences }).unlock(slot === 'tabs' ? 'tabs' : 'vault'));
-  mainOnly('bio:disable', (slot) => createBiometric({ store, systemPreferences }).disable(slot === 'tabs' ? 'tabs' : 'vault'));
+  mainOnly('bio:status', (slot) => createBiometric({ store, systemPreferences }).status(cleanSlot(slot)));
+  mainOnly('bio:enable', (pw, slot) => createBiometric({ store, systemPreferences }).enable(pw, cleanSlot(slot)));
+  mainOnly('bio:unlock', (slot) => createBiometric({ store, systemPreferences }).unlock(cleanSlot(slot)));
+  mainOnly('bio:disable', (slot) => createBiometric({ store, systemPreferences }).disable(cleanSlot(slot)));
   mainOnly('update:status', () => updater.status());
   mainOnly('update:setToken', (t) => updater.setToken(t));
   mainOnly('update:clearToken', () => updater.clearToken());

@@ -110,6 +110,8 @@ function createWidget({ BrowserWindow, screen, file, preload, html, nativeFile, 
     update(raw) { const s = sanitize(raw); if (!s) return false; summary = s; persist(); writeNative(); send(); return true; },
     setOnTop(v) { state.onTop = !!v; persist(); applyLevel(); send(); },
     setHideAmounts(v) { state.hideAmounts = !!v; persist(); writeNative(); send(); },
+    // Forget the numbers (when another user takes over the app, so the last user's totals do not stay on the desktop).
+    clear() { summary = null; persist(); try { if (nativeFile) fs.unlinkSync(nativeFile); } catch (e) { /* none yet */ } send(); },
     setSections(v) { state.sections = cleanSections(v); persist(); writeNative(); send(); },
     setRequireAuth(v) { state.requireAuth = !!v; persist(); send(); },
     // True when the change would reveal amounts (or remove the lock) and Touch ID must be checked first.
