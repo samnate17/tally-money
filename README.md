@@ -706,3 +706,5 @@ Customize on the Overview lets you edit the shortcut buttons (name, icon, color,
 ## The owl
 
 The help button is an owl that flies around the app (or sits in the corner, your choice) and follows your pointer with its eyes. Tap it and type a request. It understands requests about how the app looks and is laid out: mode, accent color, text size, corners, glass, background, font, animations, sounds, tabs, windows and Overview shortcuts. It only ever performs a fixed list of actions (no code), shows what it did, and Undo that reverses it. Requests it cannot do are kept on a list you can copy and give to a developer or to Claude Code. Help for this page is inside the owl's box.
+
+The owl first uses its built-in rules. If you have saved an Anthropic key (Settings), a request it does not understand is sent to Claude (Haiku) as the words plus the names of your tabs, windows, pages and shortcuts; nothing about accounts or transactions. The reply is checked against the same fixed action list and your real tab and window names before anything changes, and at most 40 such requests are made a day.

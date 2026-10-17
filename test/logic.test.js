@@ -3404,3 +3404,33 @@ test('owl: what it cannot do is kept for later, nothing is guessed, and odd inpu
   assert.ok(p('x'.repeat(5000)).length <= 8);
   const odd = p('<script>alert(1)</script> dark mode, then do something strange'); assert.ok(odd.every((x) => ['theme', 'sound', 'owl', 'resetPage', 'tab', 'sc', 'win', 'unknown'].indexOf(x.t) > -1), 'only known kinds of action');
 });
+
+test('owl: more rules, and the AI answer is cleaned before anything is done', () => {
+  const O = new Function(srcBlock('/*OWL-START*/', '/*OWL-END*/') + '\nreturn {owlParse, owlClean};')();
+  const ctx = Object.assign({}, OWL_CTX, { cards: [{ id: 'safe-to-spend', title: 'Safe to spend' }, { id: 'goal', title: 'Goal' }], styles: { 'where-it-went': ['donut', 'bars', 'list'] } });
+  const p = (t) => O.owlParse(t, ctx)[0];
+  assert.deepEqual(p('go to the budgets page'), { t: 'go', id: 'budgets', name: 'Budgets' });
+  assert.deepEqual(p('rename the bills shortcut to Pay up'), { t: 'sc', k: 'rename', id: 's3', name: 'Bills', label: 'Pay up' });
+  assert.deepEqual(p('make the bills shortcut bigger'), { t: 'sc', k: 'big', id: 's3', name: 'Bills' });
+  assert.deepEqual(p('hide the goal card'), { t: 'card', k: 'hide', id: 'goal', name: 'Goal' });
+  assert.deepEqual(p('move the energy tab to the top'), { t: 'tab', k: 'top', id: 'energy', name: 'Energy' });
+  assert.deepEqual(p('move the last six months window to the top'), { t: 'win', k: 'top', id: 'last-six-months', name: 'Last six months' });
+  assert.deepEqual(p('show where it went as bars'), { t: 'style', id: 'where-it-went', name: 'Where it went', v: 'bars' });
+  assert.deepEqual(p('use #FF8800 as the accent color'), { t: 'theme', k: 'accent', v: '#ff8800' });
+  const raw = [{ t: 'theme', k: 'mode', v: 'dark' }, { t: 'theme', k: 'mode', v: 'neon' }, { t: 'tab', k: 'hide', id: 'energy' }, { t: 'tab', k: 'hide', id: 'nonexistent' }, { t: 'win', k: 'fold', id: 'budgets' },
+    { t: 'style', id: 'where-it-went', v: 'bars' }, { t: 'style', id: 'where-it-went', v: 'cube' }, { t: 'sc', k: 'add', id: 'tax', label: '<b>Tax</b>' }, { t: 'sc', k: 'rename', id: 's1' }, { t: 'runCode', v: 'alert(1)' },
+    { t: 'theme', k: 'accent', v: 'red' }, { t: 'theme', k: 'accent', v: 'javascript:1' }, null, 'x'];
+  const c = O.owlClean(raw, ctx);
+  assert.deepEqual(c.map((x) => x.t + ':' + (x.k || '') + ':' + (x.id || x.v || '')), ['theme:mode:dark', 'tab:hide:energy', 'win:fold:budgets', 'style::where-it-went', 'sc:add:']);  // only the first eight are looked at
+  assert.equal(c[4].label, 'bTax/b', 'angle brackets are dropped');
+  assert.deepEqual(O.owlClean([{ t: 'theme', k: 'accent', v: 'red' }, { t: 'theme', k: 'accent', v: 'javascript:1' }], ctx), [{ t: 'theme', k: 'accent', v: '#e5484d' }]);
+  assert.deepEqual(O.owlClean('nope', ctx), []); assert.ok(O.owlClean(Array(50).fill({ t: 'resetPage' }), ctx).length <= 8);
+});
+test('owl: the reply from Claude is read defensively', () => {
+  const { parseOwlReply, OWL_SYSTEM } = require('../ai.js');
+  const r = parseOwlReply('Sure! {"actions":[{"t":"theme","k":"mode","v":"dark"},{"t":"x","id":5},{"nope":1}],"say":"Done."} thanks');
+  assert.deepEqual(r.actions, [{ t: 'theme', k: 'mode', v: 'dark' }, { t: 'x' }]); assert.equal(r.say, 'Done.');
+  assert.deepEqual(parseOwlReply('no json here'), { actions: [], say: '' }); assert.deepEqual(parseOwlReply('{bad'), { actions: [], say: '' }); assert.deepEqual(parseOwlReply(null), { actions: [], say: '' });
+  assert.ok(parseOwlReply(JSON.stringify({ actions: Array(30).fill({ t: 'resetPage' }) })).actions.length <= 8);
+  assert.ok(/ONLY one JSON object/.test(OWL_SYSTEM) && /Never invent ids/.test(OWL_SYSTEM));
+});

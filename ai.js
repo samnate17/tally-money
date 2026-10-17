@@ -448,6 +448,32 @@ const ADVICE_SYSTEM = [
   'Give at most 7 bullets, most valuable first. Each title is one short sentence; each detail is one to three plain sentences that point at the user\'s own numbers (months, prices, usage per degree day) and, where you can, a rough yearly dollar figure that you mark as an estimate.',
   'Do not invent numbers that are not in the data and do not claim certainty. Mention upfront costs and payback when you suggest equipment (heat pump, insulation, a new boiler). Do not give financial, legal or safety-critical instructions beyond common sense.',
 ].join(' ');
+// The owl: turns a sentence about how the app should look into a short list of allowed changes. It is sent only the request and the names of
+// tabs, windows and shortcuts, never any account, balance or transaction, and it can only answer with the actions below.
+const OWL_MODEL = 'claude-haiku-5-5';
+const OWL_SYSTEM = [
+  'You are the helper inside a personal finance app. The user types a request about how the app LOOKS or is LAID OUT. Reply with ONLY one JSON object: {"actions":[...],"say":"one short friendly sentence"}.',
+  'Each action is one of these and nothing else (all values are strings; use ids exactly as given in the lists you are sent):',
+  '{"t":"theme","k":"mode","v":"auto|light|dark"} {"t":"theme","k":"size","v":"s|m|l|up|down"} {"t":"theme","k":"radius","v":"up|down"} {"t":"theme","k":"frost","v":"up|down"} {"t":"theme","k":"accent","v":"a color name or #rrggbb"} {"t":"theme","k":"motion","v":"full|reduced"} {"t":"theme","k":"font","v":"modern|system|rounded|serif"} {"t":"theme","k":"bg","v":"aurora|soft|plain|studio"}',
+  '{"t":"sound","v":"on|off"} {"t":"owl","v":"fly|sit"} {"t":"resetPage"} {"t":"go","id":"<page id>"}',
+  '{"t":"tab","k":"hide|show|up|down|top","id":"<tab id>"} {"t":"tab","k":"showall"}',
+  '{"t":"win","k":"hide|show|fold|open|full|half|top|bottom","id":"<window id>"} {"t":"style","id":"<window id>","v":"<one of that window\'s styles>"}',
+  '{"t":"sc","k":"add","id":"<page id>","label":"short name"} {"t":"sc","k":"del|left|right|big|small|rename","id":"<shortcut id>","label":"new name for rename"} {"t":"card","k":"hide|show|left|right","id":"<card id>"}',
+  'Use at most 8 actions. If part of the request needs a change to the app itself, or is not about looks or layout, leave that part out and mention it in "say". Never invent ids. Output no text outside the JSON.',
+].join('\n');
+function parseOwlReply(text) {
+  const t = String(text || '');
+  const i = t.indexOf('{'), j = t.lastIndexOf('}');
+  if (i < 0 || j <= i) return { actions: [], say: '' };
+  let o;
+  try { o = JSON.parse(t.slice(i, j + 1)); } catch (e) { return { actions: [], say: '' }; }
+  const actions = (Array.isArray(o && o.actions) ? o.actions : []).slice(0, 8).filter((a) => a && typeof a === 'object' && typeof a.t === 'string').map((a) => {
+    const c = {};
+    ['t', 'k', 'v', 'id', 'label'].forEach((k) => { if (typeof a[k] === 'string') c[k] = a[k].slice(0, 60); });
+    return c;
+  });
+  return { actions, say: typeof (o && o.say) === 'string' ? o.say.slice(0, 200) : '' };
+}
 function cleanAdvice(raw) {
   const out = [];
   for (const b of raw && Array.isArray(raw.bullets) ? raw.bullets : []) {
@@ -991,7 +1017,30 @@ function createAI({ store, clientFactory }) {
     return cleanAdvice(parsed);
   }
 
-  return { status, saveKey, clearKey, analyze, categorize, loansFromText, statement, statementPdf, testKey, carArt, creditShot, receipt, assetValue, energyFromText, energyAdvice, serviceFromText, payStubFromText, taxDocFromText, taxRates, assetValueWeb };
+  async function owlAsk(req) {
+    const apiKey = store.get('anthropicKey');
+    if (!apiKey) throw new Error('Add your Anthropic API key first.');
+    const text = String((req && req.text) || '').slice(0, 400).trim();
+    if (!text) throw new Error('Type what you would like changed.');
+    const lists = {};
+    for (const k of ['tabs', 'windows', 'pages', 'shortcuts', 'cards', 'styles']) {
+      const v = req && req.ctx && req.ctx[k];
+      lists[k] = Array.isArray(v) ? v.slice(0, 60).map((x) => (x && typeof x === 'object' ? { id: String(x.id || '').slice(0, 50), title: String(x.title || '').slice(0, 50), options: Array.isArray(x.options) ? x.options.slice(0, 8).map((o) => String(o).slice(0, 20)) : undefined } : null)).filter(Boolean) : [];
+    }
+    const body = JSON.stringify({ request: text, page: String((req && req.ctx && req.ctx.page) || '').slice(0, 40), lists });
+    if (body.length > 12000) throw new Error('That is too much to send at once.');
+    let msg;
+    try {
+      const stream = make(apiKey).messages.stream({ model: OWL_MODEL, max_tokens: 700, system: OWL_SYSTEM, messages: [{ role: 'user', content: body }] });
+      msg = await stream.finalMessage();
+    } catch (err) {
+      throw new Error(friendlyError(err));
+    }
+    if (msg.stop_reason === 'refusal') throw new Error('Claude declined to answer.');
+    return parseOwlReply((msg.content || []).filter((b) => b.type === 'text').map((b) => b.text).join(''));
+  }
+
+  return { status, saveKey, clearKey, analyze, owlAsk, categorize, loansFromText, statement, statementPdf, testKey, carArt, creditShot, receipt, assetValue, energyFromText, energyAdvice, serviceFromText, payStubFromText, taxDocFromText, taxRates, assetValueWeb };
 }
 
 // For a model running on this computer: the same job as the Claude version, but it must answer with plain JSON text.
@@ -1005,4 +1054,4 @@ function parseLocalLoans(reply) {
   return cleanLoans(parsed);
 }
 module.exports = {
-  LOANS_LOCAL_SYSTEM, parseLocalLoans, cleanLoans, cleanScoreShot, cleanReceipt, cleanAssetValue, cleanEnergyDocs, cleanAdvice, cleanServiceRecords, cleanPayStubRecord, cleanTaxDocs, cleanTaxRatesRaw, cleanAssetWeb, createAI, cleanResult, cleanStatement, friendlyError, detailOf, MODEL, SCHEMA, schemaFor, SYSTEM, MAX_STATEMENT_CHARS };
+  OWL_SYSTEM, parseOwlReply, LOANS_LOCAL_SYSTEM, parseLocalLoans, cleanLoans, cleanScoreShot, cleanReceipt, cleanAssetValue, cleanEnergyDocs, cleanAdvice, cleanServiceRecords, cleanPayStubRecord, cleanTaxDocs, cleanTaxRatesRaw, cleanAssetWeb, createAI, cleanResult, cleanStatement, friendlyError, detailOf, MODEL, SCHEMA, schemaFor, SYSTEM, MAX_STATEMENT_CHARS };

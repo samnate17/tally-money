@@ -360,6 +360,7 @@ function wireIpc() {
   });
   handle('ai:taxRates', (req) => ai.taxRates(req || {}));
   handle('ai:energyAdvice', (summary) => ai.energyAdvice(summary));
+  handle('ai:owl', (req) => ai.owlAsk(req));
   const docsSvc = createDocs({ root: path.join(app.getPath('documents'), 'Tally Money'), shell });
   // Wallet: encrypted photos and scans of IDs and records, one folder per user of the app.
   const walletSvc = createWallet({ root: path.join(app.getPath('userData'), 'wallet'), safeStorage });
