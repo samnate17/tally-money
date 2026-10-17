@@ -708,3 +708,11 @@ Customize on the Overview lets you edit the shortcut buttons (name, icon, color,
 The help button is an owl that flies around the app (or sits in the corner, your choice) and follows your pointer with its eyes. Tap it and type a request. It understands requests about how the app looks and is laid out: mode, accent color, text size, corners, glass, background, font, animations, sounds, tabs, windows and Overview shortcuts. It only ever performs a fixed list of actions (no code), shows what it did, and Undo that reverses it. Requests it cannot do are kept on a list you can copy and give to a developer or to Claude Code. Help for this page is inside the owl's box.
 
 The owl first uses its built-in rules. If you have saved an Anthropic key (Settings), a request it does not understand is sent to Claude (Haiku) as the words plus the names of your tabs, windows, pages and shortcuts; nothing about accounts or transactions. The reply is checked against the same fixed action list and your real tab and window names before anything changes, and at most 40 such requests are made a day.
+
+## Profile picture and details
+
+Settings, You has a picture and details (email, phone, city, state, birthday, a note) for each user. The picture shows on the Overview, the sidebar and the user picker, and is stored with the profile on this computer.
+
+## From email
+
+On Transactions, From email reads emails you export (.eml, or one .mbox from Google Takeout) entirely on this computer. It keeps only the amount, date, merchant and a fingerprint of each message. Bank alerts about transactions already in the app are marked and skipped (matched one-to-one on amount within four days), an order email and its alert are one purchase, the same message is never added twice, and a later bank import replaces the email copy. It also suggests subscriptions from repeating charges. A direct mailbox connection needs a Google sign-in (OAuth) set up by the owner and is not built.

@@ -485,6 +485,7 @@ body.reordering,body.reordering *{cursor:grabbing!important}
 .whocard{background:none;border:0;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:8px;color:var(--ink);font:inherit;font-size:15px;padding:14px;border-radius:20px;min-width:120px}
 .whocard:hover,.whocard:focus-visible{background:var(--surface2);outline:2px solid var(--accent)}.whosub{font-size:12px;color:var(--muted);min-height:14px}
 .whoav{width:84px;height:84px;border-radius:24px;display:flex;align-items:center;justify-content:center;font-size:36px;font-weight:700;color:#fff;flex:0 0 auto}
+.whoav.hasphoto{overflow:hidden;padding:0}.whoav img{width:100%;height:100%;object-fit:cover;display:block}.hgreet{display:flex;align-items:center;gap:8px}.hgreet .whoav{width:30px;height:30px;border-radius:50%;font-size:14px}
 .whoav.c0{background:#3b4cf0}.whoav.c1{background:#16a085}.whoav.c2{background:#e8833a}.whoav.c3{background:#c2399a}.whoav.c4{background:#2e9fd8}.whoav.c5{background:#8a63d2}.whoav.c6{background:#b8860b}.whoav.c7{background:#7a8aa0}
 .profrow .whoav,.profpick .whoav,.railuser .whoav{width:34px;height:34px;border-radius:11px;font-size:15px}
 .profpick{display:flex;width:100%;align-items:center;gap:12px;margin:0 0 8px;padding:8px 12px;text-align:left}
@@ -728,12 +729,19 @@ function profClean(raw){
     (Array.isArray(raw.list)?raw.list:[]).slice(0,12).forEach(function(p){
       if(!p||typeof p!=='object')return;var id=String(p.id||'');if(!/^[a-z0-9]{1,12}$/.test(id)||seen[id])return;seen[id]=1;
       var sk={};if(p.skip&&typeof p.skip==='object'&&!Array.isArray(p.skip))Object.keys(p.skip).slice(0,40).forEach(function(k){if(/^[a-z0-9]{1,16}$/.test(k)&&p.skip[k])sk[k]=1});
-      o.list.push({id:id,name:profStr(p.name,30),nick:profStr(p.nick,20),demo:p.demo===true,setup:p.setup===true,fresh:p.fresh===true,skip:sk,color:Math.max(0,Math.min(7,Math.round(+p.color||0))),created:/^\d{4}-\d{2}-\d{2}$/.test(p.created||'')?p.created:''})});
+      o.list.push({id:id,name:profStr(p.name,30),nick:profStr(p.nick,20),demo:p.demo===true,setup:p.setup===true,fresh:p.fresh===true,skip:sk,photo:profPhotoOk(p.photo)?p.photo:'',info:profInfoClean(p.info),color:Math.max(0,Math.min(7,Math.round(+p.color||0))),created:/^\d{4}-\d{2}-\d{2}$/.test(p.created||'')?p.created:''})});
     if(raw.pick===false)o.pick=false;
     if(typeof raw.active==='string'&&seen[raw.active])o.active=raw.active;
   }
-  if(!seen.main)o.list.unshift({id:'main',name:'',nick:'',demo:false,setup:false,fresh:false,skip:{},color:0,created:''});
+  if(!seen.main)o.list.unshift({id:'main',name:'',nick:'',demo:false,setup:false,fresh:false,skip:{},photo:'',info:profInfoClean(null),color:0,created:''});
   return o;
+}
+// A profile picture is kept as a small square JPEG, PNG or WebP inside the profile itself (never uploaded anywhere).
+function profPhotoOk(v){return typeof v==='string'&&v.length<=60000&&/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/=]+$/.test(v)}
+function profInfoClean(r){
+  r=r&&typeof r==='object'&&!Array.isArray(r)?r:{};
+  var email=profStr(r.email,80),birth=/^\d{4}-\d{2}-\d{2}$/.test(r.birth||'')&&!isNaN(Date.parse(r.birth))?r.birth:'';
+  return {email:/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)?email:'',phone:profStr(r.phone,24).replace(/[^0-9+()\-. ]/g,'').replace(/\s+/g,' ').trim(),city:profStr(r.city,40),state:profStr(r.state,2).toUpperCase().replace(/[^A-Z]/g,''),birth:birth,about:profStr(r.about,200)};
 }
 function profKey(base,id){return id==='main'||PK_SHARED[base]?base:base+'@'+id}
 function profName(p){return p?(p.nick||p.name||''):''}
@@ -956,7 +964,7 @@ try{var _lk=JSON.parse(localStorage.getItem(PK('tally-lock-v1'))||'{}');if(_lk&&
 function load(){try{if(localStorage.getItem(PK('tally-vault-v1'))){VLT.on=true;VLT.locked=true;S=sample();migrate();syncCats();return}}catch(e){}try{var j=localStorage.getItem(PK('tally-money-v1'));if(j){S=JSON.parse(j);migrate();syncCats();undoInit();return}}catch(e){}S=sample();migrate();syncCats();undoInit()}
 function defCredit(){return {scores:[],profile:{late:'unknown',inq:'unknown',oldest:'',derog:'unknown'}}}
 function syncXfer(){setXferContext(S.accounts.filter(function(a){return a.type==='credit'}).map(function(a){return a.id}),S.xferLearn)}
-function migrate(){S.catRules=cleanCatRules(S.catRules);S.pay=cleanPayState(S.pay,uid);S.tax=cleanTaxState(S.tax);taxApplyOnline(S.tax.online);if(!S.vehIgnore||typeof S.vehIgnore!=='object'||Array.isArray(S.vehIgnore))S.vehIgnore={};S.ad=cleanAd(S.ad);S.upd=cleanUpd(S.upd);S.wallet=cleanWallet(S.wallet,function(){return profNewId()});if(!Array.isArray(S.fuel))S.fuel=[];S.fuel=cleanFuel(S.fuel,uid);if(!S.energyCfg||typeof S.energyCfg!=='object'||Array.isArray(S.energyCfg))S.energyCfg={};if(S.weather&&!cleanWeather(S.weather))delete S.weather;if(!S.weather)S.weather={};if(!S.xferLearn||typeof S.xferLearn!=='object'||Array.isArray(S.xferLearn))S.xferLearn={};S.hideWords=cleanHideWords(S.hideWords);if(!Array.isArray(S.imports))S.imports=[];if(!S.payLinks||typeof S.payLinks!=='object'||Array.isArray(S.payLinks))S.payLinks={};if(!S.apple||typeof S.apple!=='object'||Array.isArray(S.apple))S.apple={};if(!S.billIgnore||typeof S.billIgnore!=='object'||Array.isArray(S.billIgnore))S.billIgnore={};if(S.cardPay!=='skip'&&S.cardPay!=='count')S.cardPay='auto';if(!S.home||typeof S.home!=='object'||Array.isArray(S.home))S.home={};if(!(S.debtMonthly>=0))S.debtMonthly=0;if(!Array.isArray(S.customCats))S.customCats=[];if(!Array.isArray(S.setAside))S.setAside=[];if(!S.merchantCats||typeof S.merchantCats!=='object'||Array.isArray(S.merchantCats))S.merchantCats={};if(!Array.isArray(S.energy))S.energy=[];if(!Array.isArray(S.bills))S.bills=[];if(!S.billMarks||typeof S.billMarks!=='object'||Array.isArray(S.billMarks))S.billMarks={};S.billAdj=cleanBillAdj(S.billAdj);if(!S.subCats||typeof S.subCats!=='object'||Array.isArray(S.subCats))S.subCats={};if(!S.merchantSubs||typeof S.merchantSubs!=='object'||Array.isArray(S.merchantSubs))S.merchantSubs={};if(!Array.isArray(S.holdings))S.holdings=S.sample?sampleHoldings():[];if(!S.credit||!Array.isArray(S.credit.scores))S.credit=S.sample?sampleCredit():defCredit();if(!Array.isArray(S.plaidIgnored))S.plaidIgnored=[];if(!Array.isArray(S.accounts))S.accounts=S.sample?sampleAccounts():[];if(typeof S.extraPay!=='number')S.extraPay=S.sample?100:0;try{if(syncVehicleAssets())vehPendingSave=true}catch(e){}}
+function migrate(){if(!S.mail||typeof S.mail!=='object'||Array.isArray(S.mail)||!S.mail.seen||typeof S.mail.seen!=='object')S.mail={seen:{}};Object.keys(S.mail.seen).forEach(function(k){if(!/^m[0-9a-z]{4,24}$/.test(k))delete S.mail.seen[k]});S.catRules=cleanCatRules(S.catRules);S.pay=cleanPayState(S.pay,uid);S.tax=cleanTaxState(S.tax);taxApplyOnline(S.tax.online);if(!S.vehIgnore||typeof S.vehIgnore!=='object'||Array.isArray(S.vehIgnore))S.vehIgnore={};S.ad=cleanAd(S.ad);S.upd=cleanUpd(S.upd);S.wallet=cleanWallet(S.wallet,function(){return profNewId()});if(!Array.isArray(S.fuel))S.fuel=[];S.fuel=cleanFuel(S.fuel,uid);if(!S.energyCfg||typeof S.energyCfg!=='object'||Array.isArray(S.energyCfg))S.energyCfg={};if(S.weather&&!cleanWeather(S.weather))delete S.weather;if(!S.weather)S.weather={};if(!S.xferLearn||typeof S.xferLearn!=='object'||Array.isArray(S.xferLearn))S.xferLearn={};S.hideWords=cleanHideWords(S.hideWords);if(!Array.isArray(S.imports))S.imports=[];if(!S.payLinks||typeof S.payLinks!=='object'||Array.isArray(S.payLinks))S.payLinks={};if(!S.apple||typeof S.apple!=='object'||Array.isArray(S.apple))S.apple={};if(!S.billIgnore||typeof S.billIgnore!=='object'||Array.isArray(S.billIgnore))S.billIgnore={};if(S.cardPay!=='skip'&&S.cardPay!=='count')S.cardPay='auto';if(!S.home||typeof S.home!=='object'||Array.isArray(S.home))S.home={};if(!(S.debtMonthly>=0))S.debtMonthly=0;if(!Array.isArray(S.customCats))S.customCats=[];if(!Array.isArray(S.setAside))S.setAside=[];if(!S.merchantCats||typeof S.merchantCats!=='object'||Array.isArray(S.merchantCats))S.merchantCats={};if(!Array.isArray(S.energy))S.energy=[];if(!Array.isArray(S.bills))S.bills=[];if(!S.billMarks||typeof S.billMarks!=='object'||Array.isArray(S.billMarks))S.billMarks={};S.billAdj=cleanBillAdj(S.billAdj);if(!S.subCats||typeof S.subCats!=='object'||Array.isArray(S.subCats))S.subCats={};if(!S.merchantSubs||typeof S.merchantSubs!=='object'||Array.isArray(S.merchantSubs))S.merchantSubs={};if(!Array.isArray(S.holdings))S.holdings=S.sample?sampleHoldings():[];if(!S.credit||!Array.isArray(S.credit.scores))S.credit=S.sample?sampleCredit():defCredit();if(!Array.isArray(S.plaidIgnored))S.plaidIgnored=[];if(!Array.isArray(S.accounts))S.accounts=S.sample?sampleAccounts():[];if(typeof S.extraPay!=='number')S.extraPay=S.sample?100:0;try{if(syncVehicleAssets())vehPendingSave=true}catch(e){}}
 function ledger(){return ledgerOf(S.txns,S.cardPay)}
 function billCatOf(n){var c=guessCat(n);return {cat:c,sub:c==='Other'?'':(guessSub(c,n)||'')}}
 var showHidden=false;
@@ -1023,6 +1031,7 @@ function undoButtons(){return '<span class="undo"><button class="btn small" data
 function save(opt){
   try{var dm=debtApply(S.accounts,S.txns,iso(TODAY)).filter(function(m){return m.type!=='checking'&&m.type!=='savings'});if(dm.length)toast('Updated from your transactions: '+dm.slice(0,3).map(function(m){return m.name+' '+(m.to<m.from?'−':'+')+money0(Math.abs(m.to-m.from))}).join(', ')+(dm.length>3?' and '+(dm.length-3)+' more':'')+'.')}catch(e){}
   try{var vs=syncVehicleAssets();if(vs){var vn=vs.made.concat(vs.linked);toast(vs.made.length?'Added '+vs.made.join(', ')+' to Assets from your car loan. Its value is an estimate: update it there.':'Linked '+vs.linked.join(', ')+' to its car loan.')}}catch(e){}
+  try{var em=emMerge(S.txns);if(em.removed){S.txns=em.txns;toast('Your bank now shows '+(em.removed===1?'a transaction':em.removed+' transactions')+' that came from email, so the email '+(em.removed===1?'copy was':'copies were')+' removed.')}}catch(e){}
   var j=null;try{j=JSON.stringify(S)}catch(e){}
   if(j)undoTrack(opt&&opt.noUndo?(UNDO.cur=j):j);
   if(VLT.on){if(VLT.key)vaultFlush();widgetPush();return}
@@ -1376,6 +1385,147 @@ function owlClean(raw,ctx){
   return out;
 }
 /*OWL-END*/
+/*EMAIL-START*/
+// Reads emails you export (.eml, or an .mbox file) on this computer, finds the ones that report money moving, and lines them up against what the
+// app already has. Nothing is sent anywhere and the text of an email is never saved: only the amount, date, merchant and a fingerprint of the message.
+function emHash(str){
+  var h1=0x811c9dc5,h2=0x1b873593,i,c;str=String(str||'');
+  for(i=0;i<str.length;i++){c=str.charCodeAt(i);h1^=c;h1=Math.imul(h1,16777619)>>>0;h2=Math.imul(h2^c,2246822519)>>>0;h2=((h2<<13)|(h2>>>19))>>>0}
+  return 'm'+h1.toString(36)+h2.toString(36);
+}
+function emSplitMbox(text){
+  text=String(text||'');
+  if(!/^From \S+[^\n]*\n/.test(text))return [text];
+  return text.split(/\r?\n(?=From \S+[^\n]*\d{4}\r?\n)/).map(function(m){return m.replace(/^From [^\n]*\n/,'')}).filter(function(m){return m.trim()});
+}
+function emSplitHead(raw){var m=/\r?\n\r?\n/.exec(raw);return m?[raw.slice(0,m.index),raw.slice(m.index+m[0].length)]:[raw,''];}
+function emHeaders(h){
+  var o={};h.replace(/\r?\n[ \t]+/g,' ').split(/\r?\n/).forEach(function(l){var i=l.indexOf(':');if(i>0){var k=l.slice(0,i).toLowerCase();if(!(k in o))o[k]=l.slice(i+1).trim()}});return o;
+}
+function emBytesToText(bin,cs){
+  try{var u=new Uint8Array(bin.length),i;for(i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i)&255;return new TextDecoder(/^(utf-?8|us-ascii|iso-8859-1|windows-1252|latin1)$/i.test(cs||'')?(/utf-?8|us-ascii/i.test(cs)?'utf-8':'windows-1252'):'utf-8').decode(u)}catch(e){return bin}
+}
+function emQP(s){
+  var bin=s.replace(/=\r?\n/g,'').replace(/=([0-9A-Fa-f]{2})/g,function(_,h){return String.fromCharCode(parseInt(h,16))});return bin;
+}
+function emWords(v){
+  return String(v||'').replace(/=\?([^?]+)\?([bBqQ])\?([^?]*)\?=/g,function(_,cs,enc,t){
+    try{if(/b/i.test(enc))return emBytesToText(atob(t),cs);return emBytesToText(emQP(t.replace(/_/g,' ')),cs)}catch(e){return t}});
+}
+function emHtmlText(h){
+  return String(h||'').replace(/<(style|script)[\s\S]*?<\/\1>/gi,' ').replace(/<br\s*\/?>|<\/(p|div|tr|li|h\d)>/gi,'\n').replace(/<\/t[dh]>/gi,' ').replace(/<[^>]+>/g,' ')
+    .replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;|&apos;/g,"'").replace(/&#(\d+);/g,function(_,n){return String.fromCharCode(+n)}).replace(/[ \t]+/g,' ').replace(/\n\s*\n+/g,'\n').trim();
+}
+function emBody(headers,body,out,depth){
+  var ct=headers['content-type']||'text/plain',cte=(headers['content-transfer-encoding']||'').toLowerCase(),bm=/boundary="?([^";\s]+)"?/i.exec(ct);
+  if(depth>4)return;
+  if(/multipart\//i.test(ct)&&bm){
+    body.split('--'+bm[1]).slice(1).forEach(function(part){if(/^--/.test(part))return;var sp=emSplitHead(part.replace(/^\r?\n/,''));emBody(emHeaders(sp[0]),sp[1],out,(depth||0)+1)});return;
+  }
+  if(!/text\/(plain|html)/i.test(ct)&&ct!=='text/plain')return;
+  var cs=(/charset="?([\w-]+)/i.exec(ct)||[])[1],txt;
+  try{txt=cte==='base64'?emBytesToText(atob(body.replace(/\s+/g,'')),cs):cte==='quoted-printable'?emBytesToText(emQP(body),cs):body}catch(e){txt=body}
+  if(/text\/html/i.test(ct))out.html+=emHtmlText(txt)+'\n';else out.plain+=txt+'\n';
+}
+function emParse(raw){
+  var sp=emSplitHead(String(raw||'').slice(0,2000000)),h=emHeaders(sp[0]),out={plain:'',html:''};
+  emBody(h,sp[1],out,0);
+  var from=emWords(h.from||''),fm=/^"?([^"<]*?)"?\s*<([^>]+)>/.exec(from),d=h.date?new Date(h.date):null;
+  return {id:(h['message-id']||'').replace(/[<>\s]/g,''),from:fm?fm[2].toLowerCase():from.toLowerCase().trim(),fromName:fm?fm[1].trim():'',subject:emWords(h.subject||'').trim(),
+    date:d&&!isNaN(d)?d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2):'',text:(out.plain.trim()||out.html.trim()).slice(0,8000)};
+}
+var EM_MONTHS={jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12};
+function emIso(y,m,d){return y+'-'+('0'+m).slice(-2)+'-'+('0'+d).slice(-2)}
+function emFindDate(t,fallback){
+  var m=/\b(?:on|date|posted|dated)[:\s]+(?:[A-Za-z]{3,9},?\s+)?([A-Za-z]{3,9})\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})/i.exec(t);
+  if(m&&EM_MONTHS[m[1].slice(0,3).toLowerCase()])return emIso(+m[3],EM_MONTHS[m[1].slice(0,3).toLowerCase()],+m[2]);
+  m=/\b(?:on|date|posted|dated)[:\s]+(\d{1,2})\/(\d{1,2})\/(\d{4}|\d{2})\b/i.exec(t);
+  if(m&&+m[1]>=1&&+m[1]<=12&&+m[2]>=1&&+m[2]<=31)return emIso(m[3].length===2?2000+(+m[3]):+m[3],+m[1],+m[2]);
+  return fallback||'';
+}
+var EM_SKIP=/\b(statement is (now )?(ready|available)|your statement|password|verification code|one.?time (code|passcode)|verify your|security alert|new sign.?in|newsletter|webinar|% off|sale ends|limited time|promo code|take our survey|has shipped|out for delivery|tracking number|appointment reminder|payment (is )?due|minimum payment|low balance|available balance is)\b/i;
+var EM_BANK=/\b(card ending|account ending|ending in|transaction alert|debit card|credit card|posted to your|zelle|venmo|cash app|paypal|bank|credit union|ach)\b/i;
+var EM_OUT=/\b(charged|a charge|charge of|was charged|purchase|you spent|spent|payment (of|to)|you paid|paid to|debited|withdrawal|withdrew|you sent|order total|total charged|amount charged|transaction of|receipt|your order)\b/i;
+var EM_IN=/\b(deposit|deposited|you received|received from|refund(ed)?|credited|you were paid|paid you|direct deposit|reimburse)\b/i;
+function emMoneyList(t){
+  var out=[],re=/\$\s?(\d{1,3}(?:,\d{3})+(?:\.\d{2})?|\d+(?:\.\d{2})?)/g,m;
+  while((m=re.exec(t))){var v=parseFloat(m[1].replace(/,/g,''));if(v>0&&v<1e7)out.push({v:v,i:m.index})}
+  return out;
+}
+function emMerchant(t,m){
+  var pats=[/\bmerchant[:\s]+([A-Za-z0-9&'.\- ]{2,40})/i,/\border from\s+([A-Za-z0-9&'.\- ]{2,40}?)(?:\s+(?:on|is|has|was)\b|[.,\n]|$)/i,/\bat\s+([A-Z][A-Za-z0-9&'.\- ]{1,38}?)(?:\s+(?:on|for|was|has|with)\b|[.,\n]|$)/,/\bto\s+([A-Z][A-Za-z0-9&'.\- ]{1,38}?)(?:\s+(?:on|for|was|has|with)\b|[.,\n]|$)/,/\bfrom\s+([A-Z][A-Za-z0-9&'.\- ]{1,38}?)(?:\s+(?:on|for|was|has|with)\b|[.,\n]|$)/],i,r;
+  for(i=0;i<pats.length;i++){r=pats[i].exec(t);if(r&&!/^(your|the|a|an|my|you|us|me)\b/i.test(r[1]))return r[1].trim().replace(/\s+/g,' ').slice(0,40)}
+  var n=String(m.fromName||'').replace(/\b(no.?reply|receipts?|orders?|team|support|billing|notifications?|alerts?)\b/ig,'').replace(/[^\w&'. -]/g,' ').replace(/\s+/g,' ').trim();
+  if(!n){var d=(m.from.split('@')[1]||'').split('.');n=d.length>1?d[d.length-2]:d[0]||''}
+  return n.slice(0,40);
+}
+// What one message says about money, or why it was skipped.
+function emExtract(m){
+  var t=(m.subject+'\n'+m.text).slice(0,6000),hay=t.toLowerCase();
+  if(/\bpayment (was )?(received|posted|processed)\b/i.test(t)&&/\b(credit card|card ending|loan|mortgage)\b/i.test(t))return {ok:false,why:'a payment confirmation (the withdrawal itself is in your bank)'};
+  var out=EM_OUT.test(t),inn=EM_IN.test(t);
+  if(EM_SKIP.test(t)&&!(out||inn))return {ok:false,why:'not about a transaction'};
+  if(!out&&!inn)return {ok:false,why:'no sign of money moving'};
+  var amts=emMoneyList(t),best=null;
+  amts.forEach(function(a){
+    var before=hay.slice(Math.max(0,a.i-34),a.i);
+    if(/(balance|available|limit|minimum|saved|savings|discount|rewards?|points|credit line|off|shipping|tax)\b[^.$\n]{0,14}$/.test(before))return;
+    var sc=/(total|amount|charged|paid|purchase|payment|transaction|deposit|received|refund|debited|spent|sent)\s*(of|:)?\s*$/.test(before)?2:1;
+    if(!best||sc>best.sc||(sc===best.sc&&/total/.test(before)))best={v:a.v,sc:sc};
+  });
+  if(!best)return {ok:false,why:'no amount found'};
+  var dirOut=out&&(!inn||t.search(EM_OUT)<=t.search(EM_IN)),cls=EM_BANK.test(t)||/bank|credit union|alerts?@|chase|citi|wells|capital ?one|amex|discover/i.test(m.from)?'bank':'receipt';
+  var name=emMerchant(t,m);if(!name)return {ok:false,why:'no merchant found'};
+  return {ok:true,cls:cls,amount:Math.round((dirOut?-best.v:best.v)*100)/100,name:name,date:emFindDate(t,m.date),subject:m.subject.slice(0,80)};
+}
+function emDays(a,b){return Math.abs((Date.parse(a)-Date.parse(b))/864e5)}
+function emWordsOf(n){return String(n||'').toLowerCase().replace(/[^a-z0-9 ]/g,' ').split(/\s+/).filter(function(w){return w.length>=3})}
+function emNameLike(a,b){var A=emWordsOf(a),B=emWordsOf(b);return A.some(function(w){return B.some(function(x){return x.indexOf(w)>-1||w.indexOf(x)>-1})})}
+// Candidate transactions from parsed messages, each marked: new, already in the app (dup), maybe the same as one in the app, or seen before in an earlier import.
+function emCandidates(msgs,txns,seen){
+  var items=[],ignored=[],skippedSeen=0,used={};
+  seen=seen||{};
+  msgs.forEach(function(m){
+    var fp=emHash(m.id||(m.from+'|'+m.subject+'|'+m.date)),ex=emExtract(m);
+    if(!ex.ok){ignored.push({subject:m.subject.slice(0,70),why:ex.why});return}
+    if(!ex.date){ignored.push({subject:m.subject.slice(0,70),why:'no date found'});return}
+    if(seen[fp]){skippedSeen++;return}
+    var dupe=items.filter(function(c){return Math.abs(c.amount-ex.amount)<0.005&&emDays(c.date,ex.date)<=3&&(c.cls!==ex.cls||c.date===ex.date)})[0];   // an order email and its bank alert are one purchase; two alerts on different days are two
+    if(dupe){dupe.sources++;dupe.fps.push(fp);if(dupe.cls==='bank'&&ex.cls==='receipt'){dupe.name=ex.name;dupe.cls='receipt'}return}
+    items.push({key:fp,fps:[fp],date:ex.date,name:ex.name,amount:ex.amount,cls:ex.cls,subject:ex.subject,sources:1,status:'new',match:''});
+  });
+  items.sort(function(a,b){return a.date<b.date?-1:a.date>b.date?1:0});
+  items.forEach(function(c){
+    var hit=null,i,t;
+    for(i=0;i<(txns||[]).length;i++){t=txns[i];if(used[t.id])continue;if(Math.abs(t.amount-c.amount)<=0.01&&emDays(t.date,c.date)<=4){hit=t;break}}
+    if(hit){used[hit.id]=1;c.status='dup';c.match=hit.id;c.matchName=hit.name;return}
+    for(i=0;i<(txns||[]).length;i++){t=txns[i];if(used[t.id])continue;if(Math.abs(t.amount-c.amount)<=1&&emDays(t.date,c.date)<=7&&emNameLike(t.name,c.name)){hit=t;break}}
+    if(hit){used[hit.id]=1;c.status='maybe';c.match=hit.id;c.matchName=hit.name}
+  });
+  return {items:items,ignored:ignored,seen:skippedSeen};
+}
+// A bank statement or sync that later brings in the same transaction replaces the one that came from an email, so it is never counted twice.
+function emMerge(txns){
+  var used={},drop={},n=0;
+  (txns||[]).forEach(function(t){
+    if(t.src!=='email')return;
+    for(var i=0;i<txns.length;i++){var o=txns[i];if(o.src==='email'||used[o.id])continue;if(Math.abs(o.amount-t.amount)<=0.01&&emDays(o.date,t.date)<=4){used[o.id]=1;drop[t.id]=1;n++;break}}
+  });
+  return n?{txns:txns.filter(function(t){return !drop[t.id]}),removed:n}:{txns:txns,removed:0};
+}
+// Things worth knowing that the emails show more than once: a charge that repeats, and the last four digits of cards.
+function emLearn(msgs){
+  var by={},accts={};
+  msgs.forEach(function(m){
+    var t=m.subject+'\n'+m.text,ex=emExtract(m);
+    if(ex.ok&&ex.amount<0&&/\b(subscription|renew|renewal|membership|recurring|auto.?renew|monthly)\b/i.test(t)){var k=ex.name.toLowerCase()+'|'+(-ex.amount).toFixed(2),g=by[k]=by[k]||{name:ex.name,amount:-ex.amount,months:{},last:''};g.months[ex.date.slice(0,7)]=1;if(ex.date>g.last)g.last=ex.date}
+    var a=/(?:card|account|acct)[^0-9]{0,24}(?:ending|ending in|x+|\*+)\s*(\d{4})\b/i.exec(t);
+    if(a){var inst=(m.fromName||m.from.split('@')[1]||'').replace(/\b(alerts?|no.?reply|notifications?)\b/ig,'').trim().slice(0,30),ak=inst+'|'+a[1];accts[ak]=accts[ak]||{inst:inst,last4:a[1],count:0};accts[ak].count++}
+  });
+  var subs=Object.keys(by).map(function(k){return by[k]}).filter(function(g){return Object.keys(g.months).length>=2}).map(function(g){return {name:g.name,amount:g.amount,months:Object.keys(g.months).length,last:g.last}}).sort(function(a,b){return b.months-a.months});
+  return {subs:subs.slice(0,10),accounts:Object.keys(accts).map(function(k){return accts[k]}).sort(function(a,b){return b.count-a.count}).slice(0,6)};
+}
+/*EMAIL-END*/
 var NAVH={stack:[],i:-1,skip:false};
 function navhKey(){return {v:view,f:view==='loans'?loanFilter:'',l:view==='look'?lookTab:''}}
 function navhGo(d){
@@ -1684,7 +1834,7 @@ function homeScreen(sp,inc,nw){
   var series=S.accounts.length?netWorthTrail(S.accounts,isDebt,TODAY,90,30):[],chg=series.length>1?series[series.length-1]-series[0]:null;
   var pts=sparkPath(series,360,70,4);
   var up=chg!==null&&chg>=0;
-  var heroTxt='<div class="hhero"><div><div class="sub">'+greet+' · '+TODAY.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})+'</div><div class="hlabel">Net worth</div><div class="num hbig '+(nw.net<0?'bad':'')+'">'+(nw.net<0?'-':'')+money0(Math.abs(nw.net))+'</div>'+(chg!==null&&Math.abs(chg)>=1?'<div class="sub"><span class="'+(up?'good':'bad')+'">'+(up?'↑ ':'↓ ')+money0(Math.abs(chg))+'</span> in the last 90 days</div>':'<div class="sub">'+money0(nw.assets)+' owned · '+money0(nw.debts)+' owed</div>')+'</div>'+
+  var heroTxt='<div class="hhero"><div><div class="sub hgreet">'+(PROF.photo?profAvatar(PROF):'')+'<span>'+greet+' · '+TODAY.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})+'</span></div><div class="hlabel">Net worth</div><div class="num hbig '+(nw.net<0?'bad':'')+'">'+(nw.net<0?'-':'')+money0(Math.abs(nw.net))+'</div>'+(chg!==null&&Math.abs(chg)>=1?'<div class="sub"><span class="'+(up?'good':'bad')+'">'+(up?'↑ ':'↓ ')+money0(Math.abs(chg))+'</span> in the last 90 days</div>':'<div class="sub">'+money0(nw.assets)+' owned · '+money0(nw.debts)+' owed</div>')+'</div>'+
     (pts?'<svg class="hspark" viewBox="0 0 360 70" width="100%" role="img" aria-label="Net worth over 90 days"><defs><linearGradient id="hsg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="'+(up?'var(--good)':'var(--bad)')+'" stop-opacity=".35"/><stop offset="1" stop-color="'+(up?'var(--good)':'var(--bad)')+'" stop-opacity="0"/></linearGradient></defs><polygon class="fade" points="4,66 '+pts+' 356,66" fill="url(#hsg)"/><polyline class="draw" pathLength="1000" points="'+pts+'" fill="none" stroke="'+(up?'var(--good)':'var(--bad)')+'" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/></svg>':'')+'</div>';
   var qa=scBar();
   var cards=[];
@@ -2057,9 +2207,54 @@ function vTx(){
     return '<div class="row">'+logo(x.name)+'<div class="grow"><div class="nm">'+esc(x.name)+'</div><div class="sub">'+shortDate(x.date)+(x.sub?' \u00b7 '+esc(x.sub):'')+(x.friend?' \u00b7 <span class="pill mute" style="font-size:11px">'+esc(friendKindLabel(x.friend.k))+(x.friend.who?': '+esc(x.friend.who):'')+'</span>':'')+(isTransfer(x,xinf)?' \u00b7 <span class="pill mute" style="font-size:11px" title="Money moving between your own accounts. It is not counted as spending or income.">'+(txKind(x,xinf)==='cardpay'?'Card payment':'Transfer')+', not counted</span>':'')+(isCashback(x)?' \u00b7 <span class="pill good" style="font-size:11px" title="A reward from a credit card. It is not counted as income; see Loans, Credit cards, Cash back.">Cash back</span>':'')+(x.cash?' \u00b7 <span class="pill mute" style="font-size:11px">Paid in cash</span>':'')+(fuelTxNote(x)?' \u00b7 <span class="pill good" style="font-size:11px" title="From your Energy tab">'+esc(fuelTxNote(x))+'</span>':'')+(x.veh&&asById(x.veh)?' \u00b7 <span class="pill mute" style="font-size:11px">'+esc(asById(x.veh).name.slice(0,24))+'</span>':'')+(x.note?'<div class="sub" style="white-space:normal;font-size:12px">'+esc(x.note)+'</div>':'')+'</div></div><select data-cat="'+x.id+'" aria-label="Category for '+esc(x.name)+'" class="hide-s">'+CATS.map(function(c){return '<option'+(c===x.cat?' selected':'')+'>'+c+'</option>'}).join('')+'</select><div class="amt num '+(x.amount>0?'good':'')+'">'+(x.amount>0?'+':'')+money(x.amount)+'</div><div class="actions" style="flex:none;flex-wrap:nowrap"><button class="btn small" data-act="tx-edit" data-id="'+x.id+'" aria-label="Edit '+esc(x.name)+'">Edit</button><button class="btn small" data-act="tx-xfer" data-id="'+x.id+'" title="'+(isTransfer(x,xinf)?'Count this as real spending or income':'This only moved money between my own accounts. Do not count it.')+'">'+(isTransfer(x,xinf)?'Count it':'Transfer')+'</button>'+(x.amount>0&&!isTransfer(x,xinf)?'<button class="btn small" data-act="tx-cb" data-id="'+x.id+'" title="'+(isCashback(x)?'This is not cash back. Count it normally.':'This is cash back or a card reward. Keep it out of income.')+'">'+(isCashback(x)?'Not cash back':'Cash back')+'</button>':'')+'<button class="btn small" data-act="tx-aside" data-id="'+x.id+'" title="This money was not mine. Remove it from all my numbers; you can restore it later." aria-label="Not mine">Not mine</button><button class="btn small" data-act="tx-del" data-id="'+x.id+'" aria-label="Delete">&times;</button></div></div>';
   }).join('');
   var xpanel='<section class="panel"><h2>Not double counted<small>'+nx+' transfer'+(nx===1?'':'s')+' left out of your numbers</small></h2><p class="sub muted" style="margin:0 0 8px;font-size:13px">Paying a credit card from checking moves money you already counted when you made the purchases, and "payment thank you" on a card statement is not income. Transfers between your own accounts are skipped too. Press <b>Transfer</b> on any row the app got wrong.</p><label style="font-size:13px">Payments to my credit cards <select id="cardpay"><option value="auto"'+(S.cardPay==='auto'?' selected':'')+'>Skip when my card purchases are here too (recommended)</option><option value="skip"'+(S.cardPay==='skip'?' selected':'')+'>Always skip</option><option value="count"'+(S.cardPay==='count'?' selected':'')+'>Count them as spending</option></select></label></section>';
-  return '<div class="top"><h1>Transactions</h1></div>'+catTools()+xpanel+friendsPanel()+importsPanel()+cashPanel()+
+  return '<div class="top"><h1>Transactions</h1></div>'+catTools()+xpanel+friendsPanel()+importsPanel()+emailPanel()+cashPanel()+
    '<section class="panel"><form class="form" id="txform"><label>Date<input id="tf-date" type="date" required value="'+iso(TODAY)+'"></label><label>Description<input id="tf-name" required placeholder="e.g. Trader Joe\'s"></label><label>Amount<input id="tf-amt" type="number" step="0.01" required placeholder="-24.50"></label><label>Category<select id="tf-cat"><option value="">Auto</option>'+CATS.map(function(c){return '<option>'+c+'</option>'}).join('')+'</select></label><button class="btn primary">Add</button></form><p class="sub muted" style="margin:10px 0 0;font-size:13px">Spending is negative, income is positive. CSV needs columns for date, description and amount.</p></section>'+appleCardPanel()+pdfShell()+aiShell()+
    refinePanel(list,xinf,rows,shown.length)+asidePanel()+accountPanel();
+}
+/* ---------- From email: transactions found in emails you export ---------- */
+var emUI={busy:false,msg:'',res:null,sel:{},learn:null,subs:[]};
+function emailPanel(){
+  var r=emUI.res,intro='<p class="sub" style="margin:0 0 8px;white-space:normal">Some emails tell you about a payment before your bank statement does. Add the emails here and I find the ones that report money moving. Everything is read on this computer. <b>Only the amount, date, merchant and a fingerprint of each message are kept, never the email itself.</b> To get your emails: in Gmail open a message, choose the three dots, then <b>Download message</b> (an .eml file), or export many at once with Google Takeout (Mail) to get one .mbox file.</p>';
+  var pick='<div class="actions" style="justify-content:flex-start;align-items:center;flex-wrap:wrap"><label class="btn small primary" style="cursor:pointer">'+(emUI.busy?'Reading…':'Choose email files')+'<input type="file" data-emfile accept=".eml,.mbox,.txt,message/rfc822" multiple hidden'+(emUI.busy?' disabled':'')+'></label><span class="sub muted" style="font-size:12px">.eml or .mbox, up to 3,000 messages at a time</span></div>'+(emUI.msg?'<p class="sub" style="margin:8px 0 0;white-space:normal">'+esc(emUI.msg)+'</p>':'');
+  var body='';
+  if(r){
+    var nNew=r.items.filter(function(c){return c.status==='new'}).length,nDup=r.items.filter(function(c){return c.status==='dup'}).length,nMay=r.items.filter(function(c){return c.status==='maybe'}).length,chosen=r.items.filter(function(c){return emUI.sel[c.key]}).length;
+    body='<p class="sub" style="margin:12px 0 6px;white-space:normal">Found <b>'+r.items.length+'</b> transaction'+(r.items.length===1?'':'s')+': <b>'+nNew+'</b> new, <b>'+nDup+'</b> already in the app, <b>'+nMay+'</b> that may be the same as one you have.'+(r.seen?' '+r.seen+' were added or reviewed before.':'')+(r.ignored.length?' '+r.ignored.length+' email'+(r.ignored.length===1?' was':'s were')+' skipped.':'')+'</p>'+
+      (r.items.length?r.items.map(function(c){
+        var dup=c.status==='dup';
+        return '<label class="row" style="gap:8px;align-items:center;'+(dup?'opacity:.6':'')+'"><input type="checkbox" data-emsel="'+esc(c.key)+'"'+(emUI.sel[c.key]?' checked':'')+(dup?' disabled':'')+'><div class="grow"><div class="nm">'+esc(c.name)+'</div><div class="sub">'+shortDate(c.date)+' · '+(c.cls==='bank'?'from a bank alert':'from a receipt')+(c.sources>1?' (and a matching alert)':'')+(dup?' · <b>already in your app</b> as '+esc(c.matchName||'a transaction'):'')+(c.status==='maybe'?' · <b>may be the same as</b> '+esc(c.matchName||'a transaction'):'')+'</div></div><div class="num '+(c.amount>0?'good':'')+'">'+(c.amount>0?'+':'')+money(c.amount)+'</div></label>'}).join('')+
+        '<div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn small primary" data-act="em-add"'+(chosen?'':' disabled')+'>Add '+chosen+' selected</button><button class="btn small" data-act="em-clear">Done</button></div>':'<div class="actions" style="justify-content:flex-start"><button class="btn small" data-act="em-clear">Done</button></div>')+
+      (r.ignored.length?'<details style="margin-top:8px"><summary class="sub" style="cursor:pointer">Skipped emails ('+r.ignored.length+')</summary>'+r.ignored.slice(0,40).map(function(x){return '<div class="sub" style="font-size:12px">'+esc(x.subject||'(no subject)')+' · '+esc(x.why)+'</div>'}).join('')+'</details>':'');
+  }
+  var learn='';
+  if(emUI.learn&&(emUI.subs.length||emUI.learn.accounts.length)){
+    learn='<div class="panel" style="margin:12px 0 0;padding:12px"><div class="nm">What I noticed in these emails</div>'+emUI.subs.map(function(g,i){return '<div class="row" style="align-items:center"><div class="grow"><div class="nm">'+esc(g.name)+' looks like a subscription</div><div class="sub">'+money(g.amount)+' a month, seen in '+g.months+' months</div></div><button class="btn small" data-act="em-sub" data-i="'+i+'">Add subscription</button></div>'}).join('')+
+      emUI.learn.accounts.map(function(a){return '<div class="sub" style="margin-top:6px">A card ending in <b>'+esc(a.last4)+'</b>'+(a.inst?' ('+esc(a.inst)+')':'')+' appears in '+a.count+' email'+(a.count===1?'':'s')+'. Put the last four digits on that account (Accounts) so statements match it.</div>'}).join('')+'</div>';
+  }
+  return '<section class="panel"><h2>From email<small>find transactions in emails you export</small></h2>'+intro+pick+body+learn+'</section>';
+}
+function emRead(files){
+  var all=[],total=0;emUI.busy=true;emUI.msg='Reading…';emUI.res=null;
+  var done=function(){
+    var res=emCandidates(all,S.txns,S.mail.seen);emUI.res=res;emUI.learn=emLearn(all);
+    var have={};S.subs.forEach(function(x){have[(x.name||'').toLowerCase()]=1});emUI.subs=emUI.learn.subs.filter(function(g){return !have[g.name.toLowerCase()]});
+    emUI.sel={};res.items.forEach(function(c){if(c.status==='new')emUI.sel[c.key]=true});
+    emUI.busy=false;emUI.msg='Read '+all.length+' email'+(all.length===1?'':'s')+'.';render();
+  };
+  var nextFile=function(i){
+    if(i>=files.length){done();return}
+    var f=files[i];if(f.size>80e6){emUI.msg='"'+f.name+'" is over 80 MB. Export a smaller range.';nextFile(i+1);return}
+    f.text().then(function(text){
+      var parts=emSplitMbox(text),j=0;
+      var chunk=function(){
+        var end=Math.min(parts.length,j+100);
+        for(;j<end&&total<3000;j++){try{all.push(emParse(parts[j]));total++}catch(e){}}
+        if(j<parts.length&&total<3000)setTimeout(chunk,0);else nextFile(i+1);
+      };
+      chunk();
+    }).catch(function(){emUI.msg='Could not read "'+f.name+'".';nextFile(i+1)});
+  };
+  nextFile(0);render();
 }
 /* ---------- Accounts and debts ---------- */
 var ASSET_TYPES={checking:'Checking',savings:'Savings',cash:'Cash',investment:'Investments',property:'Property or other asset'};
@@ -5586,7 +5781,7 @@ var HELP={
   credit:{t:'Credit score',what:'Your credit scores over time, with what affects them graded from your own accounts.',how:['Type your scores from TransUnion, Equifax and Experian under Add your scores. Once a month is plenty.','Read For you for what the app noticed.','Look at What affects your score to see what to work on.'],tip:'The app cannot fetch your scores for you; you type them in.'},
   cards:{t:'Credit cards',what:'Each credit card on its own: progress paying it down, spending habits, cash back and interest and fees.',how:['Add a card on Accounts or here, with its limit, rate and minimum payment.','Open a card to see its balance trend, spending by category and cash back.','Use Pay it off faster to see what extra payments save.','Import a card statement on Transactions to keep it current.'],tip:'All your cards compare side by side at the top.'},
   invest:{t:'Investments',what:'Your holdings, how they are spread out and how much they swing.',how:['Add a holding with its symbol, shares and cost.','See Allocation and By topic to check you are not too concentrated.','Volatility watch shows which ones move the most; the Analysts pill shows what analysts think.'],tip:'Prices are for information only.'},
-  transactions:{t:'Transactions',what:'Every deposit and purchase. This is where you bring in your data.',how:['Import a statement (CSV or PDF) from your bank or card.','Use the filters and the search to find what you want.','Change a transaction\'s category, or fix many at once.','Transfers between your own accounts and card payments are left out of your spending so nothing counts twice.','Loan and card payments lower what you owe, and transactions linked to a checking or savings account move its balance. Typing a new balance on Accounts starts again from that balance.'],tip:'Import regularly. Most other tabs are built from what is here.'},
+  transactions:{t:'Transactions',what:'Every deposit and purchase. This is where you bring in your data.',how:['Import a statement (CSV or PDF) from your bank or card.','Use the filters and the search to find what you want.','Change a transaction\'s category, or fix many at once.','Transfers between your own accounts and card payments are left out of your spending so nothing counts twice.','From email (below the imports) reads emails you export from Gmail and adds transactions you have not imported yet, without duplicating what your bank already shows.','Loan and card payments lower what you owe, and transactions linked to a checking or savings account move its balance. Typing a new balance on Accounts starts again from that balance.'],tip:'Import regularly. Most other tabs are built from what is here.'},
   goals:{t:'Goals',what:'Things you are saving for, with progress and a date.',how:['Create a goal with a name, a target and a date.','Link a goal to an account so progress follows its balance.','Turn on auto to put money toward it on a schedule.'],tip:'Pick the goal that matters most and fund it first.'},
   loans:{t:'Loans',what:'Your car, student and other loans in one place, with plans to pay them off faster.',how:['Add a loan with its balance, rate, payment and due day.','Read The order to pay them and Debt-free by a date.','Import a statement from your lender to update a loan.','Payments you add or import to Transactions lower the matching loan or card by themselves. The Debt payments window shows how much you have paid and how your latest payment was split between loans. Change the split there if your statement differs. A withdrawal the app could not match is listed there with a menu to pick its debt, and "Balance as of" sets the date your balance is true for, so payments since then count.','Try Would one new loan help? to compare consolidating or refinancing.','Credit cards, Mortgage and Credit score are the other pages along the top of this tab.'],tip:'A loan with a payment and a due day shows up on Bills.'},
   mortgage:{t:'Mortgage',what:'Your home loan: payment, interest, what you would save by paying extra and how it fits your budget.',how:['Press Edit details and enter your home value, loan, rate and payment.','Read My read for a plain explanation of your numbers.','Change the assumptions to test extra payments.'],tip:'Property tax and insurance are included in the monthly picture.'},
@@ -5595,6 +5790,7 @@ var HELP={
 };
 // What changed in each version, in plain words. A test makes sure the version in package.json has an entry, so a release cannot go out without it.
 var WHATSNEW=[
+ ['1.8.35',['Add a picture and personal details to your user (Settings, You): email, phone, city, state, birthday and a note about you. The picture shows next to your name on the Overview, in the sidebar and when the app asks who is using it. It stays on this computer.','New From email panel on Transactions. Choose emails you exported (a single .eml, or an .mbox from Google Takeout) and the app finds the ones that report money moving, compares them with what you already have, and lets you add the new ones. An alert about something your bank already shows is marked as already in the app and is not added again. The same email is never added twice, an order email and its bank alert count as one purchase, and when your bank statement later brings in the same transaction it replaces the email copy. Only the amount, date, merchant and a fingerprint are kept, never the email, and nothing is sent anywhere. It also points out repeating charges you can add as subscriptions. It does not connect to your mailbox: that needs a Google sign-in set up by you.']],
  ['1.8.34',['The owl is smarter. It understands more requests (rename or resize a shortcut, move windows and tabs, hide cards, draw a window as bars, a donut or a list, go to a page, use any #rrggbb color). With your Anthropic key it sends the words of a request it did not understand to Claude, along with the names of your tabs and windows but no accounts or transactions, and only ever gets back the same safe list of changes. Limited to 40 such requests a day.','The ? button is now an owl. It flies around the app, its eyes follow your pointer, and every so often it asks if you want something changed. Tap it and type what you want, for example "switch to dark mode, make the text bigger and hide the Energy tab". It can change colors, mode, text size, corners, glass, background, font, animations, sounds, which tabs show, windows (hide, show, fold, wider, narrower) and Overview shortcuts, and Undo that puts everything back. What it cannot do yet goes on a list you can copy and paste to Claude Code. The owl never changes the app\'s code. It can sit in the corner instead of flying (a checkbox in its box, or tell it to stop flying), and it sits still with calmer animations. Help for this page is still one tap away inside it.','The Overview is customizable. Press Customize, then: tap a shortcut to change its name, icon, color, size or what it opens; use ‹ › to move it, S/M/L to resize it, × to remove it, or Add a shortcut for a new one. The cards under the shortcuts can be moved and hidden the same way. Windows can still be moved, resized and drawn as a different graphic.','Every number and window on the Overview and Live dashboard opens the page it comes from: Spent, Income, Net worth and the rest, plus an Open button on each window. Safe to spend now opens Budgets.','Windows fold up. Tap a window\'s title to fold or open it. Long or rarely used ones (such as Debt-free by a date and If you earned $100) start folded, and Debt payments keeps its recent payments and account list folded away.','Last six months is easier to read: fewer gridlines with short labels ($4k), a clear space for the amounts, and the numbers only on the current month. Point at any bar for its amount.','Back and forward arrows now sit at the top left of every page and go through the pages you visited, like a browser. Keyboard: Cmd+[ and Cmd+], or Alt with the left and right arrow keys.','The month arrows are now a scrolling drum, like the timer on an iPhone: scroll or swipe and it ticks past each month, then settles. The tick follows your sound setting.','Energy is a tab of its own again, next to Bills. Investments was already restored.','Documents are locked. Opening the Documents page, a folder, an ID or a file asks for your app password, a separate documents password, or Touch ID on a Mac, and stays open for 5 minutes. Lock now closes it at once. The same lock covers the Tax documents button and document search results. Files in the Documents folder are still ordinary files on disk, so this keeps people out of the app, not out of Finder.','Pay statements, Tax documents, Bank and card statements, Vehicle records, Energy bills, Receipts and Other now look like the IDs and records cards: a stack of papers in a pocket, with arrows to flip through the files.']],
  ['1.8.33',['Investments is its own tab again, in the sidebar between Accounts and Transactions.','The Investments card on the Overview now has pictures: a graph of your investments over the last 90 days and a bar showing how they are split between your holdings. It fills in as soon as prices load.','Fixed the Investments page redrawing itself over and over when a stock\'s details could not be loaded.','Debt payments are smarter about when your balance is from. A loan or card now counts every payment made after the date its balance was last entered or stated (before, it only counted payments from the day you updated the app). You can change that date on Debts, in the Debt payments window.','A withdrawal that looks like a loan payment but has an unusual name now shows in the Debt payments window with a menu to pick the debt it paid. If a payment lowered a debt but is not linked to a bank account, the window says your net worth reads too high by that much and links them all to the account you choose.']],
  ['1.8.32',['Your debts now follow your transactions. When a payment to a student loan, car loan, other loan or card shows up in Transactions, that balance goes down by itself, and a bank or savings balance moves with the transactions linked to it. Deleting or editing a transaction puts it right back, and typing a new balance starts again from that balance, so nothing counts twice.','New Debt payments window on Debts: how much you have paid so far, how much of it went toward what you owe and how much was interest, and how your latest payment was split between loans (for example a student loan payment shared across its loans). Draw it as bars, a donut or a list. Change the split if your statement shows something different.','Edit a transaction and use Pays toward to say which debt it belongs to, or that it is not a debt payment. Mortgages stay off until you turn them on, because the payment includes escrow. Bank-linked accounts are left alone.']],
@@ -8983,7 +9179,7 @@ var USER_KEYS=['tally-layout-v1','tally-money-v1','tally-vault-v1','tally-lock-v
 // The Touch ID slot for this user: the first user keeps the original names.
 function bioSlot(base){return PROF.id==='main'?(base==='tabs'||base==='docs'?base:undefined):(base||'vault')+':'+PROF.id}
 var profUI={del:'',msg:''};
-function profAvatar(p){return '<span class="whoav c'+p.color+'" aria-hidden="true">'+(p.demo?'★':esc(profInitial(p)))+'</span>'}
+function profAvatar(p){return p&&p.photo&&profPhotoOk(p.photo)?'<span class="whoav c'+p.color+' hasphoto" aria-hidden="true"><img alt="" src="'+p.photo+'"></span>':'<span class="whoav c'+p.color+'" aria-hidden="true">'+(p.demo?'★':esc(profInitial(p)))+'</span>'}
 function profLabel(p){return profName(p)||(p.id==='main'?'Main user':p.demo?'Demo':'New user')}
 function profFresh(){return {sample:false,txns:[],subs:[],budgets:{},goals:[],accounts:[],extraPay:0,plaidIgnored:[],credit:defCredit(),holdings:[],customCats:[],pay:{stubs:[]}}}
 function profSwitch(id){
@@ -9022,6 +9218,8 @@ function profPanels(){
   var info='<h2 class="setsec">About you</h2><section class="panel"><h2>About you<small>so the app knows who it is talking to</small></h2>'+
     '<form class="profform form" style="align-items:end"><label>Name<input name="n" maxlength="30" autocomplete="off" placeholder="e.g. Samuel Mwangi" value="'+esc(PROF.name)+'"></label><label>Nickname<input name="k" maxlength="20" autocomplete="off" placeholder="e.g. Sam" value="'+esc(PROF.nick)+'"></label><button class="btn primary small">Save</button></form>'+
     '<p class="sub muted" style="margin:10px 0 0;font-size:12px;white-space:normal">The Overview greets you with your nickname (or your first name), for example <b>'+esc(profGreet(new Date().getHours(),{name:PROF.name||'Sam Smith',nick:PROF.nick}))+'</b>. The private assistant uses it too. It stays on this computer.</p>'+
+    '<div style="display:flex;gap:14px;align-items:center;margin-top:14px;flex-wrap:wrap"><span class="profbig">'+profAvatar(PROF)+'</span><div><label class="btn small" style="cursor:pointer">'+(PROF.photo?'Change picture':'Add a picture')+'<input type="file" accept="image/*" data-profphoto hidden></label>'+(PROF.photo?' <button class="btn small" data-act="prof-photo-del">Remove</button>':'')+'<div class="sub muted" style="font-size:12px;margin-top:4px">It shows next to your name, in the sidebar and when the app asks who is using it. Kept on this computer.</div></div></div>'+
+    '<form class="profinfo form" style="align-items:end;margin-top:14px"><label>Email<input name="email" type="email" maxlength="80" autocomplete="off" value="'+esc(PROF.info.email)+'"></label><label>Phone<input name="phone" maxlength="24" autocomplete="off" value="'+esc(PROF.info.phone)+'" style="width:140px"></label><label>City<input name="city" maxlength="40" autocomplete="off" value="'+esc(PROF.info.city)+'" style="width:140px"></label><label>State<input name="state" maxlength="2" autocomplete="off" value="'+esc(PROF.info.state)+'" style="width:56px"></label><label>Birthday<input name="birth" type="date" value="'+esc(PROF.info.birth)+'"></label><label style="flex:1 1 240px">About you<input name="about" maxlength="200" autocomplete="off" placeholder="anything the app should know, like a job or a goal" value="'+esc(PROF.info.about)+'"></label><button class="btn primary small">Save</button></form>'+
     '<div class="actions" style="justify-content:flex-start;margin-top:10px"><button class="btn small" data-act="setup-start">'+(PROF.setup?'Continue the setup guide':'Run the setup guide')+'</button><span class="sub muted" style="align-self:center;font-size:12px">A walk through everything worth filling in so the numbers are accurate.</span></div></section>';
   var rows=PROFS.list.map(function(p){
     var me=p.id===PROF.id,conf=profUI.del===p.id;
@@ -9957,9 +10155,13 @@ function vGoals(){
 }
 
 /* ---------- events ---------- */
+var m0El=null;
 function bindView(){
   var m=$('#main');
   monthWheelBind();
+  m0El=document.querySelector('#main [data-emfile]');
+  if(m0El)m0El.onchange=function(){var fl=[].slice.call(m0El.files||[]);m0El.value='';if(fl.length)emRead(fl)};
+  [].forEach.call(document.querySelectorAll('#main [data-emsel]'),function(cb){cb.onchange=function(){emUI.sel[cb.dataset.emsel]=cb.checked;render()}});
   var scForm0=document.querySelector('#main .scform');
   if(scForm0)scForm0.onsubmit=function(e){e.preventDefault();var f=scForm0.elements,ic=scForm0.querySelector('input[name=icon]:checked'),col=scForm0.querySelector('input[name=color]:checked');
     var it={id:scUI.edit==='new'?'u'+Date.now().toString(36).slice(-8):scUI.edit,label:f.label.value,to:f.to.value,icon:ic?ic.value:'list',color:col?col.value:'',size:f.size.value};
@@ -10035,6 +10237,12 @@ function bindView(){
     var t={id:uid(),date:d,name:note||oiLabel(ty),amount:amt,cat:'Income',sub:ty,manual:true};
     if(wh==='cash'){t.cash=true;if(walletAcct()){t.fromWallet=true;walletAdd(t.amount)}}
     S.txns.push(t);S.txns.sort(function(x,y){return x.date<y.date?1:-1});save();render();toast('Added '+money(amt)+' of '+oiLabel(ty).toLowerCase()+'.')}});
+  m.querySelectorAll('.profinfo').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();var f=fm.elements;PROF.info=profInfoClean({email:f.email.value,phone:f.phone.value,city:f.city.value,state:f.state.value,birth:f.birth.value,about:f.about.value});profsSave();toast('Saved.');render()}});
+  m.querySelectorAll('[data-profphoto]').forEach(function(inp){inp.onchange=function(){var file=inp.files&&inp.files[0];inp.value='';if(!file)return;if(file.size>15e6){toast('That picture is too big. Pick one under 15 MB.');return}
+    var img=new Image(),url=URL.createObjectURL(file);
+    img.onload=function(){var n=Math.min(img.naturalWidth,img.naturalHeight),c=document.createElement('canvas');c.width=c.height=192;c.getContext('2d').drawImage(img,(img.naturalWidth-n)/2,(img.naturalHeight-n)/2,n,n,0,0,192,192);URL.revokeObjectURL(url);
+      var d=c.toDataURL('image/jpeg',0.82);if(!profPhotoOk(d)){toast('Could not use that picture.');return}PROF.photo=d;profsSave();toast('Picture saved.');render()};
+    img.onerror=function(){URL.revokeObjectURL(url);toast('Could not read that picture.')};img.src=url}});
   m.querySelectorAll('.profform').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();PROF.name=profStr(fm.elements['n'].value,30);PROF.nick=profStr(fm.elements['k'].value,20);profsSave();toast(PROF.name||PROF.nick?'Saved. Nice to meet you, '+(PROF.nick||PROF.name.split(' ')[0])+'.':'Saved.');render()}});
   m.querySelectorAll('.frtag').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();var x=S.txns.filter(function(q){return q.id===fm.dataset.id})[0],fc=friendClean(fm.elements['k'].value,fm.elements['w'].value);if(!x||!fc)return;x.friend=fc;save();render();toast(fc.k==='loan'?'Marked as a loan. It is left out of your spending until they pay you back.':'Tagged as '+friendKindLabel(fc.k).toLowerCase()+'.')}});
   m.querySelectorAll('.oitag').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();var ty=fm.elements['t'].value,x=S.txns.filter(function(q){return q.id===fm.dataset.id})[0];if(!x||!ty)return;if(ty==='__lentme'){x.friend=friendClean('lentme','');save();render();toast('Marked as borrowed. It no longer counts as income. Tag who it was from on the Transactions tab.');return}if(ty==='__repaid'){x.friend=friendClean('repaid','');save();render();toast('Marked as a payback. It no longer counts as income.');return}x.cat='Income';x.sub=ty;save();render();toast('Tagged as '+oiLabel(ty).toLowerCase()+'.')}});
@@ -10412,6 +10620,15 @@ document.addEventListener('click',function(e){
   else if(a==='win-size'){var lw=layV(view),cw=b.closest('.win'),cur=cw&&cw.classList.contains('full')?'full':'half';lw.size[b.dataset.id]=cur==='full'?'half':'full';saveLayout()}
   else if(a==='hc-left'||a==='hc-right'){var P0=hcPrefs(),ids0=P0.ids.slice(),i0=ids0.indexOf(b.dataset.id),j0=i0+(a==='hc-left'?-1:1);if(i0>-1&&j0>-1&&j0<ids0.length){var t0=ids0.splice(i0,1)[0];ids0.splice(j0,0,t0);P0.order=ids0;hcSave()}}
   else if(a==='hc-hide'){var P1=hcPrefs(),k1=P1.hidden.indexOf(b.dataset.id);if(k1<0)P1.hidden.push(b.dataset.id);else P1.hidden.splice(k1,1);hcSave()}
+  else if(a==='em-add'){
+    var chosen=(emUI.res?emUI.res.items:[]).filter(function(c){return emUI.sel[c.key]&&c.status!=='dup'}),added=0;
+    chosen.forEach(function(c){var t={id:uid(),date:c.date,name:c.name,amount:c.amount,cat:c.amount>0?'Income':guessCat(c.name),src:'email',mailId:c.key},sb=guessSub(t.cat,t.name);if(sb)t.sub=sb;S.txns.push(t);added++});
+    (emUI.res?emUI.res.items:[]).forEach(function(c){c.fps.forEach(function(fp){S.mail.seen[fp]=1})});
+    var ks=Object.keys(S.mail.seen);if(ks.length>5000)ks.slice(0,ks.length-5000).forEach(function(k){delete S.mail.seen[k]});
+    sortTxns();emUI.res=null;emUI.sel={};emUI.msg='Added '+added+' transaction'+(added===1?'':'s')+' from email. A bank import later replaces them, so nothing is counted twice.';toast('Added '+added+' from email.')}
+  else if(a==='em-clear'){emUI.res=null;emUI.sel={};emUI.learn=null;emUI.subs=[];emUI.msg=''}
+  else if(a==='em-sub'){var g=emUI.subs[+b.dataset.i];if(g){var nx=new Date(g.last||iso(TODAY));nx.setMonth(nx.getMonth()+1);S.subs.push({id:uid(),name:g.name,amount:g.amount,cycle:'monthly',next:iso(nx),status:'active'});emUI.subs.splice(+b.dataset.i,1);toast('Added '+g.name+' to Subscriptions.')}}
+  else if(a==='prof-photo-del'){PROF.photo='';profsSave();toast('Picture removed.')}
   else if(a==='sc-edit'){var sce=scList().filter(function(x){return x.id===b.dataset.id})[0];if(sce){scUI.edit=sce.id;scUI.draft=JSON.parse(JSON.stringify(sce))}}
   else if(a==='sc-new'){scUI.edit='new';scUI.draft={label:'',to:'bills',icon:'list',color:'',size:'m'}}
   else if(a==='sc-cancel'){scUI.edit='';scUI.draft=null}

@@ -3434,3 +3434,68 @@ test('owl: the reply from Claude is read defensively', () => {
   assert.ok(parseOwlReply(JSON.stringify({ actions: Array(30).fill({ t: 'resetPage' }) })).actions.length <= 8);
   assert.ok(/ONLY one JSON object/.test(OWL_SYSTEM) && /Never invent ids/.test(OWL_SYSTEM));
 });
+
+test('profile: a picture must be a small image data URL, and personal details are cleaned', () => {
+  const P = new Function(srcBlock('/*PROFILE-START*/', '/*PROFILE-END*/') + '\nreturn {profPhotoOk, profInfoClean, profClean};')();
+  const png = 'data:image/png;base64,' + 'A'.repeat(100);
+  assert.equal(P.profPhotoOk(png), true); assert.equal(P.profPhotoOk('data:image/svg+xml;base64,AAAA'), false, 'no SVG (it can carry script)'); assert.equal(P.profPhotoOk('https://x.test/a.png'), false);
+  assert.equal(P.profPhotoOk('data:image/png;base64,' + 'A'.repeat(70000)), false, 'too big'); assert.equal(P.profPhotoOk('data:image/png;base64,AA"><script>'), false);
+  const i = P.profInfoClean({ email: 'not-an-email', phone: 'call 555-0100 now!', city: '<b>Town</b>', state: 'ill', birth: '2000-13-45', about: 'x'.repeat(500) });
+  assert.equal(i.email, ''); assert.equal(i.phone, '555-0100'); assert.equal(i.state, 'IL'); assert.equal(i.birth, ''); assert.equal(i.about.length, 200); assert.equal(i.city, 'bTown/b');
+  const c = P.profClean({ list: [{ id: 'main', name: 'A', photo: png, info: { email: 'a@b.co' } }, { id: 'u1', photo: 'javascript:alert(1)' }] });
+  assert.equal(c.list[0].photo, png); assert.equal(c.list[0].info.email, 'a@b.co'); assert.equal(c.list[1].photo, '');
+});
+
+// ---------- Email import ----------
+function emailBlock() { return new Function(srcBlock('/*EMAIL-START*/', '/*EMAIL-END*/') + '\nreturn {emHash, emSplitMbox, emParse, emExtract, emCandidates, emMerge, emLearn};')(); }
+const EML = {
+  bank: (id, amt, store, date) => { const d = new Date(date), mo = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getUTCMonth()]; return 'Message-ID: <' + id + '@bank.test>\nFrom: "Example Bank Alerts" <alerts@examplebank.test>\nDate: ' + date + '\nSubject: Transaction alert: card ending 1234\nContent-Type: text/plain; charset=utf-8\n\nA charge of $' + amt + ' was made at ' + store + ' on your card ending in 1234 on ' + mo + ' ' + d.getUTCDate() + ', 2026. Available balance: $4,000.00.\n'; },
+  receipt: (id, amt, store, date) => 'Message-ID: <' + id + '@shop.test>\nFrom: ' + store + ' <orders@shop.test>\nDate: ' + date + '\nSubject: Your receipt from ' + store + '\nMIME-Version: 1.0\nContent-Type: multipart/alternative; boundary="b1"\n\n--b1\nContent-Type: text/plain; charset=utf-8\nContent-Transfer-Encoding: quoted-printable\n\nThanks for your order from ' + store + '. Order total: $' + amt + ' =E2=80=94 paid by card. Shipping: $0.00\n--b1\nContent-Type: text/html; charset=utf-8\n\n<p>Order total: $' + amt + '</p>\n--b1--\n',
+};
+test('email: reads plain, quoted-printable, multipart and base64 messages and finds the money in them', () => {
+  const E = emailBlock();
+  const m1 = E.emParse(EML.bank('a1', '23.45', 'Corner Cafe', 'Mon, 12 Oct 2026 10:00:00 +0000'));
+  assert.equal(m1.from, 'alerts@examplebank.test'); assert.equal(m1.date, '2026-10-12'); assert.ok(/Corner Cafe/.test(m1.text));
+  const x1 = E.emExtract(m1); assert.equal(x1.ok, true); assert.equal(x1.amount, -23.45); assert.equal(x1.name, 'Corner Cafe'); assert.equal(x1.cls, 'bank'); assert.equal(x1.date, '2026-10-12');
+  const m2 = E.emParse(EML.receipt('b1', '58.00', 'Green Grocer', 'Tue, 13 Oct 2026 09:00:00 +0000'));
+  const x2 = E.emExtract(m2); assert.equal(x2.amount, -58); assert.equal(x2.name, 'Green Grocer'); assert.equal(x2.cls, 'receipt');
+  const b64 = Buffer.from('You were paid. Direct deposit of $1,250.00 was deposited on 10/09/2026.').toString('base64');
+  const m3 = E.emParse('Message-ID: <c1@pay.test>\nFrom: Payroll <pay@payroll.test>\nDate: Fri, 9 Oct 2026 08:00:00 +0000\nSubject: Deposit\nContent-Type: text/plain\nContent-Transfer-Encoding: base64\n\n' + b64 + '\n');
+  const x3 = E.emExtract(m3); assert.equal(x3.ok, true); assert.equal(x3.amount, 1250); assert.equal(x3.date, '2026-10-09');
+  [['Your password was changed. Use code $12.00? no', 'x'], ['Weekly newsletter: 20% off everything, save $5.00', 'x']].forEach(([t]) => assert.equal(E.emExtract({ subject: 'Hi', text: t, from: 'a@b.test', fromName: '', date: '2026-10-01' }).ok, false));
+  assert.equal(E.emExtract({ subject: 'Statement', text: 'Your statement is ready. Minimum payment due $25.00', from: 'a@b.test', fromName: '', date: '2026-10-01' }).ok, false);
+  assert.equal(E.emExtract({ subject: 'Alert', text: 'Your balance is $500.00. Spent nothing today', from: 'alerts@examplebank.test', fromName: 'Bank', date: '2026-10-01' }).ok, false, 'a balance is not a transaction');
+});
+test('email: an alert about something already in your bank is not added again, and nothing is added twice', () => {
+  const E = emailBlock();
+  const mbox = ['From a@x Mon Oct 12 10:00:00 2026\n' + EML.bank('a1', '23.45', 'Corner Cafe', 'Mon, 12 Oct 2026 10:00:00 +0000'), 'From b@x Tue Oct 13 09:00:00 2026\n' + EML.receipt('b1', '58.00', 'Green Grocer', 'Tue, 13 Oct 2026 09:00:00 +0000'),
+    'From c@x Wed Oct 14 09:00:00 2026\n' + EML.bank('a2', '23.45', 'Corner Cafe', 'Wed, 14 Oct 2026 10:00:00 +0000'), 'From d@x Thu Oct 15 09:00:00 2026\n' + EML.bank('d1', '9.99', 'Streaming Co', 'Thu, 15 Oct 2026 10:00:00 +0000')].join('\n');
+  const parts = E.emSplitMbox(mbox); assert.equal(parts.length, 4);
+  const msgs = parts.map(E.emParse);
+  const have = [{ id: 't1', date: '2026-10-13', name: 'CORNER CAFE #12', amount: -23.45 }];   // the bank already shows the cafe charge
+  let r = E.emCandidates(msgs, have, {});
+  const by = (n) => r.items.find((x) => x.name === n);
+  assert.equal(by('Corner Cafe').status, 'dup', 'matches the one already in the app'); assert.equal(by('Corner Cafe').match, 't1');
+  assert.equal(r.items.filter((x) => x.name === 'Corner Cafe').length, 2, 'two different days of the same price stay two candidates');
+  assert.equal(r.items.filter((x) => x.name === 'Corner Cafe' && x.status === 'new').length, 1, 'but only one existing charge is matched, so the other is new');
+  assert.equal(by('Green Grocer').status, 'new'); assert.equal(by('Streaming Co').status, 'new');
+  const seen = {}; r.items.forEach((c) => c.fps.forEach((f) => { seen[f] = 1; }));
+  r = E.emCandidates(msgs, have, seen); assert.equal(r.items.length, 0, 'the same file again adds nothing'); assert.equal(r.seen, 4);
+  // an order email and the bank alert for the same purchase are one transaction
+  const pair = [E.emParse(EML.receipt('r1', '40.00', 'Book Barn', 'Mon, 5 Oct 2026 09:00:00 +0000')), E.emParse(EML.bank('r2', '40.00', 'Book Barn', 'Tue, 6 Oct 2026 09:00:00 +0000'))];
+  const p = E.emCandidates(pair, [], {}); assert.equal(p.items.length, 1); assert.equal(p.items[0].sources, 2); assert.equal(p.items[0].name, 'Book Barn');
+  const near = E.emCandidates([E.emParse(EML.bank('n1', '20.50', 'Corner Cafe', 'Mon, 12 Oct 2026 10:00:00 +0000'))], [{ id: 'z', date: '2026-10-12', name: 'Corner Cafe', amount: -21.5 }], {});
+  assert.equal(near.items[0].status, 'maybe', 'a tip can make the amounts differ');
+});
+test('email: a later bank import replaces the transaction that came from an email, and one-to-one only', () => {
+  const E = emailBlock();
+  const txns = [{ id: 'e1', date: '2026-10-12', name: 'Corner Cafe', amount: -23.45, src: 'email' }, { id: 'e2', date: '2026-10-12', name: 'Corner Cafe', amount: -23.45, src: 'email' }, { id: 'b1', date: '2026-10-13', name: 'CORNER CAFE', amount: -23.45 }, { id: 'o', date: '2026-10-01', name: 'Other', amount: -5 }];
+  const r = E.emMerge(txns); assert.equal(r.removed, 1); assert.deepEqual(r.txns.map((t) => t.id), ['e2', 'b1', 'o'], 'one bank row replaces one email row; the other email row stays');
+  assert.equal(E.emMerge([{ id: 'x', date: '2026-10-12', name: 'A', amount: -5 }]).removed, 0);
+});
+test('email: repeated charges and card endings are noticed', () => {
+  const E = emailBlock();
+  const mk = (id, date, amt) => E.emParse('Message-ID: <' + id + '>\nFrom: Streaming Co <billing@stream.test>\nDate: ' + date + '\nSubject: Your monthly subscription renewed\nContent-Type: text/plain\n\nYour subscription renewed. Amount charged: $' + amt + ' to your card ending in 4321.\n');
+  const l = E.emLearn([mk('1', 'Mon, 7 Sep 2026 09:00:00 +0000', '9.99'), mk('2', 'Wed, 7 Oct 2026 09:00:00 +0000', '9.99'), mk('3', 'Wed, 7 Oct 2026 10:00:00 +0000', '30.00')]);
+  assert.equal(l.subs.length, 1); assert.equal(l.subs[0].amount, 9.99); assert.equal(l.subs[0].months, 2); assert.equal(l.accounts[0].last4, '4321');
+});
