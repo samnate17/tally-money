@@ -3316,3 +3316,23 @@ test('debt payments: a balance from an old statement counts the payments made si
   const old = loan(); old.sync = { bal: 1000, anchor: '2026-10-16', anchorBal: 1000, asOf: '' };
   D.dpAnchor([old], '2026-10-16'); assert.strictEqual(old.sync.anchor, '2026-09-30');
 });
+
+// ---------- Documents lock ----------
+function docLockBlock() { return new Function(srcBlock('/*DOCLOCK-START*/', '/*DOCLOCK-END*/') + '\nreturn {docLockClean, docIsOpen, docGated, DOC_GRACE};')(); }
+test('documents lock: locked by default, open for a short while after a password, and every document button is covered', () => {
+  const L = docLockBlock(), cfg = L.docLockClean(null);
+  assert.strictEqual(cfg.off, false); assert.strictEqual(cfg.own, null);
+  assert.strictEqual(L.docIsOpen(cfg, 0, 1000), false, 'closed with no unlock');
+  assert.strictEqual(L.docIsOpen(cfg, 1000 + L.DOC_GRACE, 1000), true, 'open inside the grace period');
+  assert.strictEqual(L.docIsOpen(cfg, 1000, 1000 + L.DOC_GRACE + 1), false, 'closed again afterwards');
+  assert.strictEqual(L.docIsOpen({ off: true, own: null }, 0, 5), true, 'open only when you turned the lock off');
+  assert.strictEqual(L.docLockClean({ off: 'yes', own: { salt: 'x', hash: 'y', it: 5 } }).own, null, 'a weak or odd record is ignored');
+  assert.strictEqual(L.docLockClean({ own: { salt: 'a'.repeat(30), hash: 'b'.repeat(40), it: 210000 } }).own.it, 210000);
+  ['doc-open', 'doc-del', 'doc-lock-off', 'w-view', 'w-edit', 'w-save', 'w-rm'].forEach((a) => assert.ok(L.docGated(a), a + ' needs the lock'));
+  ['doc-unlock', 'doc-lock', 'doc-prev', 'doc-next', 'w-prevs', 'bills', ''].forEach((a) => assert.ok(!L.docGated(a), a + ' does not'));
+});
+test('documents lock: Touch ID has its own slot per user', () => {
+  const { keyOf, cleanSlot } = require('../biometric');
+  assert.equal(cleanSlot('docs'), 'docs'); assert.equal(cleanSlot('docs:u1a2b'), 'docs:u1a2b'); assert.equal(keyOf('docs'), 'docsPw'); assert.equal(keyOf('docs:u1a2b'), 'docsPw:u1a2b');
+  assert.equal(cleanSlot('nonsense'), 'vault');
+});

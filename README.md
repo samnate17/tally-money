@@ -690,3 +690,7 @@ Payments to a student loan, car loan, other loan or credit card (found by the le
 Investments is a tab of its own in the sidebar. The Investments card on the Overview shows your value, return and today's change, a 90-day graph of the value and a bar of how it is split between holdings.
 
 Payments count from the date a balance was last entered or stated (set it per account under **Balance as of** in the Debt payments window). Withdrawals that look like loan payments but match no lender are listed there with a menu to pick the debt. A payment that is not linked to a bank account lowers the debt but not any bank balance, so the window offers to link them to the account you choose; otherwise net worth reads too high by that amount.
+
+## Documents lock
+
+The Documents page and every button that opens a folder, an ID or a file ask for a password or Touch ID first (your app password if you have one, otherwise a documents password you set the first time). Unlocked for 5 minutes, then it asks again; Lock now closes it. This keeps someone using your open app out of your documents. It does not encrypt the Documents folder on disk (the IDs and records wallet is encrypted separately). Document folders use the same stacked-paper cards as IDs and records.

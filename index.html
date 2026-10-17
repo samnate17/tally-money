@@ -5331,7 +5331,7 @@ var HELP={
   accounts:{t:'Accounts',what:'Everything you own and owe, and your net worth (assets minus debts).',how:['Add an account with the form at the bottom: checking, savings, a card, a loan, a vehicle or a property.','Keep balances current: edit them, or import a statement on Transactions.','Assets and Debts show what adds to and what takes from your net worth.','The row at the top opens Assets (vehicles and valuables). Investments has its own tab in the sidebar.'],tip:'The more accounts you add, the more the rest of the app can connect (bills from loans, payoff plans, net worth).'},
   pay:{t:'My pay',what:'Your paychecks: when the next one arrives, what comes out of each one and what changed since the last.',how:['Press Add a pay statement and choose the PDF from your payroll site (such as ADP). The app reads it on your computer.','Check the numbers it found, then save. Or press Add by hand to type them in.','Where your paycheck goes splits each check into taxes, benefits, retirement and take-home, with a chart and notes.','Add a statement each pay period so What changed and the yearly projection stay accurate.','With more than one job, the app tells them apart by the employer on each statement and shows each one: what it pays, when the next check comes and how it is doing.','Other income at the bottom is for gigs, payments from friends and gifts.','Taxes is the other page, along the top of this tab.'],tip:'A copy of each statement is filed in Documents for you.'},
   tax:{t:'Taxes',what:'An estimate of whether you will owe or get a refund this year, built from your pay statements or your W-2.',how:['Choose your state, filing status and number of children under Your tax situation.','Press Add a tax form and choose your W-2 or 1099 PDF. Check what it read before you save it.','Read What to expect at tax time and How it adds up to see the estimate and where it comes from.','Use Update the estimate after you change anything.'],tip:'This is an estimate, not tax advice. Compare it with your real return.'},
-  docs:{t:'Documents',what:'A folder on your computer for statements and records, sorted by kind and year.',how:['IDs and records at the top is an encrypted wallet for your ID card, passport and employment records: press Add / Edit on a card to add photos or PDFs and an expiry date, or New Category for your own. It is kept on this computer, one wallet per user.','Press Choose files and pick one or more documents.','Leave File under on Sort automatically, or pick the folder yourself.','Open a folder or a file from the list, or press Open my Documents folder.'],tip:'Pay statements, tax forms and service records you add elsewhere in the app are filed here too.'},
+  docs:{t:'Documents',what:'A folder on your computer for statements and records, sorted by kind and year.',how:['The page is locked: opening a folder, an ID or a file asks for your app password, a documents password you choose the first time, or Touch ID on a Mac. It stays open for 5 minutes, and Lock now closes it at once. Turn the protection off from the line at the top if you must.','Every folder is drawn like the IDs and records cards: tap the stack to open the folder, use the arrows to flip through its files and Show files to see them by year.','IDs and records at the top is an encrypted wallet for your ID card, passport and employment records: press Add / Edit on a card to add photos or PDFs and an expiry date, or New Category for your own. It is kept on this computer, one wallet per user.','Press Choose files and pick one or more documents.','Leave File under on Sort automatically, or pick the folder yourself.','Open a folder or a file from the list, or press Open my Documents folder.'],tip:'Pay statements, tax forms and service records you add elsewhere in the app are filed here too.'},
   assets:{t:'Assets',what:'Your vehicles and other valuable things: what they are worth, how fast they lose value, upkeep and modifications.',how:['Add the asset on Accounts, or open it here.','Keep its value current, or use the value lookup if you have set up AI.','Add maintenance so Upkeep coming up shows what to budget for.','Add modifications you installed; they add value.','Link a car loan to its vehicle.'],tip:'Upkeep that is due also shows up on the Bills tab.'},
   subscriptions:{t:'Subscriptions',what:'Your recurring charges (streaming, apps, memberships) and what they cost you a year.',how:['Add a subscription by hand, or press Track on one the app spotted in your transactions.','Press Cancelled it when you cancel one, and Restore if you change your mind.','Look at the yearly total to decide what is worth keeping.'],tip:'Import a few months of transactions so the app can spot the recurring ones for you.'},
   bills:{t:'Bills',what:'What is due this month, what you have paid and what is still pending.',how:['A bill turns Paid when a matching payment shows up in your transactions, or when you press Mark paid.','Press Edit to change the amount or due day, enter what you have paid so far (the rest shows as left), or skip a month you are not expecting.','Turn on Autopay for bills that come out by themselves.','Press Add a bill for anything missing. Car loans, student loans and cards appear on their own.','Add a pay link to open your lender\'s payment page.','Subscriptions and Energy are the other pages along the top of this tab.'],tip:'Use the arrows to look ahead a few months.'},
@@ -5351,6 +5351,7 @@ var HELP={
 };
 // What changed in each version, in plain words. A test makes sure the version in package.json has an entry, so a release cannot go out without it.
 var WHATSNEW=[
+ ['1.8.34',['Documents are locked. Opening the Documents page, a folder, an ID or a file asks for your app password, a separate documents password, or Touch ID on a Mac, and stays open for 5 minutes. Lock now closes it at once. The same lock covers the Tax documents button and document search results. Files in the Documents folder are still ordinary files on disk, so this keeps people out of the app, not out of Finder.','Pay statements, Tax documents, Bank and card statements, Vehicle records, Energy bills, Receipts and Other now look like the IDs and records cards: a stack of papers in a pocket, with arrows to flip through the files.']],
  ['1.8.33',['Investments is its own tab again, in the sidebar between Accounts and Transactions.','The Investments card on the Overview now has pictures: a graph of your investments over the last 90 days and a bar showing how they are split between your holdings. It fills in as soon as prices load.','Fixed the Investments page redrawing itself over and over when a stock\'s details could not be loaded.','Debt payments are smarter about when your balance is from. A loan or card now counts every payment made after the date its balance was last entered or stated (before, it only counted payments from the day you updated the app). You can change that date on Debts, in the Debt payments window.','A withdrawal that looks like a loan payment but has an unusual name now shows in the Debt payments window with a menu to pick the debt it paid. If a payment lowered a debt but is not linked to a bank account, the window says your net worth reads too high by that much and links them all to the account you choose.']],
  ['1.8.32',['Your debts now follow your transactions. When a payment to a student loan, car loan, other loan or card shows up in Transactions, that balance goes down by itself, and a bank or savings balance moves with the transactions linked to it. Deleting or editing a transaction puts it right back, and typing a new balance starts again from that balance, so nothing counts twice.','New Debt payments window on Debts: how much you have paid so far, how much of it went toward what you owe and how much was interest, and how your latest payment was split between loans (for example a student loan payment shared across its loans). Draw it as bars, a donut or a list. Change the split if your statement shows something different.','Edit a transaction and use Pays toward to say which debt it belongs to, or that it is not a debt payment. Mortgages stay off until you turn them on, because the payment includes escrow. Bank-linked accounts are left alone.']],
  ['1.8.31',['Drag the windows on a page to change its layout: press Customize, then move, resize or hide each window, or hold a window by its title and drag it. Some windows can be drawn a different way: spending as a donut, bars or a list; the six months as bars or lines; your stocks as a line graph, pie or bars; budgets as bars or rings; net worth as a line or bars. Each user keeps their own layout.']],
@@ -8004,7 +8005,58 @@ function docsTouch(){docsUI.loaded=false;if(view==='docs')docsLoad()}
 /* ---------- Documents: a folder of the statements and forms you added, sorted by kind and year ---------- */
 var DOC_KINDS=['Pay statements','Tax documents','Bank and card statements','Vehicle records','Energy bills','Receipts','Other'];
 var DOC_NOTES={'Pay statements':'Earnings statements and pay stubs','Tax documents':'W-2, 1099, 1098 and returns','Bank and card statements':'Statements from banks and credit cards','Vehicle records':'Service history, Carfax and repair invoices','Energy bills':'Propane, oil, gas and electric','Receipts':'Receipts and invoices','Other':'Anything else'};
-var docsUI={loaded:false,busy:false,data:null,msg:'',kind:'auto'};
+/*DOCLOCK-START*/
+// Documents sit behind a password or Touch ID. This is the small pure part: reading the saved setting and the grace period after unlocking.
+var DOC_GRACE=5*60*1000;
+function docLockClean(raw){
+  var o={off:false,own:null};
+  if(raw&&typeof raw==='object'){
+    o.off=raw.off===true;var r=raw.own;
+    if(r&&typeof r.salt==='string'&&typeof r.hash==='string'&&r.salt.length<=64&&r.hash.length<=64&&r.it>=1000&&r.it<=2000000)o.own={salt:r.salt,hash:r.hash,it:Math.round(r.it)};
+  }
+  return o;
+}
+function docIsOpen(cfg,until,now){return !!cfg&&(cfg.off===true||now<until)}
+// Which clicks are about documents: every document and ID button except the ones that only lock, unlock or change a preview.
+function docGated(act){return /^(doc-|w-)/.test(act||'')&&!/^(doc-unlock|doc-lock|doc-lock-on|doc-prev|doc-next|w-prevs)$/.test(act)}
+/*DOCLOCK-END*/
+var DOCAUTH={until:0};
+setInterval(function(){if(view==='docs'&&!docOpen()&&!document.getElementById('docauth')&&!document.getElementById('docsLockedShown')&&document.querySelector('#main .wgrid'))render()},15000);
+function docCfg(){try{return docLockClean(JSON.parse(localStorage.getItem(PK('tally-doc-lock-v1'))||'null'))}catch(e){return docLockClean(null)}}
+function docCfgSave(c){try{localStorage.setItem(PK('tally-doc-lock-v1'),JSON.stringify(c))}catch(e){}}
+function docOpen(){return docIsOpen(docCfg(),DOCAUTH.until,Date.now())}
+function docRelock(){DOCAUTH.until=0}
+function docMode(){var c=docCfg();return VLT.on?'app':(c.own?'own':'setup')}
+function docVerify(pw){
+  var m=docMode();
+  if(m==='own')return navLockCheck(docCfg().own,pw);
+  var env=null;try{env=JSON.parse(localStorage.getItem(PK('tally-vault-v1')))}catch(e){}
+  return env?vaultOpen(env,pw).then(function(){return true},function(){return false}):Promise.resolve(false);
+}
+// Runs cb() once the person has typed the password (or used Touch ID). With no password set yet, it asks them to make one first.
+function docAuth(why,cb){
+  if(docOpen()){cb();return}
+  var el=document.createElement('div');el.id='docauth';el.className='gate';document.body.appendChild(el);
+  var close=function(){if(el.parentNode)el.parentNode.removeChild(el)},mode=docMode(),slot=bioSlot(mode==='app'?'vault':'docs');
+  var ok=function(){DOCAUTH.until=Date.now()+DOC_GRACE;close();cb()};
+  var draw=function(msg,bio){
+    if(mode==='setup'){
+      el.innerHTML='<div class="card" role="dialog" aria-modal="true" aria-label="Protect your documents"><h1>Protect your documents</h1><p class="sub muted" style="white-space:normal">Choose a password for your documents. It is asked each time you open a folder, an ID or a file'+(T&&T.bio&&BIO.available?', or use Touch ID':'')+'.</p>'+(msg?'<div class="err" role="alert">'+esc(msg)+'</div>':'')+'<form id="da-new"><label>New password<input name="p1" type="password" autocomplete="new-password" minlength="6" required></label><label style="margin-top:8px">Again<input name="p2" type="password" autocomplete="new-password" minlength="6" required></label>'+(T&&T.bio&&BIO.available?'<label style="flex-direction:row;gap:6px;align-items:center;margin-top:8px"><input name="bio" type="checkbox" checked> Also allow Touch ID</label>':'')+'<button class="btn primary" type="submit" style="margin-top:14px;width:100%">Protect documents</button></form><button class="btn" id="da-no" style="margin-top:8px;width:100%">Cancel</button></div>';
+      $('#da-new',el).onsubmit=function(e){e.preventDefault();var f=e.target,p1=f.p1.value,p2=f.p2.value;if(p1.length<6){draw('Use at least 6 characters.');return}if(p1!==p2){draw('The two passwords do not match.');return}
+        navLockMake(p1).then(function(rec){var c=docCfg();c.own=rec;c.off=false;docCfgSave(c);mode='own';slot=bioSlot('docs');
+          if(f.bio&&f.bio.checked&&T&&T.bio)return tcall(T.bio.enable(p1,slot)).catch(function(){toast('Touch ID was not turned on.')});}).then(ok)};
+      $('#da-no',el).onclick=close;var i0=el.querySelector('input');if(i0)i0.focus();return;
+    }
+    el.innerHTML='<div class="card" role="dialog" aria-modal="true" aria-label="Confirm it is you"><h1>Documents are locked</h1><p class="sub muted" style="white-space:normal">'+esc(why)+'</p>'+(msg?'<div class="err" role="alert">'+esc(msg)+'</div>':'')+'<form id="da-form"><label for="da-pw">'+(mode==='app'?'Your app password':'Documents password')+'</label><input id="da-pw" type="password" autocomplete="current-password" required><button class="btn primary" type="submit" style="margin-top:14px;width:100%">Unlock</button></form>'+(bio?'<button class="btn" id="da-bio" style="margin-top:8px;width:100%">Use Touch ID</button>':'')+'<button class="btn" id="da-no" style="margin-top:8px;width:100%">Cancel</button></div>';
+    $('#da-form',el).onsubmit=function(e){e.preventDefault();docVerify($('#da-pw',el).value).then(function(good){if(good)ok();else draw('That password is not right.',bio)})};
+    $('#da-no',el).onclick=close;
+    var bb=$('#da-bio',el);if(bb)bb.onclick=function(){tcall(T.bio.unlock(slot)).then(function(pw){return docVerify(pw).then(function(good){if(good)ok();else draw('Touch ID worked, but the saved password no longer matches. Type the password.',false)})}).catch(function(e){draw((e&&e.message)||'Touch ID did not work. Type the password.',bio)})};
+    var i=$('#da-pw',el);if(i)i.focus();
+  };
+  draw('',false);
+  if(mode!=='setup'&&T&&T.bio)tcall(T.bio.status(slot)).then(function(st){if(st.available&&st.enabled&&document.getElementById('docauth')===el)draw('',true)}).catch(function(){});
+}
+var docsUI={loaded:false,busy:false,data:null,msg:'',kind:'auto',i:{}};
 function docGuess(name){
   var n=String(name||'').toLowerCase(),kind='Other';
   if(/w-?2|1099|1098|1095|1040|tax ?(return|form|doc)|\btax\b/.test(n))kind='Tax documents';
@@ -8142,18 +8194,38 @@ function walletAdd(c,inp,redraw){
 function vDocs(){
   var head='<div class="top"><h1>Documents</h1></div>';
   if(!(T&&T.docs))return head+'<section class="panel"><div class="empty" style="white-space:normal">The documents folder lives on your computer, so it is only in the desktop app (Mac or Windows). Pay statements, tax forms, service records and the other files you add are filed there by kind and year.</div></section>';
+  if(!docOpen())return head+docLockedPanel();
   if(!docsUI.loaded)docsLoad();
   var d=docsUI.data,yr=TODAY.getFullYear();
   var top='<div class="actions" style="justify-content:flex-end;margin:0 0 10px;flex-wrap:wrap"><button class="btn small primary" data-act="doc-open" data-cat="">Open my Documents folder</button></div>';
   var add='<section class="panel"><h2>Add documents<small>filed by kind and year</small></h2><div class="form" style="align-items:flex-end"><label>File under<select id="doc-kind"><option value="auto"'+(docsUI.kind==='auto'?' selected':'')+'>Sort automatically</option>'+DOC_KINDS.map(function(k){return '<option'+(docsUI.kind===k?' selected':'')+'>'+esc(k)+'</option>'}).join('')+'</select></label><label>Year<input id="doc-year" type="number" min="1990" max="2100" placeholder="from the file name, or '+yr+'" style="width:150px"></label><label class="btn small primary" style="cursor:pointer">Choose files<input type="file" data-docfile multiple accept=".pdf,.csv,.txt,.ofx,.qfx,.xlsx,.xls,.png,.jpg,.jpeg,.heic" hidden></label></div>'+
     '<p class="sub muted" style="margin:8px 0 0;font-size:12px;white-space:normal">Files are copied into a folder on this computer (not uploaded anywhere). Automatic sorting uses the file name: W-2 and 1099 go to Tax documents, pay stubs to Pay statements, and so on. A year in the name (like 2025) picks the year folder.'+(docsUI.msg?' <span class="bad">'+esc(docsUI.msg)+'</span>':'')+'</p></section>';
-  if(!d)return head+walletPanel()+top+add+'<section class="panel"><div class="empty">Loading…</div></section>';
-  var rows=d.folders.map(function(f){
-    var byYear={};f.files.forEach(function(x){(byYear[x.year]=byYear[x.year]||[]).push(x)});
-    var years=Object.keys(byYear).sort().reverse();
-    return '<section class="panel"><div class="row wrap" style="border:0;padding:0;align-items:center"><div class="grow"><h2 style="margin:0">'+esc(f.category)+'<small>'+f.files.length+' file'+(f.files.length===1?'':'s')+'</small></h2><div class="sub">'+esc(DOC_NOTES[f.category]||'')+'</div></div><button class="btn small" data-act="doc-open" data-cat="'+esc(f.category)+'">Open folder</button></div>'+
-      (years.length?years.map(function(y){return '<div style="margin-top:10px"><div class="sub" style="font-weight:700">'+y+'</div>'+byYear[y].map(function(x){return '<div class="row"><div class="grow"><div class="nm" style="white-space:normal;word-break:break-word">'+esc(x.name)+'</div><div class="sub">'+fileSize(x.size)+' · added '+shortDate(iso(new Date(x.mtime)))+'</div></div><div class="actions" style="flex:none;flex-wrap:nowrap"><button class="btn small" data-act="doc-open" data-cat="'+esc(f.category)+'" data-year="'+y+'" data-name="'+esc(x.name)+'">Open</button><button class="btn small" data-act="doc-del" data-cat="'+esc(f.category)+'" data-year="'+y+'" data-name="'+esc(x.name)+'" aria-label="Remove '+esc(x.name)+'">&times;</button></div></div>'}).join('')+'</div>'}).join(''):'<div class="sub muted" style="margin-top:8px">Nothing here yet.</div>')+'</section>'}).join('');
-  return head+walletPanel()+top+add+'<p class="sub muted" style="margin:0 0 10px;font-size:12px;word-break:break-all">Folder: '+esc(d.root)+'</p>'+rows;
+  if(!d)return head+docLockBar()+walletPanel()+top+add+'<section class="panel"><div class="empty">Loading…</div></section>';
+  var rows='<section class="panel"><h2>Folders<small>tap a folder to open it</small></h2><div class="wgrid">'+d.folders.map(docFolderCard).join('')+'</div><p class="sub muted" style="margin:10px 0 0;font-size:12px;word-break:break-all">Folder: '+esc(d.root)+'</p></section>';
+  return head+docLockBar()+walletPanel()+top+add+rows;
+}
+var DOC_COLOR={'Pay statements':3,'Tax documents':4,'Bank and card statements':0,'Vehicle records':7,'Energy bills':6,'Receipts':5,'Other':1};
+// Every folder is drawn like the IDs and records cards: a stack of papers in a pocket, flip through the files with the arrows.
+function docFolderCard(f){
+  var n=f.files.length,files=f.files.slice().sort(function(a,b){return b.mtime-a.mtime}),i=Math.max(0,Math.min(docsUI.i[f.category]||0,n-1)),cur=files[i];
+  var layers=[0,1,2,3].map(function(j){return '<i class="wl wl'+j+(n&&j===i%4?' up':'')+(n?'':' dim')+'"></i>'}).join('');
+  var byYear={};f.files.forEach(function(x){(byYear[x.year]=byYear[x.year]||[]).push(x)});
+  var years=Object.keys(byYear).sort().reverse();
+  var list=years.length?years.map(function(y){return '<div style="margin-top:8px"><div class="sub" style="font-weight:700">'+y+'</div>'+byYear[y].map(function(x){return '<div class="row"><div class="grow"><div class="nm" style="white-space:normal;word-break:break-word">'+esc(x.name)+'</div><div class="sub">'+fileSize(x.size)+' · added '+shortDate(iso(new Date(x.mtime)))+'</div></div><div class="actions" style="flex:none;flex-wrap:nowrap"><button class="btn small" data-act="doc-open" data-cat="'+esc(f.category)+'" data-year="'+y+'" data-name="'+esc(x.name)+'">Open</button><button class="btn small" data-act="doc-del" data-cat="'+esc(f.category)+'" data-year="'+y+'" data-name="'+esc(x.name)+'" aria-label="Remove '+esc(x.name)+'">&times;</button></div></div>'}).join('')+'</div>'}).join(''):'';
+  return '<div class="wcardc wc'+(DOC_COLOR[f.category]!==undefined?DOC_COLOR[f.category]:1)+'"><div class="wtop"><h3>'+esc(f.category)+'</h3><button class="btn small" data-act="doc-open" data-cat="'+esc(f.category)+'">Open folder</button></div>'+
+    '<div class="wstack clickable" data-act="doc-open" data-cat="'+esc(f.category)+'" role="button" tabindex="0" aria-label="Open '+esc(f.category)+'">'+layers+'<div class="wpocket">'+(n?'':'<span>Nothing here yet</span>')+'</div></div>'+
+    '<div class="wpager">'+(n>1?'<button class="wpg" data-act="doc-prev" data-cat="'+esc(f.category)+'" aria-label="Previous">‹</button>':'<span class="wpg"></span>')+'<span class="num">'+(n?(i+1)+' / '+n:'0 / 0')+'</span>'+(n>1?'<button class="wpg" data-act="doc-next" data-cat="'+esc(f.category)+'" aria-label="Next">›</button>':'<span class="wpg"></span>')+'</div>'+
+    '<div class="wmeta">'+(n?esc(cur.name.length>26?cur.name.slice(0,24)+'…':cur.name)+'<br>':'')+n+' file'+(n===1?'':'s')+' · '+esc(DOC_NOTES[f.category]||'')+'</div>'+
+    (n?'<details style="margin-top:8px"><summary class="sub" style="cursor:pointer">Show files</summary>'+list+'</details>':'')+'</div>';
+}
+function docLockedPanel(){
+  var cfg=docCfg();
+  return '<section class="panel" style="text-align:center;padding:36px 18px"><div style="font-size:44px;line-height:1" aria-hidden="true">🔒</div><h2 style="margin:10px 0 4px">Your documents are locked</h2><p class="sub" style="white-space:normal;max-width:420px;margin:0 auto 14px">Folders, IDs and records stay hidden until you confirm it is you with '+(VLT.on?'your app password':cfg.own?'your documents password':'a password you choose now')+(T&&T.bio&&BIO.available?' or Touch ID':'')+'.</p><button class="btn primary" data-act="doc-unlock">Unlock documents</button></section>';
+}
+function docLockBar(){
+  var cfg=docCfg();
+  if(cfg.off)return '<div class="banner" style="margin:0 0 10px;align-items:center"><span><b>Documents are not protected.</b> Anyone using this app can open them.</span><span class="actions" style="flex:none"><button class="btn small primary" data-act="doc-lock-on">Turn protection on</button></span></div>';
+  return '<div class="actions" style="justify-content:flex-end;margin:0 0 10px;align-items:center;flex-wrap:wrap"><span class="sub muted" style="font-size:12px">🔒 Protected by '+(VLT.on?'your app password':'your documents password')+(T&&T.bio&&BIO.available?' or Touch ID':'')+'. Stays open for 5 minutes.</span><button class="btn small" data-act="doc-lock">Lock now</button><button class="btn small" data-act="doc-lock-off">Turn protection off</button></div>';
 }
 function docsRead(inp){
   var files=[].slice.call(inp.files||[]);inp.value='';if(!files.length)return;
@@ -8272,7 +8344,7 @@ function spotStatic(){
   var mn=spotMonthNames();
   payStubs().slice(-60).forEach(function(st){var mo=mn[st.payDate.slice(5,7)]+' '+st.payDate.slice(0,4);push('Pay and taxes','Pay statement · '+shortDate(st.payDate),'Gross '+money0(st.gross)+' · take-home '+money0(st.net),'paycheck pay stub '+st.payDate+' '+mo+' '+st.payDate.slice(0,4),function(){mypayUI.sel=st.id;goTo('pay')})});
   (S.tax.forms||[]).forEach(function(f){push('Pay and taxes',f.form+' '+f.year,(f.wages?money0(f.wages)+' wages':'tax form'),'tax form '+f.state,function(){taxUI.year=f.year;goTo('tax')})});
-  if(docsUI.data)docsUI.data.folders.forEach(function(f){f.files.forEach(function(x){push('Documents',x.name,f.category+' · '+x.year,'file document',function(){goTo('docs')})})});
+  if(docsUI.data&&docOpen())docsUI.data.folders.forEach(function(f){f.files.forEach(function(x){push('Documents',x.name,f.category+' · '+x.year,'file document',function(){goTo('docs')})})});
   return it;
 }
 function spotTx(terms,q,per){
@@ -8504,7 +8576,7 @@ function updPlan(){
 /* ---------- Users, personal information and the guided setup ---------- */
 var USER_KEYS=['tally-layout-v1','tally-money-v1','tally-vault-v1','tally-lock-v1','tally-nav-lock-v1','tally-nav-v1','tally-assist-v1','tally-dash-v1','tally-look-offer','tally-plaid-v1','tally-theme-v1','tally-order-v1','tally-owner'];
 // The Touch ID slot for this user: the first user keeps the original names.
-function bioSlot(base){return PROF.id==='main'?(base==='tabs'?'tabs':undefined):(base||'vault')+':'+PROF.id}
+function bioSlot(base){return PROF.id==='main'?(base==='tabs'||base==='docs'?base:undefined):(base||'vault')+':'+PROF.id}
 var profUI={del:'',msg:''};
 function profAvatar(p){return '<span class="whoav c'+p.color+'" aria-hidden="true">'+(p.demo?'★':esc(profInitial(p)))+'</span>'}
 function profLabel(p){return profName(p)||(p.id==='main'?'Main user':p.demo?'Demo':'New user')}
@@ -9384,6 +9456,7 @@ function bioUnlock(){
 }
 // ---- Lock screen ----
 function showLock(msg,busy){
+  docRelock();
   var el=$('#gate');if(!el){el=document.createElement('div');el.id='gate';el.className='gate';document.body.appendChild(el)}
   el.innerHTML='<div class="card"><h1>Tally Money</h1><p class="sub muted">Locked. Enter your password to open your data.</p>'+(msg?'<div class="err" role="alert">'+esc(msg)+'</div>':'')+
    '<form id="lockform"><label for="lk-pw">Password</label><input id="lk-pw" type="password" autocomplete="current-password" autofocus required><button class="btn primary" type="submit" style="margin-top:14px;width:100%"'+(busy?' disabled':'')+'>'+(busy?'Unlocking…':'Unlock')+'</button></form>'+(BIO.enabled&&!busy?'<button class="btn" id="lk-bio" type="button" style="margin-top:10px;width:100%">Unlock with Touch ID</button>':'')+
@@ -9642,6 +9715,7 @@ document.addEventListener('click',function(e){
   var pl=e.target.closest('a[data-pay]');if(pl){toast('Opening '+pl.dataset.host+' in your browser. Come back and mark it paid when you are done.');return}
   var b=e.target.closest('[data-act]');if(!b)return;
   var a=b.dataset.act,id=b.dataset.id,s=S.subs.filter(function(x){return x.id===id})[0];
+  if(docGated(a)&&!docOpen()){docAuth(a==='doc-del'?'Confirm it is you to remove a document.':'Confirm it is you to open your documents.',function(){b.click()});return}
   if(a==='mprev')month=shiftMonth(month,-1);
   else if(a==='refresh'){refreshAll();return}
   else if(a==='asst-check'){ASSIST.st=null;assistLoad();render();return}
@@ -9709,6 +9783,11 @@ document.addEventListener('click',function(e){
   else if(a==='pay-clear-yes'){if(S.pay.stubs.length){payMark('removed all '+S.pay.stubs.length+' statements');S.pay.stubs=[];mypayUI.sel='';toast('All statements removed. Add them again when you are ready; Undo brings them back.')}mypayUI.confirmClear=false}
   else if(a==='pay-imp-no'){mypayUI.imp=null;mypayUI.impBuf=null}
   else if(a==='pay-imp-save'){if(mypayUI.imp){paySave(mypayUI.imp,mypayUI.impBuf,mypayUI.impName);mypayUI.imp=null;mypayUI.impBuf=null;toast('Statement saved.')}}
+  else if(a==='doc-unlock'){docAuth('Confirm it is you to open your documents.',function(){render()});return}
+  else if(a==='doc-lock'){docRelock();toast('Documents locked.')}
+  else if(a==='doc-lock-off'){if(confirm('Turn off the lock on documents? Anyone using the app will be able to open them.')){var c0=docCfg();c0.off=true;docCfgSave(c0);toast('Document protection is off.')}}
+  else if(a==='doc-lock-on'){var c1=docCfg();c1.off=false;docCfgSave(c1);docRelock();toast('Documents are protected again.')}
+  else if(a==='doc-prev'||a==='doc-next'){var dc=b.dataset.cat;docsUI.i[dc]=(docsUI.i[dc]||0)+(a==='doc-next'?1:-1);if(docsUI.i[dc]<0)docsUI.i[dc]=0}
   else if(a==='doc-open'){tcall(T.docs.open(b.dataset.cat||'',b.dataset.year||'',b.dataset.name||'')).catch(function(e){toast((e&&e.message)||'Could not open it.')});return}
   else if(a==='doc-del'){if(!confirm('Remove "'+b.dataset.name+'" from the documents folder? This deletes the file from your computer.'))return;tcall(T.docs.remove(b.dataset.cat,b.dataset.year,b.dataset.name)).then(function(){docsUI.loaded=false;docsLoad();toast('Removed.')}).catch(function(e){toast((e&&e.message)||'Could not remove it.')});return}
   else if(a==='as-svc-no'){asUI.svc=null}
