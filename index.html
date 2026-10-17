@@ -352,6 +352,10 @@ canvas.confetti{position:fixed;inset:0;width:100%;height:100%;pointer-events:non
 .lookcard .pv{height:84px;border-radius:10px;margin-bottom:10px}
 
 .home{margin:6px 0 18px}
+.hhero.sky{position:relative;overflow:hidden;isolation:isolate;border-radius:22px;padding:20px 22px;min-height:190px}.skybg{position:absolute;inset:0;z-index:-1}.skynote{position:absolute;right:14px;top:10px;font-size:11px;opacity:.85;letter-spacing:.02em}
+.hhero.skydark{color:#fff;--ink:#fff;--muted:rgba(255,255,255,.78);text-shadow:0 1px 8px rgba(0,0,0,.35)}.hhero.skydark .skynote{color:#fff}.hhero.sky:not(.skydark){text-shadow:0 1px 6px rgba(255,255,255,.35)}
+.skycl{animation:skydrift 90s linear infinite alternate}@keyframes skydrift{from{transform:translateX(-30px)}to{transform:translateX(40px)}}
+@media (prefers-reduced-motion:reduce){.skycl{animation:none}}
 .hhero{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;align-items:end;margin:6px 0 14px}
 .hlabel{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:8px}
 .hbig{font-family:var(--font-display);font-size:56px;font-weight:600;line-height:1.05;letter-spacing:-.03em}
@@ -415,16 +419,17 @@ body.reordering,body.reordering *{cursor:grabbing!important}
 .updflash{animation:updflash 1.6s ease-out 1}
 @keyframes updflash{0%{box-shadow:0 0 0 0 var(--accent)}20%{box-shadow:0 0 0 6px var(--accent-soft,rgba(59,76,240,.25)),0 0 0 2px var(--accent)}100%{box-shadow:0 0 0 0 transparent}}
 .helpfab{position:fixed;right:18px;bottom:20px;z-index:40;width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:var(--accent);color:var(--accent-ink);font-size:20px;font-weight:800;line-height:1;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.28);display:flex;align-items:center;justify-content:center}
-.helpfab.owl{left:0;top:0;right:auto;bottom:auto;width:60px;height:60px;border:0;background:none;box-shadow:none;padding:0;overflow:visible;transition:transform 6.5s cubic-bezier(.45,.05,.55,.95);filter:drop-shadow(0 6px 10px rgba(0,0,0,.28))}
-.helpfab.owl:hover{transform:none}.helpfab.owl .owlsvg{transition:transform .4s;animation:owlbob 1.3s ease-in-out infinite;overflow:visible}
-.owl .wl{transform-origin:17px 32px;animation:flapl .3s ease-in-out infinite alternate}.owl .wr{transform-origin:47px 32px;animation:flapr .3s ease-in-out infinite alternate}
-.owl .owlbody{transform-origin:32px 40px;animation:owltilt 11s ease-in-out infinite}.owl .pupil{transition:transform .08s}
-.owl.sit .wl,.owl.sit .wr{animation:none}.owl.sit .owlsvg{animation:none}
-@keyframes flapl{from{transform:rotate(16deg)}to{transform:rotate(-24deg)}}@keyframes flapr{from{transform:rotate(-16deg)}to{transform:rotate(24deg)}}
-@keyframes owlbob{0%,100%{translate:0 0}50%{translate:0 -4px}}
-@keyframes owltilt{0%,86%,100%{transform:rotate(0)}90%,95%{transform:rotate(-13deg)}}
-@media (prefers-reduced-motion:reduce){.owl .wl,.owl .wr,.owl .owlsvg,.owl .owlbody{animation:none}}
-:root[data-motion="reduced"] .owl .wl,:root[data-motion="reduced"] .owl .wr,:root[data-motion="reduced"] .owl .owlsvg,:root[data-motion="reduced"] .owl .owlbody{animation:none}
+.helpfab.owl{left:0;top:0;right:auto;bottom:auto;width:96px;height:74px;border:0;background:none;box-shadow:none;padding:0;overflow:visible;transition:transform 6.5s cubic-bezier(.45,.05,.55,.95);filter:drop-shadow(0 8px 12px rgba(0,0,0,.35))}
+.helpfab.owl:hover{transform:none}.helpfab.owl .owlsvg{transition:transform .4s;animation:owlbob 1.1s ease-in-out infinite;overflow:visible}
+.owl .owing-l{animation:owflap .55s ease-in-out infinite alternate}.owl .owing-r{animation:owflap .55s ease-in-out infinite alternate}
+.owl .oprim{animation:owripple .55s ease-in-out infinite alternate}.owl .otail{transform-origin:60px 76px;animation:owtail 1.1s ease-in-out infinite}
+.owl .owlbody{transform-origin:60px 55px;animation:owltilt 11s ease-in-out infinite}.owl .pupil{transition:transform .08s}
+.owl.sit .owing-l,.owl.sit .owing-r{animation:none;transform:rotate(64deg)}.owl.sit .oprim{animation:none;transform:rotate(14deg)}.owl.sit .owlsvg,.owl.sit .otail{animation:none}
+@keyframes owflap{from{transform:rotate(26deg)}to{transform:rotate(-38deg)}}@keyframes owripple{from{transform:rotate(-8deg)}to{transform:rotate(14deg)}}@keyframes owtail{0%,100%{transform:rotate(-3deg)}50%{transform:rotate(4deg)}}
+@keyframes owlbob{0%,100%{translate:0 0}50%{translate:0 -5px}}
+@keyframes owltilt{0%,86%,100%{transform:rotate(0)}90%,95%{transform:rotate(-11deg)}}
+@media (prefers-reduced-motion:reduce){.owl .owing-l,.owl .owing-r,.owl .oprim,.owl .otail,.owl .owlsvg,.owl .owlbody{animation:none}}
+:root[data-motion="reduced"] .owl .owing-l,:root[data-motion="reduced"] .owl .owing-r,:root[data-motion="reduced"] .owl .oprim,:root[data-motion="reduced"] .owl .owlsvg,:root[data-motion="reduced"] .owl .owlbody{animation:none}
 .owlbubble{position:fixed;z-index:42;background:var(--surface-solid,var(--bg));color:var(--ink);border:1px solid var(--line);border-radius:14px;padding:6px 10px;font-size:12px;box-shadow:0 8px 24px rgba(0,0,0,.25);pointer-events:none;animation:fadein .3s}
 .owlpop{bottom:100px;max-height:min(75vh,640px)}.owlpop textarea{resize:vertical;font:inherit;border:1px solid var(--line);border-radius:10px;padding:8px;background:var(--surface2);color:var(--ink)}.owlideas{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}.owlresult{margin-top:10px;padding:8px 10px;border-radius:10px;background:var(--surface2);font-size:13px}
 .helpfab:hover{transform:translateY(-1px)}.helpfab:focus-visible{outline:3px solid var(--accent-soft);outline-offset:2px}.helpfab[hidden]{display:none}
@@ -1323,6 +1328,8 @@ function owlClause(c,ctx){
   if(/\b(less|weaker|no) (glass|frost|blur)\b/.test(t))return {t:'theme',k:'frost',v:-20};
   if(/\b(less|reduce|stop|no|turn off|disable|calm)\b.*\b(motion|animation|animations)\b|\b(motion|animations?) (off|down)\b/.test(t))return {t:'theme',k:'motion',v:'reduced'};
   if(/\b(more|turn on|enable|full|bring back)\b.*\b(motion|animation|animations)\b/.test(t))return {t:'theme',k:'motion',v:'full'};
+  if(/\b(turn off|hide|remove|no|disable|stop)\b.*\b(sky|sunset|sun)\b/.test(t))return {t:'theme',k:'sky',v:'off'};
+  if(/\b(turn on|show|enable|bring back)\b.*\b(sky|sunset|sun)\b/.test(t))return {t:'theme',k:'sky',v:'live'};
   if(/\b(serif|rounded|system|modern)\b.*\b(font|text|typeface|lettering)\b|\b(font|typeface)\b.*\b(serif|rounded|system|modern)\b/.test(t)){m=/\b(serif|rounded|system|modern)\b/.exec(t);return {t:'theme',k:'font',v:m[1]}}
   if(/\b(aurora|soft|plain|studio)\b.*\b(background|look|backdrop|style|theme)\b|\b(background|backdrop)\b.*\b(aurora|soft|plain|studio)\b/.test(t)){m=/\b(aurora|soft|plain|studio)\b/.exec(t);return {t:'theme',k:'bg',v:m[1]}}
   if(/\b(make|change|turn|color|colour|accent|theme|paint|switch|use)\b/.test(t)){m=/#[0-9a-f]{6}\b/.exec(String(c).toLowerCase());if(m)return {t:'theme',k:'accent',v:m[0]};m=/\b(blue|indigo|ocean|teal|green|emerald|purple|violet|pink|red|orange|yellow|gold|gray|grey)\b/.exec(t);if(m)return {t:'theme',k:'accent',v:OWL_COLORS[m[1]]}}
@@ -1365,7 +1372,7 @@ function owlClean(raw,ctx){
     if(!a||typeof a!=='object')return;
     var t=a.t,k=a.k,v=a.v,id=a.id,r;
     if(t==='theme'){
-      var ok={mode:['auto','light','dark'],size:['s','m','l','up','down'],radius:['up','down'],frost:['up','down'],motion:['full','reduced'],font:['modern','system','rounded','serif'],bg:['aurora','soft','plain','studio']};
+      var ok={sky:['live','off'],mode:['auto','light','dark'],size:['s','m','l','up','down'],radius:['up','down'],frost:['up','down'],motion:['full','reduced'],font:['modern','system','rounded','serif'],bg:['aurora','soft','plain','studio']};
       if(k==='accent'){var hex=/^#[0-9a-f]{6}$/i.test(v||'')?String(v).toLowerCase():OWL_COLORS[String(v||'').toLowerCase()];if(hex)out.push({t:'theme',k:'accent',v:hex})}
       else if(ok[k]&&ok[k].indexOf(v)>-1)out.push({t:'theme',k:k,v:k==='radius'?(v==='up'?4:-4):k==='frost'?(v==='up'?20:-20):v});
     }
@@ -1526,6 +1533,51 @@ function emLearn(msgs){
   return {subs:subs.slice(0,10),accounts:Object.keys(accts).map(function(k){return accts[k]}).sort(function(a,b){return b.count-a.count}).slice(0,6)};
 }
 /*EMAIL-END*/
+/*SKY-START*/
+// The sky behind your net worth follows the real sun. Solar position uses the standard low-precision formulas (good to about a minute for sunrise and sunset).
+function skyRad(d){return d*Math.PI/180}
+function skyElev(ms,lat,lon){
+  var n=ms/864e5+2440587.5-2451545.0,L=(280.46+0.9856474*n)%360,g=skyRad((357.528+0.9856003*n)%360),lam=skyRad(L+1.915*Math.sin(g)+0.02*Math.sin(2*g)),eps=skyRad(23.439-4e-7*n);
+  var dec=Math.asin(Math.sin(eps)*Math.sin(lam)),ra=Math.atan2(Math.cos(eps)*Math.sin(lam),Math.cos(lam))*180/Math.PI,gmst=(280.46061837+360.98564736629*n)%360,H=skyRad(gmst+lon-ra),la=skyRad(lat);
+  return Math.asin(Math.sin(la)*Math.sin(dec)+Math.cos(la)*Math.cos(dec)*Math.cos(H))*180/Math.PI;
+}
+// Sunrise and sunset (ms) within the 24 hours from dayStartMs, or null when the sun does not cross the horizon.
+function skyDay(dayStartMs,lat,lon){
+  var step=10*60000,prev=skyElev(dayStartMs,lat,lon)+0.833,t,out={rise:null,set:null};
+  var bis=function(a,b,up){for(var i=0;i<14;i++){var m=(a+b)/2,e=skyElev(m,lat,lon)+0.833;if((e>0)===up)b=m;else a=m}return Math.round((a+b)/2)};
+  for(t=dayStartMs+step;t<=dayStartMs+864e5;t+=step){
+    var e=skyElev(t,lat,lon)+0.833;
+    if(prev<=0&&e>0&&out.rise===null)out.rise=bis(t-step,t,true);
+    if(prev>0&&e<=0&&out.set===null)out.set=bis(t-step,t,false);
+    prev=e;
+  }
+  return out;
+}
+var SKY_KEYS=[[-18,[5,8,24],[10,16,48],[18,26,58]],[-9,[16,24,70],[52,42,98],[150,70,110]],[-3,[34,52,110],[160,86,110],[238,126,92]],[0.5,[56,92,160],[236,134,92],[255,178,80]],[7,[86,140,205],[244,170,100],[255,212,140]],[18,[76,152,230],[128,188,242],[190,226,255]],[45,[47,134,230],[109,179,242],[181,220,255]]];
+function skyMix(a,b,t){return [Math.round(a[0]+(b[0]-a[0])*t),Math.round(a[1]+(b[1]-a[1])*t),Math.round(a[2]+(b[2]-a[2])*t)]}
+function skyRgb(c){return 'rgb('+c[0]+','+c[1]+','+c[2]+')'}
+function skyColors(elev){
+  var K=SKY_KEYS,i;
+  if(elev<=K[0][0])return {top:skyRgb(K[0][1]),mid:skyRgb(K[0][2]),bot:skyRgb(K[0][3])};
+  for(i=1;i<K.length;i++)if(elev<=K[i][0]){var t=(elev-K[i-1][0])/(K[i][0]-K[i-1][0]);return {top:skyRgb(skyMix(K[i-1][1],K[i][1],t)),mid:skyRgb(skyMix(K[i-1][2],K[i][2],t)),bot:skyRgb(skyMix(K[i-1][3],K[i][3],t))}}
+  var L=K[K.length-1];return {top:skyRgb(L[1]),mid:skyRgb(L[2]),bot:skyRgb(L[3])};
+}
+function skyTimeText(ms){var d=new Date(ms),h=d.getHours(),m=d.getMinutes();return (h%12||12)+':'+('0'+m).slice(-2)+' '+(h<12?'AM':'PM')}
+// Everything the picture needs for one moment: colors, where the sun or moon is (0 to 1 across and down), how many stars, and a short caption.
+function skyState(ms,lat,lon,dayStartMs){
+  var e=skyElev(ms,lat,lon),day=skyDay(dayStartMs,lat,lon),rise=day.rise,set=day.set,sun=null,moon=null,note='';
+  var phase=e>=10?'day':e>=-0.833?'golden':e>=-6?'dusk':e>=-12?'twilight':'night';
+  if(rise!==null&&set!==null&&rise<set){
+    if(ms>=rise&&ms<=set){var p=(ms-rise)/(set-rise);sun={x:0.08+0.84*p,y:1-Math.sin(Math.PI*p)*0.78}}
+    else{var a=ms>set?set:set-864e5,b=ms>set?rise+864e5:rise,q=Math.max(0,Math.min(1,(ms-a)/(b-a)));moon={x:0.08+0.84*q,y:1-Math.sin(Math.PI*q)*0.7}}
+    note=ms<rise?'Sunrise '+skyTimeText(rise):ms<=set?'Sunset '+skyTimeText(set):'Sunrise tomorrow about '+skyTimeText(rise);
+  }else{
+    if(e>0)sun={x:0.5,y:0.3};else moon={x:0.5,y:0.3};note=e>0?'The sun stays up today':'The sun stays down today';
+  }
+  var c=skyColors(e);
+  return {elev:e,phase:phase,dark:e<8,colors:c,sun:sun,moon:moon,stars:Math.max(0,Math.min(1,(-e-2)/12)),note:note,rise:rise,set:set};
+}
+/*SKY-END*/
 var NAVH={stack:[],i:-1,skip:false};
 function navhKey(){return {v:view,f:view==='loans'?loanFilter:'',l:view==='look'?lookTab:''}}
 function navhGo(d){
@@ -1834,7 +1886,7 @@ function homeScreen(sp,inc,nw){
   var series=S.accounts.length?netWorthTrail(S.accounts,isDebt,TODAY,90,30):[],chg=series.length>1?series[series.length-1]-series[0]:null;
   var pts=sparkPath(series,360,70,4);
   var up=chg!==null&&chg>=0;
-  var heroTxt='<div class="hhero"><div><div class="sub hgreet">'+(PROF.photo?profAvatar(PROF):'')+'<span>'+greet+' · '+TODAY.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})+'</span></div><div class="hlabel">Net worth</div><div class="num hbig '+(nw.net<0?'bad':'')+'">'+(nw.net<0?'-':'')+money0(Math.abs(nw.net))+'</div>'+(chg!==null&&Math.abs(chg)>=1?'<div class="sub"><span class="'+(up?'good':'bad')+'">'+(up?'↑ ':'↓ ')+money0(Math.abs(chg))+'</span> in the last 90 days</div>':'<div class="sub">'+money0(nw.assets)+' owned · '+money0(nw.debts)+' owed</div>')+'</div>'+
+  var sk=skyHtml(),heroTxt='<div class="hhero'+sk.cls+'">'+sk.html+'<div><div class="sub hgreet">'+(PROF.photo?profAvatar(PROF):'')+'<span>'+greet+' · '+TODAY.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'})+'</span></div><div class="hlabel">Net worth</div><div class="num hbig '+(nw.net<0?'bad':'')+'">'+(nw.net<0?'-':'')+money0(Math.abs(nw.net))+'</div>'+(chg!==null&&Math.abs(chg)>=1?'<div class="sub"><span class="'+(up?'good':'bad')+'">'+(up?'↑ ':'↓ ')+money0(Math.abs(chg))+'</span> in the last 90 days</div>':'<div class="sub">'+money0(nw.assets)+' owned · '+money0(nw.debts)+' owed</div>')+'</div>'+
     (pts?'<svg class="hspark" viewBox="0 0 360 70" width="100%" role="img" aria-label="Net worth over 90 days"><defs><linearGradient id="hsg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="'+(up?'var(--good)':'var(--bad)')+'" stop-opacity=".35"/><stop offset="1" stop-color="'+(up?'var(--good)':'var(--bad)')+'" stop-opacity="0"/></linearGradient></defs><polygon class="fade" points="4,66 '+pts+' 356,66" fill="url(#hsg)"/><polyline class="draw" pathLength="1000" points="'+pts+'" fill="none" stroke="'+(up?'var(--good)':'var(--bad)')+'" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/></svg>':'')+'</div>';
   var qa=scBar();
   var cards=[];
@@ -1898,6 +1950,30 @@ function homeInvViz(ps){
   if(ht>0)out+='<div style="display:flex;height:10px;border-radius:5px;overflow:hidden;margin-top:10px;background:var(--line)" role="img" aria-label="How your investments are split">'+hv.slice(0,8).map(function(r,i){return '<i title="'+esc(r.sym)+' '+Math.round(r.v/ht*100)+'%" style="width:'+(r.v/ht*100).toFixed(2)+'%;background:'+OV_COLS[i%8]+'"></i>'}).join('')+'</div><div class="sub muted" style="font-size:11px;margin-top:4px;white-space:normal">'+hv.slice(0,4).map(function(r,i){return '<span style="color:'+OV_COLS[i%8]+'">●</span> '+esc(r.sym)+' '+Math.round(r.v/ht*100)+'%'}).join(' · ')+'</div>';
   return out;
 }
+// Where on Earth to draw the sky for: the place you set in Energy, else a guess from this computer's time zone.
+function skyPlace(){var w=S.weather&&S.weather.lat!==undefined&&S.weather.lon!==undefined?S.weather:null;return w?{lat:+w.lat,lon:+w.lon,exact:true}:{lat:40,lon:Math.max(-180,Math.min(180,-new Date().getTimezoneOffset()/4)),exact:false}}
+function skyDraw(st){
+  var W=600,H=220,c=st.colors,hz=H*0.86,o='<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="xMidYMid slice" width="100%" height="100%" aria-hidden="true"><defs><linearGradient id="skg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="'+c.top+'"/><stop offset=".6" stop-color="'+c.mid+'"/><stop offset="1" stop-color="'+c.bot+'"/></linearGradient><radialGradient id="skun"><stop offset="0" stop-color="#fff" stop-opacity=".95"/><stop offset=".25" stop-color="'+(st.elev>14?'#fff6c8':st.elev>3?'#ffe19a':'#ffb15c')+'" stop-opacity=".85"/><stop offset="1" stop-color="#ff9a4d" stop-opacity="0"/></radialGradient><filter id="skbl"><feGaussianBlur stdDeviation="7"/></filter></defs><rect width="'+W+'" height="'+H+'" fill="url(#skg)"/>',i,seed=7;
+  if(st.stars>0.02){for(i=0;i<46;i++){seed=(seed*9301+49297)%233280;var sx=seed/233280*W;seed=(seed*9301+49297)%233280;var sy=seed/233280*H*0.62,tw=0.4+((i*37)%10)/16;o+='<circle cx="'+sx.toFixed(1)+'" cy="'+sy.toFixed(1)+'" r="'+(0.6+(i%3)*0.35)+'" fill="#fff" opacity="'+(st.stars*tw).toFixed(2)+'"><animate attributeName="opacity" values="'+(st.stars*tw).toFixed(2)+';'+(st.stars*tw*0.45).toFixed(2)+';'+(st.stars*tw).toFixed(2)+'" dur="'+(3+i%5)+'s" repeatCount="indefinite"/></circle>'}}
+  if(st.sun){var sx2=st.sun.x*W,sy2=st.sun.y*hz;o+='<circle cx="'+sx2.toFixed(1)+'" cy="'+sy2.toFixed(1)+'" r="'+(st.elev<6?96:70)+'" fill="url(#skun)"/><circle cx="'+sx2.toFixed(1)+'" cy="'+sy2.toFixed(1)+'" r="'+(st.elev<6?17:14)+'" fill="'+(st.elev>14?'#fffbe6':st.elev>3?'#ffe9a8':'#ffc46b')+'"/>'}
+  if(st.moon&&st.stars>0.05){var mx=st.moon.x*W,my=st.moon.y*hz;o+='<circle cx="'+mx.toFixed(1)+'" cy="'+my.toFixed(1)+'" r="30" fill="#cfd8ff" opacity="'+(0.18*st.stars).toFixed(2)+'" filter="url(#skbl)"/><circle cx="'+mx.toFixed(1)+'" cy="'+my.toFixed(1)+'" r="11" fill="#f3f5ff" opacity="'+Math.min(1,st.stars+0.2).toFixed(2)+'"/><circle cx="'+(mx+5).toFixed(1)+'" cy="'+(my-3).toFixed(1)+'" r="9.5" fill="'+c.mid+'" opacity="'+Math.min(1,st.stars+0.2).toFixed(2)+'"/>'}
+  var cl=st.elev>8?'255,255,255':st.elev>-4?'255,170,140':'60,70,120',co=(st.elev>8?0.5:st.elev>-4?0.42:0.3);
+  o+='<g class="skycl" fill="rgb('+cl+')" opacity="'+co+'" filter="url(#skbl)"><ellipse cx="120" cy="62" rx="78" ry="13"/><ellipse cx="170" cy="55" rx="44" ry="11"/><ellipse cx="430" cy="92" rx="92" ry="12"/><ellipse cx="380" cy="86" rx="48" ry="10"/><ellipse cx="540" cy="40" rx="52" ry="9"/></g>';
+  var hill=skyRgb(skyMix([14,20,40],[34,58,48],Math.max(0,Math.min(1,(st.elev+6)/30))));
+  o+='<path d="M0 '+hz+' C60 '+(hz-18)+' 120 '+(hz-8)+' 190 '+(hz-14)+' S320 '+(hz-30)+' 400 '+(hz-12)+' S540 '+(hz-20)+' 600 '+(hz-8)+' V'+H+' H0Z" fill="'+hill+'" opacity=".92"/><path d="M0 '+(hz+10)+' C90 '+(hz-2)+' 170 '+(hz+6)+' 260 '+(hz-2)+' S470 '+(hz+8)+' 600 '+(hz+2)+' V'+H+' H0Z" fill="'+hill+'"/></svg>';
+  return o;
+}
+function skyHtml(){
+  if(TH.sky==='off')return {cls:'',html:''};
+  var pl=skyPlace(),now=new Date(),d0=new Date(now.getFullYear(),now.getMonth(),now.getDate()).getTime(),st=skyState(now.getTime(),pl.lat,pl.lon,d0);
+  return {cls:' sky'+(st.dark?' skydark':''),html:'<div class="skybg" aria-hidden="true">'+skyDraw(st)+'</div><div class="skynote">'+esc(st.note)+(pl.exact?'':' (about)')+'</div>',st:st};
+}
+function skyTick(){
+  var h=document.querySelector('#main .hhero.sky');if(!h||TH.sky==='off'||document.hidden)return;
+  var k=skyHtml(),b=h.querySelector('.skybg'),n=h.querySelector('.skynote');
+  if(b&&k.st){b.innerHTML=skyDraw(k.st);if(n)n.textContent=k.st.note+(skyPlace().exact?'':' (about)');h.classList.toggle('skydark',k.st.dark)}
+}
+setInterval(skyTick,60000);
 var HC=null;
 function hcPrefs(){if(HC)return HC;var raw=null;try{raw=JSON.parse(localStorage.getItem(PK('tally-hcards-v1'))||'null')}catch(e){}
   var ids=function(a){var seen={},o=[];(Array.isArray(a)?a:[]).slice(0,40).forEach(function(x){if(typeof x==='string'&&/^[a-z0-9-]{1,40}$/.test(x)&&!seen[x]){seen[x]=1;o.push(x)}});return o};
@@ -4892,7 +4968,7 @@ function pdfReviewRows(files,opts){
 /* ---------- Can I afford it ---------- */
 
 /*THEME-START*/
-var THEME_DEFAULT={preset:'indigo',accent:'#3b4cf0',mode:'auto',bg:'aurora',frost:60,radius:16,size:'m',font:'modern',motion:'full'};
+var THEME_DEFAULT={preset:'indigo',accent:'#3b4cf0',mode:'auto',bg:'aurora',frost:60,radius:16,size:'m',font:'modern',motion:'full',sky:'live'};
 var PRESETS=[{id:'tesla',name:'Studio blue',accent:'#3e6ae1'},{id:'indigo',name:'Indigo',accent:'#3b4cf0'},{id:'ocean',name:'Ocean',accent:'#0a8fd8'},{id:'violet',name:'Violet',accent:'#8b5cf6'},{id:'emerald',name:'Emerald',accent:'#10a37f'},{id:'sunset',name:'Sunset',accent:'#f2682a'},{id:'rose',name:'Rose',accent:'#e8467c'},{id:'gold',name:'Gold',accent:'#d99a0b'},{id:'graphite',name:'Graphite',accent:'#5b6578'}];
 var FONTS={
   modern:{d:"'Bricolage Grotesque','DM Sans',system-ui,sans-serif",b:"'DM Sans',system-ui,-apple-system,'Segoe UI',sans-serif"},
@@ -4907,7 +4983,7 @@ function cleanTheme(raw){
     accent:/^#[0-9a-f]{6}$/i.test(r.accent||'')?r.accent.toLowerCase():d.accent,
     mode:pickOf(r.mode,['auto','light','dark'],d.mode),bg:pickOf(r.bg,['aurora','soft','plain','studio'],d.bg),
     frost:clampN(r.frost,0,100,d.frost),radius:clampN(r.radius,6,28,d.radius),
-    size:pickOf(r.size,['s','m','l'],d.size),font:pickOf(r.font,['modern','system','rounded','serif'],d.font),motion:pickOf(r.motion,['full','reduced'],d.motion)};
+    size:pickOf(r.size,['s','m','l'],d.size),font:pickOf(r.font,['modern','system','rounded','serif'],d.font),motion:pickOf(r.motion,['full','reduced'],d.motion),sky:pickOf(r.sky,['live','off'],d.sky)};
 }
 function hexToHsl(hex){
   var r=parseInt(hex.slice(1,3),16)/255,g=parseInt(hex.slice(3,5),16)/255,b=parseInt(hex.slice(5,7),16)/255,mx=Math.max(r,g,b),mn=Math.min(r,g,b),l=(mx+mn)/2,h=0,s=0,d=mx-mn;
@@ -5765,7 +5841,7 @@ var billUI={edit:'',adding:false,adj:''};
 // What each tab is for and how to use it. Shown by the ? button on every tab and in the walkthrough (Settings, then Help).
 var HELP_START={t:'Welcome',what:'Tally Money keeps your money in one place on this computer: accounts, spending, bills, pay, taxes, goals and more. Your data stays on this computer; nothing is sent anywhere unless you choose an AI feature and give it your own key.',how:['Bring in your data. On Transactions, import a bank or card statement (a CSV or a PDF). On Accounts, add your accounts and balances.','The example data you see at first is made up so you can try everything. Clear it when you are ready to use your own.','Press Ctrl+K (Cmd+K on a Mac) or / to search or ask anything, such as next paycheck, bills due or tax refund.','If you change something by mistake, use Undo at the top of the page. The ‹ › arrows at the top left of every page go back and forward through the pages you visited (Cmd+[ and Cmd+], or Alt with the left and right arrow keys).','Open Settings to change how the app looks, reorder or hide tabs, set a password or Touch ID, back up your data and update the app.','Tap the owl (it flies around the app) to ask for a change to how the app looks, such as dark mode, bigger text or a hidden tab, or press Help for this page inside it for a short guide to that tab.'],tip:'Nothing here moves money. The app only reads what you give it.'};
 var HELP={
-  overview:{t:'Overview',what:'A summary of the month: where your money went, income against spending over six months, your budgets and the bills coming up.',how:['Press Customize to make the page yours: edit, add, move, resize and recolor the shortcuts, move and hide the cards under them, and move, resize or restyle the windows. Tap a window\'s title to fold it. Tap any number or the Open button on a window to go to its page.','Use the month arrows at the top to look at another month.','Read Where it went to see which categories took the most.','Budgets are listed most used first, so the ones you are close to overspending show at the top.','Bills coming up lists what is due in the next two weeks.','Your stocks shows what your investments are worth, how they moved today, a chart of their value over time (1M, 3M or 1Y), a bar of how your money is split between them and how each stock is doing. It refreshes about every minute while the market is open.','Recent transactions lists your latest activity.','The row at the top switches between this summary and the Live dashboard.','Press Customize at the top of this page (or any page with windows) to drag windows into a new order, make them half or full width, hide the ones you do not want and choose how some of them are drawn: spending as a donut, bars or a list, the six months as bars or lines, your stocks as a line graph, a pie or bars, budgets as bars or rings, net worth as a line or bars. You can also hold a window by its title and drag it.'],tip:'This is the page to glance at each morning. Open the other tabs for detail.'},
+  overview:{t:'Overview',what:'A summary of the month: where your money went, income against spending over six months, your budgets and the bills coming up.',how:['The sky behind your net worth follows the real sun, from sunrise to sunset to stars. Press Customize to make the page yours: edit, add, move, resize and recolor the shortcuts, move and hide the cards under them, and move, resize or restyle the windows. Tap a window\'s title to fold it. Tap any number or the Open button on a window to go to its page.','Use the month arrows at the top to look at another month.','Read Where it went to see which categories took the most.','Budgets are listed most used first, so the ones you are close to overspending show at the top.','Bills coming up lists what is due in the next two weeks.','Your stocks shows what your investments are worth, how they moved today, a chart of their value over time (1M, 3M or 1Y), a bar of how your money is split between them and how each stock is doing. It refreshes about every minute while the market is open.','Recent transactions lists your latest activity.','The row at the top switches between this summary and the Live dashboard.','Press Customize at the top of this page (or any page with windows) to drag windows into a new order, make them half or full width, hide the ones you do not want and choose how some of them are drawn: spending as a donut, bars or a list, the six months as bars or lines, your stocks as a line graph, a pie or bars, budgets as bars or rings, net worth as a line or bars. You can also hold a window by its title and drag it.'],tip:'This is the page to glance at each morning. Open the other tabs for detail.'},
   dash:{t:'Dashboard',what:'A live view of your net worth, bills, loan payoff, goals and spending in one screen.',how:['Read the cards for your headline numbers.','Click a card to open the tab behind it.','Recent transactions shows your latest activity.','Leave it open: it updates on its own.'],tip:'Add accounts and balances first so the net worth card is accurate.'},
   accounts:{t:'Accounts',what:'Everything you own and owe, and your net worth (assets minus debts).',how:['Add an account with the form at the bottom: checking, savings, a card, a loan, a vehicle or a property.','Keep balances current: edit them, or import a statement on Transactions.','Assets and Debts show what adds to and what takes from your net worth.','The row at the top opens Assets (vehicles and valuables). Investments has its own tab in the sidebar.'],tip:'The more accounts you add, the more the rest of the app can connect (bills from loans, payoff plans, net worth).'},
   pay:{t:'My pay',what:'Your paychecks: when the next one arrives, what comes out of each one and what changed since the last.',how:['Press Add a pay statement and choose the PDF from your payroll site (such as ADP). The app reads it on your computer.','Check the numbers it found, then save. Or press Add by hand to type them in.','Where your paycheck goes splits each check into taxes, benefits, retirement and take-home, with a chart and notes.','Add a statement each pay period so What changed and the yearly projection stay accurate.','With more than one job, the app tells them apart by the employer on each statement and shows each one: what it pays, when the next check comes and how it is doing.','Other income at the bottom is for gigs, payments from friends and gifts.','Taxes is the other page, along the top of this tab.'],tip:'A copy of each statement is filed in Documents for you.'},
@@ -5790,7 +5866,7 @@ var HELP={
 };
 // What changed in each version, in plain words. A test makes sure the version in package.json has an entry, so a release cannot go out without it.
 var WHATSNEW=[
- ['1.8.35',['Add a picture and personal details to your user (Settings, You): email, phone, city, state, birthday and a note about you. The picture shows next to your name on the Overview, in the sidebar and when the app asks who is using it. It stays on this computer.','New From email panel on Transactions. Choose emails you exported (a single .eml, or an .mbox from Google Takeout) and the app finds the ones that report money moving, compares them with what you already have, and lets you add the new ones. An alert about something your bank already shows is marked as already in the app and is not added again. The same email is never added twice, an order email and its bank alert count as one purchase, and when your bank statement later brings in the same transaction it replaces the email copy. Only the amount, date, merchant and a fingerprint are kept, never the email, and nothing is sent anywhere. It also points out repeating charges you can add as subscriptions. It does not connect to your mailbox: that needs a Google sign-in set up by you.']],
+ ['1.8.35',['The Overview sky follows the real sun. Behind your net worth you see dawn, daytime, a golden sunset with the sun sinking, dusk, and a night sky with stars and a moon, changing as the day goes on. It uses the place you set in Energy for exact sunrise and sunset times, or a guess from this computer\'s time zone (marked "about"). Turn it off in Settings, Appearance, or ask the owl.','The owl is redrawn with shaded feathers, a heart-shaped face, glowing eyes that follow your pointer and wings made of separate feathers that flap in a ripple. It folds its wings when it sits in the corner.','Add a picture and personal details to your user (Settings, You): email, phone, city, state, birthday and a note about you. The picture shows next to your name on the Overview, in the sidebar and when the app asks who is using it. It stays on this computer.','New From email panel on Transactions. Choose emails you exported (a single .eml, or an .mbox from Google Takeout) and the app finds the ones that report money moving, compares them with what you already have, and lets you add the new ones. An alert about something your bank already shows is marked as already in the app and is not added again. The same email is never added twice, an order email and its bank alert count as one purchase, and when your bank statement later brings in the same transaction it replaces the email copy. Only the amount, date, merchant and a fingerprint are kept, never the email, and nothing is sent anywhere. It also points out repeating charges you can add as subscriptions. It does not connect to your mailbox: that needs a Google sign-in set up by you.']],
  ['1.8.34',['The owl is smarter. It understands more requests (rename or resize a shortcut, move windows and tabs, hide cards, draw a window as bars, a donut or a list, go to a page, use any #rrggbb color). With your Anthropic key it sends the words of a request it did not understand to Claude, along with the names of your tabs and windows but no accounts or transactions, and only ever gets back the same safe list of changes. Limited to 40 such requests a day.','The ? button is now an owl. It flies around the app, its eyes follow your pointer, and every so often it asks if you want something changed. Tap it and type what you want, for example "switch to dark mode, make the text bigger and hide the Energy tab". It can change colors, mode, text size, corners, glass, background, font, animations, sounds, which tabs show, windows (hide, show, fold, wider, narrower) and Overview shortcuts, and Undo that puts everything back. What it cannot do yet goes on a list you can copy and paste to Claude Code. The owl never changes the app\'s code. It can sit in the corner instead of flying (a checkbox in its box, or tell it to stop flying), and it sits still with calmer animations. Help for this page is still one tap away inside it.','The Overview is customizable. Press Customize, then: tap a shortcut to change its name, icon, color, size or what it opens; use ‹ › to move it, S/M/L to resize it, × to remove it, or Add a shortcut for a new one. The cards under the shortcuts can be moved and hidden the same way. Windows can still be moved, resized and drawn as a different graphic.','Every number and window on the Overview and Live dashboard opens the page it comes from: Spent, Income, Net worth and the rest, plus an Open button on each window. Safe to spend now opens Budgets.','Windows fold up. Tap a window\'s title to fold or open it. Long or rarely used ones (such as Debt-free by a date and If you earned $100) start folded, and Debt payments keeps its recent payments and account list folded away.','Last six months is easier to read: fewer gridlines with short labels ($4k), a clear space for the amounts, and the numbers only on the current month. Point at any bar for its amount.','Back and forward arrows now sit at the top left of every page and go through the pages you visited, like a browser. Keyboard: Cmd+[ and Cmd+], or Alt with the left and right arrow keys.','The month arrows are now a scrolling drum, like the timer on an iPhone: scroll or swipe and it ticks past each month, then settles. The tick follows your sound setting.','Energy is a tab of its own again, next to Bills. Investments was already restored.','Documents are locked. Opening the Documents page, a folder, an ID or a file asks for your app password, a separate documents password, or Touch ID on a Mac, and stays open for 5 minutes. Lock now closes it at once. The same lock covers the Tax documents button and document search results. Files in the Documents folder are still ordinary files on disk, so this keeps people out of the app, not out of Finder.','Pay statements, Tax documents, Bank and card statements, Vehicle records, Energy bills, Receipts and Other now look like the IDs and records cards: a stack of papers in a pocket, with arrows to flip through the files.']],
  ['1.8.33',['Investments is its own tab again, in the sidebar between Accounts and Transactions.','The Investments card on the Overview now has pictures: a graph of your investments over the last 90 days and a bar showing how they are split between your holdings. It fills in as soon as prices load.','Fixed the Investments page redrawing itself over and over when a stock\'s details could not be loaded.','Debt payments are smarter about when your balance is from. A loan or card now counts every payment made after the date its balance was last entered or stated (before, it only counted payments from the day you updated the app). You can change that date on Debts, in the Debt payments window.','A withdrawal that looks like a loan payment but has an unusual name now shows in the Debt payments window with a menu to pick the debt it paid. If a payment lowered a debt but is not linked to a bank account, the window says your net worth reads too high by that much and links them all to the account you choose.']],
  ['1.8.32',['Your debts now follow your transactions. When a payment to a student loan, car loan, other loan or card shows up in Transactions, that balance goes down by itself, and a bank or savings balance moves with the transactions linked to it. Deleting or editing a transaction puts it right back, and typing a new balance starts again from that balance, so nothing counts twice.','New Debt payments window on Debts: how much you have paid so far, how much of it went toward what you owe and how much was interest, and how your latest payment was split between loans (for example a student loan payment shared across its loans). Draw it as bars, a donut or a list. Change the split if your statement shows something different.','Edit a transaction and use Pays toward to say which debt it belongs to, or that it is not a debt payment. Mortgages stay off until you turn them on, because the payment includes escrow. Bank-linked accounts are left alone.']],
@@ -8897,10 +8973,44 @@ var OWLP=null;
 function owlPrefs(){if(OWLP)return OWLP;var raw=null;try{raw=JSON.parse(localStorage.getItem(PK('tally-owl-v1'))||'null')}catch(e){}
   OWLP={fly:!(raw&&raw.fly===false),day:raw&&typeof raw.day==='string'?raw.day.slice(0,10):'',n:raw&&+raw.n>0?Math.min(999,Math.round(+raw.n)):0,wish:Array.isArray(raw&&raw.wish)?raw.wish.filter(function(w){return w&&typeof w.text==='string'}).slice(0,30).map(function(w){return {at:String(w.at||'').slice(0,10),text:w.text.slice(0,200)}}):[]};return OWLP}
 function owlSavePrefs(){try{localStorage.setItem(PK('tally-owl-v1'),JSON.stringify(owlPrefs()))}catch(e){}}
-var OWL_SVG='<svg class="owlsvg" viewBox="0 0 64 64" width="60" height="60" aria-hidden="true"><g class="owlbody"><path class="wing wl" d="M15 30 C3 26 -2 40 4 51 C10 47 14 41 17 35Z" fill="#7a4d22"/><path class="wing wr" d="M49 30 C61 26 66 40 60 51 C54 47 50 41 47 35Z" fill="#7a4d22"/><ellipse cx="32" cy="38" rx="19" ry="21" fill="#a9733a"/><ellipse cx="32" cy="45" rx="12" ry="13" fill="#f2dcb3"/><path d="M14 22 L17 5 L28 15Z M50 22 L47 5 L36 15Z" fill="#7a4d22"/><circle cx="23" cy="26" r="9.5" fill="#fff"/><circle cx="41" cy="26" r="9.5" fill="#fff"/><circle class="pupil" cx="23" cy="27" r="4.2" fill="#1b1b1b"/><circle class="pupil" cx="41" cy="27" r="4.2" fill="#1b1b1b"/><circle cx="24.6" cy="25.4" r="1.2" fill="#fff"/><circle cx="42.6" cy="25.4" r="1.2" fill="#fff"/><path d="M29 31 L32 38 L35 31Z" fill="#f2a516"/><path d="M25 58 l-3 5 M29 58 l-1 5 M39 58 l3 5 M35 58 l1 5" stroke="#f2a516" stroke-width="2.4" stroke-linecap="round"/></g></svg>';
+// A shaded, layered owl: barred chest, a heart-shaped face with glowing eyes, and wings made of separate feathers that flap in a ripple.
+function owlFeather(sx,sy,ang,len,w,id){
+  var r=ang*Math.PI/180,ex=sx+Math.cos(r)*len,ey=sy+Math.sin(r)*len,nx=-Math.sin(r)*w,ny=Math.cos(r)*w,mx=sx+Math.cos(r)*len*0.55,my=sy+Math.sin(r)*len*0.55;
+  return '<path d="M'+sx.toFixed(1)+' '+sy.toFixed(1)+' Q'+(mx+nx).toFixed(1)+' '+(my+ny).toFixed(1)+' '+ex.toFixed(1)+' '+ey.toFixed(1)+' Q'+(mx-nx*0.7).toFixed(1)+' '+(my-ny*0.7).toFixed(1)+' '+sx.toFixed(1)+' '+sy.toFixed(1)+'Z" fill="url(#'+id+')" stroke="#3a2412" stroke-opacity=".35" stroke-width=".5"/>';
+}
+function owlWing(side){
+  var prim='',cov='',i;
+  for(i=0;i<7;i++)prim+=owlFeather(46,44,-172+i*13,38-i*1.6,5.6,'owP');
+  for(i=0;i<5;i++)cov+=owlFeather(46,44,-165+i*17,27-i*1.2,5.2,'owC');
+  return '<g class="owing owing-'+side+'" style="transform-origin:46px 44px"><g class="oprim" style="transform-origin:46px 44px">'+prim+'</g><g class="ocov">'+cov+'</g></g>';
+}
+var OWL_SVG=(function(){
+  var chest='',i,j;
+  for(i=0;i<5;i++)for(j=0;j<3;j++)chest+='<path d="M'+(53+j*7)+' '+(60+i*5.2)+' q3.5 3.2 7 0" fill="none" stroke="#7a5230" stroke-width="1" stroke-linecap="round" opacity=".55"/>';
+  var disc='';for(i=0;i<9;i++){var a=(-70+i*17.5)*Math.PI/180;disc+='<path d="M60 46 L'+(60+Math.cos(a)*15).toFixed(1)+' '+(46+Math.sin(a)*14).toFixed(1)+'" stroke="#a9835a" stroke-width=".5" opacity=".55"/>'}
+  var tail='';for(i=0;i<5;i++)tail+=owlFeather(60,76,70+i*10+(-20),16-Math.abs(i-2)*1.3,4.2,'owC');
+  return '<svg class="owlsvg" viewBox="0 0 120 92" width="96" height="74" aria-hidden="true"><defs>'+
+    '<linearGradient id="owP" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#6b4424"/><stop offset=".6" stop-color="#8a5c33"/><stop offset="1" stop-color="#c9a574"/></linearGradient>'+
+    '<linearGradient id="owC" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#8a5c33"/><stop offset="1" stop-color="#d7b98a"/></linearGradient>'+
+    '<radialGradient id="owB" cx=".5" cy=".35" r=".7"><stop offset="0" stop-color="#d9b98a"/><stop offset=".6" stop-color="#9b6a3c"/><stop offset="1" stop-color="#5d3b1d"/></radialGradient>'+
+    '<radialGradient id="owD" cx=".5" cy=".45" r=".6"><stop offset="0" stop-color="#fff6e4"/><stop offset=".75" stop-color="#ecd6ac"/><stop offset="1" stop-color="#b48d5e"/></radialGradient>'+
+    '<radialGradient id="owE" cx=".42" cy=".38" r=".7"><stop offset="0" stop-color="#ffe27a"/><stop offset=".55" stop-color="#f3a51a"/><stop offset="1" stop-color="#a85a05"/></radialGradient>'+
+    '<filter id="owG"><feGaussianBlur stdDeviation="1.4"/></filter></defs>'+
+    '<ellipse cx="60" cy="86" rx="22" ry="2.6" fill="#000" opacity=".16" filter="url(#owG)"/>'+
+    '<g class="owlbody">'+owlWing('l')+'<g style="transform:scaleX(-1);transform-origin:60px 0">'+owlWing('r')+'</g>'+
+    '<g class="otail">'+tail+'</g>'+
+    '<ellipse cx="60" cy="62" rx="16" ry="21" fill="url(#owB)"/><ellipse cx="60" cy="66" rx="11" ry="16" fill="#e8d3a8" opacity=".9"/>'+chest+
+    '<path d="M42 38 L45 18 L55 30Z M78 38 L75 18 L65 30Z" fill="#6b4424" stroke="#3a2412" stroke-opacity=".4" stroke-width=".6"/>'+
+    '<ellipse cx="60" cy="43" rx="19" ry="17" fill="#8a5c33"/><path d="M60 29 C48 28 40 37 41 47 C42 55 52 60 60 56 C68 60 78 55 79 47 C80 37 72 28 60 29Z" fill="url(#owD)" stroke="#a9835a" stroke-width=".8"/>'+disc+
+    '<circle cx="51" cy="43" r="8.6" fill="#2a1a0c"/><circle cx="69" cy="43" r="8.6" fill="#2a1a0c"/><circle cx="51" cy="43" r="7.2" fill="url(#owE)"/><circle cx="69" cy="43" r="7.2" fill="url(#owE)"/>'+
+    '<circle class="pupil" cx="51" cy="43.5" r="3.9" fill="#0b0704"/><circle class="pupil" cx="69" cy="43.5" r="3.9" fill="#0b0704"/><circle cx="49.2" cy="40.8" r="1.5" fill="#fff" opacity=".9"/><circle cx="67.2" cy="40.8" r="1.5" fill="#fff" opacity=".9"/>'+
+    '<path d="M43 36 Q51 32 59 37 M77 36 Q69 32 61 37" fill="none" stroke="#6b4424" stroke-width="2.2" stroke-linecap="round" opacity=".8"/>'+
+    '<path d="M57 49 L60 58 L63 49 Q60 46 57 49Z" fill="#e1a21d" stroke="#8a5a0a" stroke-width=".6"/>'+
+    '<g stroke="#e1a21d" stroke-width="2.2" stroke-linecap="round"><path d="M52 81 l-2 5 M56 82 l-1 5 M68 81 l2 5 M64 82 l1 5"/></g></g></svg>';
+})();
 var OWLF={x:0,y:0,timer:0,ask:0,open:false};
 function owlReduced(){return TH.motion==='reduced'||(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)}
-function owlHome(){return {x:Math.max(0,window.innerWidth-84),y:Math.max(0,window.innerHeight-86)}}
+function owlHome(){return {x:Math.max(0,window.innerWidth-112),y:Math.max(0,window.innerHeight-96)}}
 function owlMoveTo(x,y,quick){
   var f=document.getElementById('helpfab');if(!f)return;
   var dir=x<OWLF.x?-1:1;if(x!==OWLF.x){var sv=f.querySelector('.owlsvg');if(sv)sv.style.transform='scaleX('+dir+')'}
@@ -8961,7 +9071,7 @@ function owlRun(acts){
       else if(a.k==='radius'){TH.radius=Math.max(6,Math.min(28,TH.radius+a.v));lines.push(a.v>0?'Corners are rounder.':'Corners are sharper.')}
       else if(a.k==='frost'){TH.frost=Math.max(0,Math.min(100,TH.frost+a.v));lines.push(a.v>0?'More frosted glass.':'Less frosted glass.')}
       else if(a.k==='accent'){TH.preset='custom';TH.accent=a.v;lines.push('Accent color changed.')}
-      else{TH[a.k]=a.v;lines.push({mode:'Mode is now '+a.v+'.',bg:'Background is now '+a.v+'.',font:'Font is now '+a.v+'.',motion:a.v==='reduced'?'Animations are calmer.':'Animations are back.'}[a.k]||'Done.')}
+      else{TH[a.k]=a.v;lines.push({mode:'Mode is now '+a.v+'.',bg:'Background is now '+a.v+'.',font:'Font is now '+a.v+'.',sky:a.v==='off'?'The live sky is off.':'The live sky is on.',motion:a.v==='reduced'?'Animations are calmer.':'Animations are back.'}[a.k]||'Done.')}
     }
     else if(a.t==='sound'){SND.on=a.v;sndSave();lines.push(a.v?'Sounds are on.':'Sounds are off.')}
     else if(a.t==='owl'){owlPrefs().fly=a.v==='fly';owlSavePrefs();lines.push(a.v==='fly'?'I will fly around.':'I will sit in the corner.')}
@@ -10763,7 +10873,7 @@ function vLook(){
   '<section class="panel"><h2>Type and motion</h2>'+
     '<div class="lookrow"><span class="lbl">Text size</span><span class="ctl">'+seg('th-size',TH.size,[['s','Small'],['m','Normal'],['l','Large']])+'</span></div>'+
     '<div class="lookrow"><span class="lbl">Font</span><span class="ctl">'+seg('th-font',TH.font,[['modern','Modern'],['system','System'],['rounded','Rounded'],['serif','Serif']])+'</span></div>'+
-    '<div class="lookrow"><span class="lbl">Motion<small>Page transitions, count-ups, the drifting background and confetti. Your system "reduce motion" setting always wins.</small></span><span class="ctl">'+seg('th-motion',TH.motion,[['full','Full'],['reduced','Calm']])+'</span></div></section>'},
+    '<div class="lookrow"><span class="lbl">Motion<small>Page transitions, count-ups, the drifting background and confetti. Your system "reduce motion" setting always wins.</small></span><span class="ctl">'+seg('th-motion',TH.motion,[['full','Full'],['reduced','Calm']])+'</span></div><div class="lookrow"><span class="lbl">Live sky<small>The Overview sky follows the real sun, with sunrise, sunset and stars. Set your place in Energy for exact times.</small></span><span class="ctl">'+seg('th-sky',TH.sky,[['live','On'],['off','Off']])+'</span></div></section>'},
     more:function(){return '<h2 class="setsec">Bills</h2>'+hiddenPanel()+'<h2 class="setsec">Your car</h2>'+carAiPanel()},
     security:function(){return '<h2 class="setsec">Security and moving to another computer</h2>'+secPanels()},
     updates:function(){return updatesPanel()},
@@ -10828,7 +10938,7 @@ function thClick(a,b){
   if(a==='th-preset'){var p=PRESETS.filter(function(x){return x.id===b.dataset.v})[0];if(p){TH.preset=p.id;TH.accent=p.accent}}
   else if(a==='th-look'){if(b.dataset.v==='studio'){TH.bg='studio';TH.mode='dark';TH.preset='tesla';TH.accent='#3e6ae1';TH.frost=15;TH.radius=14;TH.font='system'}else{TH.bg='aurora';TH.mode='auto';TH.preset='indigo';TH.accent='#3b4cf0';TH.frost=60;TH.radius=16;TH.font='modern'}try{localStorage.setItem(PK('tally-look-offer'),'1')}catch(e){}}
   else if(a==='th-reset'){TH=cleanTheme(null)}
-  else{var key={'th-mode':'mode','th-bg':'bg','th-size':'size','th-font':'font','th-motion':'motion'}[a];if(!key)return false;TH[key]=b.dataset.v}
+  else{var key={'th-mode':'mode','th-bg':'bg','th-size':'size','th-font':'font','th-motion':'motion','th-sky':'sky'}[a];if(!key)return false;TH[key]=b.dataset.v}
   saveTheme();applyTheme();render();return true;
 }
 /*REORDER-START*/

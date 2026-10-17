@@ -716,3 +716,7 @@ Settings, You has a picture and details (email, phone, city, state, birthday, a 
 ## From email
 
 On Transactions, From email reads emails you export (.eml, or one .mbox from Google Takeout) entirely on this computer. It keeps only the amount, date, merchant and a fingerprint of each message. Bank alerts about transactions already in the app are marked and skipped (matched one-to-one on amount within four days), an order email and its alert are one purchase, the same message is never added twice, and a later bank import replaces the email copy. It also suggests subscriptions from repeating charges. A direct mailbox connection needs a Google sign-in (OAuth) set up by the owner and is not built.
+
+## Live sky and the owl's look
+
+The Overview hero draws the sky from the real sun position (standard low-precision solar formulas, good to a few minutes): dawn, day, a golden sunset with the sun sinking, dusk, and a night with stars and moon. It uses the place saved in Energy, else a rough guess from the computer's time zone, and updates every minute. Settings, Appearance, Live sky turns it off. The owl is a layered vector drawing with animated feathers; it is illustrated, not a photoreal render.

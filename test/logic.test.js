@@ -3499,3 +3499,21 @@ test('email: repeated charges and card endings are noticed', () => {
   const l = E.emLearn([mk('1', 'Mon, 7 Sep 2026 09:00:00 +0000', '9.99'), mk('2', 'Wed, 7 Oct 2026 09:00:00 +0000', '9.99'), mk('3', 'Wed, 7 Oct 2026 10:00:00 +0000', '30.00')]);
   assert.equal(l.subs.length, 1); assert.equal(l.subs[0].amount, 9.99); assert.equal(l.subs[0].months, 2); assert.equal(l.accounts[0].last4, '4321');
 });
+
+// ---------- Live sky ----------
+function skyBlock() { return new Function(srcBlock('/*SKY-START*/', '/*SKY-END*/') + '\nreturn {skyElev, skyDay, skyState, skyColors};')(); }
+test('sky: sunrise and sunset come out right for a known place, and the phase follows the sun', () => {
+  const K = skyBlock(), d0 = Date.UTC(2026, 9, 17, 4, 0, 0), day = K.skyDay(d0, 42.36, -71.06);   // 17 Oct, Boston, local midnight is 04:00 UTC
+  const mins = (ms) => { const t = new Date(ms - 4 * 3600e3); return t.getUTCHours() * 60 + t.getUTCMinutes(); };
+  assert.ok(mins(day.rise) >= 6 * 60 + 55 && mins(day.rise) <= 7 * 60 + 10, 'sunrise about 7:00: ' + mins(day.rise));
+  assert.ok(mins(day.set) >= 17 * 60 + 50 && mins(day.set) <= 18 * 60 + 5, 'sunset about 5:55 pm: ' + mins(day.set));
+  assert.ok(Math.abs(K.skyElev(Date.UTC(2026, 2, 20, 12, 0, 0), 0, 0) - 88.1) < 1.5, 'the sun is nearly overhead at the equator on the equinox');
+  assert.deepEqual(K.skyDay(Date.UTC(2026, 5, 21, 0, 0, 0), 80, 0), { rise: null, set: null }, 'midnight sun');
+  const at = (h, m) => K.skyState(Date.UTC(2026, 9, 17, h, m, 0), 42.36, -71.06, d0);
+  assert.equal(at(16, 0).phase, 'day'); assert.equal(at(21, 55).phase, 'golden'); assert.equal(at(22, 25).phase, 'dusk'); assert.equal(at(3, 0).phase, 'night');
+  const noon = at(16, 0), dusk = at(22, 25), night = at(3, 0);
+  assert.ok(noon.sun && !noon.moon && noon.stars === 0); assert.ok(night.moon && !night.sun && night.stars > 0.9); assert.ok(noon.sun.y < at(21, 55).sun.y, 'the sun is lower near sunset');
+  assert.ok(/^Sunset \d/.test(noon.note) && /^Sunrise/.test(night.note));
+  const bright = (c) => c.match(/\d+/g).map(Number).reduce((a, b) => a + b, 0);
+  assert.ok(bright(K.skyColors(40).top) > bright(K.skyColors(-3).top) && bright(K.skyColors(-3).top) > bright(K.skyColors(-18).top), 'darker as the sun goes down');
+});
