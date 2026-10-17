@@ -21,3 +21,5 @@ Every user-visible change must update the in-app help in the same commit:
 
 ## Tests
 - `npm test` runs everything that can run on Linux. Swift (`native-widget/`) cannot be compiled here: say so when it changes.
+- For text, copy or help-wording changes: run `npm test` only. Do not launch a browser or Playwright.
+- Use the browser only when layout, clicks or visuals change, or when the owner asks.
