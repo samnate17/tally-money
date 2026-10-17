@@ -5893,6 +5893,7 @@ var HELP={
 };
 // What changed in each version, in plain words. A test makes sure the version in package.json has an entry, so a release cannot go out without it.
 var WHATSNEW=[
+ ['1.8.40',['Fixed: the owl looked the wrong way when it had turned to fly left. Its eyes now follow your pointer in both directions.']],
  ['1.8.39',['The car sound is removed. Pointing at or scrolling past a car no longer plays anything.']],
  ['1.8.38',['Draw your other assets with AI. In Settings, More, Your assets, describe a motorcycle, boat, RV, ATV or any other asset and Claude draws it. The picture shows at the top of its card on the Assets tab. It uses your Anthropic key, roughly 15 to 40 cents a drawing.']],
  ['1.8.36',['Connect Gmail. On Transactions, From email now has Connect Gmail: make a Google app password, paste it with your address, then Scan the last 7, 30 or 90 days. The app only reads recent receipts and bank alerts, never changes or marks your mail, keeps the password encrypted on this computer, and still skips anything your bank already shows. Disconnect removes the password.','The live sky now fills the whole Overview background, not only the top window, and follows the real sunrise and sunset where you are.','The app is now called Agent X on screen. The data folder, Documents folder and update files keep the old name so nothing you saved is lost.']],
@@ -9043,7 +9044,7 @@ function owlReduced(){return TH.motion==='reduced'||(window.matchMedia&&window.m
 function owlHome(){return {x:Math.max(0,window.innerWidth-112),y:Math.max(0,window.innerHeight-96)}}
 function owlMoveTo(x,y,quick){
   var f=document.getElementById('helpfab');if(!f)return;
-  var dir=x<OWLF.x?-1:1;if(x!==OWLF.x){var sv=f.querySelector('.owlsvg');if(sv)sv.style.transform='scaleX('+dir+')'}
+  var dir=x<OWLF.x?-1:1;if(x!==OWLF.x){var sv=f.querySelector('.owlsvg');if(sv)sv.style.transform='scaleX('+dir+')';OWLF.dir=dir}
   f.style.transition=quick?'none':'';f.style.transform='translate('+Math.round(x)+'px,'+Math.round(y)+'px)';OWLF.x=x;OWLF.y=y;
 }
 function owlFlyStep(){
@@ -9059,7 +9060,7 @@ function owlLook(e){
   var f=document.getElementById('helpfab');if(!f||f.hidden)return;
   if(OWLF.raf)return;OWLF.raf=requestAnimationFrame(function(){OWLF.raf=0;
     var r=f.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height*0.42,dx=e.clientX-cx,dy=e.clientY-cy,d=Math.max(1,Math.hypot(dx,dy)),k=Math.min(3,d/40);
-    [].forEach.call(f.querySelectorAll('.pupil'),function(p){p.style.transform='translate('+(dx/d*k).toFixed(2)+'px,'+(dy/d*k).toFixed(2)+'px)'});
+    [].forEach.call(f.querySelectorAll('.pupil'),function(p){p.style.transform='translate('+((OWLF.dir===-1?-1:1)*dx/d*k).toFixed(2)+'px,'+(dy/d*k).toFixed(2)+'px)'});
   });
 }
 function owlAsk(){
