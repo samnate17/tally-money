@@ -721,6 +721,10 @@ On Transactions, From email reads emails you export (.eml, or one .mbox from Goo
 
 Settings, More, Your assets lets Claude draw any asset (motorcycle, boat, RV, ATV or jet ski, or anything else) from a short description, using the same call and the same SVG cleaning as the car drawing (`ai:carArt` with a `kind`). The cleaned drawing is kept on the asset (`asset.art`) and shown at the top of its card; an asset created from a car loan shows the loan's car drawing.
 
+### Car sound
+
+Pointing at a car picture (the car-loan icon, a vehicle picture in Debts and Assets, or the Overview's car card) or scrolling one into view plays `sounds/civic-type-r-rev.mp3`, a 2.7 second clip cut from a 2023 Honda Civic Type R exhaust recording the owner supplied (faded in and out, MP3 at 128 kbps). It follows the Sound setting and does not restart while it is still playing. Cars already on screen when a page opens stay silent.
+
 ### Connect Gmail
 
 From email can also read Gmail directly over IMAP (`imap.gmail.com:993`) with a Google app password (2-Step Verification on, Security, App passwords). The code is `gmail.js`: it only sends LOGIN, EXAMINE (read-only), UID SEARCH, UID FETCH with BODY.PEEK (does not mark mail read) and LOGOUT, searches recent mail about payments and leaves out promotions and social, and returns up to 300 of the newest messages to the page in memory. The password is kept in the encrypted secret store, never goes back to the page, and Disconnect deletes it. Scanned messages go through the same duplicate-safe import as exported files. Tested against a fake IMAP server only; it has not been run against real Gmail.

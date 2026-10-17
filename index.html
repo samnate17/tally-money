@@ -1156,7 +1156,7 @@ var ICON={
  assets:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(0 -1)"><path d="M5 16V11l2-5h10l2 5v5"/><path d="M3 16h18v3H3z"/><path d="M8 12h8"/><circle cx="7.5" cy="19" r="1"/><circle cx="16.5" cy="19" r="1"/></g></svg>',
  energy:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(0.5 0)"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></g></svg>',
  bills:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg>',
- carloan:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(0 -1.1)"><path d="M5 16V11l2-5h10l2 5v5"/><path d="M3 16h18v3H3z"/><circle cx="7.5" cy="19" r="1.2"/><circle cx="16.5" cy="19" r="1.2"/><path d="M5 11h14"/></g></svg>',
+ carloan:'<svg class="caricon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(0 -1.1)"><path d="M5 16V11l2-5h10l2 5v5"/><path d="M3 16h18v3H3z"/><circle cx="7.5" cy="19" r="1.2"/><circle cx="16.5" cy="19" r="1.2"/><path d="M5 11h14"/></g></svg>',
  student:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(0 0.5)"><path d="m2 9 10-5 10 5-10 5z"/><path d="M6 11v5c0 1.5 3 3 6 3s6-1.5 6-3v-5"/><path d="M22 9v6"/></g></svg>',
  look:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(.6 -.5)"><path d="M11.80 10.78 L13.10 10.02 L14.22 11.27 L13.32 12.48 L13.82 13.93 L15.28 14.32 L15.19 16.00 L13.69 16.22 L13.02 17.60 L13.78 18.90 L12.53 20.02 L11.32 19.12 L9.87 19.62 L9.48 21.08 L7.80 20.99 L7.58 19.49 L6.20 18.82 L4.90 19.58 L3.78 18.33 L4.68 17.12 L4.18 15.67 L2.72 15.28 L2.81 13.60 L4.31 13.38 L4.98 12.00 L4.22 10.70 L5.47 9.58 L6.68 10.48 L8.13 9.98 L8.52 8.52 L10.20 8.61 L10.42 10.11Z"/><circle cx="9.00" cy="14.80" r="1.7"/><path d="M13.16 10.20 L11.95 10.22 L11.65 8.73 L12.76 8.26 L13.18 7.00 L12.56 5.96 L13.70 4.95 L14.66 5.68 L15.96 5.41 L16.55 4.36 L18.00 4.83 L17.84 6.03 L18.72 7.03 L19.93 7.01 L20.24 8.50 L19.12 8.96 L18.71 10.23 L19.33 11.27 L18.19 12.28 L17.23 11.54 L15.93 11.81 L15.34 12.87 L13.89 12.39 L14.05 11.19Z"/><circle cx="15.94" cy="8.61" r="1.1"/></g></svg>',
  report:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 16v-3M12 16V8M16 16v-5"/></svg>',
@@ -5897,6 +5897,7 @@ var HELP={
 };
 // What changed in each version, in plain words. A test makes sure the version in package.json has an entry, so a release cannot go out without it.
 var WHATSNEW=[
+ ['1.8.42',['A real car sound. Pointing at a car picture (in Debts, Assets or the Overview), or scrolling one into view, plays a 2023 Honda Civic Type R exhaust recording. It follows the Sound switch and volume in Settings.']],
  ['1.8.41',['Fixed: a long net worth (for example in the millions) no longer spills out of its box on the Dashboard; amounts in all the boxes shrink a little to fit.','Tidied up the Dashboard header: the word Live sits in the middle of its green bubble, the back and forward arrows are centered in their buttons, and the page icon lines up with the heading.','The Settings icon is now a pair of watch gears.','Centered the page icons that sat slightly off in their squares (Debts, Assets, Assistant, Energy, Taxes, Accounts, Student loan, Car loan).']],
  ['1.8.40',['Fixed: the owl looked the wrong way when it had turned to fly left. Its eyes now follow your pointer in both directions.']],
  ['1.8.39',['The car sound is removed. Pointing at or scrolling past a car no longer plays anything.']],
@@ -10302,7 +10303,29 @@ function vGoals(){
 
 /* ---------- events ---------- */
 var m0El=null;
+var CARAUD=null,CARIO=null,CARSEL='.caricon,.carbig,.stagecar,.carbody';
+// The car recording (a 2023 Honda Civic Type R exhaust, supplied by the owner) plays when you point at a car picture or scroll one into view. It follows the Sound switch and volume.
+function carSound(){
+  if(!SND.on||SND.vol<=0)return;
+  try{
+    if(!CARAUD){CARAUD=new Audio('sounds/civic-type-r-rev.mp3');CARAUD.preload='auto'}
+    if(!CARAUD.paused&&!CARAUD.ended)return;
+    CARAUD.volume=Math.min(1,SND.vol/100*0.85);CARAUD.currentTime=0;
+    var pr=CARAUD.play();if(pr&&pr.catch)pr.catch(function(){});
+  }catch(e){}
+}
+function carSoundBind(){
+  var main=document.getElementById('main');if(!main)return;
+  if(CARIO){try{CARIO.disconnect()}catch(e){}CARIO=null}
+  if(!main._carHover){main._carHover=1;main.addEventListener('pointerover',function(e){var t=e.target&&e.target.closest&&e.target.closest(CARSEL);if(t&&!(e.relatedTarget&&t.contains(e.relatedTarget)))carSound()})}
+  if(!window.IntersectionObserver)return;
+  var els=main.querySelectorAll(CARSEL);if(!els.length)return;
+  var t0=Date.now();
+  CARIO=new IntersectionObserver(function(es){es.forEach(function(en){if(en.isIntersecting&&Date.now()-t0>600)carSound()})},{threshold:0.6});
+  [].forEach.call(els,function(el){CARIO.observe(el)});
+}
 function bindView(){
+  carSoundBind();
   var m=$('#main');
   monthWheelBind();
   m0El=document.querySelector('#main [data-emfile]');
