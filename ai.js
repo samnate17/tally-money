@@ -245,6 +245,24 @@ const CAR_ART_SYSTEM = [
   'Colours as #hex, rgb(), rgba(), none, or url(#id). No style, script, text, image, filter, clipPath, mask, use, link or font elements. Keep it under about 40 KB.',
 ].join('\n');
 
+// What each kind of asset looks like when drawn, for the pictures on the Assets tab. A car keeps CAR_ART_SYSTEM.
+const ART_KINDS = {
+  car: null,
+  motorcycle: 'a motorcycle, side profile facing RIGHT, rider-less, both tyres touching the ground line at y=92 (wheel centres at y=73, radius about 19). Draw each wheel as its own group <g class="wheel"> with rim, spokes and hub centred on the wheel.',
+  boat: 'a boat, side profile with the bow pointing RIGHT, floating on a few calm wave strokes at y=88 to 96 (draw the water as part of the picture, but with no background rectangle). Show the hull, windscreen, seats, motor or sails as the real boat has.',
+  rv: 'an RV, motorhome or trailer, side profile facing RIGHT, wheels touching the ground line at y=92 (wheel centres at y=76, radius about 14, as groups <g class="wheel">). Show windows, door, awning and body stripes as the real one has.',
+  powersport: 'an ATV, jet ski or snowmobile (whichever the description says), side profile facing RIGHT, resting on the ground line at y=92. Draw any wheel as its own group <g class="wheel">.',
+  other: 'the object described (a watch, a piece of equipment, jewellery, a house, a guitar, anything), as a single clear object in a three-quarter or side view, centred in the canvas, with a small soft shadow under it at about y=92.',
+};
+function artSystem(kind) {
+  if (!kind || kind === 'car' || !(kind in ART_KINDS)) return CAR_ART_SYSTEM;
+  return [
+    'You draw ' + ART_KINDS[kind] + ' as a flat, glossy vector illustration in SVG, for a personal-finance app. Output ONLY the SVG code: no explanation and no markdown fences.',
+    'Canvas: <svg viewBox="0 0 250 100">. Transparent background (draw no background rectangle). The whole subject is visible and fills most of the canvas width (about x=6 to x=247).',
+    'Use a few gradients (linearGradient, radialGradient) for shine: a lighter top, a darker underside, a soft highlight. Show the details that make this exact one recognisable, in its real colours. Keep it clean and readable at about 120 px wide.',
+  ].concat(CAR_ART_SYSTEM.split('\n').slice(-2)).join('\n');
+}
+
 const BUREAU_NAMES = ['TransUnion', 'Equifax', 'Experian'];
 const SCORE_MODEL_NAMES = ['VantageScore 3.0', 'VantageScore 4.0', 'FICO 8', 'FICO 9', 'FICO (other)', 'Other'];
 const SCORE_SHOT_SCHEMA = {
@@ -748,18 +766,19 @@ function createAI({ store, clientFactory }) {
   async function carArt(req) {
     const apiKey = store.get('anthropicKey');
     if (!apiKey) throw new Error('Add your Anthropic API key first.');
+    const kind = req && typeof req.kind === 'string' && req.kind in ART_KINDS ? req.kind : 'car';
     const desc = String((req && req.desc) || '').replace(/[\r\n]+/g, ' ').trim().slice(0, 200);
-    if (!desc) throw new Error('Describe the car first, for example: 2024 Honda Civic Type R, blue.');
+    if (!desc) throw new Error(kind === 'car' ? 'Describe the car first, for example: 2024 Honda Civic Type R, blue.' : 'Describe it first, for example: 2021 Sea Ray 21-foot bowrider, white and blue.');
     const content = [];
     if (req && req.image) {
       const m = /^data:image\/jpeg;base64,([A-Za-z0-9+/=]+)$/.exec(String(req.image));
       if (!m || m[1].length > 300000) throw new Error('That photo cannot be used. Remove it and try again.');
       content.push({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: m[1] } });
     }
-    content.push({ type: 'text', text: 'Draw this car: ' + desc + (content.length ? '. The picture shows the real car: match its shape, colour and details.' : '.') });
+    content.push({ type: 'text', text: 'Draw this ' + (kind === 'car' ? 'car' : 'item') + ': ' + desc + (content.length ? '. The picture shows the real one: match its shape, colour and details.' : '.') });
     let msg;
     try {
-      const stream = make(apiKey).messages.stream({ model: MODEL, max_tokens: 24000, system: CAR_ART_SYSTEM, output_config: { effort: 'medium' }, messages: [{ role: 'user', content }] });
+      const stream = make(apiKey).messages.stream({ model: MODEL, max_tokens: 24000, system: artSystem(kind), output_config: { effort: 'medium' }, messages: [{ role: 'user', content }] });
       msg = await stream.finalMessage();
     } catch (err) {
       throw new Error(friendlyError(err));

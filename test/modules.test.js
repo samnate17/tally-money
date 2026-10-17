@@ -470,6 +470,16 @@ test('ai: a local model reply is turned into loans, even with chatter around the
   assert.throws(() => parseLocalLoans('{"loans": "none"}'), /did not answer/);
 });
 
+test('ai: drawing other assets uses a prompt for that kind and keeps the allowed-elements rules', async () => {
+  const seen = [];
+  const ai = aiWith((req) => { seen.push(req); return final({ stop_reason: 'end_turn', content: [{ type: 'text', text: '<svg viewBox="0 0 250 100"><rect/></svg>' }] }); });
+  await ai.carArt({ desc: '2021 white bowrider', kind: 'boat' });
+  assert.match(seen[0].system, /boat/); assert.match(seen[0].system, /Allowed elements only/); assert.match(seen[0].system, /No style, script/);
+  assert.match(seen[0].messages[0].content[0].text, /^Draw this item: 2021 white bowrider/);
+  await ai.carArt({ desc: 'x', kind: 'nonsense' }); assert.match(seen[1].system, /You draw a car/);          // an unknown kind falls back to the car prompt
+  await assert.rejects(ai.carArt({ desc: '', kind: 'rv' }), /Describe it first/);
+});
+
 test('ai: car drawing request carries the photo and description, and failures are plain', async () => {
   const seen = [];
   const ai = aiWith((req) => { seen.push(req); return final({ stop_reason: 'end_turn', content: [{ type: 'text', text: '<svg viewBox="0 0 250 100"><rect/></svg>' }] }); });
