@@ -415,6 +415,18 @@ body.reordering,body.reordering *{cursor:grabbing!important}
 .updflash{animation:updflash 1.6s ease-out 1}
 @keyframes updflash{0%{box-shadow:0 0 0 0 var(--accent)}20%{box-shadow:0 0 0 6px var(--accent-soft,rgba(59,76,240,.25)),0 0 0 2px var(--accent)}100%{box-shadow:0 0 0 0 transparent}}
 .helpfab{position:fixed;right:18px;bottom:20px;z-index:40;width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:var(--accent);color:var(--accent-ink);font-size:20px;font-weight:800;line-height:1;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.28);display:flex;align-items:center;justify-content:center}
+.helpfab.owl{left:0;top:0;right:auto;bottom:auto;width:60px;height:60px;border:0;background:none;box-shadow:none;padding:0;overflow:visible;transition:transform 6.5s cubic-bezier(.45,.05,.55,.95);filter:drop-shadow(0 6px 10px rgba(0,0,0,.28))}
+.helpfab.owl:hover{transform:none}.helpfab.owl .owlsvg{transition:transform .4s;animation:owlbob 1.3s ease-in-out infinite;overflow:visible}
+.owl .wl{transform-origin:17px 32px;animation:flapl .3s ease-in-out infinite alternate}.owl .wr{transform-origin:47px 32px;animation:flapr .3s ease-in-out infinite alternate}
+.owl .owlbody{transform-origin:32px 40px;animation:owltilt 11s ease-in-out infinite}.owl .pupil{transition:transform .08s}
+.owl.sit .wl,.owl.sit .wr{animation:none}.owl.sit .owlsvg{animation:none}
+@keyframes flapl{from{transform:rotate(16deg)}to{transform:rotate(-24deg)}}@keyframes flapr{from{transform:rotate(-16deg)}to{transform:rotate(24deg)}}
+@keyframes owlbob{0%,100%{translate:0 0}50%{translate:0 -4px}}
+@keyframes owltilt{0%,86%,100%{transform:rotate(0)}90%,95%{transform:rotate(-13deg)}}
+@media (prefers-reduced-motion:reduce){.owl .wl,.owl .wr,.owl .owlsvg,.owl .owlbody{animation:none}}
+:root[data-motion="reduced"] .owl .wl,:root[data-motion="reduced"] .owl .wr,:root[data-motion="reduced"] .owl .owlsvg,:root[data-motion="reduced"] .owl .owlbody{animation:none}
+.owlbubble{position:fixed;z-index:42;background:var(--surface-solid,var(--bg));color:var(--ink);border:1px solid var(--line);border-radius:14px;padding:6px 10px;font-size:12px;box-shadow:0 8px 24px rgba(0,0,0,.25);pointer-events:none;animation:fadein .3s}
+.owlpop{bottom:100px;max-height:min(75vh,640px)}.owlpop textarea{resize:vertical;font:inherit;border:1px solid var(--line);border-radius:10px;padding:8px;background:var(--surface2);color:var(--ink)}.owlideas{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}.owlresult{margin-top:10px;padding:8px 10px;border-radius:10px;background:var(--surface2);font-size:13px}
 .helpfab:hover{transform:translateY(-1px)}.helpfab:focus-visible{outline:3px solid var(--accent-soft);outline-offset:2px}.helpfab[hidden]{display:none}
 .helppop{position:fixed;right:18px;bottom:74px;z-index:41;width:min(380px,calc(100vw - 32px));max-height:min(70vh,560px);overflow:auto;background:var(--surface-solid,var(--bg));color:var(--ink);border:1px solid var(--line);border-radius:16px;box-shadow:0 24px 70px rgba(0,0,0,.35);padding:16px 18px}
 .updov{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:16px}
@@ -1274,6 +1286,59 @@ function scForm(){
     '<div class="sub muted" style="margin:10px 0 4px;font-size:12px">Color</div><div class="wsws"><label class="wsw" title="Match the page"><input type="radio" name="color" value=""'+(!d.color?' checked':'')+'><span style="background:conic-gradient(#6366f1,#f43f5e,#f59e0b,#16a34a,#6366f1)"></span></label>'+SC_COLORS.map(function(c){return '<label class="wsw"><input type="radio" name="color" value="'+c+'"'+(d.color===c?' checked':'')+'><span style="background:'+c+'"></span></label>'}).join('')+'</div>'+
     '<div class="actions" style="justify-content:flex-start;margin-top:8px"><button class="btn primary small">Save</button><button type="button" class="btn small" data-act="sc-cancel">Cancel</button></div></form>';
 }
+/*OWL-START*/
+// The owl turns a sentence into changes to how the app looks and is laid out. It only ever produces the actions listed here, never code,
+// so the worst a misheard request can do is move something around, and every change can be undone.
+var OWL_COLORS={blue:'#3e6ae1',indigo:'#3b4cf0',ocean:'#0a8fd8',teal:'#0d9488',green:'#10a37f',emerald:'#10a37f',purple:'#8b5cf6',violet:'#8b5cf6',pink:'#db2777',red:'#e5484d',orange:'#f2682a',yellow:'#d9a520',gold:'#d9a520',gray:'#64748b',grey:'#64748b'};
+var OWL_STOP={the:1,a:1,an:1,my:1,please:1,this:1,that:1,window:1,windows:1,panel:1,box:1,section:1,card:1,tab:1,tabs:1,page:1,shortcut:1,button:1,hide:1,show:1,fold:1,open:1,close:1,make:1,bigger:1,smaller:1,larger:1,wider:1,narrower:1,full:1,half:1,for:1,and:1,from:1,with:1,remove:1,add:1,collapse:1,minimize:1,expand:1,can:1,you:1,off:1,sidebar:1,menu:1,all:1,its:1,size:1,width:1};
+function owlWords(t){return String(t||'').toLowerCase().replace(/[^a-z0-9$ ]+/g,' ').replace(/\s+/g,' ').trim()}
+// The one item of list ({id,title}) the words point at, or null when none or several fit equally well.
+function owlFind(list,q){
+  var ws=owlWords(q).split(' ').filter(function(w){return w.length>2&&!OWL_STOP[w]});if(!ws.length||!list)return null;
+  var best=null,bs=0,tie=false;
+  list.forEach(function(it){var hay=owlWords(it.title)+' '+owlWords(it.id).replace(/-/g,' '),sc=0;ws.forEach(function(w){if(hay.indexOf(w)>-1)sc++});if(sc>bs){bs=sc;best=it;tie=false}else if(sc===bs&&sc>0)tie=true});
+  return bs>0&&!tie?best:null;
+}
+function owlClause(c,ctx){
+  var t=owlWords(c),m;
+  if(!t)return null;
+  if(/\b(dark mode|dark theme|go dark|night mode|make it dark|darker)\b/.test(t))return {t:'theme',k:'mode',v:'dark'};
+  if(/\b(light mode|light theme|make it light|brighter|bright mode)\b/.test(t))return {t:'theme',k:'mode',v:'light'};
+  if(/\b(auto|system) (mode|theme)\b/.test(t))return {t:'theme',k:'mode',v:'auto'};
+  if(/\b(text|font|writing|letters|words)\b.*\b(bigger|larger|big|large|increase)|\b(bigger|larger|increase)\b.*\b(text|font|writing|letters)/.test(t))return {t:'theme',k:'size',v:'up'};
+  if(/\b(text|font|writing|letters|words)\b.*\b(smaller|small|tiny|decrease)|\b(smaller|decrease)\b.*\b(text|font|writing|letters)/.test(t))return {t:'theme',k:'size',v:'down'};
+  if(/\b(normal|medium|default|regular) (text|font|size)\b/.test(t))return {t:'theme',k:'size',v:'m'};
+  if(/\b(rounder|more round|rounded corners|softer corners|round the corners)\b/.test(t))return {t:'theme',k:'radius',v:4};
+  if(/\b(sharper|less round|square corners|squarer|sharp corners)\b/.test(t))return {t:'theme',k:'radius',v:-4};
+  if(/\b(more|extra|stronger) (glass|frost|blur)|frostier\b/.test(t))return {t:'theme',k:'frost',v:20};
+  if(/\b(less|weaker|no) (glass|frost|blur)\b/.test(t))return {t:'theme',k:'frost',v:-20};
+  if(/\b(less|reduce|stop|no|turn off|disable|calm)\b.*\b(motion|animation|animations)\b|\b(motion|animations?) (off|down)\b/.test(t))return {t:'theme',k:'motion',v:'reduced'};
+  if(/\b(more|turn on|enable|full|bring back)\b.*\b(motion|animation|animations)\b/.test(t))return {t:'theme',k:'motion',v:'full'};
+  if(/\b(serif|rounded|system|modern)\b.*\b(font|text|typeface|lettering)\b|\b(font|typeface)\b.*\b(serif|rounded|system|modern)\b/.test(t)){m=/\b(serif|rounded|system|modern)\b/.exec(t);return {t:'theme',k:'font',v:m[1]}}
+  if(/\b(aurora|soft|plain|studio)\b.*\b(background|look|backdrop|style|theme)\b|\b(background|backdrop)\b.*\b(aurora|soft|plain|studio)\b/.test(t)){m=/\b(aurora|soft|plain|studio)\b/.exec(t);return {t:'theme',k:'bg',v:m[1]}}
+  if(/\b(make|change|turn|color|colour|accent|theme|paint|switch|use)\b/.test(t)){m=/\b(blue|indigo|ocean|teal|green|emerald|purple|violet|pink|red|orange|yellow|gold|gray|grey)\b/.exec(t);if(m)return {t:'theme',k:'accent',v:OWL_COLORS[m[1]]}}
+  if(/\b(mute|silence|sounds? off|turn off (the )?sounds?|no sounds?)\b/.test(t))return {t:'sound',v:false};
+  if(/\b(unmute|sounds? on|turn on (the )?sounds?)\b/.test(t))return {t:'sound',v:true};
+  if(/\b(stop|quit)\b.*\b(fly|flying|moving)\b|\b(sit still|stay put|perch|stay in the corner)\b/.test(t))return {t:'owl',v:'sit'};
+  if(/\b(fly|flying)\b.*\b(again|around)\b|\bstart flying\b/.test(t))return {t:'owl',v:'fly'};
+  if(/\breset\b.*\b(page|layout|windows)\b/.test(t))return {t:'resetPage'};
+  if(/\bshow all (the )?tabs\b/.test(t))return {t:'tab',k:'showall'};
+  if(/\b(hide|remove|get rid of|show|bring back|unhide)\b/.test(t)&&/\b(tab|sidebar|menu)\b/.test(t)){
+    var tb=owlFind((ctx&&ctx.tabs)||[],t.replace(/^.*?\b(hide|remove|get rid of|show|bring back|unhide)\b/,''));
+    if(tb)return {t:'tab',k:/\b(show|bring back|unhide)\b/.test(t)?'show':'hide',id:tb.id,name:tb.title};
+  }
+  if(/\badd\b.*\b(shortcut|button)\b/.test(t)){var pg=owlFind((ctx&&ctx.pages)||[],t.replace(/^.*?\b(for|to|called|named)\b/,''));if(pg)return {t:'sc',k:'add',to:pg.id,label:pg.title}}
+  if(/\b(remove|delete|get rid of)\b.*\bshortcut\b/.test(t)){var q=t.replace(/\b(remove|delete|get rid of|the|shortcut|button|please)\b/g,'').replace(/\s+/g,' ').trim(),sc=((ctx&&ctx.shortcuts)||[]).filter(function(x){var n=owlWords(x.title);return q&&(n===q||n.indexOf(q)>-1||q.indexOf(n)>-1)});if(sc.length===1)return {t:'sc',k:'del',id:sc[0].id,name:sc[0].title}}
+  var verb=/\b(hide|remove|get rid of)\b/.test(t)?'hide':/\b(show|bring back|unhide)\b/.test(t)?'show':/\b(fold|collapse|minimize|minimise|shrink|close)\b/.test(t)?'fold':/\b(unfold|expand|open)\b/.test(t)?'open':/\b(bigger|larger|wider|full width|make .* full)\b/.test(t)?'full':/\b(smaller|narrower|half width|make .* half)\b/.test(t)?'half':'';
+  if(verb){var w=owlFind((ctx&&ctx.wins)||[],t);if(w)return {t:'win',k:verb,id:w.id,name:w.title}}
+  return {t:'unknown',text:String(c).trim().slice(0,160)};
+}
+function owlParse(text,ctx){
+  var parts=String(text||'').slice(0,400).split(/\s*(?:[,;.!?\n]|\bthen\b|\band also\b|\band\b)\s*/),out=[];
+  parts.forEach(function(p){var a=owlClause(p,ctx);if(a)out.push(a)});
+  return out.slice(0,8);
+}
+/*OWL-END*/
 var NAVH={stack:[],i:-1,skip:false};
 function navhKey(){return {v:view,f:view==='loans'?loanFilter:'',l:view==='look'?lookTab:''}}
 function navhGo(d){
@@ -5466,7 +5531,7 @@ var billUI={edit:'',adding:false,adj:''};
 
 /*HELP-START*/
 // What each tab is for and how to use it. Shown by the ? button on every tab and in the walkthrough (Settings, then Help).
-var HELP_START={t:'Welcome',what:'Tally Money keeps your money in one place on this computer: accounts, spending, bills, pay, taxes, goals and more. Your data stays on this computer; nothing is sent anywhere unless you choose an AI feature and give it your own key.',how:['Bring in your data. On Transactions, import a bank or card statement (a CSV or a PDF). On Accounts, add your accounts and balances.','The example data you see at first is made up so you can try everything. Clear it when you are ready to use your own.','Press Ctrl+K (Cmd+K on a Mac) or / to search or ask anything, such as next paycheck, bills due or tax refund.','If you change something by mistake, use Undo at the top of the page. The ‹ › arrows at the top left of every page go back and forward through the pages you visited (Cmd+[ and Cmd+], or Alt with the left and right arrow keys).','Open Settings to change how the app looks, reorder or hide tabs, set a password or Touch ID, back up your data and update the app.','Tap the ? button at the bottom right of any tab for a short guide to that tab.'],tip:'Nothing here moves money. The app only reads what you give it.'};
+var HELP_START={t:'Welcome',what:'Tally Money keeps your money in one place on this computer: accounts, spending, bills, pay, taxes, goals and more. Your data stays on this computer; nothing is sent anywhere unless you choose an AI feature and give it your own key.',how:['Bring in your data. On Transactions, import a bank or card statement (a CSV or a PDF). On Accounts, add your accounts and balances.','The example data you see at first is made up so you can try everything. Clear it when you are ready to use your own.','Press Ctrl+K (Cmd+K on a Mac) or / to search or ask anything, such as next paycheck, bills due or tax refund.','If you change something by mistake, use Undo at the top of the page. The ‹ › arrows at the top left of every page go back and forward through the pages you visited (Cmd+[ and Cmd+], or Alt with the left and right arrow keys).','Open Settings to change how the app looks, reorder or hide tabs, set a password or Touch ID, back up your data and update the app.','Tap the owl (it flies around the app) to ask for a change to how the app looks, such as dark mode, bigger text or a hidden tab, or press Help for this page inside it for a short guide to that tab.'],tip:'Nothing here moves money. The app only reads what you give it.'};
 var HELP={
   overview:{t:'Overview',what:'A summary of the month: where your money went, income against spending over six months, your budgets and the bills coming up.',how:['Press Customize to make the page yours: edit, add, move, resize and recolor the shortcuts, move and hide the cards under them, and move, resize or restyle the windows. Tap a window\'s title to fold it. Tap any number or the Open button on a window to go to its page.','Use the month arrows at the top to look at another month.','Read Where it went to see which categories took the most.','Budgets are listed most used first, so the ones you are close to overspending show at the top.','Bills coming up lists what is due in the next two weeks.','Your stocks shows what your investments are worth, how they moved today, a chart of their value over time (1M, 3M or 1Y), a bar of how your money is split between them and how each stock is doing. It refreshes about every minute while the market is open.','Recent transactions lists your latest activity.','The row at the top switches between this summary and the Live dashboard.','Press Customize at the top of this page (or any page with windows) to drag windows into a new order, make them half or full width, hide the ones you do not want and choose how some of them are drawn: spending as a donut, bars or a list, the six months as bars or lines, your stocks as a line graph, a pie or bars, budgets as bars or rings, net worth as a line or bars. You can also hold a window by its title and drag it.'],tip:'This is the page to glance at each morning. Open the other tabs for detail.'},
   dash:{t:'Dashboard',what:'A live view of your net worth, bills, loan payoff, goals and spending in one screen.',how:['Read the cards for your headline numbers.','Click a card to open the tab behind it.','Recent transactions shows your latest activity.','Leave it open: it updates on its own.'],tip:'Add accounts and balances first so the net worth card is accurate.'},
@@ -5493,7 +5558,7 @@ var HELP={
 };
 // What changed in each version, in plain words. A test makes sure the version in package.json has an entry, so a release cannot go out without it.
 var WHATSNEW=[
- ['1.8.34',['The Overview is customizable. Press Customize, then: tap a shortcut to change its name, icon, color, size or what it opens; use ‹ › to move it, S/M/L to resize it, × to remove it, or Add a shortcut for a new one. The cards under the shortcuts can be moved and hidden the same way. Windows can still be moved, resized and drawn as a different graphic.','Every number and window on the Overview and Live dashboard opens the page it comes from: Spent, Income, Net worth and the rest, plus an Open button on each window. Safe to spend now opens Budgets.','Windows fold up. Tap a window\'s title to fold or open it. Long or rarely used ones (such as Debt-free by a date and If you earned $100) start folded, and Debt payments keeps its recent payments and account list folded away.','Last six months is easier to read: fewer gridlines with short labels ($4k), a clear space for the amounts, and the numbers only on the current month. Point at any bar for its amount.','Back and forward arrows now sit at the top left of every page and go through the pages you visited, like a browser. Keyboard: Cmd+[ and Cmd+], or Alt with the left and right arrow keys.','The month arrows are now a scrolling drum, like the timer on an iPhone: scroll or swipe and it ticks past each month, then settles. The tick follows your sound setting.','Energy is a tab of its own again, next to Bills. Investments was already restored.','Documents are locked. Opening the Documents page, a folder, an ID or a file asks for your app password, a separate documents password, or Touch ID on a Mac, and stays open for 5 minutes. Lock now closes it at once. The same lock covers the Tax documents button and document search results. Files in the Documents folder are still ordinary files on disk, so this keeps people out of the app, not out of Finder.','Pay statements, Tax documents, Bank and card statements, Vehicle records, Energy bills, Receipts and Other now look like the IDs and records cards: a stack of papers in a pocket, with arrows to flip through the files.']],
+ ['1.8.34',['The ? button is now an owl. It flies around the app, its eyes follow your pointer, and every so often it asks if you want something changed. Tap it and type what you want, for example "switch to dark mode, make the text bigger and hide the Energy tab". It can change colors, mode, text size, corners, glass, background, font, animations, sounds, which tabs show, windows (hide, show, fold, wider, narrower) and Overview shortcuts, and Undo that puts everything back. What it cannot do yet goes on a list you can copy and paste to Claude Code. The owl never changes the app\'s code. It can sit in the corner instead of flying (a checkbox in its box, or tell it to stop flying), and it sits still with calmer animations. Help for this page is still one tap away inside it.','The Overview is customizable. Press Customize, then: tap a shortcut to change its name, icon, color, size or what it opens; use ‹ › to move it, S/M/L to resize it, × to remove it, or Add a shortcut for a new one. The cards under the shortcuts can be moved and hidden the same way. Windows can still be moved, resized and drawn as a different graphic.','Every number and window on the Overview and Live dashboard opens the page it comes from: Spent, Income, Net worth and the rest, plus an Open button on each window. Safe to spend now opens Budgets.','Windows fold up. Tap a window\'s title to fold or open it. Long or rarely used ones (such as Debt-free by a date and If you earned $100) start folded, and Debt payments keeps its recent payments and account list folded away.','Last six months is easier to read: fewer gridlines with short labels ($4k), a clear space for the amounts, and the numbers only on the current month. Point at any bar for its amount.','Back and forward arrows now sit at the top left of every page and go through the pages you visited, like a browser. Keyboard: Cmd+[ and Cmd+], or Alt with the left and right arrow keys.','The month arrows are now a scrolling drum, like the timer on an iPhone: scroll or swipe and it ticks past each month, then settles. The tick follows your sound setting.','Energy is a tab of its own again, next to Bills. Investments was already restored.','Documents are locked. Opening the Documents page, a folder, an ID or a file asks for your app password, a separate documents password, or Touch ID on a Mac, and stays open for 5 minutes. Lock now closes it at once. The same lock covers the Tax documents button and document search results. Files in the Documents folder are still ordinary files on disk, so this keeps people out of the app, not out of Finder.','Pay statements, Tax documents, Bank and card statements, Vehicle records, Energy bills, Receipts and Other now look like the IDs and records cards: a stack of papers in a pocket, with arrows to flip through the files.']],
  ['1.8.33',['Investments is its own tab again, in the sidebar between Accounts and Transactions.','The Investments card on the Overview now has pictures: a graph of your investments over the last 90 days and a bar showing how they are split between your holdings. It fills in as soon as prices load.','Fixed the Investments page redrawing itself over and over when a stock\'s details could not be loaded.','Debt payments are smarter about when your balance is from. A loan or card now counts every payment made after the date its balance was last entered or stated (before, it only counted payments from the day you updated the app). You can change that date on Debts, in the Debt payments window.','A withdrawal that looks like a loan payment but has an unusual name now shows in the Debt payments window with a menu to pick the debt it paid. If a payment lowered a debt but is not linked to a bank account, the window says your net worth reads too high by that much and links them all to the account you choose.']],
  ['1.8.32',['Your debts now follow your transactions. When a payment to a student loan, car loan, other loan or card shows up in Transactions, that balance goes down by itself, and a bank or savings balance moves with the transactions linked to it. Deleting or editing a transaction puts it right back, and typing a new balance starts again from that balance, so nothing counts twice.','New Debt payments window on Debts: how much you have paid so far, how much of it went toward what you owe and how much was interest, and how your latest payment was split between loans (for example a student loan payment shared across its loans). Draw it as bars, a donut or a list. Change the split if your statement shows something different.','Edit a transaction and use Pays toward to say which debt it belongs to, or that it is not a debt payment. Mortgages stay off until you turn them on, because the payment includes escrow. Bank-linked accounts are left alone.']],
  ['1.8.31',['Drag the windows on a page to change its layout: press Customize, then move, resize or hide each window, or hold a window by its title and drag it. Some windows can be drawn a different way: spending as a donut, bars or a list; the six months as bars or lines; your stocks as a line graph, pie or bars; budgets as bars or rings; net worth as a line or bars. Each user keeps their own layout.']],
@@ -8594,16 +8659,139 @@ document.addEventListener('keydown',function(e){
 /* ---------- Help: the ? button on every tab and the walkthrough ---------- */
 var helpUI={pop:false,walk:false,i:0,steps:[],popView:''};
 function helpList(a){return '<ol>'+(a||[]).map(function(x){return '<li>'+esc(x)+'</li>'}).join('')+'</ol>'}
+/* ---------- The owl: flies around, looks at you, and takes requests about how the app looks ---------- */
+var OWLP=null;
+function owlPrefs(){if(OWLP)return OWLP;var raw=null;try{raw=JSON.parse(localStorage.getItem(PK('tally-owl-v1'))||'null')}catch(e){}
+  OWLP={fly:!(raw&&raw.fly===false),wish:Array.isArray(raw&&raw.wish)?raw.wish.filter(function(w){return w&&typeof w.text==='string'}).slice(0,30).map(function(w){return {at:String(w.at||'').slice(0,10),text:w.text.slice(0,200)}}):[]};return OWLP}
+function owlSavePrefs(){try{localStorage.setItem(PK('tally-owl-v1'),JSON.stringify(owlPrefs()))}catch(e){}}
+var OWL_SVG='<svg class="owlsvg" viewBox="0 0 64 64" width="60" height="60" aria-hidden="true"><g class="owlbody"><path class="wing wl" d="M15 30 C3 26 -2 40 4 51 C10 47 14 41 17 35Z" fill="#7a4d22"/><path class="wing wr" d="M49 30 C61 26 66 40 60 51 C54 47 50 41 47 35Z" fill="#7a4d22"/><ellipse cx="32" cy="38" rx="19" ry="21" fill="#a9733a"/><ellipse cx="32" cy="45" rx="12" ry="13" fill="#f2dcb3"/><path d="M14 22 L17 5 L28 15Z M50 22 L47 5 L36 15Z" fill="#7a4d22"/><circle cx="23" cy="26" r="9.5" fill="#fff"/><circle cx="41" cy="26" r="9.5" fill="#fff"/><circle class="pupil" cx="23" cy="27" r="4.2" fill="#1b1b1b"/><circle class="pupil" cx="41" cy="27" r="4.2" fill="#1b1b1b"/><circle cx="24.6" cy="25.4" r="1.2" fill="#fff"/><circle cx="42.6" cy="25.4" r="1.2" fill="#fff"/><path d="M29 31 L32 38 L35 31Z" fill="#f2a516"/><path d="M25 58 l-3 5 M29 58 l-1 5 M39 58 l3 5 M35 58 l1 5" stroke="#f2a516" stroke-width="2.4" stroke-linecap="round"/></g></svg>';
+var OWLF={x:0,y:0,timer:0,ask:0,open:false};
+function owlReduced(){return TH.motion==='reduced'||(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)}
+function owlHome(){return {x:Math.max(0,window.innerWidth-84),y:Math.max(0,window.innerHeight-86)}}
+function owlMoveTo(x,y,quick){
+  var f=document.getElementById('helpfab');if(!f)return;
+  var dir=x<OWLF.x?-1:1;if(x!==OWLF.x){var sv=f.querySelector('.owlsvg');if(sv)sv.style.transform='scaleX('+dir+')'}
+  f.style.transition=quick?'none':'';f.style.transform='translate('+Math.round(x)+'px,'+Math.round(y)+'px)';OWLF.x=x;OWLF.y=y;
+}
+function owlFlyStep(){
+  clearTimeout(OWLF.timer);
+  var f=document.getElementById('helpfab');if(!f)return;
+  var sit=!owlPrefs().fly||owlReduced()||OWLF.open||document.hidden;
+  f.classList.toggle('sit',sit);
+  if(sit){var h=owlHome();owlMoveTo(h.x,h.y);OWLF.timer=setTimeout(owlFlyStep,4000);return}
+  var W=window.innerWidth,H=window.innerHeight,x=24+Math.random()*Math.max(10,W-110),y=80+Math.random()*Math.max(10,H-170);
+  owlMoveTo(x,y);OWLF.timer=setTimeout(owlFlyStep,6500+Math.random()*5000);
+}
+function owlLook(e){
+  var f=document.getElementById('helpfab');if(!f||f.hidden)return;
+  if(OWLF.raf)return;OWLF.raf=requestAnimationFrame(function(){OWLF.raf=0;
+    var r=f.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height*0.42,dx=e.clientX-cx,dy=e.clientY-cy,d=Math.max(1,Math.hypot(dx,dy)),k=Math.min(3,d/40);
+    [].forEach.call(f.querySelectorAll('.pupil'),function(p){p.style.transform='translate('+(dx/d*k).toFixed(2)+'px,'+(dy/d*k).toFixed(2)+'px)'});
+  });
+}
+function owlAsk(){
+  var f=document.getElementById('helpfab');if(!f||f.hidden||OWLF.open||owlReduced())return;
+  var b=document.createElement('div');b.className='owlbubble';b.textContent='Want something changed?';b.style.left=Math.min(window.innerWidth-190,Math.max(8,OWLF.x-60))+'px';b.style.top=Math.max(8,OWLF.y-34)+'px';document.body.appendChild(b);
+  setTimeout(function(){if(b.parentNode)b.parentNode.removeChild(b)},4200);
+}
 function helpFabInit(){
   if(document.getElementById('helpfab'))return;
-  var b=document.createElement('button');b.id='helpfab';b.type='button';b.className='helpfab';b.setAttribute('aria-label','Help for this tab');b.setAttribute('aria-expanded','false');b.title='What is this tab? How do I use it?';b.textContent='?';
-  b.onclick=function(){if(helpUI.pop)helpPopClose();else helpPopOpen()};
+  var b=document.createElement('button');b.id='helpfab';b.type='button';b.className='helpfab owl';b.setAttribute('aria-label','Ask the owl for help or to change how the app looks');b.setAttribute('aria-expanded','false');b.title='Ask me for help, or to change how the app looks';b.innerHTML=OWL_SVG;
+  b.onclick=function(){if(document.getElementById('owlpop'))owlPopClose();else owlPopOpen()};
   document.body.appendChild(b);
+  var h=owlHome();owlMoveTo(h.x,h.y,true);
+  document.addEventListener('mousemove',owlLook,{passive:true});
+  window.addEventListener('resize',function(){OWLF.timer&&owlFlyStep()});
+  OWLF.timer=setTimeout(owlFlyStep,3500);
+  OWLF.ask=setInterval(owlAsk,70000);
+}
+function owlPopClose(){var el=document.getElementById('owlpop');if(el&&el.parentNode)el.parentNode.removeChild(el);OWLF.open=false;var f=document.getElementById('helpfab');if(f)f.setAttribute('aria-expanded','false');owlFlyStep()}
+function owlCtx(){
+  var wins=[].map.call(document.querySelectorAll('#main .win[data-wid]'),function(w){var h=w.querySelector('h2'),tn=h&&[].filter.call(h.childNodes,function(n){return n.nodeType===3&&n.textContent.trim()})[0];return {id:w.dataset.wid,title:tn?tn.textContent.trim():w.dataset.wid}});
+  return {wins:wins,tabs:TABS.map(function(t){return {id:t[0],title:t[1]}}),pages:PAGES.map(function(p){return {id:p[0],title:p[1]}}),shortcuts:scList().map(function(x){return {id:x.id,title:x.label}})};
+}
+function owlSnap(){return JSON.stringify({TH:TH,LAYOUT:LAYOUT,SC:scList(),HC:{order:hcPrefs().order,hidden:hcPrefs().hidden},NAV:{hidden:NAVP.hidden,order:NAVP.order},snd:SND.on,fly:owlPrefs().fly})}
+function owlRestore(j){
+  try{var o=JSON.parse(j);TH=cleanTheme(o.TH);LAYOUT=cleanLayout(o.LAYOUT);SC=cleanShortcuts(o.SC,scValidTo,function(k){return !!(QI[k]||ICON[k])})||scDefault();HC=null;hcPrefs();HC.order=o.HC.order;HC.hidden=o.HC.hidden;NAVP.hidden=o.NAV.hidden;NAVP.order=o.NAV.order;SND.on=!!o.snd;owlPrefs().fly=o.fly!==false;
+    saveTheme();saveLayout();scSave();hcSave();saveNav();sndSave();owlSavePrefs();applyTheme()}catch(e){}
+}
+var OWL_LAST='';
+// Carries out what the owl understood and returns one plain line per thing it did.
+function owlRun(acts){
+  var lines=[],deferred=[],ctx=owlCtx();OWL_LAST=owlSnap();
+  var step=function(v,list){var i=list.indexOf(v);return i<0?list[1]:list[Math.max(0,Math.min(list.length-1,i))]};
+  acts.forEach(function(a){
+    if(a.t==='theme'){
+      if(a.k==='size'){var order=['s','m','l'],i=order.indexOf(TH.size);TH.size=a.v==='up'?order[Math.min(2,i+1)]:a.v==='down'?order[Math.max(0,i-1)]:'m';lines.push('Text size is now '+({s:'small',m:'medium',l:'large'}[TH.size])+'.')}
+      else if(a.k==='radius'){TH.radius=Math.max(6,Math.min(28,TH.radius+a.v));lines.push(a.v>0?'Corners are rounder.':'Corners are sharper.')}
+      else if(a.k==='frost'){TH.frost=Math.max(0,Math.min(100,TH.frost+a.v));lines.push(a.v>0?'More frosted glass.':'Less frosted glass.')}
+      else if(a.k==='accent'){TH.preset='custom';TH.accent=a.v;lines.push('Accent color changed.')}
+      else{TH[a.k]=a.v;lines.push({mode:'Mode is now '+a.v+'.',bg:'Background is now '+a.v+'.',font:'Font is now '+a.v+'.',motion:a.v==='reduced'?'Animations are calmer.':'Animations are back.'}[a.k]||'Done.')}
+    }
+    else if(a.t==='sound'){SND.on=a.v;sndSave();lines.push(a.v?'Sounds are on.':'Sounds are off.')}
+    else if(a.t==='owl'){owlPrefs().fly=a.v==='fly';owlSavePrefs();lines.push(a.v==='fly'?'I will fly around.':'I will sit in the corner.')}
+    else if(a.t==='resetPage'){if(LAYOUT_VIEWS[view]){delete LAYOUT.views[view];saveLayout();lines.push('This page is back to its normal layout.')}else lines.push('This page has no layout to reset.')}
+    else if(a.t==='tab'){
+      if(a.k==='showall'){deferred.push(function(){NAVP.hidden=[]});lines.push('Showing every tab.')}
+      else if(a.id==='look'&&a.k==='hide')lines.push('Settings always stays, so you can change things back.');
+      else{deferred.push(function(){var hi=NAVP.hidden.indexOf(a.id);if(a.k==='hide'&&hi<0)NAVP.hidden.push(a.id);if(a.k==='show'&&hi>-1)NAVP.hidden.splice(hi,1)});lines.push((a.k==='hide'?'Hid the ':'Showing the ')+a.name+' tab.')}
+    }
+    else if(a.t==='sc'){
+      if(a.k==='add'){var list=scList();if(list.length<24){list.push({id:'o'+Date.now().toString(36).slice(-7)+list.length,label:a.label.slice(0,24),to:a.to,icon:QI.plus?'list':'list',color:'',size:'m'});scSave();lines.push('Added a '+a.label+' shortcut to the Overview.')}}
+      else{SC=scList().filter(function(x){return x.id!==a.id});scSave();lines.push('Removed the '+a.name+' shortcut.')}
+    }
+    else if(a.t==='win'){
+      if(!LAYOUT_VIEWS[view]){lines.push('This page\'s windows cannot be rearranged.');return}
+      var L=layV(view);
+      if(a.k==='hide'){if(L.hidden.indexOf(a.id)<0)L.hidden.push(a.id)}else if(a.k==='show'){L.hidden=L.hidden.filter(function(x){return x!==a.id})}
+      else if(a.k==='fold')L.fold[a.id]=true;else if(a.k==='open')L.fold[a.id]=false;else if(a.k==='full'||a.k==='half')L.size[a.id]=a.k;
+      saveLayout();lines.push({hide:'Hid ',show:'Showing ',fold:'Folded ',open:'Opened ',full:'Made it wider: ',half:'Made it narrower: '}[a.k]+a.name+'.');
+    }
+    else{var w=owlPrefs();w.wish.unshift({at:iso(TODAY),text:a.text});w.wish=w.wish.slice(0,30);owlSavePrefs();lines.push('I cannot do that one yet: "'+a.text+'". I saved it to my list.')}
+  });
+  var finish=function(){deferred.forEach(function(f){f()});if(deferred.length)saveNav();applyTheme();saveTheme();render()};
+  if(deferred.length&&NAVP.protect)navAuth('The owl wants to change which tabs are shown.',finish);else finish();
+  return lines;
+}
+var OWL_IDEAS=['Switch to dark mode','Make the text bigger','Make it purple','Hide the Energy tab','Fold the Budgets window','Add a shortcut for Taxes','Rounder corners','Turn off the sounds'];
+function owlPopHtml(out){
+  var w=owlPrefs();
+  return '<h3 style="margin:0 0 6px">Hoot! What should I change?</h3><p class="sub" style="margin:0 0 8px;white-space:normal">Tell me how you want the app to look or be laid out. I can change colors, text size, mode, tabs, windows and shortcuts.</p>'+
+    '<form id="owlform"><textarea id="owl-in" rows="3" maxlength="400" placeholder="e.g. switch to dark mode, make the text bigger and hide the Energy tab" aria-label="What should I change?" style="width:100%"></textarea><div class="actions" style="justify-content:flex-start;margin-top:6px"><button class="btn primary small" type="submit">Do it</button><button type="button" class="btn small" data-owl="help">Help for this page</button><button type="button" class="btn small" data-owl="close">Close</button></div></form>'+
+    '<div id="owl-out" aria-live="polite">'+(out||'')+'</div>'+
+    '<div class="owlideas">'+OWL_IDEAS.map(function(t){return '<button type="button" class="btn small" data-owl="idea" data-t="'+esc(t)+'">'+esc(t)+'</button>'}).join('')+'</div>'+
+    '<label class="sub" style="display:flex;gap:6px;align-items:center;margin-top:10px"><input type="checkbox" data-owl="fly"'+(w.fly?' checked':'')+'> Let me fly around the app</label>'+
+    (w.wish.length?'<details style="margin-top:8px"><summary class="sub" style="cursor:pointer">Things I could not do yet ('+w.wish.length+')</summary><ul style="margin:6px 0;padding-left:18px;font-size:13px">'+w.wish.map(function(x){return '<li>'+esc(x.text)+'</li>'}).join('')+'</ul><div class="actions" style="justify-content:flex-start"><button type="button" class="btn small" data-owl="copy">Copy this list</button><button type="button" class="btn small" data-owl="clear">Clear it</button></div><p class="sub muted" style="font-size:12px;margin:6px 0 0;white-space:normal">These need a change to the app itself. Paste the list to Claude Code and ask for them.</p></details>':'');
+}
+function owlPopOpen(){
+  var old=document.getElementById('owlpop');if(old)return;helpPopClose();
+  var el=document.createElement('div');el.id='owlpop';el.className='helppop owlpop';el.setAttribute('role','dialog');el.setAttribute('aria-label','Ask the owl');
+  el.innerHTML=owlPopHtml('');document.body.appendChild(el);OWLF.open=true;owlFlyStep();snd('pop');
+  var f=document.getElementById('helpfab');if(f)f.setAttribute('aria-expanded','true');
+  var redraw=function(out){el.innerHTML=owlPopHtml(out);bind();var t=el.querySelector('#owl-in');if(t)t.focus()};
+  var bind=function(){
+    el.querySelector('#owlform').onsubmit=function(e){e.preventDefault();var t=el.querySelector('#owl-in').value;if(!t.trim())return;
+      var acts=owlParse(t,owlCtx()),lines=owlRun(acts);
+      redraw('<div class="owlresult">'+lines.map(function(l){return '<div>'+(/cannot do that one yet/.test(l)?'🦉 ':'✓ ')+esc(l)+'</div>'}).join('')+'<div class="actions" style="justify-content:flex-start;margin-top:6px"><button type="button" class="btn small" data-owl="undo">Undo that</button></div></div>');
+    };
+    el.onclick=function(e){var b=e.target.closest('[data-owl]');if(!b)return;var k=b.dataset.owl;
+      if(k==='close')owlPopClose();
+      else if(k==='help'){owlPopClose();setTimeout(helpPopOpen,0)}
+      else if(k==='idea'){var ta=el.querySelector('#owl-in');ta.value=b.dataset.t;ta.focus()}
+      else if(k==='undo'){owlRestore(OWL_LAST);render();redraw('<div class="owlresult">↩ Undone.</div>')}
+      else if(k==='copy'){var txt='Changes I would like in Tally Money:\n'+owlPrefs().wish.map(function(x){return '- '+x.text}).join('\n');try{navigator.clipboard.writeText(txt);toast('Copied. Paste it to Claude Code.')}catch(er){toast('Could not copy.')}}
+      else if(k==='clear'){owlPrefs().wish=[];owlSavePrefs();redraw('')}
+    };
+    el.onchange=function(e){var b=e.target.closest('[data-owl=fly]');if(b){owlPrefs().fly=b.checked;owlSavePrefs();owlFlyStep()}};
+  };
+  bind();el.querySelector('#owl-in').focus();
+  el.onkeydown=function(e){if(e.key==='Escape'){e.stopPropagation();owlPopClose()}};
 }
 function helpFabSync(){
   helpFabInit();
   var f=document.getElementById('helpfab');if(!f)return;
   f.hidden=!!(VLT&&VLT.locked)||!!document.querySelector('.gate');
+  if(f.hidden)owlPopClose();
   if(helpUI.pop&&helpUI.popView!==view)helpPopClose();
 }
 function helpPopClose(){var el=document.getElementById('helppop');if(el&&el.parentNode)el.parentNode.removeChild(el);helpUI.pop=false;var f=document.getElementById('helpfab');if(f)f.setAttribute('aria-expanded','false')}
@@ -8717,7 +8905,7 @@ function updPlan(){
     updRefresh()},function(){UPD.aiBusy=false;UPD.ai='The assistant could not answer. The list above still applies.';updRefresh()});
 }
 /* ---------- Users, personal information and the guided setup ---------- */
-var USER_KEYS=['tally-layout-v1','tally-money-v1','tally-vault-v1','tally-lock-v1','tally-nav-lock-v1','tally-nav-v1','tally-assist-v1','tally-dash-v1','tally-look-offer','tally-plaid-v1','tally-theme-v1','tally-order-v1','tally-owner'];
+var USER_KEYS=['tally-layout-v1','tally-money-v1','tally-vault-v1','tally-lock-v1','tally-nav-lock-v1','tally-nav-v1','tally-assist-v1','tally-dash-v1','tally-look-offer','tally-plaid-v1','tally-theme-v1','tally-order-v1','tally-owner','tally-doc-lock-v1','tally-shortcuts-v1','tally-hcards-v1','tally-owl-v1'];
 // The Touch ID slot for this user: the first user keeps the original names.
 function bioSlot(base){return PROF.id==='main'?(base==='tabs'||base==='docs'?base:undefined):(base||'vault')+':'+PROF.id}
 var profUI={del:'',msg:''};

@@ -702,3 +702,7 @@ The ‹ › buttons at the top left of every page move back and forward through 
 ## Customizing the Overview
 
 Customize on the Overview lets you edit the shortcut buttons (name, icon, color, size, where they go, order), move and hide the cards under them, and move, resize, restyle or fold the windows. Tap a window title to fold it; tap a number or the Open button to go to the page it comes from. Shortcut and card choices are kept per user on this computer.
+
+## The owl
+
+The help button is an owl that flies around the app (or sits in the corner, your choice) and follows your pointer with its eyes. Tap it and type a request. It understands requests about how the app looks and is laid out: mode, accent color, text size, corners, glass, background, font, animations, sounds, tabs, windows and Overview shortcuts. It only ever performs a fixed list of actions (no code), shows what it did, and Undo that reverses it. Requests it cannot do are kept on a list you can copy and give to a developer or to Claude Code. Help for this page is inside the owl's box.

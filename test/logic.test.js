@@ -3369,3 +3369,38 @@ test('folding: some windows start folded, your own choice always wins, and it is
   const lay = { views: { loans: { fold: { 'debt-free-by-a-date': false, 'debt-payments': true } } } };
   assert.equal(L.winFoldedOf(lay, 'loans', 'debt-free-by-a-date'), false, 'you opened it'); assert.equal(L.winFoldedOf(lay, 'loans', 'debt-payments'), true, 'you folded it');
 });
+
+// ---------- The owl ----------
+function owlBlock() { return new Function(srcBlock('/*OWL-START*/', '/*OWL-END*/') + '\nreturn {owlParse, owlFind, owlWords};')(); }
+const OWL_CTX = {
+  tabs: [{ id: 'overview', title: 'Overview' }, { id: 'energy', title: 'Energy' }, { id: 'bills', title: 'Bills' }, { id: 'loans', title: 'Debts' }, { id: 'look', title: 'Settings' }],
+  pages: [{ id: 'tax', title: 'Taxes' }, { id: 'bills', title: 'Bills' }, { id: 'budgets', title: 'Budgets' }],
+  wins: [{ id: 'where-it-went', title: 'Where it went' }, { id: 'budgets', title: 'Budgets' }, { id: 'bills-coming-up', title: 'Bills coming up' }, { id: 'last-six-months', title: 'Last six months' }],
+  shortcuts: [{ id: 's1', title: 'Add' }, { id: 's3', title: 'Bills' }],
+};
+test('owl: understands plain requests about how the app looks, and only produces actions from a fixed list', () => {
+  const O = owlBlock(), p = (t) => O.owlParse(t, OWL_CTX);
+  assert.deepEqual(p('switch to dark mode'), [{ t: 'theme', k: 'mode', v: 'dark' }]);
+  assert.deepEqual(p('make the text bigger and use light mode'), [{ t: 'theme', k: 'size', v: 'up' }, { t: 'theme', k: 'mode', v: 'light' }]);
+  assert.deepEqual(p('make it purple'), [{ t: 'theme', k: 'accent', v: '#8b5cf6' }]);
+  assert.deepEqual(p('rounder corners, less glass'), [{ t: 'theme', k: 'radius', v: 4 }, { t: 'theme', k: 'frost', v: -20 }]);
+  assert.deepEqual(p('turn off the sounds'), [{ t: 'sound', v: false }]);
+  assert.deepEqual(p('please stop flying'), [{ t: 'owl', v: 'sit' }]);
+  assert.deepEqual(p('hide the energy tab')[0], { t: 'tab', k: 'hide', id: 'energy', name: 'Energy' });
+  assert.deepEqual(p('show the bills tab')[0], { t: 'tab', k: 'show', id: 'bills', name: 'Bills' });
+  assert.deepEqual(p('fold the last six months window')[0], { t: 'win', k: 'fold', id: 'last-six-months', name: 'Last six months' });
+  assert.deepEqual(p('make the where it went window bigger')[0], { t: 'win', k: 'full', id: 'where-it-went', name: 'Where it went' });
+  assert.deepEqual(p('add a shortcut for taxes')[0], { t: 'sc', k: 'add', to: 'tax', label: 'Taxes' });
+  assert.deepEqual(p('remove the add shortcut')[0], { t: 'sc', k: 'del', id: 's1', name: 'Add' });
+  assert.deepEqual(p('reset this page')[0], { t: 'resetPage' });
+});
+test('owl: what it cannot do is kept for later, nothing is guessed, and odd input is harmless', () => {
+  const O = owlBlock(), p = (t) => O.owlParse(t, OWL_CTX);
+  const u = p('add a pie chart of my pets to the debts page');
+  assert.equal(u[0].t, 'unknown'); assert.ok(u[0].text.length > 0);
+  assert.equal(p('hide the banana window')[0].t, 'unknown', 'no window by that name: it does not pick one');
+  assert.deepEqual(p(''), []); assert.deepEqual(p(null), []);
+  assert.ok(p('a, b, c, d, e, f, g, h, i, j, k, l').length <= 8, 'at most eight changes at once');
+  assert.ok(p('x'.repeat(5000)).length <= 8);
+  const odd = p('<script>alert(1)</script> dark mode, then do something strange'); assert.ok(odd.every((x) => ['theme', 'sound', 'owl', 'resetPage', 'tab', 'sc', 'win', 'unknown'].indexOf(x.t) > -1), 'only known kinds of action');
+});
