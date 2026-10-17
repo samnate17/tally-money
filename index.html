@@ -55,7 +55,7 @@ main{min-width:0;display:flex;flex-direction:column;gap:16px}
 .top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .top h1{font-size:30px}
 .top .refresh{margin-right:auto}
-.dashtiles .tile .v{font-size:34px}
+.dashtiles .tile .v{--vmax:34px}
 :fullscreen .rail,:fullscreen .tabbar{display:none}
 :fullscreen .app{max-width:1500px;grid-template-columns:minmax(0,1fr)}
 .btn{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:8px 14px;font-weight:500}
@@ -73,7 +73,7 @@ main{min-width:0;display:flex;flex-direction:column;gap:16px}
 .scadd{border:1.5px dashed var(--line)!important;background:none!important}
 .scicons{display:flex;flex-wrap:wrap;gap:6px}.scic{cursor:pointer;position:relative}.scic input{position:absolute;opacity:0}.scic span{display:flex;width:38px;height:38px;border-radius:12px;align-items:center;justify-content:center;border:2px solid transparent;background:var(--surface2);color:var(--ic,var(--ink))}.scic span svg{width:20px;height:20px}.scic input:checked+span{border-color:var(--ink)}.scic input:focus-visible+span{outline:2px solid var(--accent)}
 .hcedit{display:flex;gap:4px;justify-content:center;margin-top:auto;padding-top:8px}.hcedit .btn{padding:2px 8px}.hcard.hcoff{opacity:.45}
-.navhist{display:inline-flex;gap:4px;margin-right:6px;vertical-align:middle}.navhist .btn{width:30px;padding:2px 0;font-size:20px;line-height:1}
+.navhist{display:inline-flex;gap:4px;margin-right:6px;vertical-align:middle}.navhist .btn{display:inline-flex;align-items:center;justify-content:center;width:30px;height:28px;padding:0}.navhist .btn svg{width:15px;height:15px;display:block}
 .mwheel{height:84px;width:176px;overflow-y:auto;scroll-snap-type:y mandatory;padding:28px 0;box-sizing:border-box;scrollbar-width:none;-ms-overflow-style:none;-webkit-mask-image:linear-gradient(transparent,#000 32%,#000 68%,transparent);mask-image:linear-gradient(transparent,#000 32%,#000 68%,transparent);border-radius:14px;background:var(--surface2);cursor:ns-resize;overscroll-behavior:contain}
 .mwheel::-webkit-scrollbar{display:none}.mwheel:focus-visible{outline:2px solid var(--accent)}
 .mw{height:28px;display:flex;align-items:center;justify-content:center;scroll-snap-align:center;scroll-snap-stop:always;font-family:var(--font-display);font-size:14px;opacity:.38;transition:opacity .12s,transform .12s;user-select:none}.mw.on{opacity:1;font-weight:700;font-size:16px}
@@ -107,6 +107,9 @@ main{min-width:0;display:flex;flex-direction:column;gap:16px}
 .tile .l{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 .tile .v{font-family:var(--font-display);font-size:26px;font-weight:700;margin-top:2px}
 .tile .s{font-size:13px;color:var(--muted)}
+.tiles>.tile{container-type:inline-size}
+.tiles>.tile .v{font-size:min(var(--vmax,26px),calc(100cqi / (var(--len,8) * .62)))}   /* a long amount shrinks to fit its box instead of spilling out of it */
+.pill.live{display:inline-flex;align-items:center;gap:6px;line-height:1.35}.pill.live .ld{width:7px;height:7px;border-radius:50%;background:currentColor;flex:none}
 .good{color:var(--good)} .bad{color:var(--bad)} .warn{color:var(--warn)} .muted{color:var(--muted)}
 .row{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line);min-width:0}
 .row:first-of-type{border-top:0}
@@ -540,9 +543,10 @@ body.reordering,body.reordering *{cursor:grabbing!important}
 .nav[aria-current="page"] .ni{box-shadow:0 3px 12px color-mix(in srgb,var(--ic,#6366f1) 55%,transparent),inset 0 1px 0 rgba(255,255,255,.35);transform:scale(1.04)}
 .nav:not([aria-current="page"]) .ni{opacity:.92}
 .tabbar .ni{width:28px;height:28px;border-radius:9px}
-.top h1 .ni{width:38px;height:38px;border-radius:11px;margin-right:12px;vertical-align:-9px}
+.top h1:has(.ni){display:flex;align-items:center;line-height:1.1}
+.top h1 .ni{width:38px;height:38px;border-radius:11px;margin-right:12px}
 .top h1 .ni svg{width:22px;height:22px}
-@media (max-width:760px){.top h1 .ni{width:32px;height:32px;margin-right:9px;vertical-align:-7px}.top h1 .ni svg{width:19px;height:19px}}
+@media (max-width:760px){.top h1 .ni{width:32px;height:32px;margin-right:9px}.top h1 .ni svg{width:19px;height:19px}}
 .tile{border-top:3px solid color-mix(in srgb,var(--tab,#6366f1) 60%,transparent)}
 .panel>h2::before{content:"";display:inline-block;width:4px;height:16px;border-radius:2px;background:var(--tab,var(--accent));margin-right:9px;vertical-align:-2px}
 .en-green{--accent:#16a34a;--accent-ink:#ffffff;--accent-soft:#dcf5e5}
@@ -1148,7 +1152,7 @@ var ICON={
  loans:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 3 8l9 5 9-5-9-5z"/><path d="M3 13l9 5 9-5"/><path d="M3 17.5l9 5 9-5" opacity=".5"/></svg>',
  mortgage:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>',
  assist:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>',
- dash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18a8 8 0 1 1 16 0"/><path d="M12 18l4-6"/><circle cx="12" cy="18" r="1.2"/></svg>',
+ dash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(0 -2.6)"><path d="M4 18a8 8 0 1 1 16 0"/><path d="M12 18l4-6"/><circle cx="12" cy="18" r="1.2"/></g></svg>',
  assets:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 16V11l2-5h10l2 5v5"/><path d="M3 16h18v3H3z"/><path d="M8 12h8"/><circle cx="7.5" cy="19" r="1"/><circle cx="16.5" cy="19" r="1"/></svg>',
  energy:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>',
  bills:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg>',
@@ -1589,7 +1593,7 @@ function navhGo(d){
   NAVH.skip=true;if(k.f)loanFilter=k.f;if(k.l)lookTab=k.l;goTo(k.v);
 }
 function navhBtns(){
-  return '<span class="navhist" role="group" aria-label="Back and forward"><button type="button" class="btn small" data-act="nav-back" aria-label="Back" title="Back (Cmd+[ or Alt+Left)"'+(NAVH.i>0?'':' disabled')+'>&#8249;</button><button type="button" class="btn small" data-act="nav-fwd" aria-label="Forward" title="Forward (Cmd+] or Alt+Right)"'+(NAVH.i<NAVH.stack.length-1?'':' disabled')+'>&#8250;</button></span>';
+  return '<span class="navhist" role="group" aria-label="Back and forward"><button type="button" class="btn small" data-act="nav-back" aria-label="Back" title="Back (Cmd+[ or Alt+Left)"'+(NAVH.i>0?'':' disabled')+'><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button><button type="button" class="btn small" data-act="nav-fwd" aria-label="Forward" title="Forward (Cmd+] or Alt+Right)"'+(NAVH.i<NAVH.stack.length-1?'':' disabled')+'><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button></span>';
 }
 function render(){
   if(NAVH.skip)NAVH.skip=false;else navhPush(NAVH,navhKey(),60);
@@ -1840,7 +1844,7 @@ function vDash(){
   var ser=energySeries(S.energy),l12=ser.slice(-12),en='<section class="panel"><h2>Electricity'+(ser.length?'<small>'+monthTitle(ser[ser.length-1].month)+': '+(ser[ser.length-1].cost!==null?money0(ser[ser.length-1].cost)+' · ':'')+Math.round(ser[ser.length-1].kwh)+' kWh</small>':'')+'</h2>'+(ser.length?barChart(l12.map(function(r){return r.kwh}),l12.map(function(r){return new Date(+r.month.slice(0,4),+r.month.slice(5)-1,1).toLocaleDateString('en-US',{month:'short'})}),{label:'Electricity used per month',fmt:function(v){return Math.round(v)}}):'<div class="empty">Import your usage on the Energy tab.</div>')+'</section>';
   var goals='<section class="panel"><h2>Goals</h2>'+(S.goals.length?S.goals.slice(0,5).map(function(g){var p=Math.min(100,g.saved/g.target*100);return '<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;gap:8px"><b>'+esc(g.name)+'</b><span class="num muted">'+money0(g.saved)+' of '+money0(g.target)+'</span></div><div class="bar" style="margin-top:6px"><i style="width:'+p.toFixed(0)+'%"></i></div></div>'}).join(''):'<div class="empty">No goals yet.</div>')+'</section>';
   var canSync=!!(T&&PL&&PL.items&&Object.keys(PL.items).length);
-  var head='<div class="top"><h1>Dashboard</h1><div class="actions"><span class="pill good" title="This page updates itself">&#9679; Live</span><span class="sub muted" id="dashclock">Updated '+dashTime()+'</span>'+
+  var head='<div class="top"><h1>Dashboard</h1><div class="actions"><span class="pill good live" title="This page updates itself"><i class="ld"></i>Live</span><span class="sub muted" id="dashclock">Updated '+dashTime()+'</span>'+
     (canSync?'<label class="sub" style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="dash-auto"'+(DASH.auto?' checked':'')+'> Sync banks every 30 min</label>':'')+
     '<button class="btn small" data-act="dash-full">Full screen</button></div></div>';
   return head+tiles+'<div class="grid two"><section class="panel"><h2>Where it went<small>'+monthLabel(mk)+'</small></h2>'+catViz(sp.by,sp.total,winStyle('dash','where-it-went'))+'</section><section class="panel"><h2>Budgets<small>most used first</small></h2>'+budgetRows(6,mk,winStyle('dash','budgets'))+'</section></div>'+
@@ -2156,7 +2160,7 @@ function historyPanel(){
   if(hs.safeExtra>0)lines.push('<b>Safe to put toward debt each month: about '+money0(hs.safeExtra)+'.</b> That is your usual leftover minus room for a bad month. The Loans page and the mortgage extra-payment table use it as a starting point.');
   return '<section class="panel"><h2>What your history says<small>from '+hs.n+' full month'+(hs.n===1?'':'s')+' of transactions, transfers left out</small></h2>'+lines.map(function(x){return '<div class="row" style="align-items:flex-start"><div class="grow" style="white-space:normal">'+x+'</div></div>'}).join('')+'</section>';
 }
-function tile(l,v,s){return '<div class="tile"><div class="l">'+l+'</div><div class="v num">'+v+'</div><div class="s">'+(s||'&nbsp;')+'</div></div>'}
+function tile(l,v,s){var n=Math.max(6,String(v).replace(/<[^>]*>/g,'').replace(/&[a-z#0-9]+;/gi,'x').length);return '<div class="tile"><div class="l">'+l+'</div><div class="v num" style="--len:'+n+'">'+v+'</div><div class="s">'+(s||'&nbsp;')+'</div></div>'}
 var LOGOCOLS=['#3b4cf0','#16a085','#e8833a','#c2399a','#2e9fd8','#8a63d2','#b8860b'];
 function logo(n){var h=0;for(var i=0;i<n.length;i++)h=(h*31+n.charCodeAt(i))>>>0;return '<div class="logo" style="background:'+LOGOCOLS[h%LOGOCOLS.length]+'">'+esc(n.charAt(0).toUpperCase())+'</div>'}
 
@@ -5893,6 +5897,7 @@ var HELP={
 };
 // What changed in each version, in plain words. A test makes sure the version in package.json has an entry, so a release cannot go out without it.
 var WHATSNEW=[
+ ['1.8.41',['Fixed: a long net worth (for example in the millions) no longer spills out of its box on the Dashboard; amounts in all the boxes shrink a little to fit.','Tidied up the Dashboard header: the word Live sits in the middle of its green bubble, the back and forward arrows are centered in their buttons, and the page icon lines up with the heading.']],
  ['1.8.40',['Fixed: the owl looked the wrong way when it had turned to fly left. Its eyes now follow your pointer in both directions.']],
  ['1.8.39',['The car sound is removed. Pointing at or scrolling past a car no longer plays anything.']],
  ['1.8.38',['Draw your other assets with AI. In Settings, More, Your assets, describe a motorcycle, boat, RV, ATV or any other asset and Claude draws it. The picture shows at the top of its card on the Assets tab. It uses your Anthropic key, roughly 15 to 40 cents a drawing.']],
