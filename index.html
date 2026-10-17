@@ -891,6 +891,9 @@ var SFX={
   blip:function(c){sTone(c,880,0.07,'sine',0.06,0,1040)},
   tourstart:function(c){[523.25,659.25,783.99].forEach(function(f,i){sTone(c,f,0.14,'sine',0.07,i*0.07)})},
   finish:function(c){[523.25,659.25,783.99,1046.5].forEach(function(f,i){sTone(c,f,0.22,'sine',0.07,i*0.08)})},
+  car:function(c){   // an engine revving up and a car passing by
+    sTone(c,62,0.7,'sawtooth',0.05,0,170);sTone(c,93,0.7,'square',0.018,0,255);sNoise(c,0.55,0.035,180,1100,'lowpass');sNoise(c,0.5,0.025,900,300,'bandpass',0.3);
+  },
   tab:function(c,v){
     var k=helpKey(v||''),ids=PAGES.map(function(t){return t[0]}),ix=Math.max(0,ids.indexOf(k)),f=SND_PENT[ix%6]*(ix>=12?1:ix>=6?0.5:0.5);
     if(k==='energy'){sNoise(c,0.2,0.07,300,5200,'bandpass');sTone(c,95,0.18,'sawtooth',0.035,0,520);sTone(c,1800,0.08,'square',0.025,0.06,3200);return}   // a short electric zap
@@ -904,7 +907,7 @@ var SFX={
 };
 function snd(name,arg){
   if(!SND.on||SND.vol<=0)return;
-  var now=Date.now(),th={click:45,tick:60,tab:120,blip:60}[name]||0;
+  var now=Date.now(),th={click:45,tick:60,tab:120,blip:60,car:1200}[name]||0;
   if(th&&SND.last[name]&&now-SND.last[name]<th)return;SND.last[name]=now;
   var c=sndCtx();if(!c||!SFX[name])return;
   try{SFX[name](c,arg)}catch(e){}
@@ -1152,7 +1155,7 @@ var ICON={
  assets:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 16V11l2-5h10l2 5v5"/><path d="M3 16h18v3H3z"/><path d="M8 12h8"/><circle cx="7.5" cy="19" r="1"/><circle cx="16.5" cy="19" r="1"/></svg>',
  energy:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>',
  bills:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg>',
- carloan:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 16V11l2-5h10l2 5v5"/><path d="M3 16h18v3H3z"/><circle cx="7.5" cy="19" r="1.2"/><circle cx="16.5" cy="19" r="1.2"/><path d="M5 11h14"/></svg>',
+ carloan:'<svg class="caricon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 16V11l2-5h10l2 5v5"/><path d="M3 16h18v3H3z"/><circle cx="7.5" cy="19" r="1.2"/><circle cx="16.5" cy="19" r="1.2"/><path d="M5 11h14"/></svg>',
  student:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m2 9 10-5 10 5-10 5z"/><path d="M6 11v5c0 1.5 3 3 6 3s6-1.5 6-3v-5"/><path d="M22 9v6"/></svg>',
  look:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="8.5" cy="10" r="1.2"/><circle cx="12" cy="7.5" r="1.2"/><circle cx="15.5" cy="10" r="1.2"/><path d="M12 21c-1.5 0-2-1-2-2s.8-1.8 1.6-2.4c.9-.7.6-2.1-.6-2.1H8"/></svg>',
  report:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 16v-3M12 16V8M16 16v-5"/></svg>',
@@ -5892,6 +5895,7 @@ var HELP={
 };
 // What changed in each version, in plain words. A test makes sure the version in package.json has an entry, so a release cannot go out without it.
 var WHATSNEW=[
+ ['1.8.37',['A car sound. In Debts and Assets (and anywhere else a car picture or the car icon shows), pointing at the car or scrolling it into view plays an engine rev. It follows the Sound switch and volume in Settings.']],
  ['1.8.36',['Connect Gmail. On Transactions, From email now has Connect Gmail: make a Google app password, paste it with your address, then Scan the last 7, 30 or 90 days. The app only reads recent receipts and bank alerts, never changes or marks your mail, keeps the password encrypted on this computer, and still skips anything your bank already shows. Disconnect removes the password.','The live sky now fills the whole Overview background, not only the top window, and follows the real sunrise and sunset where you are.','The app is now called Agent X on screen. The data folder, Documents folder and update files keep the old name so nothing you saved is lost.']],
  ['1.8.35',['The Overview sky follows the real sun. Behind your net worth you see dawn, daytime, a golden sunset with the sun sinking, dusk, and a night sky with stars and a moon, changing as the day goes on. It uses the place you set in Energy for exact sunrise and sunset times, or a guess from this computer\'s time zone (marked "about"). Turn it off in Settings, Appearance, or ask the owl.','The owl is redrawn with shaded feathers, a heart-shaped face, glowing eyes that follow your pointer and wings made of separate feathers that flap in a ripple. It folds its wings when it sits in the corner.','Add a picture and personal details to your user (Settings, You): email, phone, city, state, birthday and a note about you. The picture shows next to your name on the Overview, in the sidebar and when the app asks who is using it. It stays on this computer.','New From email panel on Transactions. Choose emails you exported (a single .eml, or an .mbox from Google Takeout) and the app finds the ones that report money moving, compares them with what you already have, and lets you add the new ones. An alert about something your bank already shows is marked as already in the app and is not added again. The same email is never added twice, an order email and its bank alert count as one purchase, and when your bank statement later brings in the same transaction it replaces the email copy. Only the amount, date, merchant and a fingerprint are kept, never the email, and nothing is sent anywhere. It also points out repeating charges you can add as subscriptions. It does not connect to your mailbox: that needs a Google sign-in set up by you.']],
  ['1.8.34',['The owl is smarter. It understands more requests (rename or resize a shortcut, move windows and tabs, hide cards, draw a window as bars, a donut or a list, go to a page, use any #rrggbb color). With your Anthropic key it sends the words of a request it did not understand to Claude, along with the names of your tabs and windows but no accounts or transactions, and only ever gets back the same safe list of changes. Limited to 40 such requests a day.','The ? button is now an owl. It flies around the app, its eyes follow your pointer, and every so often it asks if you want something changed. Tap it and type what you want, for example "switch to dark mode, make the text bigger and hide the Energy tab". It can change colors, mode, text size, corners, glass, background, font, animations, sounds, which tabs show, windows (hide, show, fold, wider, narrower) and Overview shortcuts, and Undo that puts everything back. What it cannot do yet goes on a list you can copy and paste to Claude Code. The owl never changes the app\'s code. It can sit in the corner instead of flying (a checkbox in its box, or tell it to stop flying), and it sits still with calmer animations. Help for this page is still one tap away inside it.','The Overview is customizable. Press Customize, then: tap a shortcut to change its name, icon, color, size or what it opens; use ‹ › to move it, S/M/L to resize it, × to remove it, or Add a shortcut for a new one. The cards under the shortcuts can be moved and hidden the same way. Windows can still be moved, resized and drawn as a different graphic.','Every number and window on the Overview and Live dashboard opens the page it comes from: Spent, Income, Net worth and the rest, plus an Open button on each window. Safe to spend now opens Budgets.','Windows fold up. Tap a window\'s title to fold or open it. Long or rarely used ones (such as Debt-free by a date and If you earned $100) start folded, and Debt payments keeps its recent payments and account list folded away.','Last six months is easier to read: fewer gridlines with short labels ($4k), a clear space for the amounts, and the numbers only on the current month. Point at any bar for its amount.','Back and forward arrows now sit at the top left of every page and go through the pages you visited, like a browser. Keyboard: Cmd+[ and Cmd+], or Alt with the left and right arrow keys.','The month arrows are now a scrolling drum, like the timer on an iPhone: scroll or swipe and it ticks past each month, then settles. The tick follows your sound setting.','Energy is a tab of its own again, next to Bills. Investments was already restored.','Documents are locked. Opening the Documents page, a folder, an ID or a file asks for your app password, a separate documents password, or Touch ID on a Mac, and stays open for 5 minutes. Lock now closes it at once. The same lock covers the Tax documents button and document search results. Files in the Documents folder are still ordinary files on disk, so this keeps people out of the app, not out of Finder.','Pay statements, Tax documents, Bank and card statements, Vehicle records, Energy bills, Receipts and Other now look like the IDs and records cards: a stack of papers in a pocket, with arrows to flip through the files.']],
@@ -10293,7 +10297,20 @@ function vGoals(){
 
 /* ---------- events ---------- */
 var m0El=null;
+var CARIO=null,CARSEL='.caricon,.carbig,.stagecar,.carbody';
+// A car sound when a car (the icon, or a picture of one in Debts or Assets) is pointed at or scrolls into view.
+function carSoundBind(){
+  var main=document.getElementById('main');if(!main)return;
+  if(CARIO){try{CARIO.disconnect()}catch(e){}CARIO=null}
+  if(!main._carHover){main._carHover=1;main.addEventListener('pointerover',function(e){var t=e.target&&e.target.closest&&e.target.closest(CARSEL);if(t&&!(e.relatedTarget&&t.contains(e.relatedTarget)))snd('car')})}
+  if(!window.IntersectionObserver)return;
+  var els=main.querySelectorAll(CARSEL);if(!els.length)return;
+  var t0=Date.now();
+  CARIO=new IntersectionObserver(function(es){es.forEach(function(en){if(en.isIntersecting&&Date.now()-t0>600)snd('car')})},{threshold:0.6});
+  [].forEach.call(els,function(el){CARIO.observe(el)});
+}
 function bindView(){
+  carSoundBind();
   var m=$('#main');
   monthWheelBind();
   m0El=document.querySelector('#main [data-emfile]');

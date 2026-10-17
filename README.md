@@ -717,6 +717,10 @@ Settings, You has a picture and details (email, phone, city, state, birthday, a 
 
 On Transactions, From email reads emails you export (.eml, or one .mbox from Google Takeout) entirely on this computer. It keeps only the amount, date, merchant and a fingerprint of each message. Bank alerts about transactions already in the app are marked and skipped (matched one-to-one on amount within four days), an order email and its alert are one purchase, the same message is never added twice, and a later bank import replaces the email copy. It also suggests subscriptions from repeating charges. A direct mailbox connection needs a Google sign-in (OAuth) set up by the owner and is not built.
 
+### Car sound
+
+Pointing at a car (the car-loan icon or a vehicle picture in Debts and Assets) or scrolling one into view plays a synthesized engine rev (`SFX.car`, throttled to one per 1.2 seconds, skipped for cars already on screen when a page opens). It follows the Sound setting.
+
 ### Connect Gmail
 
 From email can also read Gmail directly over IMAP (`imap.gmail.com:993`) with a Google app password (2-Step Verification on, Security, App passwords). The code is `gmail.js`: it only sends LOGIN, EXAMINE (read-only), UID SEARCH, UID FETCH with BODY.PEEK (does not mark mail read) and LOGOUT, searches recent mail about payments and leaves out promotions and social, and returns up to 300 of the newest messages to the page in memory. The password is kept in the encrypted secret store, never goes back to the page, and Disconnect deletes it. Scanned messages go through the same duplicate-safe import as exported files. Tested against a fake IMAP server only; it has not been run against real Gmail.
