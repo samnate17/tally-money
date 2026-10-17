@@ -16,6 +16,9 @@ Every user-visible change must update the in-app help in the same commit:
 - Release procedure: bump `package.json` line 3, add the `WHATSNEW` entry, `npm test`, commit, push `main`, then dispatch `build-mac.yml` with `release_tag`.
 - New files the app requires at runtime must be listed in `package.json` `build.files` (a test checks this).
 
+## Real or nothing
+- Do not make up stand-ins for real-world things (sounds, photos, artwork, data). Look up a real, licensed source first, check it, or say it cannot be done here. The owner does not want tokens spent on guesses.
+
 ## Privacy
 - No real personal data (names, addresses, account numbers, IDs) in the repo, tests or output. Use made-up data.
 

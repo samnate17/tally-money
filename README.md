@@ -717,10 +717,6 @@ Settings, You has a picture and details (email, phone, city, state, birthday, a 
 
 On Transactions, From email reads emails you export (.eml, or one .mbox from Google Takeout) entirely on this computer. It keeps only the amount, date, merchant and a fingerprint of each message. Bank alerts about transactions already in the app are marked and skipped (matched one-to-one on amount within four days), an order email and its alert are one purchase, the same message is never added twice, and a later bank import replaces the email copy. It also suggests subscriptions from repeating charges. A direct mailbox connection needs a Google sign-in (OAuth) set up by the owner and is not built.
 
-### Car sound
-
-Pointing at a car (the car-loan icon or a vehicle picture in Debts and Assets) or scrolling one into view plays a synthesized V12 rev, two revs and exhaust pops, built from detuned saw and square oscillators through a waveshaper and a sweeping low-pass filter (`SFX.car`, throttled to one per 1.2 seconds, skipped for cars already on screen when a page opens). It follows the Sound setting.
-
 ### Drawings of your assets
 
 Settings, More, Your assets lets Claude draw any asset (motorcycle, boat, RV, ATV or jet ski, or anything else) from a short description, using the same call and the same SVG cleaning as the car drawing (`ai:carArt` with a `kind`). The cleaned drawing is kept on the asset (`asset.art`) and shown at the top of its card; an asset created from a car loan shows the loan's car drawing.
