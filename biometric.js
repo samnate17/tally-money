@@ -27,7 +27,7 @@ function createBiometric({ store, systemPreferences, platform = process.platform
       if (!available()) throw new Error('Touch ID is not available on this computer.');
       const pw = String(password || '');
       if (!pw || pw.length > 500) throw new Error('Enter your password first.');
-      await prompt(isTabs(slot) ? 'Turn on Touch ID for hiding and showing tabs' : isDocs(slot) ? 'Turn on Touch ID for your documents' : 'Turn on Touch ID for Tally Money');
+      await prompt(isTabs(slot) ? 'Turn on Touch ID for hiding and showing tabs' : isDocs(slot) ? 'Turn on Touch ID for your documents' : 'Turn on Touch ID for Agent X');
       store.set(keyOf(slot), pw);
       return true;
     },
@@ -35,7 +35,7 @@ function createBiometric({ store, systemPreferences, platform = process.platform
       if (!available()) throw new Error('Touch ID is not available on this computer.');
       const pw = store.get(keyOf(slot));
       if (typeof pw !== 'string' || !pw) throw new Error('Touch ID is not turned on.');
-      await prompt(isTabs(slot) ? 'Change which tabs are hidden' : isDocs(slot) ? 'Open your documents' : 'Unlock Tally Money');
+      await prompt(isTabs(slot) ? 'Change which tabs are hidden' : isDocs(slot) ? 'Open your documents' : 'Unlock Agent X');
       return pw;
     },
     disable(slot) { try { if (store.isAvailable()) store.del(keyOf(slot)); } catch (e) { /* nothing to remove */ } return true; },

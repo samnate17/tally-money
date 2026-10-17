@@ -1,6 +1,6 @@
 {
-  "name": "Tally Money",
-  "short_name": "Tally",
+  "name": "Agent X",
+  "short_name": "Agent X",
   "description": "Personal money app: spending, subscriptions, budgets and goals.",
   "start_url": "./",
   "scope": "./",

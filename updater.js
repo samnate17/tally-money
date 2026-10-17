@@ -53,7 +53,7 @@ fail() {
 MNT=$(mktemp -d /tmp/tally-update.XXXXXX) || fail "Could not create a temporary folder"
 hdiutil attach -nobrowse -readonly -noverify -mountpoint "$MNT" "$DMG" >/dev/null || fail "Could not open the downloaded disk image"
 for i in $(seq 1 120); do kill -0 "$PID" 2>/dev/null || break; sleep 0.5; done
-if kill -0 "$PID" 2>/dev/null; then fail "Tally Money did not quit in time"; fi
+if kill -0 "$PID" 2>/dev/null; then fail "Agent X did not quit in time"; fi
 SRC=$(ls -d "$MNT"/*.app 2>/dev/null | head -1)
 [ -n "$SRC" ] || fail "The disk image does not contain an app"
 rm -rf "$APP.new" "$APP.old"
@@ -90,8 +90,8 @@ function createUpdater({ store, version, arch, platform, appPath, tmpDir, result
     if (platform === 'win32') return '';
     if (platform !== 'darwin') return 'In-app install works on the Mac and Windows apps only. Download the new version from the releases page.';
     if (!appPath || !/\.app$/.test(appPath)) return 'This copy is not an installed app (it is running from source), so it cannot replace itself.';
-    if (/\/AppTranslocation\//.test(appPath) || /^\/Volumes\//.test(appPath)) return 'Move Tally Money into your Applications folder and open it from there first.';
-    if (!canInstall()) return 'Tally Money cannot write to the folder it is installed in. Move it to Applications.';
+    if (/\/AppTranslocation\//.test(appPath) || /^\/Volumes\//.test(appPath)) return 'Move Agent X into your Applications folder and open it from there first.';
+    if (!canInstall()) return 'Agent X cannot write to the folder it is installed in. Move it to Applications.';
     return '';
   }
   async function gh(url, extra) {

@@ -92,7 +92,7 @@ function createWidget({ BrowserWindow, screen, file, preload, html, nativeFile, 
     const pos = state.x == null ? { x: wa.x + wa.width - 340, y: wa.y + 48 } : fit(state.x, state.y);
     win = new BrowserWindow({
       width: Math.min(700, Math.max(260, Math.round(state.w) || 310)), height: Math.min(1200, Math.max(200, Math.round(state.h) || 372)), minWidth: 260, minHeight: 200, x: pos.x, y: pos.y, frame: false, transparent: true, resizable: true, minimizable: false, maximizable: false,
-      fullscreenable: false, skipTaskbar: true, hasShadow: true, show: false, title: 'Tally widget', focusable: true,
+      fullscreenable: false, skipTaskbar: true, hasShadow: true, show: false, title: 'Agent X widget', focusable: true,
       webPreferences: { preload, contextIsolation: true, nodeIntegration: false, sandbox: true },
     });
     win.setMenuBarVisibility(false);

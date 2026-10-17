@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><title>Tally widget</title>
+<html lang="en"><head><meta charset="utf-8"><title>Agent X widget</title>
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
 <style>
 :root{--bg:rgba(255,255,255,.94);--ink:#141b34;--muted:#5d6682;--line:#dde2ee;--accent:#3b4cf0;--good:#0b8f63;--bad:#d3302f;--warn:#b86a00;--track:#e6e9ff;color-scheme:light dark}
@@ -53,12 +53,12 @@ a{color:var(--accent);cursor:pointer;-webkit-app-region:no-drag}
 .body::-webkit-scrollbar{display:none}
 </style></head>
 <body><div class="card" id="card">
-<div class="top"><b id="ttl">Tally</b><div class="btns">
+<div class="top"><b id="ttl">Agent X</b><div class="btns">
 <button id="eye" title="Hide amounts" aria-label="Hide amounts" aria-pressed="false">◐</button>
 <button id="pin" title="Keep on top" aria-label="Keep on top" aria-pressed="false">⌃</button>
-<button id="open" title="Open Tally" aria-label="Open Tally">↗</button>
+<button id="open" title="Open Agent X" aria-label="Open Agent X">↗</button>
 <button id="x" title="Close widget" aria-label="Close widget">×</button></div></div>
-<div class="body" id="body"><div class="empty">Open Tally once to fill this in.</div></div>
+<div class="body" id="body"><div class="empty">Open Agent X once to fill this in.</div></div>
 </div>
 <script>
 var $=function(i){return document.getElementById(i)};
@@ -92,9 +92,9 @@ function draw(d){
   $('eye').setAttribute('aria-pressed',d&&d.hideAmounts?'true':'false');
   $('eye').title=d&&d.hideAmounts?(d.askAuth?'Show amounts (asks for Touch ID)':'Show amounts'):'Hide amounts';
   $('pin').setAttribute('aria-pressed',d&&d.onTop?'true':'false');
-  if(!s){$('body').innerHTML='<div class="empty">Open Tally once to fill this in.</div>';return}
+  if(!s){$('body').innerHTML='<div class="empty">Open Agent X once to fill this in.</div>';return}
   var age=d&&d.at?Math.round((Date.now()-d.at)/60000):null,live=age!==null&&age<=5;
-  $('ttl').innerHTML=(live?'<i class="pulse" title="Updated '+(age<1?'just now':age+' min ago')+'"></i>':'')+esc(s.sample?'Tally · example data':'Tally · '+s.month);
+  $('ttl').innerHTML=(live?'<i class="pulse" title="Updated '+(age<1?'just now':age+' min ago')+'"></i>':'')+esc(s.sample?'Agent X · example data':'Agent X · '+s.month);
   var sp=s.spend,S={};
   S.networth=function(){
     if(!s.net)return '';
@@ -138,7 +138,7 @@ function draw(d){
   };
   var order=(d&&d.sections&&d.sections.length?d.sections:['networth','invest','budgets','bills','goal']),h='';
   order.forEach(function(id){if(S[id])h+=S[id]()});
-  if(!h)h='<div class="empty">Nothing to show yet. Pick what to show in Tally: Settings, Desktop widget.</div>';
+  if(!h)h='<div class="empty">Nothing to show yet. Pick what to show in Agent X: Settings, Desktop widget.</div>';
   var y=$('body').scrollTop;$('body').innerHTML=h;$('body').scrollTop=y;
 }
 widget.onData(draw);widget.get().then(draw);

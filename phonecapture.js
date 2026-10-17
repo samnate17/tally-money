@@ -16,7 +16,7 @@ function lanAddresses(ifaces = os.networkInterfaces()) {
 const PAGE = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Send a receipt</title>
 <style>body{font:17px -apple-system,system-ui,sans-serif;margin:0;padding:28px 20px;background:#f4f6fb;color:#1b2140;text-align:center}h1{font-size:22px;margin:0 0 6px}p{color:#5b6488;margin:6px 0 22px}
 label{display:block;background:#3b4cf0;color:#fff;font-weight:700;border-radius:16px;padding:22px 12px;font-size:20px}#m{margin-top:22px;min-height:48px;font-weight:600}</style></head>
-<body><h1>Tally Money</h1><p>Take a photo of your receipt. It goes straight to your computer.</p>
+<body><h1>Agent X</h1><p>Take a photo of your receipt. It goes straight to your computer.</p>
 <label>Take a photo of a receipt<input id="f" type="file" accept="image/*" capture="environment" hidden></label><div id="m"></div>
 <script>
 var m=document.getElementById('m'),n=0;

@@ -165,7 +165,7 @@ struct TallyWidgetView: View {
         } else {
             VStack(spacing: 6) {
                 Image(systemName: "chart.bar.fill").font(.title2).foregroundStyle(.secondary)
-                Text("Open Tally Money once to fill this in.").font(.caption).multilineTextAlignment(.center).foregroundStyle(.secondary)
+                Text("Open Agent X once to fill this in.").font(.caption).multilineTextAlignment(.center).foregroundStyle(.secondary)
             }
         }
     }
@@ -176,7 +176,7 @@ struct TallyWidgetView: View {
         let order = s.sections ?? ["networth", "budgets", "bills", "goal"]
         let limit = family == .systemSmall ? 2 : (family == .systemMedium ? 3 : 6)
         VStack(alignment: .leading, spacing: 8) {
-            Text(s.sample ? "Tally · example data" : "Tally · \(s.month)")
+            Text(s.sample ? "Agent X · example data" : "Agent X · \(s.month)")
                 .font(.caption2).textCase(.uppercase).foregroundStyle(.secondary)
             ForEach(Array(order.prefix(limit)), id: \.self) { id in
                 section(id, s, hide)
@@ -407,7 +407,7 @@ struct TallyWidget: Widget {
             TallyWidgetView(entry: entry)
                 .containerBackground(.fill.tertiary, for: .widget)
         }
-        .configurationDisplayName("Tally Money")
+        .configurationDisplayName("Agent X")
         .description("Net worth, investments, budgets, bills and more. Choose what it shows in the app.")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }

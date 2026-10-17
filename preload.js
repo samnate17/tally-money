@@ -29,6 +29,12 @@ contextBridge.exposeInMainWorld('tally', {
   file: {
     save: (name, text) => ipcRenderer.invoke('file:save', { name, text }),
   },
+  gmail: {
+    status: inv('gmail:status'),
+    connect: inv('gmail:connect'),
+    disconnect: inv('gmail:disconnect'),
+    scan: inv('gmail:scan'),
+  },
   wallet: {
     status: inv('wallet:status'),
     save: inv('wallet:save'),

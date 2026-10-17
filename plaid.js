@@ -152,7 +152,7 @@ function createPlaid({ store, fetchImpl }) {
   async function createLinkToken(itemId, mode) {
     const c = cfg();
     if (!c) throw new Error('Add your Plaid keys first.');
-    const body = { client_name: 'Tally Money', language: 'en', country_codes: [c.country], user: { client_user_id: 'tally-money-local' } };
+    const body = { client_name: 'Agent X', language: 'en', country_codes: [c.country], user: { client_user_id: 'tally-money-local' } };
     if (itemId) body.access_token = itemToken(itemId);
     else if (mode === 'loan') { body.products = ['liabilities']; }
     else { body.products = ['transactions']; body.transactions = { days_requested: 365 }; }

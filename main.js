@@ -10,6 +10,7 @@ const { createFundamentals } = require('./fundamentals');
 const { createWeather } = require('./weather');
 const { createDocs } = require('./docs');
 const { createWallet } = require('./wallet');
+const { createGmail } = require('./gmail');
 const { createWidget } = require('./widget');
 const glassLib = require('./glass');
 const { createUpdater } = require('./updater');
@@ -115,7 +116,7 @@ function wireIpc() {
     if (!widget.needsAuth(what, value)) return true;
     if (authBusy) return false;
     authBusy = true;
-    try { return await confirmTouchId(systemPreferences, what === 'requireAuth' ? 'Turn off Touch ID for the widget' : 'Show the amounts on your Tally widget'); } finally { authBusy = false; }
+    try { return await confirmTouchId(systemPreferences, what === 'requireAuth' ? 'Turn off Touch ID for the widget' : 'Show the amounts on your Agent X widget'); } finally { authBusy = false; }
   };
   ipcMain.handle('widget:set', async (e, what, value) => {
     if (!fromMain(e) || !widget) return { ok: false };
@@ -178,7 +179,7 @@ function wireIpc() {
     const text = String((r && r.text) || '');
     if (!text || text.length > 200 * 1024 * 1024) throw new Error('Nothing to save.');
     let dir; try { dir = app.getPath('documents'); } catch (e) { dir = app.getPath('home'); }
-    const res = await dialog.showSaveDialog(mainWin, { title: 'Save file', defaultPath: path.join(dir, name), filters: [{ name: 'Tally Money file', extensions: ['json'] }] });
+    const res = await dialog.showSaveDialog(mainWin, { title: 'Save file', defaultPath: path.join(dir, name), filters: [{ name: 'Agent X file', extensions: ['json'] }] });
     if (res.canceled || !res.filePath) return { cancelled: true };
     require('fs').writeFileSync(res.filePath, text, { mode: 0o600 });
     return { path: res.filePath };
@@ -370,6 +371,11 @@ function wireIpc() {
   handle('wallet:remove', (owner, cat, id) => walletSvc.remove(String(owner), String(cat), String(id)));
   handle('wallet:dropCat', (owner, cat) => walletSvc.removeCategory(String(owner), String(cat)));
   handle('wallet:dropOwner', (owner) => walletSvc.removeOwner(String(owner)));
+  const gmailSvc = createGmail({ store });
+  mainOnly('gmail:status', (owner) => gmailSvc.status(String(owner)));
+  mainOnly('gmail:connect', (owner, email, pw) => gmailSvc.connect(String(owner), String(email), String(pw)));
+  mainOnly('gmail:disconnect', (owner) => gmailSvc.disconnect(String(owner)));
+  mainOnly('gmail:scan', (owner, days) => gmailSvc.scan(String(owner), { days: +days }));
   handle('docs:categories', () => docsSvc.CATEGORIES);
   handle('docs:save', (cat, name, buf, year) => docsSvc.save(String(cat), String(name), Buffer.from(buf), year));
   handle('docs:list', () => ({ root: docsSvc.root(), folders: docsSvc.list() }));
@@ -394,7 +400,7 @@ function createWindow(quiet) {
   const glass = glassState.active;
   mainWin = new BrowserWindow({
     show: !quiet,
-    width: 1240, height: 860, minWidth: 420, minHeight: 600, title: 'Tally Money',
+    width: 1240, height: 860, minWidth: 420, minHeight: 600, title: 'Agent X',
     // With native glass the window must be transparent from the start and the title bar hidden so the glass reaches the top edge.
     ...(glass ? { transparent: true, backgroundColor: '#00000000', vibrancy: undefined, titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 20, y: 18 } } : { backgroundColor: '#eceff5' }),
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true, additionalArguments: glass ? ['--tally-glass=1'] : [] },
@@ -444,7 +450,7 @@ function buildMenu() {
         { label: 'Show desktop widget', type: 'checkbox', checked: st.visible, click: (i) => { i.checked ? widget.show() : widget.hide(); buildMenu(); } },
         { label: 'Keep widget on top of other windows', type: 'checkbox', checked: st.onTop, click: (i) => { widget.setOnTop(i.checked); buildMenu(); } },
         { type: 'separator' },
-        { label: 'Open Tally when I log in', type: 'checkbox', checked: app.getLoginItemSettings().openAtLogin, click: (i) => app.setLoginItemSettings({ openAtLogin: i.checked }) },
+        { label: 'Open Agent X when I log in', type: 'checkbox', checked: app.getLoginItemSettings().openAtLogin, click: (i) => app.setLoginItemSettings({ openAtLogin: i.checked }) },
       ],
     },
     { role: 'windowMenu' },
