@@ -3162,12 +3162,12 @@ test('tabs: every page lives in exactly one tab, and each tab opens on the page 
   H.pages.forEach((p) => assert.ok(seen[p[0]], 'page ' + p[0] + ' is in no tab'));
   assert.deepEqual(Object.keys(seen).sort(), H.pages.map((p) => p[0]).sort(), 'no tab lists a page that does not exist');
   assert.deepEqual(H.tabs.map((t) => t[0]), H.HUBS.map((h) => h[0]), 'the sidebar shows the tabs, in the same order');
-  assert.ok(H.tabs.length <= 11);
+  assert.ok(H.tabs.length <= 12);
 });
 test('tabs: old links still work: any page or alias maps to its tab', () => {
   const H = hubWorld();
   assert.equal(H.hubOf('tax'), 'pay'); assert.equal(H.hubOf('dash'), 'overview'); assert.equal(H.hubOf('cards'), 'loans'); assert.equal(H.hubOf('credit'), 'loans');
-  assert.equal(H.hubOf('subscriptions'), 'bills'); assert.equal(H.hubOf('energy'), 'bills'); assert.equal(H.hubOf('afford'), 'budgets'); assert.equal(H.hubOf('invest'), 'invest'); assert.equal(H.hubOf('assets'), 'accounts');
+  assert.equal(H.hubOf('subscriptions'), 'bills'); assert.equal(H.hubOf('energy'), 'energy'); assert.equal(H.hubOf('afford'), 'budgets'); assert.equal(H.hubOf('invest'), 'invest'); assert.equal(H.hubOf('assets'), 'accounts');
   assert.equal(H.hubOf('carloan'), 'loans'); assert.equal(H.hubOf('student'), 'loans'); assert.equal(H.hubPageOf('student'), 'loans'); assert.equal(H.hubOf('cashback'), 'loans');
   assert.equal(H.hubOf('look'), 'look'); assert.equal(H.hubOf('nonsense'), 'nonsense');
   assert.deepEqual(H.hubPages('budgets'), ['budgets', 'report', 'goals', 'afford']); assert.deepEqual(H.hubPages('assist'), ['assist']);
@@ -3335,4 +3335,17 @@ test('documents lock: Touch ID has its own slot per user', () => {
   const { keyOf, cleanSlot } = require('../biometric');
   assert.equal(cleanSlot('docs'), 'docs'); assert.equal(cleanSlot('docs:u1a2b'), 'docs:u1a2b'); assert.equal(keyOf('docs'), 'docsPw'); assert.equal(keyOf('docs:u1a2b'), 'docsPw:u1a2b');
   assert.equal(cleanSlot('nonsense'), 'vault');
+});
+
+test('back and forward: pages are remembered, going back then somewhere new drops the forward pages, and repeats are not stored', () => {
+  const N = new Function(srcBlock('/*NAVHIST-START*/', '/*NAVHIST-END*/') + '\nreturn {navhPush, navhStep};')();
+  const h = { stack: [], i: -1 };
+  N.navhPush(h, { v: 'overview' }); N.navhPush(h, { v: 'bills' }); N.navhPush(h, { v: 'bills' }); N.navhPush(h, { v: 'loans', f: 'student' });
+  assert.deepEqual(h.stack.map((k) => k.v), ['overview', 'bills', 'loans']); assert.equal(h.i, 2);
+  assert.deepEqual(N.navhStep(h, -1), { v: 'bills' }); assert.deepEqual(N.navhStep(h, -1), { v: 'overview' }); assert.equal(N.navhStep(h, -1), null, 'nothing before the first page');
+  assert.deepEqual(N.navhStep(h, 1), { v: 'bills' });
+  N.navhPush(h, { v: 'budgets' });
+  assert.deepEqual(h.stack.map((k) => k.v), ['overview', 'bills', 'budgets'], 'the old forward page is gone'); assert.equal(N.navhStep(h, 1), null);
+  for (let i = 0; i < 100; i++) N.navhPush(h, { v: 'p' + i }, 10);
+  assert.equal(h.stack.length, 10); assert.equal(h.i, 9);
 });

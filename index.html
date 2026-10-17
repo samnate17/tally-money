@@ -64,6 +64,10 @@ main{min-width:0;display:flex;flex-direction:column;gap:16px}
 .btn.small{padding:5px 10px;font-size:13px}
 .btn.danger{color:var(--bad)}
 .monthnav{display:flex;align-items:center;gap:6px}
+.navhist{display:inline-flex;gap:4px;margin-right:6px;vertical-align:middle}.navhist .btn{width:30px;padding:2px 0;font-size:20px;line-height:1}
+.mwheel{height:84px;width:176px;overflow-y:auto;scroll-snap-type:y mandatory;padding:28px 0;box-sizing:border-box;scrollbar-width:none;-ms-overflow-style:none;-webkit-mask-image:linear-gradient(transparent,#000 32%,#000 68%,transparent);mask-image:linear-gradient(transparent,#000 32%,#000 68%,transparent);border-radius:14px;background:var(--surface2);cursor:ns-resize;overscroll-behavior:contain}
+.mwheel::-webkit-scrollbar{display:none}.mwheel:focus-visible{outline:2px solid var(--accent)}
+.mw{height:28px;display:flex;align-items:center;justify-content:center;scroll-snap-align:center;scroll-snap-stop:always;font-family:var(--font-display);font-size:14px;opacity:.38;transition:opacity .12s,transform .12s;user-select:none}.mw.on{opacity:1;font-weight:700;font-size:16px}
 .monthnav b{min-width:128px;text-align:center;font-family:var(--font-display)}
 .setsec{font-size:13px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:22px 2px 8px}
 .gate{position:fixed;inset:0;z-index:50;background:var(--bg);display:flex;align-items:flex-start;justify-content:center;padding:24px 16px;overflow:auto}
@@ -1130,13 +1134,13 @@ var ICON={
 var PAGES=[['overview','Overview'],['dash','Dashboard','Live'],['accounts','Accounts'],['pay','My pay','Pay'],['tax','Taxes','Tax'],['docs','Documents','Docs'],['assets','Assets'],['subscriptions','Subscriptions','Subs'],['bills','Bills','Bills'],['energy','Energy'],['budgets','Budgets'],['report','Monthly report','Report'],['afford','Can I afford it?','Afford'],['credit','Credit score','Score'],['cards','Credit cards','Cards'],['invest','Investments','Invest'],['transactions','Transactions','Activity'],['goals','Goals'],['loans','Loans'],['mortgage','Mortgage','Home'],['assist','Assistant','Chat'],['look','Settings','Settings']];
 /*HUB-START*/
 // The tabs in the sidebar. Each one holds one or more pages (the old tabs); every page keeps its id, so anything that opens a page by id still works.
-var HUBS=[['overview',['overview','dash']],['accounts',['accounts','assets']],['invest',['invest']],['transactions',['transactions']],['bills',['bills','subscriptions','energy']],['budgets',['budgets','report','goals','afford']],['pay',['pay','tax']],['loans',['loans','cards','mortgage','credit']],['docs',['docs']],['assist',['assist']],['look',['look']]];
+var HUBS=[['overview',['overview','dash']],['accounts',['accounts','assets']],['invest',['invest']],['transactions',['transactions']],['bills',['bills','subscriptions']],['energy',['energy']],['budgets',['budgets','report','goals','afford']],['pay',['pay','tax']],['loans',['loans','cards','mortgage','credit']],['docs',['docs']],['assist',['assist']],['look',['look']]];
 var HUB_ALIAS={carloan:'loans',student:'loans',cashback:'cards'};
 function hubPageOf(v){return HUB_ALIAS[v]||v}
 function hubOf(v){v=hubPageOf(v);for(var i=0;i<HUBS.length;i++)if(HUBS[i][1].indexOf(v)>-1)return HUBS[i][0];return v}
 function hubPages(id){for(var i=0;i<HUBS.length;i++)if(HUBS[i][0]===id)return HUBS[i][1];return [id]}
 /*HUB-END*/
-var TABS=[['overview','Overview'],['accounts','Accounts'],['invest','Investments','Invest'],['transactions','Transactions','Activity'],['bills','Bills'],['budgets','Budgets'],['pay','My pay','Pay'],['loans','Debts','Debts'],['docs','Documents','Docs'],['assist','Assistant','Chat'],['look','Settings','Settings']];
+var TABS=[['overview','Overview'],['accounts','Accounts'],['invest','Investments','Invest'],['transactions','Transactions','Activity'],['bills','Bills'],['energy','Energy'],['budgets','Budgets'],['pay','My pay','Pay'],['loans','Debts','Debts'],['docs','Documents','Docs'],['assist','Assistant','Chat'],['look','Settings','Settings']];
 var PAGE_LABEL={overview:'Summary',dash:'Live dashboard',accounts:'Accounts',assets:'Assets',invest:'Investments',bills:'Bills',subscriptions:'Subscriptions',energy:'Energy',budgets:'Budgets',report:'Monthly report',goals:'Goals',afford:'Can I afford it?',pay:'My pay',tax:'Taxes',loans:'Loans',cards:'Credit cards',mortgage:'Mortgage',credit:'Credit score'};
 var HUBLAST={};
 function pageName(id){var p=PAGES.filter(function(t){return t[0]===id})[0];return p?p[1]:id}
@@ -1204,7 +1208,28 @@ function refreshAll(){
 function goalAccts(){return S.accounts.filter(function(a){return !isDebt(a)&&a.type!=='property'&&a.type!=='asset'})}
 // A goal can follow an account's balance, so saving into that account updates the goal without a second entry.
 function syncGoals(){(S.goals||[]).forEach(function(g){if(!g.acct)return;var a=S.accounts.filter(function(x){return x.id===g.acct})[0];if(!a){delete g.acct;return}g.saved=Math.max(0,Math.round(a.balance*100)/100)})}
+/*NAVHIST-START*/
+// Back and forward through the pages you have visited, like the arrows in a browser.
+function navhPush(h,key,max){
+  var k=JSON.stringify(key),cur=h.stack[h.i];
+  if(cur!==undefined&&JSON.stringify(cur)===k)return h;
+  h.stack=h.stack.slice(0,h.i+1);h.stack.push(key);
+  if(h.stack.length>(max||60))h.stack.shift();
+  h.i=h.stack.length-1;return h;
+}
+function navhStep(h,d){var j=h.i+d;if(j<0||j>=h.stack.length)return null;h.i=j;return h.stack[j]}
+/*NAVHIST-END*/
+var NAVH={stack:[],i:-1,skip:false};
+function navhKey(){return {v:view,f:view==='loans'?loanFilter:'',l:view==='look'?lookTab:''}}
+function navhGo(d){
+  var k=navhStep(NAVH,d);if(!k)return;
+  NAVH.skip=true;if(k.f)loanFilter=k.f;if(k.l)lookTab=k.l;goTo(k.v);
+}
+function navhBtns(){
+  return '<span class="navhist" role="group" aria-label="Back and forward"><button type="button" class="btn small" data-act="nav-back" aria-label="Back" title="Back (Cmd+[ or Alt+Left)"'+(NAVH.i>0?'':' disabled')+'>&#8249;</button><button type="button" class="btn small" data-act="nav-fwd" aria-label="Forward" title="Forward (Cmd+] or Alt+Right)"'+(NAVH.i<NAVH.stack.length-1?'':' disabled')+'>&#8250;</button></span>';
+}
 function render(){
+  if(NAVH.skip)NAVH.skip=false;else navhPush(NAVH,navhKey(),60);
   if(vehPendingSave){vehPendingSave=false;try{save({noUndo:true})}catch(e){}}
   fuelTxMapCache=null;syncXfer();syncGoals();nav();
   var f={energy:vEnergy,bills:vBills,loans:vLoansHub,mortgage:vMortgage,carloan:function(){loanFilter='auto';return vLoansHub()},student:function(){loanFilter='student';return vLoansHub()},look:vLook,overview:vOverview,dash:vDash,assist:vAssist,accounts:vAccounts,assets:vAssets,afford:vAfford,credit:vCredit,cards:vCards,pay:vPay,tax:vTax,docs:vDocs,invest:vInvest,report:vReport,subscriptions:vSubs,budgets:vBudgets,transactions:vTx,goals:vGoals}[view];
@@ -1215,7 +1240,8 @@ function render(){
   body=body.replace(/(<div class="top"><h1>[^<]*<\/h1>)/,'$1'+undoButtons());
   if(body.indexOf('class="undo"')<0)body='<div style="display:flex;justify-content:flex-end;margin:0 0 8px">'+undoButtons()+'</div>'+body;
   body=body.replace(/(<div class="top"><h1>[^<]*<\/h1>)/,'$1'+layoutButtons());
-  body=body.replace('<div class="top"><h1>','<div class="top"><h1>'+tabChip(view));
+  body=body.replace('<div class="top"><h1>','<div class="top">'+navhBtns()+'<h1>'+tabChip(view));
+  if(body.indexOf('class="navhist"')<0)body='<div style="display:flex;margin:0 0 8px">'+navhBtns()+'</div>'+body;
   if(view!=='energy'&&view!=='overview'&&view!=='assist')body=afterTopBar(body,tabHero(view));
   $('#main').style.setProperty('--tab',tabColor(view));
   HUBLAST[hubOf(view)]=hubPageOf(view);
@@ -1223,7 +1249,25 @@ function render(){
   layoutApply();
   bindView();thBind($('#main'));afterRender();helpFabSync();tabBgSync();dockInit();
 }
-function monthNav(){return '<div class="monthnav"><button class="btn small" data-act="mprev" aria-label="Previous month">&larr;</button><b>'+monthLabel(month)+'</b><button class="btn small" data-act="mnext" aria-label="Next month"'+(month>=monthLimit()?' disabled':'')+'>&rarr;</button></div>'}
+function monthList(){var lim=monthLimit(),out=[],m=lim,i;for(i=0;i<48;i++){out.unshift(m);m=shiftMonth(m,-1)}return out}
+// A scrolling drum of months, like the timer on an iPhone: scroll or swipe and it ticks past each month, then settles on one.
+function monthNav(){
+  return '<div class="mwheel" role="listbox" tabindex="0" aria-label="Month. Scroll or use the arrow keys to change it" data-lim="'+monthLimit()+'">'+monthList().map(function(m){return '<div class="mw'+(m===month?' on':'')+'" role="option" aria-selected="'+(m===month)+'" data-m="'+m+'">'+monthLabel(m)+'</div>'}).join('')+'</div>';
+}
+function monthWheelBind(){
+  var w=document.querySelector('#main .mwheel');if(!w)return;
+  var H=28,items=w.querySelectorAll('.mw'),cur=-1,timer=0,idxOf=function(){return Math.max(0,Math.min(items.length-1,Math.round(w.scrollTop/H)))};
+  items.forEach(function(it,i){if(it.dataset.m===month)cur=i});
+  w.scrollTop=Math.max(0,cur)*H;
+  var last=Math.max(0,cur);
+  w.addEventListener('scroll',function(){
+    var i=idxOf();
+    if(i!==last){last=i;items.forEach(function(it,j){it.classList.toggle('on',j===i);it.setAttribute('aria-selected',j===i)});snd('tick')}
+    clearTimeout(timer);timer=setTimeout(function(){var m=items[idxOf()].dataset.m;if(m&&m!==month){month=m;render()}},160);
+  },{passive:true});
+  items.forEach(function(it,i){it.addEventListener('click',function(){w.scrollTo({top:i*H,behavior:'smooth'})})});
+  w.addEventListener('keydown',function(e){var d=e.key==='ArrowUp'||e.key==='ArrowLeft'?-1:e.key==='ArrowDown'||e.key==='ArrowRight'?1:0;if(!d)return;e.preventDefault();w.scrollTo({top:Math.max(0,Math.min(items.length-1,idxOf()+d))*H,behavior:'smooth'})});
+}
 // Bills can be looked at a few months ahead (maintenance and fills due later); other tabs stop at this month.
 function monthLimit(){return view==='bills'?shiftMonth(NOWKEY,3):NOWKEY}
 
@@ -5324,7 +5368,7 @@ var billUI={edit:'',adding:false,adj:''};
 
 /*HELP-START*/
 // What each tab is for and how to use it. Shown by the ? button on every tab and in the walkthrough (Settings, then Help).
-var HELP_START={t:'Welcome',what:'Tally Money keeps your money in one place on this computer: accounts, spending, bills, pay, taxes, goals and more. Your data stays on this computer; nothing is sent anywhere unless you choose an AI feature and give it your own key.',how:['Bring in your data. On Transactions, import a bank or card statement (a CSV or a PDF). On Accounts, add your accounts and balances.','The example data you see at first is made up so you can try everything. Clear it when you are ready to use your own.','Press Ctrl+K (Cmd+K on a Mac) or / to search or ask anything, such as next paycheck, bills due or tax refund.','If you change something by mistake, use Undo at the top of the page.','Open Settings to change how the app looks, reorder or hide tabs, set a password or Touch ID, back up your data and update the app.','Tap the ? button at the bottom right of any tab for a short guide to that tab.'],tip:'Nothing here moves money. The app only reads what you give it.'};
+var HELP_START={t:'Welcome',what:'Tally Money keeps your money in one place on this computer: accounts, spending, bills, pay, taxes, goals and more. Your data stays on this computer; nothing is sent anywhere unless you choose an AI feature and give it your own key.',how:['Bring in your data. On Transactions, import a bank or card statement (a CSV or a PDF). On Accounts, add your accounts and balances.','The example data you see at first is made up so you can try everything. Clear it when you are ready to use your own.','Press Ctrl+K (Cmd+K on a Mac) or / to search or ask anything, such as next paycheck, bills due or tax refund.','If you change something by mistake, use Undo at the top of the page. The ‹ › arrows at the top left of every page go back and forward through the pages you visited (Cmd+[ and Cmd+], or Alt with the left and right arrow keys).','Open Settings to change how the app looks, reorder or hide tabs, set a password or Touch ID, back up your data and update the app.','Tap the ? button at the bottom right of any tab for a short guide to that tab.'],tip:'Nothing here moves money. The app only reads what you give it.'};
 var HELP={
   overview:{t:'Overview',what:'A summary of the month: where your money went, income against spending over six months, your budgets and the bills coming up.',how:['Use the month arrows at the top to look at another month.','Read Where it went to see which categories took the most.','Budgets are listed most used first, so the ones you are close to overspending show at the top.','Bills coming up lists what is due in the next two weeks.','Your stocks shows what your investments are worth, how they moved today, a chart of their value over time (1M, 3M or 1Y), a bar of how your money is split between them and how each stock is doing. It refreshes about every minute while the market is open.','Recent transactions lists your latest activity.','The row at the top switches between this summary and the Live dashboard.','Press Customize at the top of this page (or any page with windows) to drag windows into a new order, make them half or full width, hide the ones you do not want and choose how some of them are drawn: spending as a donut, bars or a list, the six months as bars or lines, your stocks as a line graph, a pie or bars, budgets as bars or rings, net worth as a line or bars. You can also hold a window by its title and drag it.'],tip:'This is the page to glance at each morning. Open the other tabs for detail.'},
   dash:{t:'Dashboard',what:'A live view of your net worth, bills, loan payoff, goals and spending in one screen.',how:['Read the cards for your headline numbers.','Click a card to open the tab behind it.','Recent transactions shows your latest activity.','Leave it open: it updates on its own.'],tip:'Add accounts and balances first so the net worth card is accurate.'},
@@ -5351,7 +5395,7 @@ var HELP={
 };
 // What changed in each version, in plain words. A test makes sure the version in package.json has an entry, so a release cannot go out without it.
 var WHATSNEW=[
- ['1.8.34',['Documents are locked. Opening the Documents page, a folder, an ID or a file asks for your app password, a separate documents password, or Touch ID on a Mac, and stays open for 5 minutes. Lock now closes it at once. The same lock covers the Tax documents button and document search results. Files in the Documents folder are still ordinary files on disk, so this keeps people out of the app, not out of Finder.','Pay statements, Tax documents, Bank and card statements, Vehicle records, Energy bills, Receipts and Other now look like the IDs and records cards: a stack of papers in a pocket, with arrows to flip through the files.']],
+ ['1.8.34',['Back and forward arrows now sit at the top left of every page and go through the pages you visited, like a browser. Keyboard: Cmd+[ and Cmd+], or Alt with the left and right arrow keys.','The month arrows are now a scrolling drum, like the timer on an iPhone: scroll or swipe and it ticks past each month, then settles. The tick follows your sound setting.','Energy is a tab of its own again, next to Bills. Investments was already restored.','Documents are locked. Opening the Documents page, a folder, an ID or a file asks for your app password, a separate documents password, or Touch ID on a Mac, and stays open for 5 minutes. Lock now closes it at once. The same lock covers the Tax documents button and document search results. Files in the Documents folder are still ordinary files on disk, so this keeps people out of the app, not out of Finder.','Pay statements, Tax documents, Bank and card statements, Vehicle records, Energy bills, Receipts and Other now look like the IDs and records cards: a stack of papers in a pocket, with arrows to flip through the files.']],
  ['1.8.33',['Investments is its own tab again, in the sidebar between Accounts and Transactions.','The Investments card on the Overview now has pictures: a graph of your investments over the last 90 days and a bar showing how they are split between your holdings. It fills in as soon as prices load.','Fixed the Investments page redrawing itself over and over when a stock\'s details could not be loaded.','Debt payments are smarter about when your balance is from. A loan or card now counts every payment made after the date its balance was last entered or stated (before, it only counted payments from the day you updated the app). You can change that date on Debts, in the Debt payments window.','A withdrawal that looks like a loan payment but has an unusual name now shows in the Debt payments window with a menu to pick the debt it paid. If a payment lowered a debt but is not linked to a bank account, the window says your net worth reads too high by that much and links them all to the account you choose.']],
  ['1.8.32',['Your debts now follow your transactions. When a payment to a student loan, car loan, other loan or card shows up in Transactions, that balance goes down by itself, and a bank or savings balance moves with the transactions linked to it. Deleting or editing a transaction puts it right back, and typing a new balance starts again from that balance, so nothing counts twice.','New Debt payments window on Debts: how much you have paid so far, how much of it went toward what you owe and how much was interest, and how your latest payment was split between loans (for example a student loan payment shared across its loans). Draw it as bars, a donut or a list. Change the split if your statement shows something different.','Edit a transaction and use Pays toward to say which debt it belongs to, or that it is not a debt payment. Mortgages stay off until you turn them on, because the payment includes escrow. Bank-linked accounts are left alone.']],
  ['1.8.31',['Drag the windows on a page to change its layout: press Customize, then move, resize or hide each window, or hold a window by its title and drag it. Some windows can be drawn a different way: spending as a donut, bars or a list; the six months as bars or lines; your stocks as a line graph, pie or bars; budgets as bars or rings; net worth as a line or bars. Each user keeps their own layout.']],
@@ -8446,6 +8490,7 @@ document.addEventListener('keydown',function(e){
   var k=(e.key||'').toLowerCase(),t=e.target,tag=t&&t.tagName,typing=tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT'||(t&&t.isContentEditable);
   if((e.metaKey||e.ctrlKey)&&!e.altKey&&k==='k'){e.preventDefault();if(spot.open)spotClose();else spotOpen();return}
   if(k==='/'&&!typing&&!e.metaKey&&!e.ctrlKey&&!e.altKey&&!spot.open){e.preventDefault();spotOpen()}
+  if(!typing&&!spot.open&&((((e.metaKey||e.ctrlKey)&&!e.altKey)&&(k==='['||k===']'))||(e.altKey&&!e.metaKey&&!e.ctrlKey&&(k==='arrowleft'||k==='arrowright')))){e.preventDefault();navhGo(k==='['||k==='arrowleft'?-1:1)}
 });
 
 /* ---------- Help: the ? button on every tab and the walkthrough ---------- */
@@ -9554,6 +9599,7 @@ function vGoals(){
 /* ---------- events ---------- */
 function bindView(){
   var m=$('#main');
+  monthWheelBind();
   var f;
   if((f=$('#subform',m)))f.onsubmit=function(e){e.preventDefault();S.subs.push({id:uid(),name:$('#sf-name').value.trim(),amount:parseFloat($('#sf-amt').value),cycle:$('#sf-cycle').value,next:$('#sf-next').value,status:'active'});save();render();toast('Subscription added.')};
   if((f=$('#txform',m)))f.onsubmit=function(e){e.preventDefault();var name=$('#tf-name').value.trim(),amt=parseFloat($('#tf-amt').value),cat=$('#tf-cat').value||(amt>0?'Income':guessCat(name));var nt={id:uid(),date:$('#tf-date').value,name:name,amount:amt,cat:cat},nsb=guessSub(cat,name);if(nsb)nt.sub=nsb;S.txns.unshift(nt);S.txns.sort(function(a,b){return a.date<b.date?1:-1});save();render();toast('Transaction added.')};
@@ -9716,6 +9762,8 @@ document.addEventListener('click',function(e){
   var b=e.target.closest('[data-act]');if(!b)return;
   var a=b.dataset.act,id=b.dataset.id,s=S.subs.filter(function(x){return x.id===id})[0];
   if(docGated(a)&&!docOpen()){docAuth(a==='doc-del'?'Confirm it is you to remove a document.':'Confirm it is you to open your documents.',function(){b.click()});return}
+  if(a==='nav-back'){navhGo(-1);return}
+  if(a==='nav-fwd'){navhGo(1);return}
   if(a==='mprev')month=shiftMonth(month,-1);
   else if(a==='refresh'){refreshAll();return}
   else if(a==='asst-check'){ASSIST.st=null;assistLoad();render();return}

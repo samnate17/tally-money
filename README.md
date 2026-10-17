@@ -694,3 +694,7 @@ Payments count from the date a balance was last entered or stated (set it per ac
 ## Documents lock
 
 The Documents page and every button that opens a folder, an ID or a file ask for a password or Touch ID first (your app password if you have one, otherwise a documents password you set the first time). Unlocked for 5 minutes, then it asks again; Lock now closes it. This keeps someone using your open app out of your documents. It does not encrypt the Documents folder on disk (the IDs and records wallet is encrypted separately). Document folders use the same stacked-paper cards as IDs and records.
+
+## Back and forward, month drum, Energy tab
+
+The ‹ › buttons at the top left of every page move back and forward through the pages you visited (Cmd+[ / Cmd+], or Alt+Left / Alt+Right). The month control is a scrolling drum with a tick sound (Settings > Sound turns it off). Energy has its own tab again; a saved tab order puts it at the end until you drag it where you want it.
