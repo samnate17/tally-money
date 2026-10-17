@@ -3349,3 +3349,23 @@ test('back and forward: pages are remembered, going back then somewhere new drop
   for (let i = 0; i < 100; i++) N.navhPush(h, { v: 'p' + i }, 10);
   assert.equal(h.stack.length, 10); assert.equal(h.i, 9);
 });
+
+// ---------- Overview shortcuts and folding ----------
+test('shortcuts: clean what is saved, keep the order you set, and fall back to the standard ones', () => {
+  const S = new Function(srcBlock('/*SHORTCUTS-START*/', '/*SHORTCUTS-END*/') + '\nreturn {cleanShortcuts, scDefault, scMove, scNextSize, SC_COLORS};')();
+  const ok = (to) => ['bills', 'energy', 'loans'].indexOf(to) > -1, icon = (k) => ['plus', 'list'].indexOf(k) > -1;
+  assert.equal(S.scDefault().length, 6); assert.equal(S.cleanShortcuts('x', ok, icon), null, 'nothing usable: use the standard ones'); assert.deepEqual(S.cleanShortcuts([], ok, icon), [], 'an empty list is allowed');
+  const c = S.cleanShortcuts([{ id: 'a1', label: '  <b>Energy</b> ', to: 'energy', icon: 'zzz', color: '#ABCDEF', size: 'l' }, { label: 'Bad', to: 'nowhere' }, { label: '', to: 'bills' }, { id: 'a1', label: 'Twin', to: 'bills', icon: 'plus', color: 'red', size: 'q' }], ok, icon);
+  assert.equal(c.length, 2); assert.equal(c[0].label, 'bEnergy/b', 'angle brackets are dropped'); assert.equal(c[0].icon, 'list'); assert.equal(c[0].color, '#abcdef'); assert.equal(c[0].size, 'l');
+  assert.notEqual(c[1].id, 'a1', 'a repeated id is made new'); assert.equal(c[1].color, ''); assert.equal(c[1].size, 'm');
+  assert.equal(S.cleanShortcuts(Array.from({ length: 40 }, (_, i) => ({ label: 'n' + i, to: 'bills' })), ok, icon).length, 24, 'at most 24');
+  const l = [{ id: 'a' }, { id: 'b' }, { id: 'c' }];
+  assert.deepEqual(S.scMove(l, 'a', 1).map((x) => x.id), ['b', 'a', 'c']); assert.deepEqual(S.scMove(l, 'a', -1).map((x) => x.id), ['a', 'b', 'c'], 'cannot move past the start'); assert.deepEqual(S.scMove(l, 'c', 1).map((x) => x.id), ['a', 'b', 'c']);
+  assert.equal(S.scNextSize('s'), 'm'); assert.equal(S.scNextSize('m'), 'l'); assert.equal(S.scNextSize('l'), 's');
+});
+test('folding: some windows start folded, your own choice always wins, and it is saved per page', () => {
+  const L = new Function(srcBlock('/*LAYOUT-START*/', '/*LAYOUT-END*/') + '\nreturn {winFoldedOf, DEFAULT_FOLD, cleanLayout, LAYOUT_VIEWS};')();
+  assert.equal(L.winFoldedOf(null, 'loans', 'debt-free-by-a-date'), true); assert.equal(L.winFoldedOf(null, 'loans', 'debt-payments'), false);
+  const lay = { views: { loans: { fold: { 'debt-free-by-a-date': false, 'debt-payments': true } } } };
+  assert.equal(L.winFoldedOf(lay, 'loans', 'debt-free-by-a-date'), false, 'you opened it'); assert.equal(L.winFoldedOf(lay, 'loans', 'debt-payments'), true, 'you folded it');
+});

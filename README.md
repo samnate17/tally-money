@@ -698,3 +698,7 @@ The Documents page and every button that opens a folder, an ID or a file ask for
 ## Back and forward, month drum, Energy tab
 
 The ‹ › buttons at the top left of every page move back and forward through the pages you visited (Cmd+[ / Cmd+], or Alt+Left / Alt+Right). The month control is a scrolling drum with a tick sound (Settings > Sound turns it off). Energy has its own tab again; a saved tab order puts it at the end until you drag it where you want it.
+
+## Customizing the Overview
+
+Customize on the Overview lets you edit the shortcut buttons (name, icon, color, size, where they go, order), move and hide the cards under them, and move, resize, restyle or fold the windows. Tap a window title to fold it; tap a number or the Open button to go to the page it comes from. Shortcut and card choices are kept per user on this computer.
