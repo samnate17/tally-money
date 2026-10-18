@@ -1642,15 +1642,19 @@ function monthWheelBind(){
   var w=document.querySelector('#main .mwheel');if(!w)return;
   var H=28,items=w.querySelectorAll('.mw'),cur=-1,timer=0,idxOf=function(){return Math.max(0,Math.min(items.length-1,Math.round(w.scrollTop/H)))};
   items.forEach(function(it,i){if(it.dataset.m===month)cur=i});
-  w.scrollTop=Math.max(0,cur)*H;
+  // Only a scroll the person made may change the month. Putting the drum in place when the page opens (or when the window is laid out a moment later) must never pick a month by itself.
+  var usr=0,touch=function(){usr=Date.now()},place=function(){if(Date.now()-usr>1500)w.scrollTop=Math.max(0,cur)*H};
+  ['wheel','touchstart','touchmove','pointerdown','keydown'].forEach(function(n){w.addEventListener(n,touch,{passive:true})});
+  place();requestAnimationFrame(place);setTimeout(place,250);
   var last=Math.max(0,cur);
   w.addEventListener('scroll',function(){
     var i=idxOf();
+    if(Date.now()-usr>1500)return;
     if(i!==last){last=i;items.forEach(function(it,j){it.classList.toggle('on',j===i);it.setAttribute('aria-selected',j===i)});snd('tick')}
     clearTimeout(timer);timer=setTimeout(function(){var m=items[idxOf()].dataset.m;if(m&&m!==month){month=m;render()}},160);
   },{passive:true});
-  items.forEach(function(it,i){it.addEventListener('click',function(){w.scrollTo({top:i*H,behavior:'smooth'})})});
-  w.addEventListener('keydown',function(e){var d=e.key==='ArrowUp'||e.key==='ArrowLeft'?-1:e.key==='ArrowDown'||e.key==='ArrowRight'?1:0;if(!d)return;e.preventDefault();w.scrollTo({top:Math.max(0,Math.min(items.length-1,idxOf()+d))*H,behavior:'smooth'})});
+  items.forEach(function(it,i){it.addEventListener('click',function(){touch();w.scrollTo({top:i*H,behavior:'smooth'})})});
+  w.addEventListener('keydown',function(e){var d=e.key==='ArrowUp'||e.key==='ArrowLeft'?-1:e.key==='ArrowDown'||e.key==='ArrowRight'?1:0;if(!d)return;e.preventDefault();touch();w.scrollTo({top:Math.max(0,Math.min(items.length-1,idxOf()+d))*H,behavior:'smooth'})});
 }
 // Bills can be looked at a few months ahead (maintenance and fills due later); other tabs stop at this month.
 function monthLimit(){return view==='bills'?shiftMonth(NOWKEY,3):NOWKEY}
@@ -5897,6 +5901,7 @@ var HELP={
 };
 // What changed in each version, in plain words. A test makes sure the version in package.json has an entry, so a release cannot go out without it.
 var WHATSNEW=[
+ ['1.8.43',['Fixed: the app could open on the oldest month in the month scroller (for example November 2022) instead of the current month. The scroller now only changes the month when you scroll it yourself, so it always opens on this month.']],
  ['1.8.42',['A real car sound. Pointing at a car picture (in Debts, Assets or the Overview), or scrolling one into view, plays a 2023 Honda Civic Type R exhaust recording. It follows the Sound switch and volume in Settings.']],
  ['1.8.41',['Fixed: a long net worth (for example in the millions) no longer spills out of its box on the Dashboard; amounts in all the boxes shrink a little to fit.','Tidied up the Dashboard header: the word Live sits in the middle of its green bubble, the back and forward arrows are centered in their buttons, and the page icon lines up with the heading.','The Settings icon is now a pair of watch gears.','Centered the page icons that sat slightly off in their squares (Debts, Assets, Assistant, Energy, Taxes, Accounts, Student loan, Car loan).']],
  ['1.8.40',['Fixed: the owl looked the wrong way when it had turned to fly left. Its eyes now follow your pointer in both directions.']],
