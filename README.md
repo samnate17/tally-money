@@ -727,6 +727,8 @@ Pointing at a car picture (the car-loan icon, a vehicle picture in Debts and Ass
 
 ### Debts tab: how the plans are worked out
 
+The Debts tab has five pages: Loans (what you owe), Credit cards, Mortgage, **Payoff** (the plan, right before Credit score) and Credit score. The plan used to sit on the Loans page and in a second, older copy on the Accounts tab; both now point to the Payoff page, so there is one plan.
+
 `payoffPlan` (in the `DEBTPLAN` block) pays every debt's minimum each month, then puts all the rest of the monthly amount (and any one-time extra, first) on one debt at a time: highest rate first (avalanche) or smallest balance first (snowball). When a debt is paid off its payment moves to the next one. The window "The order they get paid off" is sorted by payoff date and lists the priority order separately, because a small low-rate debt can finish early on its own minimum. "Minimums only" is `separate()`: every debt on its own payment with no rolling over, so it is the true cost of doing nothing extra. Tests compare the plan with an independent simulation and check by brute force that no other order of the same payments costs less interest. Interest is charged monthly on the balance (APR/12); credit card minimums are held fixed, where real ones shrink as the balance falls.
 
 ### Connect Gmail

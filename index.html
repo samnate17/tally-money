@@ -1092,7 +1092,7 @@ function detect(){
   return out;
 }
 
-var TABCOL={overview:'#6366f1',dash:'#0ea5e9',accounts:'#2563eb',pay:'#0d9488',tax:'#f97316',docs:'#f59e0b',assets:'#8b5cf6',subscriptions:'#ec4899',bills:'#f43f5e',energy:'#16a34a',budgets:'#06b6d4',report:'#7c3aed',afford:'#d97706',credit:'#10b981',cards:'#4f46e5',invest:'#059669',transactions:'#64748b',goals:'#db2777',loans:'#b45309',carloan:'#b45309',student:'#b45309',mortgage:'#0f766e',assist:'#a855f7',look:'#475569'};
+var TABCOL={overview:'#6366f1',dash:'#0ea5e9',accounts:'#2563eb',pay:'#0d9488',tax:'#f97316',docs:'#f59e0b',assets:'#8b5cf6',subscriptions:'#ec4899',bills:'#f43f5e',energy:'#16a34a',budgets:'#06b6d4',report:'#7c3aed',afford:'#d97706',credit:'#10b981',cards:'#4f46e5',invest:'#059669',transactions:'#64748b',goals:'#db2777',loans:'#b45309',payoff:'#b45309',carloan:'#b45309',student:'#b45309',mortgage:'#0f766e',assist:'#a855f7',look:'#475569'};
 function tabColor(v){return Object.prototype.hasOwnProperty.call(TABCOL,v)?TABCOL[v]:'#6366f1'}
 
 // What each tab's banner says, and which picture it draws. Energy and the Overview have their own.
@@ -1113,7 +1113,8 @@ var THERO={
  invest:['Watch your investments','Holdings, allocation and how much they swing.',['Holdings','Allocation','Risk'],'wave'],
  transactions:['Every dollar in and out','Import statements, search and fix categories.',['Import','Search','Categories'],'tiles'],
  goals:['Save for what matters','Targets, progress and dates.',['Targets','Progress','Auto'],'target'],
- loans:['Pay debt down faster','Plans, the order to pay and what extra payments save.',['Payoff','Order','Interest'],'steps'],
+ loans:['Everything you owe','Your loans and cards, their rates and what is due each month.',['Owed','Rates','Due'],'steps'],
+ payoff:['Pay debt down faster','Which to pay first, when you will be debt-free and what extra payments save.',['Order','Date','Savings'],'steps'],
  mortgage:['Your home loan, explained','Payment, interest and what extra payments save.',['Payment','Interest','Extra'],'house'],
  look:['Make it yours','Appearance, tabs, security, backups and help.',['Look','Tabs','Security','Backup'],'pie']
 };
@@ -1150,6 +1151,7 @@ function tabChip(v){return '<i class="ni" style="--ic:'+tabColor(v)+'">'+(ICON[v
 /* ---------- icons + shell ---------- */
 var ICON={
  loans:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(0 -0.75)"><path d="M12 3 3 8l9 5 9-5-9-5z"/><path d="M3 13l9 5 9-5"/><path d="M3 17.5l9 5 9-5" opacity=".5"/></g></svg>',
+ payoff:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(0.6 0)"><path d="M5 21V4"/><path d="M5 4h12l-2.5 4 2.5 4H5"/></g></svg>',
  mortgage:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>',
  assist:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(-0.5 -0.76)"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></g></svg>',
  dash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><g transform="translate(0 -2.6)"><path d="M4 18a8 8 0 1 1 16 0"/><path d="M12 18l4-6"/><circle cx="12" cy="18" r="1.2"/></g></svg>',
@@ -1174,17 +1176,17 @@ var ICON={
  budgets:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v9h9"/><path d="M20.5 15A9 9 0 1 1 9 3.5"/></svg>',
  transactions:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h13M13 3l4 4-4 4M20 17H7M11 13l-4 4 4 4"/></svg>',
  goals:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg>'};
-var PAGES=[['overview','Overview'],['dash','Dashboard','Live'],['accounts','Accounts'],['pay','My pay','Pay'],['tax','Taxes','Tax'],['docs','Documents','Docs'],['assets','Assets'],['subscriptions','Subscriptions','Subs'],['bills','Bills','Bills'],['energy','Energy'],['budgets','Budgets'],['report','Monthly report','Report'],['afford','Can I afford it?','Afford'],['credit','Credit score','Score'],['cards','Credit cards','Cards'],['invest','Investments','Invest'],['transactions','Transactions','Activity'],['goals','Goals'],['loans','Loans'],['mortgage','Mortgage','Home'],['assist','Assistant','Chat'],['look','Settings','Settings']];
+var PAGES=[['overview','Overview'],['dash','Dashboard','Live'],['accounts','Accounts'],['pay','My pay','Pay'],['tax','Taxes','Tax'],['docs','Documents','Docs'],['assets','Assets'],['subscriptions','Subscriptions','Subs'],['bills','Bills','Bills'],['energy','Energy'],['budgets','Budgets'],['report','Monthly report','Report'],['afford','Can I afford it?','Afford'],['credit','Credit score','Score'],['cards','Credit cards','Cards'],['invest','Investments','Invest'],['transactions','Transactions','Activity'],['goals','Goals'],['loans','Loans'],['mortgage','Mortgage','Home'],['payoff','Payoff'],['assist','Assistant','Chat'],['look','Settings','Settings']];
 /*HUB-START*/
 // The tabs in the sidebar. Each one holds one or more pages (the old tabs); every page keeps its id, so anything that opens a page by id still works.
-var HUBS=[['overview',['overview','dash']],['accounts',['accounts','assets']],['invest',['invest']],['transactions',['transactions']],['bills',['bills','subscriptions']],['energy',['energy']],['budgets',['budgets','report','goals','afford']],['pay',['pay','tax']],['loans',['loans','cards','mortgage','credit']],['docs',['docs']],['assist',['assist']],['look',['look']]];
+var HUBS=[['overview',['overview','dash']],['accounts',['accounts','assets']],['invest',['invest']],['transactions',['transactions']],['bills',['bills','subscriptions']],['energy',['energy']],['budgets',['budgets','report','goals','afford']],['pay',['pay','tax']],['loans',['loans','cards','mortgage','payoff','credit']],['docs',['docs']],['assist',['assist']],['look',['look']]];
 var HUB_ALIAS={carloan:'loans',student:'loans',cashback:'cards'};
 function hubPageOf(v){return HUB_ALIAS[v]||v}
 function hubOf(v){v=hubPageOf(v);for(var i=0;i<HUBS.length;i++)if(HUBS[i][1].indexOf(v)>-1)return HUBS[i][0];return v}
 function hubPages(id){for(var i=0;i<HUBS.length;i++)if(HUBS[i][0]===id)return HUBS[i][1];return [id]}
 /*HUB-END*/
 var TABS=[['overview','Overview'],['accounts','Accounts'],['invest','Investments','Invest'],['transactions','Transactions','Activity'],['bills','Bills'],['energy','Energy'],['budgets','Budgets'],['pay','My pay','Pay'],['loans','Debts','Debts'],['docs','Documents','Docs'],['assist','Assistant','Chat'],['look','Settings','Settings']];
-var PAGE_LABEL={overview:'Summary',dash:'Live dashboard',accounts:'Accounts',assets:'Assets',invest:'Investments',bills:'Bills',subscriptions:'Subscriptions',energy:'Energy',budgets:'Budgets',report:'Monthly report',goals:'Goals',afford:'Can I afford it?',pay:'My pay',tax:'Taxes',loans:'Loans',cards:'Credit cards',mortgage:'Mortgage',credit:'Credit score'};
+var PAGE_LABEL={overview:'Summary',dash:'Live dashboard',accounts:'Accounts',assets:'Assets',invest:'Investments',bills:'Bills',subscriptions:'Subscriptions',energy:'Energy',budgets:'Budgets',report:'Monthly report',goals:'Goals',afford:'Can I afford it?',pay:'My pay',tax:'Taxes',loans:'Loans',cards:'Credit cards',mortgage:'Mortgage',payoff:'Payoff',credit:'Credit score'};
 var HUBLAST={};
 function pageName(id){var p=PAGES.filter(function(t){return t[0]===id})[0];return p?p[1]:id}
 // Every page in sidebar order (for the tour and for search).
@@ -1599,7 +1601,7 @@ function render(){
   if(NAVH.skip)NAVH.skip=false;else navhPush(NAVH,navhKey(),60);
   if(vehPendingSave){vehPendingSave=false;try{save({noUndo:true})}catch(e){}}
   fuelTxMapCache=null;syncXfer();syncGoals();nav();
-  var f={energy:vEnergy,bills:vBills,loans:vLoansHub,mortgage:vMortgage,carloan:function(){loanFilter='auto';return vLoansHub()},student:function(){loanFilter='student';return vLoansHub()},look:vLook,overview:vOverview,dash:vDash,assist:vAssist,accounts:vAccounts,assets:vAssets,afford:vAfford,credit:vCredit,cards:vCards,pay:vPay,tax:vTax,docs:vDocs,invest:vInvest,report:vReport,subscriptions:vSubs,budgets:vBudgets,transactions:vTx,goals:vGoals}[view];
+  var f={energy:vEnergy,bills:vBills,loans:vLoansHub,payoff:vPayoff,mortgage:vMortgage,carloan:function(){loanFilter='auto';return vLoansHub()},student:function(){loanFilter='student';return vLoansHub()},look:vLook,overview:vOverview,dash:vDash,assist:vAssist,accounts:vAccounts,assets:vAssets,afford:vAfford,credit:vCredit,cards:vCards,pay:vPay,tax:vTax,docs:vDocs,invest:vInvest,report:vReport,subscriptions:vSubs,budgets:vBudgets,transactions:vTx,goals:vGoals}[view];
   var cb=HOSTED&&AUTH.conflict?'<div class="banner" id="conflict"><span><b>This account changed on another device.</b> Choose which version to keep.</span><span style="flex:0 0 auto;display:flex;gap:8px"><button class="btn small" data-act="cf-remote">Use the other version</button><button class="btn small primary" data-act="cf-local">Keep this device\'s version</button></span></div>':'';
   var banner=cb+updBanner()+(S.sample&&PROF.demo?'<div class="banner"><span><b>Demo user.</b> Everything here is made up, so it is safe to explore, add and delete. Nothing is real.</span><button class="btn small" data-act="prof-reset-demo">Reset the demo</button></div>':S.sample?'<div class="banner"><span><b>Example data.</b> These accounts and transactions are made up so you can try everything. Clear them to start with your own, or import a CSV from your bank.</span><button class="btn primary small" data-act="clear">Start fresh</button></div>':'');
   var body=f();
@@ -2369,7 +2371,6 @@ function emRead(files){
 /* ---------- Accounts and debts ---------- */
 var ASSET_TYPES={checking:'Checking',savings:'Savings',cash:'Cash',investment:'Investments',property:'Property or other asset'};
 var DEBT_TYPES={credit:'Credit card',student:'Student loan',auto:'Auto loan',mortgage:'Mortgage',loan:'Other loan'};
-var strategy='avalanche';
 function isDebt(a){return !!DEBT_TYPES[a.type]}
 function netWorth(){var as=0,db=0;S.accounts.forEach(function(a){if(isDebt(a))db+=a.balance;else as+=a.balance});return {assets:as,debts:db,net:as-db}}
 function withLimit(a,l){a.limit=l;return a}
@@ -4641,27 +4642,6 @@ function energyInsights(records){
 }
 function monthTitle(k){return new Date(+k.slice(0,4),+k.slice(5)-1,1).toLocaleDateString('en-US',{month:'long',year:'numeric'})}
 /*ENERGY-END*/
-/*PAYOFF-START*/
-function simulatePayoff(debts,extra,method){
-  var ds=debts.filter(function(d){return d.balance>0}).map(function(d){return {id:d.id,name:d.name,bal:d.balance,apr:d.apr||0,min:d.minPay||0,paid:0}});
-  if(!ds.length)return {ok:true,months:0,interest:0,order:[]};
-  var budget=ds.reduce(function(a,d){return a+d.min},0)+(extra||0);
-  if(!(budget>0))return {ok:false,reason:'nopay'};
-  ds.sort(method==='snowball'?function(a,b){return a.bal-b.bal}:function(a,b){return b.apr-a.apr||a.bal-b.bal});
-  var m=0,interest=0;
-  function open(){return ds.some(function(d){return d.bal>0.005})}
-  while(open()&&m<1200){
-    m++;
-    ds.forEach(function(d){if(d.bal>0.005){var i=d.bal*d.apr/1200;d.bal+=i;interest+=i}});
-    var avail=budget;
-    ds.forEach(function(d){if(d.bal>0.005){var p=Math.min(d.min,d.bal,avail);d.bal-=p;avail-=p}});
-    ds.forEach(function(d){if(d.bal>0.005&&avail>0){var p=Math.min(d.bal,avail);d.bal-=p;avail-=p}});
-    ds.forEach(function(d){if(d.bal<=0.005&&!d.paid)d.paid=m});
-  }
-  if(open())return {ok:false,reason:'never'};
-  return {ok:true,months:m,interest:interest,order:ds.slice().sort(function(a,b){return a.paid-b.paid}),priority:ds.slice()};   // order = when they finish; priority = where the extra goes (ds is sorted by the strategy)
-}
-/*PAYOFF-END*/
 function addMonths(d,n){return new Date(d.getFullYear(),d.getMonth()+n,1)}
 function monthYear(d){return d.toLocaleDateString('en-US',{month:'short',year:'numeric'})}
 function dur(m){var y=Math.floor(m/12),r=m%12;return (y?y+' yr':'')+(y&&r?' ':'')+((r||!y)?r+' mo':'')}
@@ -4708,23 +4688,9 @@ function acctRow(a){
   var meta=(DEBT_TYPES[a.type]||ASSET_TYPES[a.type])+(debt?' · '+a.apr+'% APR · min '+money0(a.minPay)+'/mo':'')+(a.type==='credit'&&a.limit>0?' · limit '+money0(a.limit):'')+' · updated '+shortDate(last);
   return '<div class="row wrap">'+logo(a.name)+'<div class="grow" style="flex-basis:180px"><div class="nm">'+esc(a.name)+(a.closed?' <span class="pill mute">Closed</span>':'')+(a.plaid?' <span class="pill good">Linked</span>':age>45?' <span class="pill warn">Out of date</span>':'')+'</div><div class="sub">'+meta+'</div></div><div class="amt num">'+money(a.balance)+'</div>'+(debt?'<label class="sub" style="display:flex;gap:4px;align-items:center;white-space:nowrap">Due day<input type="number" min="1" max="31" data-due="'+a.id+'" value="'+(a.dueDay||'')+'" style="width:64px" aria-label="Payment due day for '+esc(a.name)+'"></label><label class="sub" style="display:flex;gap:4px;align-items:center;white-space:nowrap">Min $<input type="number" min="0" step="0.01" data-minpay="'+a.id+'" value="'+(a.minPay||'')+'" style="width:88px" aria-label="Minimum payment for '+esc(a.name)+'"></label>':'')+(a.type==='credit'?'<button class="btn small" data-act="acct-closed" data-id="'+a.id+'">'+(a.closed?'Mark open':'Mark closed')+'</button>':'')+(a.plaid?'':'<form class="balform" data-id="'+a.id+'"><input type="number" min="0" step="0.01" required placeholder="Balance" aria-label="New balance for '+esc(a.name)+'"><button class="btn small">Update</button></form>')+'<button class="btn small" data-act="acct-del" data-id="'+a.id+'" aria-label="Remove '+esc(a.name)+'">&times;</button></div>';
 }
-function payoffPanel(){
-  var debts=S.accounts.filter(function(a){return isDebt(a)&&a.balance>0});
-  if(!debts.length)return '<section class="panel"><h2>Debt payoff plan</h2><div class="empty">Add a loan or credit card below to see a payoff plan.</div></section>';
-  var mins=debts.reduce(function(a,d){return a+d.minPay},0),av=simulatePayoff(debts,S.extraPay,'avalanche'),sn=simulatePayoff(debts,S.extraPay,'snowball');
-  function card(label,r){
-    if(!r.ok)return tile(label,'Never','<span class="bad">'+(r.reason==='nopay'?'Add minimum payments or an extra amount':'Payments do not cover the interest')+'</span>');
-    return tile(label,monthYear(addMonths(TODAY,r.months)),dur(r.months)+' · '+money0(r.interest)+' interest');
-  }
-  var note='';
-  if(av.ok&&sn.ok){var diff=sn.interest-av.interest;note=diff>0.5?'Highest rate first saves about '+money0(diff)+' in interest'+(sn.months>av.months?' and finishes '+(sn.months-av.months)+' month'+(sn.months-av.months>1?'s':'')+' sooner':'')+' compared with smallest balance first.':'Both methods finish at about the same time and cost.'}
-  var cur=strategy==='snowball'?sn:av,order=cur.ok?cur.order.map(function(d,i){return '<div class="row"><div class="grow"><div class="nm">'+(i+1)+'. '+esc(d.name)+'</div></div><div class="num muted">paid off '+monthYear(addMonths(TODAY,d.paid))+'</div></div>'}).join(''):'';
-  return '<section class="panel"><h2>Debt payoff plan<small>'+money0(mins)+'/mo in minimums</small></h2>'+
-   '<div class="form" style="margin-bottom:14px"><label>Extra per month<input id="extra" type="number" min="0" step="10" value="'+(S.extraPay||0)+'"></label><label>Pay off first<select id="strategy"><option value="avalanche"'+(strategy==='avalanche'?' selected':'')+'>Highest interest rate</option><option value="snowball"'+(strategy==='snowball'?' selected':'')+'>Smallest balance</option></select></label></div>'+
-   '<div class="grid tiles">'+card('Highest rate first',av)+card('Smallest balance first',sn)+'</div>'+
-   (note?'<p class="sub muted" style="margin:12px 0 0;font-size:13px">'+note+'</p>':'')+
-   (order?'<h3 style="font-size:15px;margin:16px 0 4px">Expected payoff order</h3><p class="sub muted" style="margin:0 0 6px;font-size:13px;white-space:normal">By payoff date. Your extra money goes '+(strategy==='snowball'?'smallest balance first':'highest rate first')+': '+cur.priority.map(function(d,i){return (i+1)+'. '+esc(d.name)}).join(', ')+'. A small debt can still finish early on its own minimum payments.</p>'+order:'')+
-   '<p class="sub muted" style="margin:12px 0 0;font-size:13px">Assumes fixed interest rates, no new charges, and that freed-up minimum payments roll into the next debt.</p></section>';
+function payoffLink(){
+  if(!S.accounts.some(function(a){return isDebt(a)&&a.balance>0}))return '';
+  return '<section class="panel"><h2>Debt payoff plan</h2><p class="sub" style="margin:0 0 10px;white-space:normal">The plan for paying off your debts (which to pay first, when you will be debt-free and what extra money saves) is on the Payoff page in the Debts tab.</p><div class="actions" style="justify-content:flex-start"><button class="btn primary" data-view="payoff">Open the payoff plan</button></div></section>';
 }
 function vAccounts(){
   var nw=netWorth(),assets=S.accounts.filter(function(a){return !isDebt(a)}),debts=S.accounts.filter(isDebt);
@@ -4734,7 +4700,7 @@ function vAccounts(){
    '<section class="panel"><h2>Net worth</h2>'+nwChart(winStyle('accounts','net-worth'))+'</section>'+
    '<section class="panel"><h2>Assets</h2>'+(assets.length?assets.map(acctRow).join(''):'<div class="empty">No assets yet.</div>')+'</section>'+
    '<section class="panel"><h2>Debts</h2>'+(debts.length?debts.map(acctRow).join(''):'<div class="empty">No debts tracked.</div>')+'</section>'+
-   payoffPanel()+plShell()+
+   payoffLink()+plShell()+
    '<section class="panel"><h2>Add an account</h2><form class="form" id="acctform"><label>Name<input id="af-name" required placeholder="e.g. Chase Sapphire"></label><label>Type<select id="af-type">'+opts+'</select></label><label>Balance<input id="af-bal" type="number" min="0" step="0.01" required placeholder="0.00"></label><label class="debtonly">Interest rate (APR %)<input id="af-apr" type="number" min="0" step="0.01" placeholder="19.99"></label><label class="debtonly">Minimum payment<input id="af-min" type="number" min="0" step="0.01" placeholder="0.00"></label><label class="debtonly">Payment due day (1 to 31)<input id="af-due" type="number" min="1" max="31" placeholder="15"></label><label class="creditonly">Credit limit<input id="af-limit" type="number" min="0" step="1" placeholder="5000"></label><label class="creditonly" style="flex-direction:row;gap:6px;align-items:center"><input id="af-closed" type="checkbox"> Closed, but I still owe a balance</label><button class="btn primary">Add</button></form><p class="sub muted" style="margin:12px 0 0;font-size:13px">For debts, enter the amount you owe as a positive number. Balances are entered by hand, so update them now and then. Each update is saved so the net worth chart can show your trend.</p></section>';
 }
 
@@ -5908,13 +5874,15 @@ var HELP={
   invest:{t:'Investments',what:'Your holdings, how they are spread out and how much they swing.',how:['Add a holding with its symbol, shares and cost.','See Allocation and By topic to check you are not too concentrated.','Volatility watch shows which ones move the most; the Analysts pill shows what analysts think.'],tip:'Prices are for information only.'},
   transactions:{t:'Transactions',what:'Every deposit and purchase. This is where you bring in your data.',how:['Import a statement (CSV or PDF) from your bank or card.','Use the filters and the search to find what you want.','Change a transaction\'s category, or fix many at once.','Transfers between your own accounts and card payments are left out of your spending so nothing counts twice.','From email (below the imports) finds transactions in your emails and adds the ones you have not imported yet, without duplicating what your bank already shows. Connect Gmail there with an app password (Google Account, Security, App passwords) and press Scan, or choose .eml / .mbox files you exported.','Loan and card payments lower what you owe, and transactions linked to a checking or savings account move its balance. Typing a new balance on Accounts starts again from that balance.'],tip:'Import regularly. Most other tabs are built from what is here.'},
   goals:{t:'Goals',what:'Things you are saving for, with progress and a date.',how:['Create a goal with a name, a target and a date.','Link a goal to an account so progress follows its balance.','Turn on auto to put money toward it on a schedule.'],tip:'Pick the goal that matters most and fund it first.'},
-  loans:{t:'Loans',what:'Your car, student and other loans in one place, with plans to pay them off faster.',how:['Add a loan with its balance, rate, payment and due day.','Read The order to pay them and Debt-free by a date.','Import a statement from your lender to update a loan.','Payments you add or import to Transactions lower the matching loan or card by themselves. The Debt payments window shows how much you have paid and how your latest payment was split between loans. Change the split there if your statement differs. A withdrawal the app could not match is listed there with a menu to pick its debt, and "Balance as of" sets the date your balance is true for, so payments since then count.','Try Would one new loan help? to compare consolidating or refinancing.','Credit cards, Mortgage and Credit score are the other pages along the top of this tab.'],tip:'A loan with a payment and a due day shows up on Bills.'},
+  loans:{t:'Loans',what:'Everything you owe in one place: your loans and cards, what is due each month, and how much you have paid.',how:['Add a loan with its balance, rate, payment and due day.','Import a statement from your lender to update a loan.','Payments you add or import to Transactions lower the matching loan or card by themselves. The Debt payments window shows how much you have paid and how your latest payment was split between loans. Change the split there if your statement differs. A withdrawal the app could not match is listed there with a menu to pick its debt, and "Balance as of" sets the date your balance is true for, so payments since then count.','The Payoff page has the plan: which debt to pay first, when you will be debt-free and what extra money saves. Credit cards, Mortgage and Credit score are the other pages along the top of this tab.'],tip:'A loan with a payment and due day shows up on Bills.'},
+  payoff:{t:'Payoff',what:'Your plan for paying off everything you owe: which debt gets your extra money, when you will be debt-free and what extra payments save.',how:['Type how much you can pay each month in total. The app takes every debt\'s minimum first and puts the rest on one debt at a time.','Pick Highest interest rate (the least interest) or Smallest balance (clears debts sooner).','The order they get paid off is sorted by date and says which debt your extra money goes to first.','Minimums only shows what happens if you pay each debt on its own and never move a freed-up payment to another debt.','Use Debt-free by a date and Would one new loan help? to test a goal or an offer.'],tip:'It uses the balances, rates and minimum payments on your loan and card pages, so keep those current. It is arithmetic from your numbers, not financial advice.'},
   mortgage:{t:'Mortgage',what:'Your home loan: payment, interest, what you would save by paying extra and how it fits your budget.',how:['Press Edit details and enter your home value, loan, rate and payment.','Read My read for a plain explanation of your numbers.','Change the assumptions to test extra payments.'],tip:'Property tax and insurance are included in the monthly picture.'},
   assist:{t:'Assistant',what:'A private chat assistant that runs on this computer and answers questions about your money.',how:['Follow Set up the assistant once (about five minutes).','Ask a question in plain words, such as how much I spent on food last month.','Press Clear chat to start over.'],tip:'It runs on your computer, so your questions never leave it.'},
   look:{t:'Settings',what:'How the app looks and works: appearance, tabs, security, backups and updates.',how:['Settings has pages along the top: You, Appearance, Security, Backup, App updates, Widget, More and Help.','You: your name and nickname, and the other users of this computer (add a real person to get the setup guide, or a demo user with made-up data).','Appearance: sound, where the tabs sit and their order (hold and drag), the look, colour, glass, text and motion. Press Reset appearance to undo your styling.','Security: an app password and Touch ID, and moving to another computer.','Backup: save or restore everything you have entered.','App updates: check for a new version, or go back to an earlier one (save a backup first).','Widget: choose what the desktop widget shows and in what order (it draws graphs and rings, not just numbers), blur amounts, and ask for Touch ID before showing them.','Help: the tour, the guide, What to update and what is new.'],tip:'Search (Ctrl+K) finds any setting and opens its page.'}
 };
 // What changed in each version, in plain words. A test makes sure the version in package.json has an entry, so a release cannot go out without it.
 var WHATSNEW=[
+ ['1.8.46',['New Payoff page in the Debts tab, right before Credit score. The plan for paying off your debts (monthly amount, which to pay first, when you will be debt-free, a deadline and a new-loan check) moved there from the Loans page, so Loans is now just what you owe.','The old Debt payoff plan on the Accounts tab is replaced by a button that opens the Payoff page, so there is one plan instead of two that disagreed.','The What you owe, by kind window on Loans now includes your credit cards, so its rows add up to the total.']],
  ['1.8.45',['Debts tab accuracy fixes. The window called The order to pay them said "highest rate first" but listed debts by when they would be paid off, so a small low-rate loan could appear on top. It is now called The order they get paid off, sorted by date, and it states plainly where your extra money goes first, with the months each debt gets the extra.','Minimums only now means what it says: each debt paid on its own payment with nothing rolling over. Before, it quietly rolled each paid-off payment onto the next debt, which made the minimums-only interest too low and the savings from a plan look too small. The Pay it off faster tables on each loan page now start from the same honest baseline.','Would one new loan help? now counts the fee as a cost when it says how much the new loan saves or costs.','Reworded two pieces of advice that said more than the numbers show: the credit card interest note counts only cards at 12% or more, and the low-rate note no longer claims investing beats paying a debt off.']],
  ['1.8.44',['New sub-categories under Personal care: Tattoos and Piercings. Spending at a tattoo or piercing studio is sorted into them automatically, and you can pick them for any transaction.','Removed the "by sub-category" window from the bottom of the Budgets tab. The same breakdown is still there when you open a single budget.']],
  ['1.8.43',['Fixed: the app could open on the oldest month in the month scroller (for example November 2022) instead of the current month. The scroller now only changes the month when you scroll it yourself, so it always opens on this month.']],
@@ -6045,8 +6013,14 @@ var TOURS={
   {f:['h2','New goal'],t:'New goal',x:'Create a goal with a name, a target and a date.'}],
  loans:[
   {f:['btn','All loans'],t:'Pick a kind',x:'Switch between all loans, student, car and others.',opt:true},
-  {f:['h2','Build your plan'],t:'Build your plan',x:'Tell the app what you can pay each month.',opt:true},
-  {f:['h2','Which order?'],t:'Which order?',x:'Smallest balance first or highest rate first.',opt:true},
+  {f:['h2','Debt payments'],t:'Your debt payments',x:'What you have paid, and how your latest payment was split between loans.',opt:true},
+  {f:['h2','What you owe, by kind'],t:'What you owe',x:'Your loans and cards grouped by kind, with the rate and monthly payment of each group.',opt:true},
+  {f:['h2','Plan your payoff'],t:'Plan your payoff',x:'Open the Payoff page to see which debt to pay first and when you will be debt-free.',opt:true}],
+ payoff:[
+  {f:['h2','Build your plan'],t:'Build your plan',x:'Tell the app what you can pay each month.'},
+  {f:['h2','Which order?'],t:'Which order?',x:'Minimums only, highest rate first or smallest balance first, side by side.',opt:true},
+  {f:['h2','My read'],t:'My read',x:'What the numbers say, in plain words.',opt:true},
+  {f:['h2','The order they get paid off'],t:'When each debt ends',x:'Sorted by payoff date, with where your extra money goes first.',opt:true},
   {f:['h2','Debt-free by a date'],t:'Debt-free by a date',x:'What it takes to be done by a date you choose.',opt:true},
   {f:['h2','Would one new loan help'],t:'Would a new loan help?',x:'Compare consolidating, refinancing or a balance transfer.',opt:true}],
  mortgage:[
@@ -6464,11 +6438,18 @@ function vLoansHub(){
     return '<button class="btn small'+(loanFilter===f[0]?' primary':'')+'" data-rid="'+f[0]+'" title="Hold, then drag to move" data-act="loan-filter" data-f="'+f[0]+'"'+(loanFilter===f[0]?' aria-current="true"':'')+'>'+f[1]+(n?' ('+n+')':'')+'</button>'}).join('');
   var head='<div class="top"><h1>Loans</h1></div><div class="actions" data-reorder="loans" style="justify-content:flex-start;margin:4px 0 14px;flex-wrap:wrap">'+chips+'</div>';
   if(loanFilter!=='all')return head+vLoans(loanFilter,true);
-  return head+vDebtStrategy();
+  var d=debtParts(false);if(d.empty)return head+d.empty;
+  return head+d.tiles+debtPayPanel('')+d.byGroup+'<section class="panel"><h2>Plan your payoff</h2><p class="sub" style="margin:0 0 10px;white-space:normal">See which debt to pay first, when you will be debt-free and what extra money saves.</p><div class="actions" style="justify-content:flex-start"><button class="btn primary" data-view="payoff">Open the payoff plan</button></div></section>';
 }
-function vDebtStrategy(){
+function vPayoff(){
+  var head='<div class="top"><h1>Payoff</h1></div>',d=debtParts(true);
+  if(d.empty)return head+d.empty;
+  return head+d.tiles+d.ctrl+d.cmp+d.adv+d.order+d.deadline+d.cons;
+}
+// The pieces of the debt pages: the Loans page shows what you owe, the Payoff page shows the plan for paying it off.
+function debtParts(forPayoff){
   var debts=debtList(debtUI.incl);
-  if(!debts.length)return '<section class="panel"><div class="empty">No loans yet. Use the buttons above to add your student loans, car loans, credit cards or other loans. This page then shows the order to pay them in, how much faster extra money makes it, and what to expect.</div></section>';
+  if(!debts.length)return {empty:'<section class="panel"><div class="empty">'+(forPayoff?'No debts yet. Add your loans on the Loans page and your cards on the Credit cards page. This page then shows which to pay first, when you will be debt-free and what extra money saves.<div style="margin-top:12px"><button class="btn primary" data-view="loans">Go to Loans</button></div>':'No loans yet. Use the buttons above to add your student loans, car loans, credit cards or other loans. The Payoff page then shows which to pay first, how much faster extra money makes it, and what to expect.')+'</div></section>'};
   var total=debts.reduce(function(a,d){return a+d.balance},0),mins=debts.reduce(function(a,d){return a+d.minPay},0),wapr=total>0?debts.reduce(function(a,d){return a+d.balance*d.apr},0)/total:0;
   var monthly=debtUI.monthly!==''?Math.max(0,parseFloat(debtUI.monthly)||0):(S.debtMonthly>0?S.debtMonthly:mins+(S.extraPay||0)),lump=Math.max(0,parseFloat(debtUI.lump)||0);
   var pm=payoffPlan(debts,mins,'minimum'),av=payoffPlan(debts,monthly,'avalanche',{lump:lump}),sn=payoffPlan(debts,monthly,'snowball',{lump:lump}),cur=debtUI.strat==='snowball'?sn:av;
@@ -6493,8 +6474,11 @@ function vDebtStrategy(){
     (co?'<p style="margin:10px 0 0;white-space:normal">One loan of <b>'+money0(co.principal)+'</b> ('+(co.fee>0?'including a '+money0(co.fee)+' fee, ':'')+'covering all '+debts.length+' debts) would cost <b>'+money0(co.pay)+'</b> a month for '+co.monthsNew+' months and '+money0(co.newInterest)+' in interest'+(co.fee>0?', plus the '+money0(co.fee)+' fee':'')+'. '+(co.nowOk?'Paying the same amount a month the highest-rate-first way you would owe '+money0(co.nowInterest)+' in interest'+(co.nowMonths<co.monthsNew?' and be done in '+dur(co.nowMonths)+'.':'.')+' <b class="'+(co.saving>0?'good':'bad')+'">'+(co.saving>0?'The new loan would save about '+money0(co.saving)+'.':'The new loan would cost about '+money0(-co.saving)+' more.')+'</b>':'')+'</p><p class="sub muted" style="margin:6px 0 0;font-size:12px;white-space:normal">Be careful with federal student loans: moving them to a private loan gives up income-driven plans, deferment and forgiveness. Only compare loans you could actually get.</p>':'<p class="sub muted" style="margin:10px 0 0;font-size:13px;white-space:normal">Enter the rate and term of an offer you have (a personal loan, a 0% transfer card with its fee, a refinance) to see whether it beats your current plan.</p>')+'</section>';
   var groups=LOANFILTERS.slice(1).map(function(f){var ds=debts.filter(function(d){return d.type===f[0]});if(!ds.length)return '';var t=ds.reduce(function(a,d){return a+d.balance},0),mn=ds.reduce(function(a,d){return a+d.minPay},0),w=ds.reduce(function(a,d){return a+d.balance*d.apr},0)/t;
     return '<div class="row"><div class="grow"><div class="nm">'+f[1]+'</div><div class="sub">'+ds.length+' debt'+(ds.length===1?'':'s')+' · '+w.toFixed(2)+'% average · '+money0(mn)+'/mo</div></div><div class="amt num">'+money0(t)+'</div><button class="btn small" data-act="loan-filter" data-f="'+f[0]+'">Open</button></div>'}).join('');
+  var cds=debts.filter(function(d){return d.type==='credit'});
+  if(cds.length){var ct=cds.reduce(function(a,d){return a+d.balance},0),cm=cds.reduce(function(a,d){return a+d.minPay},0),cw=ct>0?cds.reduce(function(a,d){return a+d.balance*d.apr},0)/ct:0;
+    groups+='<div class="row"><div class="grow"><div class="nm">Credit cards</div><div class="sub">'+cds.length+' card'+(cds.length===1?'':'s')+' · '+cw.toFixed(2)+'% average · '+money0(cm)+'/mo</div></div><div class="amt num">'+money0(ct)+'</div><button class="btn small" data-view="cards">Open</button></div>'}
   var byGroup='<section class="panel"><h2>What you owe, by kind</h2>'+groups+(debtUI.incl?'':'<p class="sub muted" style="margin:10px 0 0;font-size:12px">Your mortgage is left out of this plan. It has its own tab.</p>')+'</section>';
-  return tiles+debtPayPanel('')+ctrl+cmp+adv+order+deadline+cons+byGroup;
+  return {tiles:tiles,ctrl:ctrl,cmp:cmp,adv:adv,order:order,deadline:deadline,cons:cons,byGroup:byGroup};
 }
 /* ---------- Mortgage and home ---------- */
 var mortUI={edit:false,pre:null,imp:null,horizon:10,refi:{rate:'',years:'30',cost:''},tryExtra:''};
@@ -8901,7 +8885,7 @@ function taxRead(inp){
   };rd.readAsArrayBuffer(f);
 }
 /* ---------- Search: one box for everything in the app (Ctrl or Cmd + K, or press /) ---------- */
-var SPOT_KW={overview:'home summary today',dash:'live dashboard net worth',accounts:'banks balance checking savings',pay:'paycheck paystub salary adp gross net take-home',tax:'taxes refund owe w-2 1099 irs state withholding',docs:'documents folder files statements pdf',assets:'car vehicle motorcycle boat value depreciation maintenance modification',subscriptions:'subs recurring netflix streaming',bills:'due paid autopay upcoming',energy:'electric propane gas heating oil weather usage',budgets:'budget category limit keywords auto-sort',report:'monthly report income spending',afford:'can i afford purchase buy',credit:'credit score fico',cards:'credit card utilization cash back interest',invest:'stocks portfolio investments',transactions:'activity import csv filter edit expenses',goals:'savings goal target',loans:'debt student auto car loan payoff',mortgage:'house home rent buy',assist:'assistant chat ai ask',look:'settings appearance theme password backup security touch id hide tabs layout'};
+var SPOT_KW={overview:'home summary today',dash:'live dashboard net worth',accounts:'banks balance checking savings',pay:'paycheck paystub salary adp gross net take-home',tax:'taxes refund owe w-2 1099 irs state withholding',docs:'documents folder files statements pdf',assets:'car vehicle motorcycle boat value depreciation maintenance modification',subscriptions:'subs recurring netflix streaming',bills:'due paid autopay upcoming',energy:'electric propane gas heating oil weather usage',budgets:'budget category limit keywords auto-sort',report:'monthly report income spending',afford:'can i afford purchase buy',credit:'credit score fico',cards:'credit card utilization cash back interest',invest:'stocks portfolio investments',transactions:'activity import csv filter edit expenses',goals:'savings goal target',loans:'debt student auto car loan payoff',mortgage:'house home rent buy',payoff:'payoff plan debt free avalanche snowball order extra payment interest',assist:'assistant chat ai ask',look:'settings appearance theme password backup security touch id hide tabs layout'};
 var SPOT_FEATURES=[['Help and walkthrough','look:help','help tutorial guide how to use walkthrough tour learn question mark'],['Add a user or switch user','look:you','profile account person share family demo switch who is using'],['Setup guide','look:you','setup guide walkthrough fill in upload new user onboarding'],['Your name and nickname','look:you','about you name nickname greeting personal information'],['What to update','look:help','update stale outdated accurate keep current checklist freshness todo what needs attention'],['Hide or show tabs','look:look','navigation layout order drag top bar sidebar'],['Change the theme or colours','look:look','appearance dark mode light glass'],['Set an app password or Touch ID','look:security','security lock unlock encrypt'],['Back up or restore your data','look:data','backup export import file'],['Add a transaction','transactions','new expense income cash manually'],['Import transactions (CSV, PDF)','transactions','statement upload bank file'],['Auto-sort keywords for a budget','budgets','rules categorize merchant keyword'],['Hidden bills','look:more','hide bill keyword'],['Set a monthly budget','budgets','limit category'],['Credit card statement','cards','pdf import add card']];
 var SPOT_ORDER=['Pages','Budgets','Transactions','Bills','Accounts','Vehicles and assets','Goals','Subscriptions','Pay and taxes','Documents'];
 var spot={open:false,q:'',sel:0,res:[]};
@@ -10522,8 +10506,6 @@ function bindView(){
   m.querySelectorAll('.applebal').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();var A=S.apple||{},ac=S.accounts.filter(function(a){return a.id===A.acct})[0],v=parseFloat(fm.elements['v'].value);if(!ac||!(v>=0))return;ac.balance=v;var ap=parseFloat(fm.elements['apr'].value);if(ap>=0)ac.apr=ap;var t0=iso(TODAY),h=ac.history.filter(function(x){return x.date===t0})[0];if(h)h.balance=v;else ac.history.push({date:t0,balance:v});save();render();toast('Apple Card balance set.')}});
   m.querySelectorAll('.payform').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();var u=cleanPayUrl(fm.elements['u'].value);if(!u){toast('That needs to be a full https:// address, for example https://www.yourlender.com/pay.');return}paySet(fm.dataset.k,u);payUI.edit='';save();render();toast('Pay link saved.')}});
   m.querySelectorAll('.balform').forEach(function(fm){fm.onsubmit=function(e){e.preventDefault();var a=S.accounts.filter(function(x){return x.id===fm.dataset.id})[0],v=parseFloat(fm.querySelector('input').value);if(!a||!(v>=0))return;a.balance=v;var t=iso(TODAY),h=a.history.filter(function(x){return x.date===t})[0];if(h)h.balance=v;else a.history.push({date:t,balance:v});a.history.sort(function(p,q){return p.date<q.date?-1:1});save();render();toast(a.name+' updated.')}});
-  var ex=$('#extra',m);if(ex)ex.onchange=function(){S.extraPay=Math.max(0,parseFloat(ex.value)||0);save();render()};
-  var st=$('#strategy',m);if(st)st.onchange=function(){strategy=st.value;render()};
   var bk=$('#bk',m);if(bk)bk.onchange=function(){var file=bk.files[0];if(file)readBackupFile(file)};
   if(view==='docs')walletThumbs();
   if(view==='look'){navBioLoad();secBind(m);if(T&&!aiSt)loadAi();if(T&&T.bio&&!BIO.loaded)bioLoad(function(){if(view==='look')render()})}
@@ -11078,7 +11060,7 @@ function ordMerge(full,vis){var set={},k=0;vis.forEach(function(v){set[v]=1});re
 /*REORDER-END*/
 /*LAYOUT-START*/
 // Windows (the panels on a page) can be moved, resized, hidden and shown as a different kind of graphic. Saved per user and per page.
-var LAYOUT_VIEWS={overview:1,dash:1,accounts:1,assets:1,invest:1,budgets:1,report:1,bills:1,subscriptions:1,pay:1,tax:1,loans:1,cards:1,credit:1,goals:1,docs:1};
+var LAYOUT_VIEWS={overview:1,dash:1,accounts:1,assets:1,invest:1,budgets:1,report:1,bills:1,subscriptions:1,pay:1,tax:1,loans:1,payoff:1,cards:1,credit:1,goals:1,docs:1};
 // The windows that can change what kind of graphic they draw: page/window id -> [[key,label],...] (the first is the default).
 var WINSTYLES={
   'overview/where-it-went':[['donut','Donut'],['bars','Bars'],['list','List']],

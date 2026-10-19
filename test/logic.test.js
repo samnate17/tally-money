@@ -1135,6 +1135,14 @@ test('consolidation: the fee counts against the saving', () => {
   assert.ok(free.saving > fee.saving + 400);
 });
 
+test('the Payoff page sits right before Credit score in the Debts tab, with help and a tour', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const hub = /\['loans',\[([^\]]*)\]\]/.exec(src)[1].replace(/'/g, '').split(',');
+  assert.deepStrictEqual(hub, ['loans', 'cards', 'mortgage', 'payoff', 'credit']);
+  assert.ok(src.includes("function vPayoff()") && src.includes("data-view=\"payoff\""));
+  assert.ok(!src.includes('vDebtStrategy') && !src.includes('payoffPanel('), 'the older duplicate plan is gone');
+});
+
 test('home: monthly cost, equity and rent-out figures follow from the inputs', () => {
   const P = planWorld(), pi = P.requiredPayment(300000, 6, 360);
   assert.ok(Math.abs(pi - 1798.65) < 0.01);
@@ -1203,9 +1211,9 @@ test('debt advice: recommends by the numbers and flags the real problems', () =>
   assert.deepStrictEqual(P.debtAdvice({ debts: [], monthly: 0, minTotal: 0, surplus: 0 }), []);
 });
 
-test('Loans hub and Mortgage tab are wired in, old tab names still open the hub, and backups carry the new data', () => {
+test('Loans hub, Payoff page and Mortgage tab are wired in, old tab names still open the hub, and backups carry the new data', () => {
   const src = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-  assert.ok(src.includes("['loans','Loans']") && src.includes("['mortgage','Mortgage'") && src.includes('loans:vLoansHub,mortgage:vMortgage'));
+  assert.ok(src.includes("['loans','Loans']") && src.includes("['mortgage','Mortgage'") && src.includes('loans:vLoansHub,payoff:vPayoff,mortgage:vMortgage'));
   assert.ok(!src.includes("['carloan','Car loan'") && src.includes("if(view==='cashback')view='cards';else if(view==='carloan'||view==='student'){loanFilter=view==='student'?'student':'auto';view='loans'}"));
   assert.ok(src.includes('home:S.home,debtMonthly:S.debtMonthly') && src.includes('home:home,debtMonthly:') && src.includes('home:pendingImport.home||{}'));
 });
