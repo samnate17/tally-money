@@ -1038,7 +1038,7 @@ test('loan statement details: a newer statement replaces old figures, an older o
 
 function planWorld() {
   return new Function(srcBlock('/*LOAN-START*/', '/*LOAN-END*/') + srcBlock('/*DEBTPLAN-START*/', '/*DEBTPLAN-END*/') + srcBlock('/*HOME-START*/', '/*HOME-END*/') +
-    '\nreturn {amortize, separate, requiredPayment, payoffPlan, monthlyForMonths, consolidationOffer, homeNorm, mortStep, homeMonthly, homeEquity, homeCompare, homeRentOut, homeSinceBuy, homeExtra, homeSim, homeRefi, growthPerMonth};')();
+    '\nreturn {amortize, separate, requiredPayment, payoffPlan, focusRows, monthlyForMonths, consolidationOffer, homeNorm, mortStep, homeMonthly, homeEquity, homeCompare, homeRentOut, homeSinceBuy, homeExtra, homeSim, homeRefi, growthPerMonth};')();
 }
 
 test('payoff plan: one debt matches the plain loan formula, and the money is all accounted for', () => {
@@ -1124,6 +1124,20 @@ test('minimums only means each debt on its own payment, with nothing rolling ove
   assert.strictEqual(P.payoffPlan([...debts, { id: 'd', name: 'Free', balance: 500, apr: 0, minPay: 0 }], 540, 'minimum').ok, false);
   assert.strictEqual(P.separate([{ id: 'x', name: 'X', balance: 1000, apr: 30, minPay: 5 }]).reason, 'never');
   assert.deepStrictEqual(P.separate([]).ok, true);
+});
+
+test('which debt gets the extra money: every debt tried first with the real plan, best is the cheapest', () => {
+  const P = planWorld(), debts = [{ id: 'card', name: 'Card', balance: 3000, apr: 24.99, minPay: 90 }, { id: 'car', name: 'Car', balance: 15000, apr: 6.5, minPay: 350 }, { id: 'small', name: 'Small loan', balance: 800, apr: 4, minPay: 100 }, { id: 'stu', name: 'Student', balance: 9000, apr: 5.5, minPay: 110 }];
+  const rows = P.focusRows(debts, 900, 0);
+  assert.strictEqual(rows.length, 4);
+  assert.strictEqual(rows[0].id, 'card');                                               // the highest rate is the cheapest to attack first here
+  assert.ok(rows[0].best && rows[0].vsBest === 0 && rows.every((r, i) => i === 0 || r.interest >= rows[i - 1].interest));
+  const first = P.payoffPlan(debts, 900, 'avalanche', { first: 'small' });
+  assert.strictEqual(first.priority[0].id, 'small'); assert.strictEqual(first.priority[1].id, 'card');   // the chosen debt first, the rest by rate
+  assert.ok(Math.abs(rows.find((r) => r.id === 'small').interest - first.interest) < 0.01);
+  assert.ok(Math.abs(rows[0].monthlyInterest - 3000 * 24.99 / 1200) < 0.01);
+  assert.deepStrictEqual(P.focusRows([debts[0]], 900, 0), []);                          // one debt: nothing to choose
+  assert.deepStrictEqual(P.focusRows(debts, 100, 0), []);                               // below the minimums: no plan
 });
 
 test('consolidation: the fee counts against the saving', () => {

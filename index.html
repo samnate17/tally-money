@@ -5882,6 +5882,7 @@ var HELP={
 };
 // What changed in each version, in plain words. A test makes sure the version in package.json has an entry, so a release cannot go out without it.
 var WHATSNEW=[
+ ['1.8.47',['The Which order? window on the Payoff page now tells you which of your own debts should get the extra money. It tries each debt first with your real balances, rates and payments and shows the debt-free date and total interest for each, marks the cheapest as Best, and says how much more the others would cost. It also explains that Minimums only is not a choice, just what happens if you add nothing extra.']],
  ['1.8.46',['New Payoff page in the Debts tab, right before Credit score. The plan for paying off your debts (monthly amount, which to pay first, when you will be debt-free, a deadline and a new-loan check) moved there from the Loans page, so Loans is now just what you owe.','The old Debt payoff plan on the Accounts tab is replaced by a button that opens the Payoff page, so there is one plan instead of two that disagreed.','The What you owe, by kind window on Loans now includes your credit cards, so its rows add up to the total.']],
  ['1.8.45',['Debts tab accuracy fixes. The window called The order to pay them said "highest rate first" but listed debts by when they would be paid off, so a small low-rate loan could appear on top. It is now called The order they get paid off, sorted by date, and it states plainly where your extra money goes first, with the months each debt gets the extra.','Minimums only now means what it says: each debt paid on its own payment with nothing rolling over. Before, it quietly rolled each paid-off payment onto the next debt, which made the minimums-only interest too low and the savings from a plan look too small. The Pay it off faster tables on each loan page now start from the same honest baseline.','Would one new loan help? now counts the fee as a cost when it says how much the new loan saves or costs.','Reworded two pieces of advice that said more than the numbers show: the credit card interest note counts only cards at 12% or more, and the low-rate note no longer claims investing beats paying a debt off.']],
  ['1.8.44',['New sub-categories under Personal care: Tattoos and Piercings. Spending at a tattoo or piercing studio is sorted into them automatically, and you can pick them for any transaction.','Removed the "by sub-category" window from the bottom of the Budgets tab. The same breakdown is still there when you open a single budget.']],
@@ -6230,7 +6231,10 @@ function payoffPlan(debts,monthly,strategy,opt){
   var budget=+monthly||0;
   if(budget<minTotal-0.005)return {ok:false,reason:'below',minTotal:minTotal};
   if(!(budget>0))return {ok:false,reason:'nopay',minTotal:minTotal};
-  var pick=function(a,b){return strategy==='snowball'?(a.bal-b.bal||b.apr-a.apr):(b.apr-a.apr||a.bal-b.bal)};
+  // opt.first puts one chosen debt at the front of the line; the rest follow the strategy.
+  var pick=function(a,b){
+    if(opt.first&&a.id!==b.id){if(a.id===opt.first)return -1;if(b.id===opt.first)return 1}
+    return strategy==='snowball'?(a.bal-b.bal||b.apr-a.apr):(b.apr-a.apr||a.bal-b.bal)};
   var lump=Math.max(0,+opt.lump||0);
   ds.slice().sort(pick).forEach(function(d){var t=Math.min(d.bal,lump);d.bal-=t;lump-=t;if(t>0.005&&d.bal<=0.005)d.byLump=true});
   var open=function(){return ds.filter(function(d){return d.bal>0.005}).length};
@@ -6250,7 +6254,21 @@ function payoffPlan(debts,monthly,strategy,opt){
   return {ok:true,months:m,interest:interest,paidTotal:paidTotal,sched:sched,left:left,minTotal:minTotal,budget:budget,
     // `order`: when each debt is expected to be paid off. `priority`: where the extra money goes first, set by the strategy (a small low-rate debt can still finish early on its own minimums).
     order:ds.slice().sort(function(a,b){return a.paid-b.paid||b.apr-a.apr}).map(function(d){return {id:d.id,name:d.name,apr:d.apr,start:d.start,paid:Math.round(d.paid),interest:d.interest,extraFrom:d.xf||0,extraTo:d.xt||0,byLump:!!d.byLump}}),
-    priority:ds.slice().sort(function(a,b){return strategy==='snowball'?(a.start-b.start||b.apr-a.apr):(b.apr-a.apr||a.start-b.start)}).map(function(d){return {id:d.id,name:d.name,apr:d.apr,start:d.start}})};
+    priority:ds.slice().sort(function(a,b){if(opt.first&&a.id!==b.id){if(a.id===opt.first)return -1;if(b.id===opt.first)return 1}return strategy==='snowball'?(a.start-b.start||b.apr-a.apr):(b.apr-a.apr||a.start-b.start)}).map(function(d){return {id:d.id,name:d.name,apr:d.apr,start:d.start}})};
+}
+// For each debt: what happens if the extra money goes to it first (the others follow highest rate first). Sorted best (least interest) first.
+function focusRows(debts,monthly,lump){
+  var live=debts.filter(function(d){return d.balance>0.005});
+  if(live.length<2)return [];
+  var rows=live.map(function(d){
+    var r=payoffPlan(debts,monthly,'avalanche',{lump:lump,first:d.id});
+    return {id:d.id,name:d.name,balance:d.balance,apr:d.apr||0,minPay:d.minPay||0,monthlyInterest:d.balance*(d.apr||0)/1200,ok:r.ok,months:r.ok?r.months:null,interest:r.ok?r.interest:null};
+  }).filter(function(r){return r.ok});
+  if(!rows.length)return [];
+  rows.sort(function(a,b){return a.interest-b.interest||b.apr-a.apr});
+  var best=rows[0].interest;
+  rows.forEach(function(r,i){r.vsBest=r.interest-best;r.best=i===0||r.vsBest<0.5});
+  return rows;
 }
 // The smallest monthly amount that clears everything within `months` (null when even paying it all at once is too slow).
 function monthlyForMonths(debts,months,strategy,lump){
@@ -6446,6 +6464,20 @@ function vPayoff(){
   if(d.empty)return head+d.empty;
   return head+d.tiles+d.ctrl+d.cmp+d.adv+d.order+d.deadline+d.cons;
 }
+// Which of your own debts should get the extra money, worked out from your balances, rates and payments.
+function focusPanel(debts,monthly,lump,pm,av,sn){
+  var rows=focusRows(debts,monthly,lump),mo=function(n){return n>=24?(n/12).toFixed(1).replace(/\.0$/,'')+' years':n+' month'+(n===1?'':'s')},when=function(n){return n?monthYear(addMonths(TODAY,n)):'Done'};
+  if(!rows.length)return '<p class="sub muted" style="margin:12px 0 0;font-size:13px;white-space:normal">'+(debts.length===1?'You have one debt, so all your extra money goes to '+esc(debts[0].name)+'.':'Raise the monthly amount to at least your minimums to see which debt should get the extra money.')+'</p>';
+  var best=rows[0],worst=rows[rows.length-1],extra=Math.max(0,monthly-debts.reduce(function(a,d){return a+d.minPay},0)),small=debts.slice().sort(function(a,b){return a.balance-b.balance})[0],sentence;
+  sentence='<b>Put your extra money on '+esc(best.name)+' first.</b> It has '+(best.apr>=Math.max.apply(null,debts.map(function(d){return d.apr||0}))-0.005?'your highest rate, ':'')+best.apr+'% on '+money0(best.balance)+', which costs you about '+money0(best.monthlyInterest)+' a month in interest. '+
+    (best.id===rows[0].id&&worst.vsBest>=1?'Doing it in that order, you are debt-free '+when(best.months)+' and pay '+money0(best.interest)+' in interest; putting it on '+esc(worst.name)+' first would cost '+money0(worst.vsBest)+' more. ':'')+
+    (pm.ok?'Paying only the minimums on each debt (nothing rolling over) would cost '+money0(pm.interest)+' and take '+mo(pm.months)+'.':'')+
+    (extra<=0.005?' You are paying only your minimums, so the order only matters once a debt is paid off and its payment moves on.':'');
+  var tr=rows.map(function(r){return '<tr><td><b>'+esc(r.name)+'</b>'+(r.best?' <span class="pill good">Best</span>':'')+'</td><td class="num">'+money0(r.balance)+'</td><td class="num">'+r.apr+'%</td><td class="num">'+money0(r.monthlyInterest)+'/mo</td><td class="num">'+when(r.months)+'</td><td class="num">'+money0(r.interest)+'</td><td class="num">'+(r.vsBest<0.5?'—':'+'+money0(r.vsBest))+'</td></tr>'}).join('');
+  return '<h3 style="font-size:15px;margin:16px 0 6px">Which of your debts should get the extra money?</h3><p style="margin:0 0 8px;white-space:normal">'+sentence+'</p>'+
+    '<div style="overflow-x:auto"><table class="maptable" style="width:100%"><thead><tr><th>If extra goes here first</th><th>Owed</th><th>Rate</th><th>Interest it costs now</th><th>Debt-free</th><th>Total interest</th><th>Compared with the best</th></tr></thead><tbody>'+tr+'</tbody></table></div>'+
+    '<p class="sub muted" style="margin:8px 0 0;font-size:12px;white-space:normal">Each row runs your whole plan with the extra money on that debt first and the rest highest rate first. '+(small&&small.id!==best.id?esc(small.name)+' has your smallest balance ('+money0(small.balance)+'); paying it first feels faster but costs '+money0((rows.filter(function(r){return r.id===small.id})[0]||{vsBest:0}).vsBest)+' more in interest. ':'')+'Minimums only is not a choice, it is what happens if you add nothing extra.</p>';
+}
 // The pieces of the debt pages: the Loans page shows what you owe, the Payoff page shows the plan for paying it off.
 function debtParts(forPayoff){
   var debts=debtList(debtUI.incl);
@@ -6461,7 +6493,7 @@ function debtParts(forPayoff){
     '<label style="flex-direction:row;gap:6px;align-items:center"><input id="dp-incl" type="checkbox"'+(debtUI.incl?' checked':'')+'> Include my mortgage</label></div>'+
     '<p class="sub muted" style="margin:6px 0 0;font-size:13px;white-space:normal">Your minimums add up to <b>'+money0(mins)+'</b> a month'+(monthly>=mins?', so <b>'+money0(monthly-mins)+'</b> a month goes on top. As each debt is paid off, its payment rolls into the next one.':'. The amount above is lower than that, so it cannot work. Raise it to at least '+money0(mins)+'.')+'</p></section>';
   var row=function(label,pl){var left=function(m){return pl.ok&&pl.left&&pl.left.length>m?pl.left[m]:(pl.ok?0:'—')};return '<tr><td><b>'+label+'</b></td><td class="num">'+when(pl)+'</td><td class="num">'+(pl.ok?dur(pl.months):'—')+'</td><td class="num">'+(pl.ok?money0(pl.interest):'—')+'</td><td class="num">'+(pl.ok&&pm.ok?money0(pm.interest-pl.interest):'—')+'</td><td class="num">'+left(12)+' / '+left(24)+' / '+left(36)+'</td></tr>'};
-  var cmp='<section class="panel"><h2>Which order?</h2><div style="overflow-x:auto"><table class="maptable" style="width:100%"><thead><tr><th>Strategy</th><th>Debt-free</th><th>Time</th><th>Interest</th><th>Saved vs minimums</th><th>Debts left after 1 / 2 / 3 years</th></tr></thead><tbody>'+row('Minimums only (nothing rolls over)',pm)+row('Highest rate first',av)+row('Smallest balance first',sn)+'</tbody></table></div></section>';
+  var cmp='<section class="panel"><h2>Which order?</h2><div style="overflow-x:auto"><table class="maptable" style="width:100%"><thead><tr><th>Strategy</th><th>Debt-free</th><th>Time</th><th>Interest</th><th>Saved vs minimums</th><th>Debts left after 1 / 2 / 3 years</th></tr></thead><tbody>'+row('Minimums only (nothing rolls over)',pm)+row('Highest rate first',av)+row('Smallest balance first',sn)+'</tbody></table></div>'+focusPanel(debts,monthly,lump,pm,av,sn)+'</section>';
   var advice=debtAdvice({debts:debts,monthly:monthly,minTotal:mins,min:pm,av:av,sn:sn,surplus:(function(){var q=loanSurplus();return q&&q.surplus>0?q.surplus:0})(),plusExtra:av.ok?{extra:100,plan:payoffPlan(debts,monthly+100,'avalanche',{lump:lump})}:null});
   var adv='<section class="panel"><h2>My read<small>from your numbers</small></h2>'+advice.map(function(x){return '<div class="row" style="align-items:flex-start"><span class="pill '+(x.k==='warn'?'warn':x.k==='good'?'good':'mute')+'" style="flex:none;min-width:58px;text-align:center">'+(x.k==='warn'?'Look at':x.k==='good'?'Do this':'Note')+'</span><div class="grow" style="white-space:normal"><div class="nm" style="white-space:normal">'+esc(x.title)+'</div><div class="sub" style="white-space:normal">'+esc(x.detail)+'</div></div></div>'}).join('')+'<p class="sub muted" style="margin:10px 0 0;font-size:12px;white-space:normal">Assumes fixed rates, no new charges and that each debt\'s payment rolls into the next when it is paid off. Real statements differ by a few dollars. This is arithmetic from the figures you entered, not financial advice.</p></section>';
   var xrange=function(d){var f=monthYear(addMonths(TODAY,d.extraFrom)),t=monthYear(addMonths(TODAY,d.extraTo));return d.extraFrom===d.extraTo?f:f+' to '+t};
