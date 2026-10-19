@@ -248,7 +248,7 @@ Honest limits: small local models make arithmetic and reasoning mistakes, so che
 
 ## Categories for personal expenses
 
-Besides the original categories there are now built-in **Personal care** (Haircut, Skin and nails, Cosmetics, Massage and spa), **Pets** (Food and supplies, Vet, Grooming), **Education** (Tuition, Courses, Books) and **Gifts and donations** (Donations, Gifts and flowers), with keywords so a statement line such as "GREAT CLIPS" or "PETCO" files itself and gets a sub-category. Existing transactions keep the category they have; use Predict categories or Edit to move old ones. If you already made a custom category with one of these names, it is shown once and its keywords still work.
+Besides the original categories there are now built-in **Personal care** (Haircut, Skin and nails, Cosmetics, Massage and spa, Tattoos, Piercings), **Pets** (Food and supplies, Vet, Grooming), **Education** (Tuition, Courses, Books) and **Gifts and donations** (Donations, Gifts and flowers), with keywords so a statement line such as "GREAT CLIPS" or "PETCO" files itself and gets a sub-category. Existing transactions keep the category they have; use Predict categories or Edit to move old ones. If you already made a custom category with one of these names, it is shown once and its keywords still work.
 
 When you add or edit a bill, the Category and Sub-category lists end with **+ New category…** and **+ New sub-category…**, so you can make "Haircuts" with "Barber" right there. A new category is a normal custom category (it appears in Budgets, with no keywords until you add some) and a new sub-category is added to that category's list.
 

@@ -820,7 +820,7 @@ var KEYWORDS=[
  ['Transport',/uber(?! ?eats)|lyft|shell oil|shell service|chevron|exxon|mobil\b|sunoco|\bbp\b|citgo|marathon|valero|gulf oil|speedway|\bfuel\b|\bgas\b|e-?zpass|toll|parking|\bmta\b|transit|metro|taxi|car ?wash|jiffy|autozone|o'?reilly|advance auto|midas|dmv|geico|progressive ins|state farm|allstate|auto insurance/i],
  ['Subscriptions',/netflix|spotify|hulu|disney|icloud|adobe|youtube|prime video|apple\.com|dropbox|patreon|audible|gym|fitness|membership|anthropic|openai|chatgpt|claude|github|notion|1password|peacock|paramount|hbo|itunes|google (one|storage|play)|microsoft 365|office 365|nytimes|wsj|substack|duolingo|mobile\b|wireless|t-mobile|mint mobile|visible/i],
  ['Housing',/\brent\b|mortgage|landlord|\bhoa\b|eversource|national grid|con ?ed|pg&e|duke energy|electric|utility|water (bill|dept)|sewer|trash|waste|internet|comcast|xfinity|spectrum|fios|centurylink|\bcox\b|renters? ins/i],
- ['Personal care',/haircut|hair ?cut|barber|great clips|supercuts|sport clips|hair (studio|salon|cuttery)|\bsalon\b|\bnails?\b|manicure|pedicure|\bspa\b|massage|waxing|\bulta\b|sephora|cosmetic|beauty/i],
+ ['Personal care',/haircut|hair ?cut|barber|great clips|supercuts|sport clips|hair (studio|salon|cuttery)|\bsalon\b|tattoo|piercing|\bnails?\b|manicure|pedicure|\bspa\b|massage|waxing|\bulta\b|sephora|cosmetic|beauty/i],
  ['Pets',/petco|petsmart|chewy|pet supplies|veterinar|animal (hospital|clinic)|\bvet\b|kennel/i],
  ['Education',/tuition|university|college|udemy|coursera|skillshare|pluralsight|duolingo|textbook|bookstore/i],
  ['Gifts and donations',/donat|charity|gofundme|red cross|unicef|church|tithe|florist|flowers|\bgift\b/i],
@@ -5068,7 +5068,7 @@ var DEFAULT_SUBS={
  Subscriptions:['Streaming','Software and AI','Phone plan','Memberships'],
  Shopping:['Online','Clothing','Home and hardware','Alcohol'],
  Health:['Pharmacy','Doctor and dental','Insurance'],
- 'Personal care':['Haircut','Skin and nails','Cosmetics','Massage and spa'],
+ 'Personal care':['Haircut','Skin and nails','Cosmetics','Massage and spa','Tattoos','Piercings'],
  Pets:['Food and supplies','Vet','Grooming'],
  Education:['Tuition','Courses','Books'],
  'Gifts and donations':['Donations','Gifts and flowers'],
@@ -5114,6 +5114,8 @@ var SUBRULES=[
  ['Personal care','Skin and nails',/\bnails?\b|manicure|pedicure|facial|waxing/i],
  ['Personal care','Cosmetics',/ulta|sephora|cosmetic|beauty/i],
  ['Personal care','Massage and spa',/massage|\bspa\b/i],
+ ['Personal care','Tattoos',/tattoo|\btat2\b/i],
+ ['Personal care','Piercings',/piercing|body jewel/i],
  ['Pets','Food and supplies',/petco|petsmart|chewy|pet supplies/i],['Pets','Vet',/veterinar|animal (hospital|clinic)|\bvet\b/i],['Pets','Grooming',/pet groom|dog groom/i],
  ['Education','Tuition',/tuition|university|college/i],['Education','Courses',/udemy|coursera|skillshare|pluralsight|duolingo|\bcourse\b/i],['Education','Books',/textbook|bookstore/i],
  ['Gifts and donations','Donations',/donat|charity|gofundme|red cross|unicef|church|tithe/i],['Gifts and donations','Gifts and flowers',/\bgift\b|florist|flowers/i]];
@@ -5901,6 +5903,7 @@ var HELP={
 };
 // What changed in each version, in plain words. A test makes sure the version in package.json has an entry, so a release cannot go out without it.
 var WHATSNEW=[
+ ['1.8.44',['New sub-categories under Personal care: Tattoos and Piercings. Spending at a tattoo or piercing studio is sorted into them automatically, and you can pick them for any transaction.']],
  ['1.8.43',['Fixed: the app could open on the oldest month in the month scroller (for example November 2022) instead of the current month. The scroller now only changes the month when you scroll it yourself, so it always opens on this month.']],
  ['1.8.42',['A real car sound. Pointing at a car picture (in Debts, Assets or the Overview), or scrolling one into view, plays a 2023 Honda Civic Type R exhaust recording. It follows the Sound switch and volume in Settings.']],
  ['1.8.41',['Fixed: a long net worth (for example in the millions) no longer spills out of its box on the Dashboard; amounts in all the boxes shrink a little to fit.','Tidied up the Dashboard header: the word Live sits in the middle of its green bubble, the back and forward arrows are centered in their buttons, and the page icon lines up with the heading.','The Settings icon is now a pair of watch gears.','Centered the page icons that sat slightly off in their squares (Debts, Assets, Assistant, Energy, Taxes, Accounts, Student loan, Car loan).']],

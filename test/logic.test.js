@@ -1005,7 +1005,7 @@ test('personal expenses like haircuts get their own categories and sub-categorie
   const W = catWorld({ customCats: [], merchantCats: {}, subCats: {}, merchantSubs: {} });
   const cases = [
     ['GREAT CLIPS #1234 SPRINGFIELD', 'Personal care', 'Haircut'], ['Joe the Barber', 'Personal care', 'Haircut'], ['ULTA BEAUTY 551', 'Personal care', 'Cosmetics'],
-    ['Lotus Nails & Spa', 'Personal care', 'Skin and nails'], ['PETCO 1042', 'Pets', 'Food and supplies'], ['Valley Veterinary Hospital', 'Pets', 'Vet'],
+    ['Lotus Nails & Spa', 'Personal care', 'Skin and nails'], ['Black Anchor Tattoo Studio', 'Personal care', 'Tattoos'], ['Pierced Piercing Parlor', 'Personal care', 'Piercings'], ['PETCO 1042', 'Pets', 'Food and supplies'], ['Valley Veterinary Hospital', 'Pets', 'Vet'],
     ['UDEMY ONLINE COURSE', 'Education', 'Courses'], ['AMERICAN RED CROSS', 'Gifts and donations', 'Donations'], ['1-800-FLOWERS', 'Gifts and donations', 'Gifts and flowers'],
   ];
   cases.forEach(([name, cat, sub]) => { assert.strictEqual(W.guessCat(name), cat, name); assert.strictEqual(W.guessSub(cat, name), sub, name + ' sub'); });
