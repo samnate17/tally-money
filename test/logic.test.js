@@ -1038,7 +1038,7 @@ test('loan statement details: a newer statement replaces old figures, an older o
 
 function planWorld() {
   return new Function(srcBlock('/*LOAN-START*/', '/*LOAN-END*/') + srcBlock('/*DEBTPLAN-START*/', '/*DEBTPLAN-END*/') + srcBlock('/*HOME-START*/', '/*HOME-END*/') +
-    '\nreturn {amortize, requiredPayment, payoffPlan, monthlyForMonths, consolidationOffer, homeNorm, mortStep, homeMonthly, homeEquity, homeCompare, homeRentOut, homeSinceBuy, homeExtra, homeSim, homeRefi, growthPerMonth};')();
+    '\nreturn {amortize, separate, requiredPayment, payoffPlan, monthlyForMonths, consolidationOffer, homeNorm, mortStep, homeMonthly, homeEquity, homeCompare, homeRentOut, homeSinceBuy, homeExtra, homeSim, homeRefi, growthPerMonth};')();
 }
 
 test('payoff plan: one debt matches the plain loan formula, and the money is all accounted for', () => {
@@ -1070,6 +1070,69 @@ test('payoff plan: the monthly amount needed for a deadline, and a consolidation
   const c = P.consolidationOffer([{ id: 'a', name: 'Card', balance: 10000, apr: 20, minPay: 250 }], 8, 36, 0);
   assert.ok(Math.abs(c.pay - 313.36) < 0.01 && c.saving > 0 && c.monthsNew === 36);
   assert.ok(P.consolidationOffer([{ id: 'a', name: 'Card', balance: 10000, apr: 6, minPay: 250 }], 8, 36, 3).saving < 0);   // a higher rate plus a fee costs more
+});
+
+test('payoff plan: the priority follows the strategy, the list follows the payoff dates, and the sums match an independent simulation, and avalanche is the cheapest order', () => {
+  const P = planWorld();
+  const mixed = [{ id: 'card', name: 'Card', balance: 3000, apr: 24.99, minPay: 90 }, { id: 'car', name: 'Car', balance: 15000, apr: 6.5, minPay: 350 }, { id: 'small', name: 'Small loan', balance: 800, apr: 4, minPay: 100 }, { id: 'stu', name: 'Student', balance: 9000, apr: 5.5, minPay: 110 }];
+  const av = P.payoffPlan(mixed, 900, 'avalanche'), sn = P.payoffPlan(mixed, 900, 'snowball');
+  // the small, low-rate loan is cleared early by its own minimum: it finishes before the card and the car, yet the extra money still goes highest rate first
+  assert.deepStrictEqual(av.priority.map((d) => d.id), ['card', 'car', 'stu', 'small']);
+  assert.deepStrictEqual(sn.priority.map((d) => d.id), ['small', 'card', 'stu', 'car']);
+  assert.deepStrictEqual(av.order.map((d) => d.id), ['small', 'card', 'car', 'stu']);            // the order they are expected to be paid off
+  assert.ok(av.order.every((d, i) => i === 0 || av.order[i - 1].paid <= d.paid), 'the payoff list is in date order');
+  const card = av.order.find((d) => d.id === 'card'), small = av.order.find((d) => d.id === 'small');
+  assert.ok(card.extraFrom === 1 && card.extraTo === card.paid, 'the extra goes to the first priority until it is gone');
+  assert.ok(small.extraFrom === 0 && small.paid < card.paid, 'and never reaches the small loan, which its minimums clear first');
+  // an independent month-by-month simulation with an explicit priority list agrees on months and interest
+  const ref = (debts, budget, prio) => {
+    const d = debts.map((x) => ({ id: x.id, b: x.balance, r: x.apr / 1200, m: x.minPay })); let month = 0, int = 0;
+    while (d.some((x) => x.b > 0.005) && month < 1200) {
+      month++; d.forEach((x) => { if (x.b > 0.005) { const i = x.b * x.r; x.b += i; int += i; } });
+      let a = budget; d.forEach((x) => { if (x.b > 0.005) { const p = Math.min(x.m, x.b, a); x.b -= p; a -= p; } });
+      prio.forEach((id) => { const x = d.find((y) => y.id === id); if (x.b > 0.005 && a > 0) { const p = Math.min(x.b, a); x.b -= p; a -= p; } });
+    }
+    return { months: month, interest: int };
+  };
+  const perms = (a) => a.length <= 1 ? [a] : a.flatMap((x, i) => perms([...a.slice(0, i), ...a.slice(i + 1)]).map((p) => [x, ...p]));
+  let seed = 7; const rnd = () => (seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296;
+  for (let t = 0; t < 40; t++) {
+    const n = 2 + Math.floor(rnd() * 3), debts = [];
+    for (let i = 0; i < n; i++) debts.push({ id: 'd' + i, name: 'D' + i, balance: Math.round(300 + rnd() * 20000), apr: Math.round(rnd() * 2800) / 100, minPay: Math.round(20 + rnd() * 200) });
+    const minT = debts.reduce((a, d) => a + d.minPay, 0), budget = minT + Math.round(rnd() * 600);
+    const a = P.payoffPlan(debts, budget, 'avalanche');
+    if (!a.ok) continue;
+    const prio = debts.slice().sort((x, y) => y.apr - x.apr || x.balance - y.balance).map((d) => d.id), r = ref(debts, budget, prio);
+    assert.strictEqual(a.months, r.months); assert.ok(Math.abs(a.interest - r.interest) < 0.01);
+    assert.deepStrictEqual(a.priority.map((d) => d.id), prio);
+    const best = Math.min(...perms(debts.map((d) => d.id)).map((p) => ref(debts, budget, p).interest));
+    assert.ok(a.interest <= best + 0.01, 'no other order of the same payments costs less interest');
+  }
+});
+
+test('minimums only means each debt on its own payment, with nothing rolling over', () => {
+  const P = planWorld(), debts = [{ id: 'a', name: 'Card', balance: 3000, apr: 24.99, minPay: 90 }, { id: 'b', name: 'Car', balance: 15000, apr: 6.5, minPay: 350 }, { id: 'c', name: 'Small', balance: 800, apr: 4, minPay: 100 }];
+  const mn = P.payoffPlan(debts, 540, 'minimum'), parts = debts.map((d) => P.amortize(d.balance, d.apr, d.minPay));
+  assert.ok(mn.ok);
+  assert.strictEqual(mn.months, Math.max(...parts.map((p) => p.months)));
+  assert.ok(Math.abs(mn.interest - parts.reduce((a, p) => a + p.interest, 0)) < 0.01);
+  assert.ok(Math.abs(mn.sched[0] - 18800) < 0.01 && mn.sched[mn.sched.length - 1] === 0 && mn.left[0] === 3 && mn.left[mn.left.length - 1] === 0);
+  // rolling each freed payment onto the next debt (the plan with a budget equal to the minimums) really is cheaper
+  const rolled = P.payoffPlan(debts, 540, 'avalanche');
+  assert.ok(rolled.interest < mn.interest - 50 && rolled.months < mn.months);
+  // one debt with no payment entered, or one that does not cover its interest, makes it "never"
+  assert.strictEqual(P.payoffPlan([...debts, { id: 'd', name: 'Free', balance: 500, apr: 0, minPay: 0 }], 540, 'minimum').ok, false);
+  assert.strictEqual(P.separate([{ id: 'x', name: 'X', balance: 1000, apr: 30, minPay: 5 }]).reason, 'never');
+  assert.deepStrictEqual(P.separate([]).ok, true);
+});
+
+test('consolidation: the fee counts against the saving', () => {
+  const P = planWorld(), debts = [{ id: 'a', name: 'Card', balance: 10000, apr: 20, minPay: 250 }];
+  const free = P.consolidationOffer(debts, 8, 36, 0), fee = P.consolidationOffer(debts, 8, 36, 5);
+  const total = fee.pay * 36 - 10000;                                  // everything paid beyond the 10,000 owed: interest plus the fee
+  assert.ok(Math.abs(fee.fee - 500) < 0.01);
+  assert.ok(Math.abs(fee.saving - (fee.nowInterest - total)) < 0.01, 'saving = interest now minus interest and fee on the new loan');
+  assert.ok(free.saving > fee.saving + 400);
 });
 
 test('home: monthly cost, equity and rent-out figures follow from the inputs', () => {
@@ -1135,7 +1198,7 @@ test('debt advice: recommends by the numbers and flags the real problems', () =>
   const minT = 420, plans = (monthly) => ({ min: P.payoffPlan(debts, minT, 'minimum'), av: P.payoffPlan(debts, monthly, 'avalanche'), sn: P.payoffPlan(debts, monthly, 'snowball') });
   const mk = (monthly, surplus) => { const pl = plans(monthly); return P.debtAdvice({ debts, monthly, minTotal: minT, surplus, ...pl, plusExtra: { extra: 100, plan: P.payoffPlan(debts, monthly + 100, 'avalanche') } }); };
   const items = mk(700, 300), titles = items.map((i) => i.title).join('|');
-  assert.ok(/Pay the highest interest rate first|Either order works/.test(titles) && /Your most expensive debt is Visa at 24%/.test(titles) && /credit cards cost about \$80 a month/.test(titles) && /Low-rate debts/.test(titles) && /student loans/.test(titles) && /leftover money/.test(titles));
+  assert.ok(/Pay the highest interest rate first|Either order works/.test(titles) && /Your most expensive debt is Visa at 24%/.test(titles) && /credit cards at 12% or more cost about \$80 a month/.test(titles) && /Low-rate debts/.test(titles) && /student loans/.test(titles) && /leftover money/.test(titles));
   assert.ok(/Your monthly amount is below your minimum/.test(mk(300, 0).map((i) => i.title).join('|')));
   assert.deepStrictEqual(P.debtAdvice({ debts: [], monthly: 0, minTotal: 0, surplus: 0 }), []);
 });
