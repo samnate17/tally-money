@@ -2287,7 +2287,7 @@ function vBudgets(){
   return '<div class="top"><h1>Budgets</h1>'+monthNav()+'</div>'+
    '<div class="grid tiles">'+tile('Budgeted',money0(totB),'Across '+Object.keys(S.budgets).filter(function(c){return S.budgets[c]>0}).length+' categories')+tile('Spent in those',money0(totS),totB?Math.round(totS/totB*100)+'% used':'')+tile('Remaining','<span class="'+(totB-totS<0?'bad':'good')+'">'+(totB-totS<0?'-':'')+money0(Math.abs(totB-totS))+'</span>','')+'</div>'+
    '<section class="panel"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px"><h2 style="margin:0">By category</h2>'+(fillable.length?'<button class="btn small" data-act="bud-fill">Fill '+fillable.length+' empty budget'+(fillable.length===1?'':'s')+' from my history</button>':'')+'</div>'+rows+'</section>'+
-   forecastPanel(budSel)+subPanel(budSel)+subManager()+addp;
+   forecastPanel(budSel)+subManager()+addp;
 }
 
 /* ---------- Transactions ---------- */
@@ -5903,7 +5903,7 @@ var HELP={
 };
 // What changed in each version, in plain words. A test makes sure the version in package.json has an entry, so a release cannot go out without it.
 var WHATSNEW=[
- ['1.8.44',['New sub-categories under Personal care: Tattoos and Piercings. Spending at a tattoo or piercing studio is sorted into them automatically, and you can pick them for any transaction.']],
+ ['1.8.44',['New sub-categories under Personal care: Tattoos and Piercings. Spending at a tattoo or piercing studio is sorted into them automatically, and you can pick them for any transaction.','Removed the "by sub-category" window from the bottom of the Budgets tab. The same breakdown is still there when you open a single budget.']],
  ['1.8.43',['Fixed: the app could open on the oldest month in the month scroller (for example November 2022) instead of the current month. The scroller now only changes the month when you scroll it yourself, so it always opens on this month.']],
  ['1.8.42',['A real car sound. Pointing at a car picture (in Debts, Assets or the Overview), or scrolling one into view, plays a 2023 Honda Civic Type R exhaust recording. It follows the Sound switch and volume in Settings.']],
  ['1.8.41',['Fixed: a long net worth (for example in the millions) no longer spills out of its box on the Dashboard; amounts in all the boxes shrink a little to fit.','Tidied up the Dashboard header: the word Live sits in the middle of its green bubble, the back and forward arrows are centered in their buttons, and the page icon lines up with the heading.','The Settings icon is now a pair of watch gears.','Centered the page icons that sat slightly off in their squares (Debts, Assets, Assistant, Energy, Taxes, Accounts, Student loan, Car loan).']],
