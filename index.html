@@ -3646,6 +3646,8 @@ function cleanPayStub(raw,newId){
   var h=payNum(raw.hours,10000);if(h!==null&&h>0)o.hours=h;
   var yg=payNum(raw.ytdGross),yn=payNum(raw.ytdNet);if(yg!==null&&yg>0)o.ytdGross=yg;if(yn!==null&&yn>0)o.ytdNet=yn;
   if(/^[\w-]{1,20}$/.test(raw.doc||''))o.doc=raw.doc;
+  // Where the PDF of this statement was filed in the Documents folder, so View can open it.
+  var fl=raw.file;if(fl&&typeof fl==='object'&&fl.cat==='Pay statements'&&/^\d{4}$/.test(String(fl.year||''))&&typeof fl.name==='string'&&fl.name.length>0&&fl.name.length<=120&&!/[\/\\\0]/.test(fl.name)&&fl.name!=='.'&&fl.name!=='..')o.file={cat:'Pay statements',year:String(fl.year),name:fl.name};
   if(raw.kind==='bonus'||raw.kind==='regular')o.kind=raw.kind;
   var em=payStr(raw.employer,60);if(em)o.employer=em;
   if(/^[emu]:[\w .&'()+-]{1,60}$/.test(raw.job||''))o.job=raw.job;
@@ -5882,6 +5884,7 @@ var HELP={
 };
 // What changed in each version, in plain words. A test makes sure the version in package.json has an entry, so a release cannot go out without it.
 var WHATSNEW=[
+ ['1.8.48',['My pay: View now opens the statement itself (the PDF filed in your Documents folder) for bonus checks and in Pay history. Before, it only changed a panel far down the page, so it looked like nothing happened. If documents protection is on, View asks for your password or Touch ID first. A statement added before the app kept file names opens its year folder instead; new statements open directly. If no PDF was saved, you see its details.']],
  ['1.8.47',['The Which order? window on the Payoff page now tells you which of your own debts should get the extra money. It tries each debt first with your real balances, rates and payments and shows the debt-free date and total interest for each, marks the cheapest as Best, and says how much more the others would cost. It also explains that Minimums only is not a choice, just what happens if you add nothing extra.']],
  ['1.8.46',['New Payoff page in the Debts tab, right before Credit score. The plan for paying off your debts (monthly amount, which to pay first, when you will be debt-free, a deadline and a new-loan check) moved there from the Loans page, so Loans is now just what you owe.','The old Debt payoff plan on the Accounts tab is replaced by a button that opens the Payoff page, so there is one plan instead of two that disagreed.','The What you owe, by kind window on Loans now includes your credit cards, so its rows add up to the total.']],
  ['1.8.45',['Debts tab accuracy fixes. The window called The order to pay them said "highest rate first" but listed debts by when they would be paid off, so a small low-rate loan could appear on top. It is now called The order they get paid off, sorted by date, and it states plainly where your extra money goes first, with the months each debt gets the extra.','Minimums only now means what it says: each debt paid on its own payment with nothing rolling over. Before, it quietly rolled each paid-off payment onto the next debt, which made the minimums-only interest too low and the savings from a plan look too small. The Pay it off faster tables on each loan page now start from the same honest baseline.','Would one new loan help? now counts the fee as a cost when it says how much the new loan saves or costs.','Reworded two pieces of advice that said more than the numbers show: the credit card interest note counts only cards at 12% or more, and the low-rate note no longer claims investing beats paying a debt off.']],
@@ -8417,7 +8420,7 @@ function bonusPanel(stubs){
   if(thisY||prevY)h+='<p class="sub" style="margin:8px 0 0;white-space:normal">'+(thisY?'Bonus pay so far in '+TODAY.getFullYear()+': <b>'+money0(thisY.ytd)+'</b> (from your statement of '+payDateLabel(thisY.date)+')':'')+(thisY&&prevY?'. ':'')+(prevY?'In '+(TODAY.getFullYear()-1)+' it came to <b>'+money0(prevY.ytd)+'</b>.':'')+'</p>';
   var early=pl.checks.filter(function(c){return c.earlier>0});
   if(early.length)h+='<p class="sub muted" style="margin:6px 0 0;font-size:12px;white-space:normal">'+early.map(function(c){return 'Your statement of '+payDateLabel(c.date)+' shows '+money0(c.earlier)+' of bonus pay earlier that year, so there was another bonus before it'}).join('. ')+'.</p>';
-  h+='<div style="margin-top:10px">'+pl.checks.slice().reverse().map(function(c){return '<div class="row"><div class="grow"><div class="nm">Bonus check '+payDateLabel(c.date)+'</div><div class="sub">'+money(c.amount)+' gross · '+money(c.net)+' take-home</div></div><button class="btn small" data-act="pay-sel" data-id="'+esc(c.id)+'">View</button></div>'}).join('')+'</div>';
+  h+='<div style="margin-top:10px">'+pl.checks.slice().reverse().map(function(c){return '<div class="row"><div class="grow"><div class="nm">Bonus check '+payDateLabel(c.date)+'</div><div class="sub">'+money(c.amount)+' gross · '+money(c.net)+' take-home</div></div><button class="btn small" data-act="pay-view" title="Open this statement" data-id="'+esc(c.id)+'">View</button></div>'}).join('')+'</div>';
   return h+'</section>';
 }
 function payOldNote(im){var d=payDays(im.payDate,iso(TODAY));return d>120?'This statement is from '+payDateLabel(im.payDate)+', '+Math.round(d/30)+' months ago. It goes into your history and that year\'s totals, but it is not used for your next paycheck or this year\'s projection.':''}
@@ -8464,7 +8467,7 @@ function vPay(){
     (arr&&arr.found?'<p class="sub good" style="margin:8px 0 0">The paycheck expected around '+shortDate(arr.expected)+' arrived: '+money(arr.found.amount)+' on '+shortDate(arr.found.date)+'. Add its statement to keep this accurate.</p>':'')+staleNote+'</section>';
   var chPanel='<section class="panel"><h2>What changed<small>'+(sel===last?'latest paycheck':'paycheck of '+shortDate(sel.payDate))+' compared with the one before</small></h2>'+(ch.length?insightRows(ch):'<div class="empty">Nothing changed. Your pay, taxes and deductions look the same as last time.</div>')+'</section>';
   var ytd=yr?'<section class="panel"><h2>'+yr.year+' so far<small>from your statements</small></h2><div class="grid tiles">'+tile('Gross so far',money0(yr.ytdGross),yr.ytdFactor>1.05||yr.count<2?'year-to-date from the latest statement':yr.count+' statements')+tile('Federal tax withheld',money0(yr.withheldFed),yr.ytdGross>0?(yr.withheldFed/yr.ytdGross*100).toFixed(1)+'% of gross':'')+tile('Retirement saved',money0(yr.retirementPerPeriod*yr.count*yr.ytdFactor),'about '+money0(yr.retirementPerPeriod)+' each paycheck')+tile('On track for',money0(yr.projGross),'gross this year, '+yr.periodsLeft+' paychecks to go')+'</div><p class="sub" style="margin:8px 0 0"><a href="#" data-view="tax">See what to expect at tax time</a></p></section>':'';
-  var hist='<section class="panel"><h2>Pay history</h2>'+payBars(stubs)+'<div style="overflow-x:auto;margin-top:8px"><table class="maptable" style="width:100%"><thead><tr><th>Paid</th>'+(J.multi?'<th>Job</th>':'')+'<th>Gross</th><th>Taxes</th><th>Deductions</th><th>Net</th><th></th></tr></thead><tbody>'+stubs.slice().reverse().slice(0,26).map(function(s){var t=payTotals(s);return '<tr'+(s.id===sel.id?' style="font-weight:700"':'')+'><td>'+payDateLabel(s.payDate)+(payKind(s)==='bonus'?' <span class="pill warn" style="font-size:11px">Bonus</span>':'')+'</td>'+(J.multi?'<td>'+payJobPick(J,s)+'</td>':'')+'<td class="num">'+money0(s.gross)+'</td><td class="num">'+money0(t.tax)+'</td><td class="num">'+money0(t.benefit+t.retirement+t.deduction)+'</td><td class="num good">'+money0(s.net)+'</td><td style="white-space:nowrap"><button class="btn small" data-act="pay-sel" data-id="'+esc(s.id)+'">View</button> <button class="btn small danger" data-act="pay-del" data-id="'+esc(s.id)+'" aria-label="Remove this statement" title="Remove this statement (Undo is at the top of the page)">&times;</button></td></tr>'}).join('')+'</tbody></table></div><div class="actions" style="justify-content:flex-end;margin-top:10px">'+(mypayUI.confirmClear?'<span class="sub warn">Remove all '+stubs.length+' statements? You can Undo it.</span><button class="btn small danger" data-act="pay-clear-yes">Yes, remove all</button><button class="btn small" data-act="pay-clear-no">Cancel</button>':'<button class="btn small" data-act="pay-clear" title="Clears every statement so you can add them again, for example after an update that reads them better">Remove all statements&hellip;</button>')+'</div></section>';
+  var hist='<section class="panel"><h2>Pay history</h2>'+payBars(stubs)+'<div style="overflow-x:auto;margin-top:8px"><table class="maptable" style="width:100%"><thead><tr><th>Paid</th>'+(J.multi?'<th>Job</th>':'')+'<th>Gross</th><th>Taxes</th><th>Deductions</th><th>Net</th><th></th></tr></thead><tbody>'+stubs.slice().reverse().slice(0,26).map(function(s){var t=payTotals(s);return '<tr'+(s.id===sel.id?' style="font-weight:700"':'')+'><td>'+payDateLabel(s.payDate)+(payKind(s)==='bonus'?' <span class="pill warn" style="font-size:11px">Bonus</span>':'')+'</td>'+(J.multi?'<td>'+payJobPick(J,s)+'</td>':'')+'<td class="num">'+money0(s.gross)+'</td><td class="num">'+money0(t.tax)+'</td><td class="num">'+money0(t.benefit+t.retirement+t.deduction)+'</td><td class="num good">'+money0(s.net)+'</td><td style="white-space:nowrap"><button class="btn small" data-act="pay-view" title="Open this statement" data-id="'+esc(s.id)+'">View</button> <button class="btn small danger" data-act="pay-del" data-id="'+esc(s.id)+'" aria-label="Remove this statement" title="Remove this statement (Undo is at the top of the page)">&times;</button></td></tr>'}).join('')+'</tbody></table></div><div class="actions" style="justify-content:flex-end;margin-top:10px">'+(mypayUI.confirmClear?'<span class="sub warn">Remove all '+stubs.length+' statements? You can Undo it.</span><button class="btn small danger" data-act="pay-clear-yes">Yes, remove all</button><button class="btn small" data-act="pay-clear-no">Cancel</button>':'<button class="btn small" data-act="pay-clear" title="Clears every statement so you can add them again, for example after an update that reads them better">Remove all statements&hellip;</button>')+'</div></section>';
   var jobTabs=J.multi?payJobTabs(J,jsel):payJobsNote(),oi=otherIncomePanel();
   if(allMode)return head+actions+msg+payImpPreview()+(mypayUI.manual?payForm():'')+jobTabs+payJobsPanel(J)+ytd+hist+oi+note;
   return head+actions+msg+payImpPreview()+(mypayUI.manual?payForm():'')+jobTabs+hero+bonusPanel(stubs)+chPanel+payStatement(sel)+payBreakdownPanel(stubs,sel)+ytd+hist+oi+note;
@@ -8593,8 +8596,18 @@ function paySave(st,buf,name){
   S.pay.stubs=S.pay.stubs.filter(function(s){return !(s.payDate===st.payDate&&Math.abs(s.net-st.net)<0.5)});
   S.pay.stubs.push(st);S.pay.stubs.sort(function(a,b){return a.payDate<b.payDate?-1:1});S.pay.stubs=S.pay.stubs.slice(-200);
   var dep=payDeposit(st);if(dep&&!dep.sub&&subList('Income').indexOf('Salary')>-1)dep.sub='Salary';
-  if(buf&&T&&T.docs)tcall(T.docs.save('Pay statements',name||'pay-statement.pdf',buf,+st.payDate.slice(0,4))).then(function(){docsTouch()}).catch(function(){});
+  if(buf&&T&&T.docs)tcall(T.docs.save('Pay statements',name||'pay-statement.pdf',buf,+st.payDate.slice(0,4))).then(function(r){if(r&&r.name){st.file={cat:'Pay statements',year:String(r.year),name:r.name};save()}docsTouch()}).catch(function(){});
   mypayUI.sel=st.id;
+}
+// View: open the statement's PDF from the Documents folder (the click is already behind the documents lock). A statement added before the app kept file names opens its year folder.
+function payView(id){
+  var st=S.pay.stubs.filter(function(x){return x.id===id})[0];if(!st)return;
+  mypayUI.sel=id;
+  var showDetails=function(msg){if(msg)toast(msg);render();setTimeout(function(){var el=document.querySelector('#main .paystub');if(el&&el.scrollIntoView)el.scrollIntoView({behavior:'smooth',block:'start'})},60)};
+  if(!(T&&T.docs)){showDetails('Opening the saved statement needs the desktop app. Here are its details.');return}
+  var year=st.payDate.slice(0,4),fail=function(){showDetails('Could not open the saved statement. It may have been moved or deleted, so here are its details.')};
+  if(st.file){tcall(T.docs.open(st.file.cat,st.file.year,st.file.name)).then(function(){render()}).catch(fail);return}
+  tcall(T.docs.open('Pay statements',year,'')).then(function(){toast('Opened your '+year+' Pay statements folder. This statement was added before the app kept its file name.');render()}).catch(function(){showDetails('No saved PDF for this statement, so here are its details.')});
 }
 function docsTouch(){docsUI.loaded=false;if(view==='docs')docsLoad()}
 /* ---------- Documents: a folder of the statements and forms you added, sorted by kind and year ---------- */
@@ -8613,7 +8626,7 @@ function docLockClean(raw){
 }
 function docIsOpen(cfg,until,now){return !!cfg&&(cfg.off===true||now<until)}
 // Which clicks are about documents: every document and ID button except the ones that only lock, unlock or change a preview.
-function docGated(act){return /^(doc-|w-)/.test(act||'')&&!/^(doc-unlock|doc-lock|doc-lock-on|doc-prev|doc-next|w-prevs)$/.test(act)}
+function docGated(act){return /^(doc-|w-|pay-view$)/.test(act||'')&&!/^(doc-unlock|doc-lock|doc-lock-on|doc-prev|doc-next|w-prevs)$/.test(act)}
 /*DOCLOCK-END*/
 var DOCAUTH={until:0};
 setInterval(function(){if(view==='docs'&&!docOpen()&&!document.getElementById('docauth')&&!document.getElementById('docsLockedShown')&&document.querySelector('#main .wgrid'))render()},15000);
@@ -10549,7 +10562,7 @@ document.addEventListener('click',function(e){
   var pl=e.target.closest('a[data-pay]');if(pl){toast('Opening '+pl.dataset.host+' in your browser. Come back and mark it paid when you are done.');return}
   var b=e.target.closest('[data-act]');if(!b)return;
   var a=b.dataset.act,id=b.dataset.id,s=S.subs.filter(function(x){return x.id===id})[0];
-  if(docGated(a)&&!docOpen()){docAuth(a==='doc-del'?'Confirm it is you to remove a document.':'Confirm it is you to open your documents.',function(){b.click()});return}
+  if(docGated(a)&&!docOpen()){docAuth(a==='doc-del'?'Confirm it is you to remove a document.':a==='pay-view'?'Confirm it is you to view your pay statement.':'Confirm it is you to open your documents.',function(){if(a==='pay-view')payView(id);else b.click()});return}
   if(a==='nav-back'){navhGo(-1);return}
   if(a==='nav-fwd'){navhGo(1);return}
   if(a==='mprev')month=shiftMonth(month,-1);
@@ -10598,6 +10611,7 @@ document.addEventListener('click',function(e){
     taxUI.imp=null;taxUI.impBuf=null;toast('Saved '+tf.length+' form'+(tf.length===1?'':'s')+'.')}}
   else if(a==='tax-form-del'){S.tax.forms=S.tax.forms.filter(function(x){return x.id!==id});toast('Removed.')}
   else if(a==='pay-sel'){mypayUI.sel=id}
+  else if(a==='pay-view'){payView(id);return}
   else if(a==='pay-del'){var pd0=S.pay.stubs.filter(function(x){return x.id===id})[0];payMark('removed the statement of '+(pd0?payDateLabel(pd0.payDate):''));S.pay.stubs=S.pay.stubs.filter(function(x){return x.id!==id});mypayUI.sel='';toast('Removed. Press Undo in the pay bar to bring it back.')}
   else if(a==='pay-undo'){payRestore('undo')}
   else if(a==='pay-job'){mypayUI.job=b.dataset.k||'all';mypayUI.sel='';mypayUI.rename='';window.scrollTo(0,0)}

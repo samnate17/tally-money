@@ -2028,6 +2028,14 @@ function stubOf(P, date, gross, fed, ss, med, state, k401, health, extra) {
   const net = Math.round((gross - fed - ss - med - state - k401 - health) * 100) / 100;
   return P.cleanPayStub(Object.assign({ payDate: date, gross, net, lines }, extra || {}), () => 'id' + date);
 }
+test('a pay statement keeps where its PDF was filed, and nothing that could point outside the Documents folder', () => {
+  const P = payWorld(), base = { payDate: '2026-03-13', gross: 3000, net: 2200, lines: [] };
+  const ok = P.cleanPayStub({ ...base, file: { cat: 'Pay statements', year: '2026', name: 'Statement March.pdf' } }, () => 'a');
+  assert.deepStrictEqual(ok.file, { cat: 'Pay statements', year: '2026', name: 'Statement March.pdf' });
+  [{ cat: 'Tax documents', year: '2026', name: 'x.pdf' }, { cat: 'Pay statements', year: '26', name: 'x.pdf' }, { cat: 'Pay statements', year: '2026', name: '../secret.pdf' }, { cat: 'Pay statements', year: '2026', name: 'a/b.pdf' }, { cat: 'Pay statements', year: '2026', name: 'a\\b.pdf' }, { cat: 'Pay statements', year: '2026', name: '..' }, { cat: 'Pay statements', year: '2026', name: '' }, 'x', null]
+    .forEach((f) => assert.strictEqual(P.cleanPayStub({ ...base, file: f }, () => 'a').file, undefined, JSON.stringify(f)));
+});
+
 test('cleanPayStub keeps clean numbers and sections only', () => {
   const P = payWorld();
   assert.equal(P.cleanPayStub({ payDate: 'bad', gross: 1, net: 1 }, () => 'x'), null);
@@ -3413,8 +3421,8 @@ test('documents lock: locked by default, open for a short while after a password
   assert.strictEqual(L.docIsOpen({ off: true, own: null }, 0, 5), true, 'open only when you turned the lock off');
   assert.strictEqual(L.docLockClean({ off: 'yes', own: { salt: 'x', hash: 'y', it: 5 } }).own, null, 'a weak or odd record is ignored');
   assert.strictEqual(L.docLockClean({ own: { salt: 'a'.repeat(30), hash: 'b'.repeat(40), it: 210000 } }).own.it, 210000);
-  ['doc-open', 'doc-del', 'doc-lock-off', 'w-view', 'w-edit', 'w-save', 'w-rm'].forEach((a) => assert.ok(L.docGated(a), a + ' needs the lock'));
-  ['doc-unlock', 'doc-lock', 'doc-prev', 'doc-next', 'w-prevs', 'bills', ''].forEach((a) => assert.ok(!L.docGated(a), a + ' does not'));
+  ['doc-open', 'doc-del', 'doc-lock-off', 'w-view', 'w-edit', 'w-save', 'w-rm', 'pay-view'].forEach((a) => assert.ok(L.docGated(a), a + ' needs the lock'));
+  ['doc-unlock', 'doc-lock', 'doc-prev', 'doc-next', 'w-prevs', 'bills', 'pay-viewer', 'pay-sel', ''].forEach((a) => assert.ok(!L.docGated(a), a + ' does not'));
 });
 test('documents lock: Touch ID has its own slot per user', () => {
   const { keyOf, cleanSlot } = require('../biometric');
