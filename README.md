@@ -739,6 +739,9 @@ The Debts tab has five pages: Loans (what you owe), Credit cards, Mortgage, **Pa
 
 Each folder card has an Add button, and files can be dragged from Finder or File Explorer onto a folder card (or the drop box in Add documents). A drop anywhere else on the window is swallowed so the app is never replaced by the file. `docs.js` lists every file under `Documents/Tally Money/<kind>/`, in year folders, in folders you made yourself (up to three levels) and loose in the kind folder, skipping hidden files and symbolic links; open and remove take the sub-folder and file name and refuse anything that climbs out of the kind folder. The counts reload when the page opens and on Refresh.
 
+### Extra loan payments
+On a loan's page, a payment bigger than the payment due is shown as an extra payment toward what you owe (with a rough saving), not as a changed payment. Several payments in one month are added together first. Paying less still shows a warning. The Bills tab notes how much extra you paid.
+
 ### Connect Gmail
 
 From email can also read Gmail directly over IMAP (`imap.gmail.com:993`) with a Google app password (2-Step Verification on, Security, App passwords). The code is `gmail.js`: it only sends LOGIN, EXAMINE (read-only), UID SEARCH, UID FETCH with BODY.PEEK (does not mark mail read) and LOGOUT, searches recent mail about payments and leaves out promotions and social, and returns up to 300 of the newest messages to the page in memory. The password is kept in the encrypted secret store, never goes back to the page, and Disconnect deletes it. Scanned messages go through the same duplicate-safe import as exported files. Tested against a fake IMAP server only; it has not been run against real Gmail.

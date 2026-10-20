@@ -1037,8 +1037,8 @@ test('loan statement details: a newer statement replaces old figures, an older o
 });
 
 function planWorld() {
-  return new Function(srcBlock('/*LOAN-START*/', '/*LOAN-END*/') + srcBlock('/*DEBTPLAN-START*/', '/*DEBTPLAN-END*/') + srcBlock('/*HOME-START*/', '/*HOME-END*/') +
-    '\nreturn {amortize, separate, requiredPayment, payoffPlan, focusRows, monthlyForMonths, consolidationOffer, homeNorm, mortStep, homeMonthly, homeEquity, homeCompare, homeRentOut, homeSinceBuy, homeExtra, homeSim, homeRefi, growthPerMonth};')();
+  return new Function(srcBlock('/*LOAN-START*/', '/*LOAN-END*/') + srcBlock('/*EXTRAPAY-START*/', '/*EXTRAPAY-END*/') + srcBlock('/*DEBTPLAN-START*/', '/*DEBTPLAN-END*/') + srcBlock('/*HOME-START*/', '/*HOME-END*/') +
+    '\nreturn {payCompare, extraEffect, amortize, separate, requiredPayment, payoffPlan, focusRows, monthlyForMonths, consolidationOffer, homeNorm, mortStep, homeMonthly, homeEquity, homeCompare, homeRentOut, homeSinceBuy, homeExtra, homeSim, homeRefi, growthPerMonth};')();
 }
 
 test('payoff plan: one debt matches the plain loan formula, and the money is all accounted for', () => {
@@ -3640,4 +3640,16 @@ test('sky: sunrise and sunset come out right for a known place, and the phase fo
   assert.ok(/^Sunset \d/.test(noon.note) && /^Sunrise/.test(night.note));
   const bright = (c) => c.match(/\d+/g).map(Number).reduce((a, b) => a + b, 0);
   assert.ok(bright(K.skyColors(40).top) > bright(K.skyColors(-3).top) && bright(K.skyColors(-3).top) > bright(K.skyColors(-18).top), 'darker as the sun goes down');
+});
+
+test('paying more than the payment due is an extra payment, not a changed payment', () => {
+  const P = planWorld();
+  const x = P.payCompare([{ date: '2026-10-05', amount: 400 }, { date: '2026-09-05', amount: 300 }], 300);
+  assert.strictEqual(x.kind, 'extra'); assert.strictEqual(x.extra, 100); assert.strictEqual(x.repeat, false);
+  assert.strictEqual(P.payCompare([{ date: '2026-10-05', amount: 400 }, { date: '2026-09-05', amount: 400 }], 300).repeat, true);
+  assert.strictEqual(P.payCompare([{ date: '2026-10-05', amount: 150 }, { date: '2026-10-20', amount: 150 }], 300).kind, 'normal', 'two halves of one payment');
+  assert.strictEqual(P.payCompare([{ date: '2026-10-05', amount: 200 }, { date: '2026-09-05', amount: 300 }], 300).kind, 'short');
+  assert.strictEqual(P.payCompare([{ date: '2026-10-05', amount: 200 }, { date: '2026-09-05', amount: 200 }], 300).kind, 'lower');
+  const e = P.extraEffect(10000, 6, 300, 100, false);
+  assert.ok(e.months >= 0 && e.interest > 0);
 });
