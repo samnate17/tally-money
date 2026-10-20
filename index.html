@@ -2614,6 +2614,7 @@ function updTasks(f){
   // bills and budgets
   var bl=f.bills||{};
   if(bl.overdue>0)add({id:'bills-overdue',area:'Bills',sev:2,title:plural(bl.overdue,'bill')+' look overdue',why:'Either they are unpaid, or the payment was not matched. Mark them paid, enter what you paid, or skip a bill that does not apply this month.',items:(bl.names||[]).slice(0,4),go:{view:'bills'},label:'Open Bills',mins:2});
+  (f.cardStmts||[]).forEach(function(c){if(c.days>=40)add({id:'card-stmt-'+c.id,area:'Credit cards',sev:c.days>=70?2:1,age:c.days,title:'Import your latest '+c.name+' statement',why:'The newest transaction imported for this card is from '+c.through+' ('+c.days+' days ago). Card statements come out monthly and only reach this app when you import them, so its spending, interest and balance are behind. Press Not now on this task if you have not used the card.',go:{view:'transactions'},label:'Import a statement',mins:3})});
   if(f.apple&&f.apple.due)add({id:'apple-stmt',area:'Transactions',sev:1,title:'Import your Apple Card statement for '+f.apple.label,why:'Apple Card statements are ready a day or two after the month ends, and they only reach this app when you export them from Wallet. '+(f.apple.through?'What you have imported runs through '+f.apple.through+'.':'')+' Press Not now on this task if the card had no activity.',go:{view:'transactions'},label:'Open the Apple Card panel',mins:3});
   if(!f.budgetCount&&tx.count>=30)add({id:'budgets',area:'Budgets',sev:1,title:'Set a few budgets',why:'You have enough history for the app to suggest realistic budgets. Press Fill on the Budgets tab.',go:{view:'budgets'},label:'Open Budgets',mins:3});
   // deposits and payments to review
@@ -5887,7 +5888,7 @@ var HELP={
 };
 // What changed in each version, in plain words. A test makes sure the version in package.json has an entry, so a release cannot go out without it.
 var WHATSNEW=[
- ['1.8.50',['Apple Card reminder. From the 2nd of each month, if your imported Apple Card transactions do not yet reach the end of last month, the Apple Card panel shows that last month\'s statement should be ready, and What to update lists it. Remind me next month hides it until the next statement. The old reminder only counted days since your last import.']],
+ ['1.8.50',['What to update now also reminds you to import a credit card statement when the newest transaction you imported for that card is 40 or more days old, one task per card. Cards linked to a bank are left out because they update themselves.','Apple Card reminder. From the 2nd of each month, if your imported Apple Card transactions do not yet reach the end of last month, the Apple Card panel shows that last month\'s statement should be ready, and What to update lists it. Remind me next month hides it until the next statement. The old reminder only counted days since your last import.']],
  ['1.8.49',['Documents: every folder now has an Add button, and you can drag files from Finder or File Explorer onto a folder (or the drop box in Add documents) to file them there. Dropping a file on the window no longer tries to open it in place of the app.','Fixed the file counts that showed 0 / 0. The app only looked in year folders, so files you put straight into a folder, or into folders you made yourself, were missed. Every file in the folder is now counted, listed and can be opened or removed, hidden files like .DS_Store are ignored, and the counts refresh when you open the page or press Refresh.']],
  ['1.8.48',['My pay: View now opens the statement itself (the PDF filed in your Documents folder) for bonus checks and in Pay history. Before, it only changed a panel far down the page, so it looked like nothing happened. If documents protection is on, View asks for your password or Touch ID first. A statement added before the app kept file names opens its year folder instead; new statements open directly. If no PDF was saved, you see its details.']],
  ['1.8.47',['The Which order? window on the Payoff page now tells you which of your own debts should get the extra money. It tries each debt first with your real balances, rates and payments and shows the debt-free date and total interest for each, marks the cheapest as Best, and says how much more the others would cost. It also explains that Minimums only is not a choice, just what happens if you add nothing extra.']],
@@ -9360,6 +9361,11 @@ function updFacts(){
   }catch(e){}
   try{var bs=billsSummary(allBillItems(NOWKEY),NOWKEY,S.txns,S.billMarks,TODAY);f.bills.overdue=bs.overdue;f.bills.names=bs.rows.filter(function(r){return r.st.state==='overdue'&&!isHiddenName(r.item.name,S.hideWords)}).map(function(r){return r.item.name})}catch(e){}
   try{if(S.apple&&S.apple.acct)f.apple=appleDue(today,appleThrough(),S.apple.snooze)}catch(e){}
+  // Cards whose statements are imported by hand (not bank-linked, not Apple Card, which has its own reminder): when did the newest imported transaction happen?
+  try{f.cardStmts=[];acc.forEach(function(a){
+    if(a.type!=='credit'||a.plaid||a.wallet||a.closed||(S.apple&&S.apple.acct===a.id))return;
+    var newest='';tx.forEach(function(x){if(x.acct===a.id&&x.date>newest)newest=x.date});
+    if(newest)f.cardStmts.push({id:a.id,name:a.name,through:newest,days:dd(newest)})})}catch(e){}
   f.budgetCount=Object.keys(S.budgets||{}).length;
   try{var xi=transferInfo(S.txns,S.cardPay);
     f.oiCandidates=oiCandidates(S.txns,TODAY,{days:120,limit:500,skip:function(x){return isTransfer(x,xi)||isCashback(x)||friendHeld(x)}}).length;

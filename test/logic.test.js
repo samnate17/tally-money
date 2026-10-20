@@ -3017,6 +3017,14 @@ test('what to update: an Apple Card statement that is due shows up as one task',
   assert.strictEqual(t.length, 1); assert.strictEqual(t[0].id, 'apple-stmt'); assert.match(t[0].title, /September 2026/); assert.match(t[0].why, /2026-09-12/);
 });
 
+test('what to update: a hand-imported card with no recent statement gets its own task, and quiet or linked ones do not', () => {
+  const U = updWorld();
+  assert.deepEqual(U.updTasks(updFacts({ cardStmts: [{ id: 'c1', name: 'Test Visa', through: '2026-09-20', days: 26 }] })), []);
+  const t = U.updTasks(updFacts({ cardStmts: [{ id: 'c1', name: 'Test Visa', through: '2026-08-30', days: 47 }, { id: 'c2', name: 'Store Card', through: '2026-07-01', days: 107 }] }));
+  assert.deepStrictEqual(t.map((x) => x.id).sort(), ['card-stmt-c1', 'card-stmt-c2']);
+  assert.match(t.find((x) => x.id === 'card-stmt-c1').title, /Test Visa/); assert.ok(t.find((x) => x.id === 'card-stmt-c2').sev > t.find((x) => x.id === 'card-stmt-c1').sev);
+});
+
 test('what to update: a fully current set of facts has nothing to do and scores 100', () => {
   const U = updWorld(), t = U.updTasks(updFacts());
   assert.deepEqual(t, []);
