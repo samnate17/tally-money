@@ -324,6 +324,8 @@ Change the assumptions (growth, return on investments, selling cost, rent, upkee
 
 ## Apple Card
 
+Reminder: `appleDue` says last month's statement is due from the 2nd of each month (Apple Card statements follow the calendar month and appear in Wallet a day or two after it ends) unless the Apple Card's own transactions already reach within four days of that month's last day. The Apple Card panel shows it with a Remind me next month button (`S.apple.snooze`) and What to update lists it as one task. The exact close date is from Apple Community posts, not an official Apple page, so the app waits until the 2nd to be safe.
+
 Apple only shares Apple Card activity with apps on an iPhone (Rocket Money does it with an iPhone app, Apple's FinanceKit and Plaid), so a Mac or Windows app cannot link it live. On the Transactions tab the **Apple Card** panel does the next best thing: export a statement from Wallet once a month (CSV, OFX or the PDF statement), choose it, review and import. The panel shows the steps, remembers when you last imported and nudges you after 35 days. Payments to the card are skipped (they are transfers, not spending or income), Daily Cash credits are not counted as income, and an Apple Card account is created in Accounts. CSV and OFX carry no balance: type it under Accounts, or import the PDF statement and press *Set balance*.
 
 ## Car loan contract and the visual dashboards

@@ -2994,6 +2994,29 @@ function updFacts(over) {
     credit: { count: 2, last: '2026-09-20' }, invest: {}, assets: [], energy: {}, bills: { overdue: 0, names: [] },
     budgetCount: 5, oiCandidates: 0, friendCandidates: 0, backupAt: '2026-10-01' }, over || {});
 }
+test('apple card reminder: last month is due from the 2nd unless the imports reach its end, and it can be snoozed', () => {
+  const A = new Function(srcBlock('/*APPLEDUE-START*/', '/*APPLEDUE-END*/') + '\nreturn {appleDue};')();
+  let r = A.appleDue('2026-10-02', '2026-09-30', '');
+  assert.deepStrictEqual([r.due, r.month, r.label, r.end], [false, '2026-09', 'September 2026', '2026-09-30']);
+  r = A.appleDue('2026-10-02', '2026-09-12', ''); assert.deepStrictEqual([r.due, r.month, r.through], [true, '2026-09', '2026-09-12']);
+  assert.strictEqual(A.appleDue('2026-10-02', '2026-09-26', '').due, false, 'a card quiet for the last few days still counts as up to date');
+  assert.strictEqual(A.appleDue('2026-10-02', '2026-09-25', '').due, true);
+  r = A.appleDue('2026-10-01', '2026-08-12', ''); assert.deepStrictEqual([r.month, r.due], ['2026-08', true], 'on the 1st September is not ready yet, so August is the one to have');
+  assert.strictEqual(A.appleDue('2026-10-01', '2026-08-31', '').due, false);
+  r = A.appleDue('2027-01-15', '2026-12-31', ''); assert.deepStrictEqual([r.month, r.due, r.nextReady], ['2026-12', false, '2027-02-02']);
+  r = A.appleDue('2027-01-01', '', ''); assert.deepStrictEqual([r.month, r.due], ['2026-11', true], 'year rollover, nothing imported');
+  assert.strictEqual(A.appleDue('2026-03-10', '2026-02-10', '').month, '2026-02');
+  assert.strictEqual(A.appleDue('2024-03-10', '2024-02-10', '').end, '2024-02-29', 'leap year');
+  assert.strictEqual(A.appleDue('2026-10-20', '2026-08-31', '2026-09').due, false, 'snoozed for September');
+  assert.strictEqual(A.appleDue('2026-11-03', '2026-08-31', '2026-09').due, true, 'and back in October');
+});
+test('what to update: an Apple Card statement that is due shows up as one task', () => {
+  const U = updWorld();
+  assert.deepEqual(U.updTasks(updFacts({ apple: { due: false, label: 'September 2026', through: '2026-09-30' } })), []);
+  const t = U.updTasks(updFacts({ apple: { due: true, label: 'September 2026', through: '2026-09-12' } }));
+  assert.strictEqual(t.length, 1); assert.strictEqual(t[0].id, 'apple-stmt'); assert.match(t[0].title, /September 2026/); assert.match(t[0].why, /2026-09-12/);
+});
+
 test('what to update: a fully current set of facts has nothing to do and scores 100', () => {
   const U = updWorld(), t = U.updTasks(updFacts());
   assert.deepEqual(t, []);

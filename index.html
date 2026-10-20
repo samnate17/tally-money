@@ -2614,6 +2614,7 @@ function updTasks(f){
   // bills and budgets
   var bl=f.bills||{};
   if(bl.overdue>0)add({id:'bills-overdue',area:'Bills',sev:2,title:plural(bl.overdue,'bill')+' look overdue',why:'Either they are unpaid, or the payment was not matched. Mark them paid, enter what you paid, or skip a bill that does not apply this month.',items:(bl.names||[]).slice(0,4),go:{view:'bills'},label:'Open Bills',mins:2});
+  if(f.apple&&f.apple.due)add({id:'apple-stmt',area:'Transactions',sev:1,title:'Import your Apple Card statement for '+f.apple.label,why:'Apple Card statements are ready a day or two after the month ends, and they only reach this app when you export them from Wallet. '+(f.apple.through?'What you have imported runs through '+f.apple.through+'.':'')+' Press Not now on this task if the card had no activity.',go:{view:'transactions'},label:'Open the Apple Card panel',mins:3});
   if(!f.budgetCount&&tx.count>=30)add({id:'budgets',area:'Budgets',sev:1,title:'Set a few budgets',why:'You have enough history for the app to suggest realistic budgets. Press Fill on the Budgets tab.',go:{view:'budgets'},label:'Open Budgets',mins:3});
   // deposits and payments to review
   if(f.oiCandidates>=3)add({id:'oi-review',area:'My pay',sev:1,title:plural(f.oiCandidates,'deposit')+' to review as income',why:'Deposits that might be gigs, gifts or transfers between your own accounts are counted as income right now. Tag them or mark transfers.',go:{view:'pay'},label:'Review deposits',mins:3});
@@ -5886,6 +5887,7 @@ var HELP={
 };
 // What changed in each version, in plain words. A test makes sure the version in package.json has an entry, so a release cannot go out without it.
 var WHATSNEW=[
+ ['1.8.50',['Apple Card reminder. From the 2nd of each month, if your imported Apple Card transactions do not yet reach the end of last month, the Apple Card panel shows that last month\'s statement should be ready, and What to update lists it. Remind me next month hides it until the next statement. The old reminder only counted days since your last import.']],
  ['1.8.49',['Documents: every folder now has an Add button, and you can drag files from Finder or File Explorer onto a folder (or the drop box in Add documents) to file them there. Dropping a file on the window no longer tries to open it in place of the app.','Fixed the file counts that showed 0 / 0. The app only looked in year folders, so files you put straight into a folder, or into folders you made yourself, were missed. Every file in the folder is now counted, listed and can be opened or removed, hidden files like .DS_Store are ignored, and the counts refresh when you open the page or press Refresh.']],
  ['1.8.48',['My pay: View now opens the statement itself (the PDF filed in your Documents folder) for bonus checks and in Pay history. Before, it only changed a panel far down the page, so it looked like nothing happened. If documents protection is on, View asks for your password or Touch ID first. A statement added before the app kept file names opens its year folder instead; new statements open directly. If no PDF was saved, you see its details.']],
  ['1.8.47',['The Which order? window on the Payoff page now tells you which of your own debts should get the extra money. It tries each debt first with your real balances, rates and payments and shows the debt-free date and total interest for each, marks the cheapest as Best, and says how much more the others would cost. It also explains that Minimums only is not a choice, just what happens if you add nothing extra.']],
@@ -7412,9 +7414,29 @@ function appleBalBanner(){
   if(!ac||!(A.count>0)||ac.balance>0||ac.history.some(function(h){return h.balance>0}))return '';
   return '<div class="banner" style="margin-bottom:12px;display:block;white-space:normal"><b>Your Apple Card shows $0 owed because the statement file has no balance.</b> Open <b>Wallet \u2192 Apple Card \u2192 Card Balance</b> on your iPhone and type what you owe.<form class="applebal form" style="margin-top:8px;align-items:flex-end"><label>Card balance<input type="number" min="0" step="0.01" name="v" required placeholder="e.g. 1250.00"></label><label>APR %<input type="number" min="0" step="0.01" name="apr" value="'+(ac.apr||'')+'" placeholder="optional"></label><button class="btn primary">Set balance</button></form></div>';
 }
+/*APPLEDUE-START*/
+// Apple Card statements run by calendar month and are in Wallet a day or two after the month ends. So from the 2nd, last month's statement is due unless your
+// imported transactions already reach (nearly) its last day. `snooze` is the month you told the app not to remind you about.
+function appleDue(today,through,snooze){
+  var t=String(today).split('-').map(Number),y=t[0],m=t[1],d=t[2],MN=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  var ty=y,tm=m-(d>=2?1:2);while(tm<1){tm+=12;ty--}
+  var pad=function(n){return ('0'+n).slice(-2)},key=ty+'-'+pad(tm),endDay=new Date(ty,tm,0).getDate(),end=key+'-'+pad(endDay),need=key+'-'+pad(endDay-4),label=MN[tm-1]+' '+ty;
+  var nm=m+(d>=2?1:0),ny=y;if(nm>12){nm-=12;ny++}
+  var nextReady=ny+'-'+pad(nm)+'-02';
+  if(snooze&&snooze>=key)return {due:false,snoozed:true,month:key,label:label,end:end,through:through||'',nextReady:nextReady};
+  return {due:!(through&&through>=need),month:key,label:label,end:end,through:through||'',nextReady:nextReady};
+}
+/*APPLEDUE-END*/
+// The newest Apple Card transaction in the app (from the card's own account).
+function appleThrough(){
+  var A=S.apple;if(!A)return '';var last='';
+  S.txns.forEach(function(x){if(x.acct===A.acct&&x.date>last)last=x.date});
+  return last;
+}
 function appleCardPanel(){
   var A=S.apple||{},ac=S.accounts.filter(function(a){return a.id===A.acct})[0],days=A.last?Math.round((TODAY-parseD(A.last))/864e5):null;
-  var status=A.last?'<p class="sub" style="margin:0 0 8px">Last imported '+shortDate(A.last)+' ('+(days===0?'today':days+' day'+(days===1?'':'s')+' ago')+'), '+(A.count||0)+' transactions in total.'+(days>=35?' <b class="warn">It is time to export this month\u2019s statement.</b>':'')+'</p>':'';
+  var ad=S.apple?appleDue(iso(TODAY),appleThrough(),A.snooze):null;
+  var status=A.last?(ad&&ad.due?'<div class="banner" style="margin:0 0 10px;display:block;white-space:normal"><b>Your Apple Card statement for '+esc(ad.label)+' should be ready.</b> '+(ad.through?'What you have imported runs through '+shortDate(ad.through)+'. ':'')+'Export it from Wallet (steps below) and choose it here. <button class="btn small" data-act="apple-snooze" style="margin-left:6px">Remind me next month</button></div>':'<p class="sub" style="margin:0 0 8px;white-space:normal">Last imported '+shortDate(A.last)+' ('+(days===0?'today':days+' day'+(days===1?'':'s')+' ago')+'), '+(A.count||0)+' transactions in total.'+(ad?(ad.snoozed&&!(ad.through&&ad.through>=ad.end.slice(0,8)+('0'+(+ad.end.slice(8)-4)).slice(-2))?' Reminder paused: the next statement should be ready around ':' Up to date: the next statement should be ready around ')+shortDate(ad.nextReady)+'.':'')+'</p>'):'';
   return '<section class="panel" id="applepanel"><h2>Apple Card<small>import from the Wallet app, no login needed</small></h2>'+appleBalBanner()+status+
    '<p class="sub" style="margin:0 0 8px;white-space:normal"><b>Why not a live link?</b> Apple only shares Apple Card activity with apps on your iPhone (that is how Rocket Money does it: an iPhone app with Apple\u2019s FinanceKit, through Plaid). A Mac or Windows app cannot get it that way, so this does the next best thing: export a statement once a month and the app takes care of the rest. Nothing leaves this computer.</p>'+
    '<ol style="margin:0 0 10px 18px;padding:0;font-size:14px;line-height:1.6"><li>On your iPhone open <b>Wallet</b>, tap <b>Apple Card</b>, then <b>Card Balance</b>.</li><li>Under <b>Statements</b> pick a month (or <b>Export Transactions</b>), and choose <b>CSV</b>, <b>OFX</b> or the PDF statement.</li><li>AirDrop or email it to this computer and choose it below. You can pick several months at once.</li></ol>'+
@@ -9337,6 +9359,7 @@ function updFacts(){
     if(!ser.length)f.energy.elecLast='';
   }catch(e){}
   try{var bs=billsSummary(allBillItems(NOWKEY),NOWKEY,S.txns,S.billMarks,TODAY);f.bills.overdue=bs.overdue;f.bills.names=bs.rows.filter(function(r){return r.st.state==='overdue'&&!isHiddenName(r.item.name,S.hideWords)}).map(function(r){return r.item.name})}catch(e){}
+  try{if(S.apple&&S.apple.acct)f.apple=appleDue(today,appleThrough(),S.apple.snooze)}catch(e){}
   f.budgetCount=Object.keys(S.budgets||{}).length;
   try{var xi=transferInfo(S.txns,S.cardPay);
     f.oiCandidates=oiCandidates(S.txns,TODAY,{days:120,limit:500,skip:function(x){return isTransfer(x,xi)||isCashback(x)||friendHeld(x)}}).length;
@@ -10630,6 +10653,7 @@ document.addEventListener('click',function(e){
     if(taxUI.impBuf&&T&&T.docs)tcall(T.docs.save('Tax documents',taxUI.impName||'tax-form.pdf',taxUI.impBuf,ty0)).then(function(){docsTouch()}).catch(function(){});
     taxUI.imp=null;taxUI.impBuf=null;toast('Saved '+tf.length+' form'+(tf.length===1?'':'s')+'.')}}
   else if(a==='tax-form-del'){S.tax.forms=S.tax.forms.filter(function(x){return x.id!==id});toast('Removed.')}
+  else if(a==='apple-snooze'){if(S.apple){var ad2=appleDue(iso(TODAY),appleThrough(),'');S.apple.snooze=ad2.month;toast('OK. I will remind you about the next statement.')}}
   else if(a==='pay-sel'){mypayUI.sel=id}
   else if(a==='pay-view'){payView(id);return}
   else if(a==='pay-del'){var pd0=S.pay.stubs.filter(function(x){return x.id===id})[0];payMark('removed the statement of '+(pd0?payDateLabel(pd0.payDate):''));S.pay.stubs=S.pay.stubs.filter(function(x){return x.id!==id});mypayUI.sel='';toast('Removed. Press Undo in the pay bar to bring it back.')}
