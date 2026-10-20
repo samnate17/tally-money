@@ -459,6 +459,8 @@ body.reordering,body.reordering *{cursor:grabbing!important}
 .wc0{--g:#3b6cff;--gs:rgba(59,108,255,.38)}.wc1{--g:#8a94a6;--gs:rgba(138,148,166,.30)}.wc2{--g:#8a63d2;--gs:rgba(138,99,210,.38)}.wc3{--g:#16a085;--gs:rgba(22,160,133,.36)}.wc4{--g:#e8833a;--gs:rgba(232,131,58,.36)}.wc5{--g:#c2399a;--gs:rgba(194,57,154,.36)}.wc6{--g:#d9a520;--gs:rgba(217,165,32,.36)}.wc7{--g:#2e9fd8;--gs:rgba(46,159,216,.36)}
 .wcardc{position:relative;padding:14px 14px 12px;border:1px solid var(--line);border-radius:18px;background:radial-gradient(170px 80px at 22% 0,var(--gs),transparent),var(--surface);transition:transform .25s ease,box-shadow .25s ease}
 .wcardc:hover{transform:translateY(-3px);box-shadow:0 14px 34px rgba(0,0,0,.25)}
+.docdrop{margin:10px 0 0;padding:18px;border:2px dashed var(--line);border-radius:14px;text-align:center;color:var(--muted);font-size:13px;transition:border-color .15s,background .15s}
+.docdrop.dropon,.wcardc.dropon{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,var(--surface));border-style:dashed}
 .wtop{display:flex;justify-content:space-between;align-items:center;gap:8px}.wtop h3{margin:0;font-size:16px;min-width:0}.wtop .btn{white-space:nowrap;flex:0 0 auto}
 .wstack{position:relative;height:150px;margin:12px auto 8px;width:min(210px,100%);border:1px solid rgba(255,255,255,.28);border-radius:16px;overflow:hidden;background:rgba(127,127,127,.08)}
 .wstack.clickable{cursor:pointer}.wstack.clickable:focus-visible{outline:2px solid var(--accent)}
@@ -5884,6 +5886,7 @@ var HELP={
 };
 // What changed in each version, in plain words. A test makes sure the version in package.json has an entry, so a release cannot go out without it.
 var WHATSNEW=[
+ ['1.8.49',['Documents: every folder now has an Add button, and you can drag files from Finder or File Explorer onto a folder (or the drop box in Add documents) to file them there. Dropping a file on the window no longer tries to open it in place of the app.','Fixed the file counts that showed 0 / 0. The app only looked in year folders, so files you put straight into a folder, or into folders you made yourself, were missed. Every file in the folder is now counted, listed and can be opened or removed, hidden files like .DS_Store are ignored, and the counts refresh when you open the page or press Refresh.']],
  ['1.8.48',['My pay: View now opens the statement itself (the PDF filed in your Documents folder) for bonus checks and in Pay history. Before, it only changed a panel far down the page, so it looked like nothing happened. If documents protection is on, View asks for your password or Touch ID first. A statement added before the app kept file names opens its year folder instead; new statements open directly. If no PDF was saved, you see its details.']],
  ['1.8.47',['The Which order? window on the Payoff page now tells you which of your own debts should get the extra money. It tries each debt first with your real balances, rates and payments and shows the debt-free date and total interest for each, marks the cheapest as Best, and says how much more the others would cost. It also explains that Minimums only is not a choice, just what happens if you add nothing extra.']],
  ['1.8.46',['New Payoff page in the Debts tab, right before Credit score. The plan for paying off your debts (monthly amount, which to pay first, when you will be debt-free, a deadline and a new-loan check) moved there from the Loans page, so Loans is now just what you owe.','The old Debt payoff plan on the Accounts tab is replaced by a button that opens the Payoff page, so there is one plan instead of two that disagreed.','The What you owe, by kind window on Loans now includes your credit cards, so its rows add up to the total.']],
@@ -8664,7 +8667,7 @@ function docAuth(why,cb){
   draw('',false);
   if(mode!=='setup'&&T&&T.bio)tcall(T.bio.status(slot)).then(function(st){if(st.available&&st.enabled&&document.getElementById('docauth')===el)draw('',true)}).catch(function(){});
 }
-var docsUI={loaded:false,busy:false,data:null,msg:'',kind:'auto',i:{}};
+var docsUI={loaded:false,busy:false,data:null,msg:'',kind:'auto',i:{},at:0,drop:''};
 function docGuess(name){
   var n=String(name||'').toLowerCase(),kind='Other';
   if(/w-?2|1099|1098|1095|1040|tax ?(return|form|doc)|\btax\b/.test(n))kind='Tax documents';
@@ -8678,7 +8681,7 @@ function docGuess(name){
 }
 function docsLoad(){
   if(!(T&&T.docs)||docsUI.busy)return;docsUI.busy=true;
-  tcall(T.docs.list()).then(function(r){docsUI.data=r;docsUI.loaded=true;docsUI.busy=false;if(view==='docs')render()}).catch(function(e){docsUI.busy=false;docsUI.loaded=true;docsUI.msg=(e&&e.message)||'Could not read the folder.';if(view==='docs')render()});
+  tcall(T.docs.list()).then(function(r){docsUI.data=r;docsUI.loaded=true;docsUI.busy=false;docsUI.at=Date.now();if(view==='docs')render()}).catch(function(e){docsUI.busy=false;docsUI.loaded=true;docsUI.msg=(e&&e.message)||'Could not read the folder.';if(view==='docs')render()});
 }
 function fileSize(n){return n>=1048576?(n/1048576).toFixed(1)+' MB':Math.max(1,Math.round(n/1024))+' KB'}
 /*WALLET-START*/
@@ -8803,10 +8806,10 @@ function vDocs(){
   var head='<div class="top"><h1>Documents</h1></div>';
   if(!(T&&T.docs))return head+'<section class="panel"><div class="empty" style="white-space:normal">The documents folder lives on your computer, so it is only in the desktop app (Mac or Windows). Pay statements, tax forms, service records and the other files you add are filed there by kind and year.</div></section>';
   if(!docOpen())return head+docLockedPanel();
-  if(!docsUI.loaded)docsLoad();
+  if(!docsUI.loaded||Date.now()-docsUI.at>3000)docsLoad();   // the counts follow what is really in the folder, not what it held a minute ago
   var d=docsUI.data,yr=TODAY.getFullYear();
   var top='<div class="actions" style="justify-content:flex-end;margin:0 0 10px;flex-wrap:wrap"><button class="btn small primary" data-act="doc-open" data-cat="">Open my Documents folder</button></div>';
-  var add='<section class="panel"><h2>Add documents<small>filed by kind and year</small></h2><div class="form" style="align-items:flex-end"><label>File under<select id="doc-kind"><option value="auto"'+(docsUI.kind==='auto'?' selected':'')+'>Sort automatically</option>'+DOC_KINDS.map(function(k){return '<option'+(docsUI.kind===k?' selected':'')+'>'+esc(k)+'</option>'}).join('')+'</select></label><label>Year<input id="doc-year" type="number" min="1990" max="2100" placeholder="from the file name, or '+yr+'" style="width:150px"></label><label class="btn small primary" style="cursor:pointer">Choose files<input type="file" data-docfile multiple accept=".pdf,.csv,.txt,.ofx,.qfx,.xlsx,.xls,.png,.jpg,.jpeg,.heic" hidden></label></div>'+
+  var add='<section class="panel"><h2>Add documents<small>filed by kind and year</small></h2><div class="form" style="align-items:flex-end"><label>File under<select id="doc-kind"><option value="auto"'+(docsUI.kind==='auto'?' selected':'')+'>Sort automatically</option>'+DOC_KINDS.map(function(k){return '<option'+(docsUI.kind===k?' selected':'')+'>'+esc(k)+'</option>'}).join('')+'</select></label><label>Year<input id="doc-year" type="number" min="1990" max="2100" placeholder="from the file name, or '+yr+'" style="width:150px"></label><label class="btn small primary" style="cursor:pointer">Add files<input type="file" data-docfile multiple hidden></label></div><div class="docdrop" data-dropcat="" role="button" tabindex="0" aria-label="Drop files here to add them">Drag files here, or press Add files. They are filed by the kind you chose above (or by their name).</div>'+
     '<p class="sub muted" style="margin:8px 0 0;font-size:12px;white-space:normal">Files are copied into a folder on this computer (not uploaded anywhere). Automatic sorting uses the file name: W-2 and 1099 go to Tax documents, pay stubs to Pay statements, and so on. A year in the name (like 2025) picks the year folder.'+(docsUI.msg?' <span class="bad">'+esc(docsUI.msg)+'</span>':'')+'</p></section>';
   if(!d)return head+docLockBar()+walletPanel()+top+add+'<section class="panel"><div class="empty">Loading…</div></section>';
   var rows='<section class="panel"><h2>Folders<small>tap a folder to open it</small></h2><div class="wgrid">'+d.folders.map(docFolderCard).join('')+'</div><p class="sub muted" style="margin:10px 0 0;font-size:12px;word-break:break-all">Folder: '+esc(d.root)+'</p></section>';
@@ -8819,8 +8822,8 @@ function docFolderCard(f){
   var layers=[0,1,2,3].map(function(j){return '<i class="wl wl'+j+(n&&j===i%4?' up':'')+(n?'':' dim')+'"></i>'}).join('');
   var byYear={};f.files.forEach(function(x){(byYear[x.year]=byYear[x.year]||[]).push(x)});
   var years=Object.keys(byYear).sort().reverse();
-  var list=years.length?years.map(function(y){return '<div style="margin-top:8px"><div class="sub" style="font-weight:700">'+y+'</div>'+byYear[y].map(function(x){return '<div class="row"><div class="grow"><div class="nm" style="white-space:normal;word-break:break-word">'+esc(x.name)+'</div><div class="sub">'+fileSize(x.size)+' · added '+shortDate(iso(new Date(x.mtime)))+'</div></div><div class="actions" style="flex:none;flex-wrap:nowrap"><button class="btn small" data-act="doc-open" data-cat="'+esc(f.category)+'" data-year="'+y+'" data-name="'+esc(x.name)+'">Open</button><button class="btn small" data-act="doc-del" data-cat="'+esc(f.category)+'" data-year="'+y+'" data-name="'+esc(x.name)+'" aria-label="Remove '+esc(x.name)+'">&times;</button></div></div>'}).join('')+'</div>'}).join(''):'';
-  return '<div class="wcardc wc'+(DOC_COLOR[f.category]!==undefined?DOC_COLOR[f.category]:1)+'"><div class="wtop"><h3>'+esc(f.category)+'</h3><button class="btn small" data-act="doc-open" data-cat="'+esc(f.category)+'">Open folder</button></div>'+
+  var list=years.length?years.map(function(y){return '<div style="margin-top:8px"><div class="sub" style="font-weight:700">'+(y?esc(y):'Loose files (not in a year folder)')+'</div>'+byYear[y].map(function(x){return '<div class="row"><div class="grow"><div class="nm" style="white-space:normal;word-break:break-word">'+esc(x.name)+'</div><div class="sub">'+fileSize(x.size)+' · added '+shortDate(iso(new Date(x.mtime)))+'</div></div><div class="actions" style="flex:none;flex-wrap:nowrap"><button class="btn small" data-act="doc-open" data-cat="'+esc(f.category)+'" data-year="'+esc(y)+'" data-name="'+esc(x.name)+'">Open</button><button class="btn small" data-act="doc-del" data-cat="'+esc(f.category)+'" data-year="'+esc(y)+'" data-name="'+esc(x.name)+'" aria-label="Remove '+esc(x.name)+'">&times;</button></div></div>'}).join('')+'</div>'}).join(''):'';
+  return '<div class="wcardc wc'+(DOC_COLOR[f.category]!==undefined?DOC_COLOR[f.category]:1)+(docsUI.drop===f.category?' dropon':'')+'" data-dropcat="'+esc(f.category)+'"><div class="wtop"><h3>'+esc(f.category)+'</h3><span style="display:inline-flex;gap:6px;flex:0 0 auto"><label class="btn small primary" style="cursor:pointer;margin:0" title="Add files to '+esc(f.category)+'">Add<input type="file" data-docfile data-docfolder="'+esc(f.category)+'" multiple hidden></label><button class="btn small" data-act="doc-open" data-cat="'+esc(f.category)+'">Open folder</button></span></div>'+
     '<div class="wstack clickable" data-act="doc-open" data-cat="'+esc(f.category)+'" role="button" tabindex="0" aria-label="Open '+esc(f.category)+'">'+layers+'<div class="wpocket">'+(n?'':'<span>Nothing here yet</span>')+'</div></div>'+
     '<div class="wpager">'+(n>1?'<button class="wpg" data-act="doc-prev" data-cat="'+esc(f.category)+'" aria-label="Previous">‹</button>':'<span class="wpg"></span>')+'<span class="num">'+(n?(i+1)+' / '+n:'0 / 0')+'</span>'+(n>1?'<button class="wpg" data-act="doc-next" data-cat="'+esc(f.category)+'" aria-label="Next">›</button>':'<span class="wpg"></span>')+'</div>'+
     '<div class="wmeta">'+(n?esc(cur.name.length>26?cur.name.slice(0,24)+'…':cur.name)+'<br>':'')+n+' file'+(n===1?'':'s')+' · '+esc(DOC_NOTES[f.category]||'')+'</div>'+
@@ -8837,16 +8840,33 @@ function docLockBar(){
 }
 function docsRead(inp){
   var files=[].slice.call(inp.files||[]);inp.value='';if(!files.length)return;
-  var kindSel=$('#doc-kind'),yearIn=$('#doc-year'),kind=kindSel?kindSel.value:'auto',year=yearIn&&yearIn.value?+yearIn.value:0;docsUI.kind=kind;
+  docsAdd(files,inp.getAttribute('data-docfolder')||'');
+}
+// Adds files to the documents folder: into one chosen folder (from a folder's Add button or by dropping on it), or filed by the kind and year chosen above.
+function docsAdd(files,cat){
+  var kindSel=$('#doc-kind'),yearIn=$('#doc-year'),kind=cat||(kindSel?kindSel.value:'auto'),year=yearIn&&yearIn.value?+yearIn.value:0;if(!cat)docsUI.kind=kind;
   var done=0,fail='';
   var next=function(i){
-    if(i>=files.length){docsUI.msg=fail;docsUI.loaded=false;docsLoad();toast(done+' file'+(done===1?'':'s')+' added.');return}
+    if(i>=files.length){docsUI.msg=fail;docsUI.loaded=false;docsLoad();toast(done+' file'+(done===1?'':'s')+' added'+(cat?' to '+cat:'')+'.'+(fail?' Some could not be added.':''));return}
     var f=files[i];if(f.size>30e6){fail='"'+f.name+'" is over 30 MB.';next(i+1);return}
     var g=docGuess(f.name),k=kind==='auto'?g.kind:kind,y=year||g.year||(k==='Tax documents'?TODAY.getFullYear()-1:TODAY.getFullYear());
     f.arrayBuffer().then(function(buf){return tcall(T.docs.save(k,f.name,buf,y))}).then(function(){done++;next(i+1)}).catch(function(e){fail=(e&&e.message)||'Could not add a file.';next(i+1)});
   };
   next(0);
 }
+// Dropping files on the window must never open them in place of the app; on the Documents page a drop on a folder (or the drop box) adds them.
+(function(){
+  var hasFiles=function(e){var t=e.dataTransfer&&e.dataTransfer.types;return !!t&&[].indexOf.call(t,'Files')>-1};
+  var zone=function(e){return view==='docs'&&e.target&&e.target.closest?e.target.closest('[data-dropcat]'):null};
+  var clear=function(){[].forEach.call(document.querySelectorAll('.dropon'),function(x){x.classList.remove('dropon')});docsUI.drop=''};
+  document.addEventListener('dragover',function(e){if(!hasFiles(e))return;e.preventDefault();var z=zone(e);if(e.dataTransfer)e.dataTransfer.dropEffect=z?'copy':'none';if(z&&!z.classList.contains('dropon')){clear();z.classList.add('dropon')}else if(!z)clear()});
+  document.addEventListener('dragleave',function(e){if(!e.relatedTarget)clear()});
+  document.addEventListener('drop',function(e){
+    if(!hasFiles(e))return;e.preventDefault();var z=zone(e);clear();if(!z)return;
+    if(!(T&&T.docs)||!docOpen())return;
+    var files=[].slice.call(e.dataTransfer.files||[]);if(files.length)docsAdd(files,z.getAttribute('data-dropcat')||'');
+  });
+})();
 /* ---------- Taxes: what to expect, from your pay statements and forms ---------- */
 var taxUI={year:0,imp:null,impBuf:null,impName:'',busy:false,msg:'',rates:null};
 function taxYearSel(){return taxUI.year||(S.tax&&S.tax.year)||TODAY.getFullYear()}
@@ -10566,7 +10586,7 @@ document.addEventListener('click',function(e){
   if(a==='nav-back'){navhGo(-1);return}
   if(a==='nav-fwd'){navhGo(1);return}
   if(a==='mprev')month=shiftMonth(month,-1);
-  else if(a==='refresh'){refreshAll();return}
+  else if(a==='refresh'){if(view==='docs')docsUI.loaded=false;refreshAll();return}
   else if(a==='asst-check'){ASSIST.st=null;assistLoad();render();return}
   else if(a==='asst-pull'){assistPull(b.dataset.m);return}
   else if(a==='asst-pullstop'){if(ASSIST.pull&&window.tally&&window.tally.localAi)window.tally.localAi.cancel(ASSIST.pull.id);return}

@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 const CATEGORIES = ['Pay statements', 'Tax documents', 'Bank and card statements', 'Vehicle records', 'Energy bills', 'Receipts', 'Other'];
-const EXT = new Set(['pdf', 'csv', 'txt', 'ofx', 'qfx', 'xlsx', 'xls', 'png', 'jpg', 'jpeg', 'heic']);
+const EXT = new Set(['pdf', 'csv', 'txt', 'ofx', 'qfx', 'xlsx', 'xls', 'doc', 'docx', 'rtf', 'pages', 'numbers', 'png', 'jpg', 'jpeg', 'heic', 'gif', 'webp', 'tif', 'tiff']);
 const MAX_BYTES = 30 * 1024 * 1024;
 
 function cleanName(name) {
@@ -15,6 +15,21 @@ function cleanName(name) {
 function cleanYear(y) {
   const n = Math.round(Number(y));
   return n >= 1990 && n <= 2100 ? String(n) : String(new Date().getFullYear());
+}
+
+// A folder inside a kind folder: '' (the kind folder itself), '2025', or a folder you made yourself such as 'Chase/2025'. Never anything that climbs out.
+function cleanSub(sub) {
+  const raw = String(sub == null ? '' : sub);
+  if (!raw) return '';
+  const parts = raw.split('/');
+  if (parts.length > 3 || parts.some((x) => !x || x.length > 100 || x === '.' || x === '..' || x.startsWith('.') || /[\u0000-\u001f\\:*?"<>|]/.test(x))) throw new Error('Unknown folder.');
+  return parts.join('/');
+}
+// A file name as it sits on disk: just a name, no folders, nothing hidden. Files you put in yourself keep whatever type they have.
+function diskName(name) {
+  const n = String(name == null ? '' : name);
+  if (!n || n.length > 255 || n !== path.basename(n) || n.startsWith('.') || /[\u0000-\u001f/\\]/.test(n)) return null;
+  return n;
 }
 
 function createDocs({ root, shell }) {
@@ -41,26 +56,39 @@ function createDocs({ root, shell }) {
     fs.writeFileSync(path.join(dir, final), buf, { mode: 0o600 });
     return { category: cat, year: cleanYear(year), name: final, size: buf.length, duplicate: false };
   }
+  // Every file in a kind folder, however it got there: filed by the app, dropped into a year folder, or put straight into the folder by hand.
   function list() {
     return CATEGORIES.map((cat) => {
       const files = [];
-      let years = [];
-      try { years = fs.readdirSync(path.join(root, cat)).filter((y) => /^\d{4}$/.test(y)); } catch (e) { years = []; }
-      for (const y of years) {
+      const walk = (sub, depth) => {
         let names = [];
-        try { names = fs.readdirSync(path.join(root, cat, y)); } catch (e) { names = []; }
+        try { names = fs.readdirSync(path.join(root, cat, sub)); } catch (e) { return; }
         for (const f of names) {
-          try { const st = fs.statSync(path.join(root, cat, y, f)); if (st.isFile()) files.push({ year: y, name: f, size: st.size, mtime: st.mtimeMs }); } catch (e) { /* skip */ }
+          if (f.startsWith('.')) continue;                                  // .DS_Store and other hidden files
+          const full = path.join(root, cat, sub, f);
+          let st;
+          try { st = fs.lstatSync(full); } catch (e) { continue; }
+          if (st.isSymbolicLink()) continue;
+          if (st.isFile()) files.push({ year: sub, name: f, size: st.size, mtime: st.mtimeMs });
+          else if (st.isDirectory() && depth < 3) walk(sub ? sub + '/' + f : f, depth + 1);
         }
-      }
+      };
+      walk('', 1);
       files.sort((a, b) => b.year.localeCompare(a.year) || b.mtime - a.mtime);
       return { category: cat, files };
     });
   }
   async function open(cat, year, name) {
-    let target = dirOf(cat, year && /^\d{4}$/.test(String(year)) ? year : '', true);
-    if (name) {
-      const clean = cleanName(name);
+    if (!CATEGORIES.includes(cat)) throw new Error('Unknown folder.');
+    const sub = cleanSub(year);
+    let target = path.join(root, cat, sub);
+    if (!name) {
+      if (!fs.existsSync(target)) {
+        if (sub === '' || /^\d{4}$/.test(sub)) fs.mkdirSync(target, { recursive: true, mode: 0o700 });
+        else throw new Error('That folder is no longer there.');
+      }
+    } else {
+      const clean = diskName(name);
       if (!clean) throw new Error('Unknown file.');
       target = path.join(target, clean);
       if (!fs.existsSync(target)) throw new Error('That file is no longer there.');
@@ -71,10 +99,11 @@ function createDocs({ root, shell }) {
     return true;
   }
   function remove(cat, year, name) {
-    const clean = cleanName(name);
+    if (!CATEGORIES.includes(cat)) throw new Error('Unknown folder.');
+    const clean = diskName(name);
     if (!clean) throw new Error('Unknown file.');
-    const p = path.join(dirOf(cat, year, false), clean);
-    if (!inside(p)) throw new Error('Blocked.');
+    const p = path.join(root, cat, cleanSub(year), clean);
+    if (!inside(p) || !fs.lstatSync(p).isFile()) throw new Error('Blocked.');
     fs.unlinkSync(p);
     return true;
   }

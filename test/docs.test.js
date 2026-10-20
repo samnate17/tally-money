@@ -42,3 +42,23 @@ test('docs: open and remove work only on stored files', async () => {
   docs.remove('Tax documents', 2025, 'w2.pdf');
   assert.equal(docs.list().find((x) => x.category === 'Tax documents').files.length, 0);
 });
+
+test('docs: files put into the folders by hand are listed, opened and removed too', async () => {
+  const { root, docs, opened } = world();
+  const dir = path.join(root, 'Pay statements');
+  fs.mkdirSync(path.join(dir, 'Chase', '2025'), { recursive: true }); fs.mkdirSync(path.join(dir, '2024'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'loose.pdf'), 'a'); fs.writeFileSync(path.join(dir, 'notes.docx'), 'b');
+  fs.writeFileSync(path.join(dir, '2024', 'stub.pdf'), 'c'); fs.writeFileSync(path.join(dir, 'Chase', '2025', 'deep.pdf'), 'd');
+  fs.writeFileSync(path.join(dir, '.DS_Store'), 'x'); fs.writeFileSync(path.join(dir, '2024', '.hidden.pdf'), 'x');
+  fs.symlinkSync('/etc/hostname', path.join(dir, 'link.txt'));
+  const f = docs.list().find((x) => x.category === 'Pay statements').files;
+  assert.deepEqual(f.map((x) => x.year + '|' + x.name).sort(), ['2024|stub.pdf', 'Chase/2025|deep.pdf', '|loose.pdf', '|notes.docx'].sort());
+  await docs.open('Pay statements', '', 'loose.pdf'); await docs.open('Pay statements', 'Chase/2025', 'deep.pdf');
+  assert.deepEqual(opened, [path.join(dir, 'loose.pdf'), path.join(dir, 'Chase', '2025', 'deep.pdf')]);
+  docs.remove('Pay statements', '', 'notes.docx'); assert.equal(fs.existsSync(path.join(dir, 'notes.docx')), false);
+  // nothing can climb out of the kind folder or reach hidden or odd names
+  for (const bad of ['..', 'a/../..', '../Tax documents', '/etc', '.hidden', 'a//b', 'x/y/z/w']) await assert.rejects(() => docs.open('Pay statements', bad, 'loose.pdf'), /Unknown folder/, bad);
+  for (const bad of ['../x.pdf', 'a/b.pdf', '.DS_Store', '']) await assert.rejects(() => docs.open('Pay statements', '', bad || 'x'.repeat(300)), /Unknown file/, bad);
+  assert.throws(() => docs.remove('Pay statements', '', '../Tax documents/x.pdf'), /Unknown file/);
+  await assert.rejects(() => docs.open('Pay statements', 'Nope/2020'), /no longer there/);
+});
