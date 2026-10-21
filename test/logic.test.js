@@ -1038,7 +1038,7 @@ test('loan statement details: a newer statement replaces old figures, an older o
 
 function planWorld() {
   return new Function(srcBlock('/*LOAN-START*/', '/*LOAN-END*/') + srcBlock('/*EXTRAPAY-START*/', '/*EXTRAPAY-END*/') + srcBlock('/*DEBTPLAN-START*/', '/*DEBTPLAN-END*/') + srcBlock('/*HOME-START*/', '/*HOME-END*/') +
-    '\nreturn {payCompare, extraEffect, amortize, separate, requiredPayment, payoffPlan, focusRows, monthlyForMonths, consolidationOffer, homeNorm, mortStep, homeMonthly, homeEquity, homeCompare, homeRentOut, homeSinceBuy, homeExtra, homeSim, homeRefi, growthPerMonth};')();
+    '\nreturn {payCompare, extraEffect, paidAhead, amortize, separate, requiredPayment, payoffPlan, focusRows, monthlyForMonths, consolidationOffer, homeNorm, mortStep, homeMonthly, homeEquity, homeCompare, homeRentOut, homeSinceBuy, homeExtra, homeSim, homeRefi, growthPerMonth};')();
 }
 
 test('payoff plan: one debt matches the plain loan formula, and the money is all accounted for', () => {
@@ -3652,4 +3652,13 @@ test('paying more than the payment due is an extra payment, not a changed paymen
   assert.strictEqual(P.payCompare([{ date: '2026-10-05', amount: 200 }, { date: '2026-09-05', amount: 200 }], 300).kind, 'lower');
   const e = P.extraEffect(10000, 6, 300, 100, false);
   assert.ok(e.months >= 0 && e.interest > 0);
+});
+
+test('a payment made after the middle of the gap counts toward the next due date', () => {
+  const P = planWorld();
+  const early = P.paidAhead([{ date: '2026-10-20', amount: 846 }], '2026-11-02', '2026-10-02', 846, '2026-10-21');
+  assert.deepStrictEqual(early, { date: '2026-10-20', amount: 846 });
+  assert.strictEqual(P.paidAhead([{ date: '2026-10-02', amount: 846 }], '2026-11-02', '2026-10-02', 846, '2026-10-21'), null, 'paid on the last due date');
+  assert.strictEqual(P.paidAhead([{ date: '2026-10-12', amount: 846 }], '2026-11-02', '2026-10-02', 846, '2026-10-21'), null, 'a late payment of the last installment');
+  assert.strictEqual(P.paidAhead([{ date: '2026-10-20', amount: 300 }], '2026-11-02', '2026-10-02', 846, '2026-10-21'), null, 'too small to cover it');
 });

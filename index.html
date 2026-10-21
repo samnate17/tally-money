@@ -2508,6 +2508,16 @@ function extraEffect(balance,apr,pay,extra,monthly){
   if(!base.ok||!fast.ok)return null;
   return {months:base.months-fast.months,interest:base.interest-fast.interest};
 }
+// The app assumes each installment is paid on its due date. A payment made after the middle of the gap between the last due date and the next one belongs to the next
+// one (paid early), so that installment is not still "next". due and prev are YYYY-MM-DD.
+function paidAhead(payments,due,prev,amount,today){
+  if(!(amount>0)||!payments||!payments.length||!due||!prev)return null;
+  var P=function(d){var p=String(d).split('-');return new Date(+p[0],+p[1]-1,+p[2]).getTime()},mid=(P(prev)+P(due))/2,t=P(today);
+  var hit=payments.filter(function(x){var d=P(x.date);return d>mid&&d<=t});
+  var sum=hit.reduce(function(n,x){return n+x.amount},0);
+  if(!hit.length||sum<amount-5)return null;
+  return {date:hit.map(function(x){return x.date}).sort().pop(),amount:Math.round(sum*100)/100};
+}
 /*EXTRAPAY-END*/
 /*ADREDUCE-START*/
 // Auto-debit interest rate reduction on student loans: a standard cut, and a bigger one for a limited time on loans that qualify.
@@ -5906,6 +5916,7 @@ var HELP={
 };
 // What changed in each version, in plain words. A test makes sure the version in package.json has an entry, so a release cannot go out without it.
 var WHATSNEW=[
+ ['1.8.51',['A car loan\'s Next payment no longer shows a payment you have already made. If you paid after the middle of the gap between the last due date and the next one (for example on Oct 20 for a Nov 2 due date), that installment counts as paid and the page shows the one after it, with a note saying when you paid.']],
  ['1.8.50',['If you pay more than a loan\'s payment due, the app now treats the difference as an extra payment toward what you owe instead of warning that your payment changed. The loan page shows how much sooner you would finish, and the Bills tab says how much extra you paid. Paying less still warns you.','What to update now also reminds you to import a credit card statement when the newest transaction you imported for that card is 40 or more days old, one task per card. Cards linked to a bank are left out because they update themselves.','Apple Card reminder. From the 2nd of each month, if your imported Apple Card transactions do not yet reach the end of last month, the Apple Card panel shows that last month\'s statement should be ready, and What to update lists it. Remind me next month hides it until the next statement. The old reminder only counted days since your last import.']],
  ['1.8.49',['Documents: every folder now has an Add button, and you can drag files from Finder or File Explorer onto a folder (or the drop box in Add documents) to file them there. Dropping a file on the window no longer tries to open it in place of the app.','Fixed the file counts that showed 0 / 0. The app only looked in year folders, so files you put straight into a folder, or into folders you made yourself, were missed. Every file in the folder is now counted, listed and can be opened or removed, hidden files like .DS_Store are ignored, and the counts refresh when you open the page or press Refresh.']],
  ['1.8.48',['My pay: View now opens the statement itself (the PDF filed in your Documents folder) for bonus checks and in Pay history. Before, it only changed a panel far down the page, so it looked like nothing happened. If documents protection is on, View asks for your password or Touch ID first. A statement added before the app kept file names opens its year folder instead; new statements open directly. If no PDF was saved, you see its details.']],
@@ -7226,13 +7237,25 @@ function autoHero(a){
   var c=a.contract,inp=c&&contractInput(a),sch=inp&&contractSchedule(inp),st=sch&&contractStatus(inp,sch,TODAY);
   var am=a.minPay>0&&a.balance>0?amortize(a.balance,a.apr||0,a.minPay):null,nd=a.dueDay>0?nextDue(a.dueDay,TODAY):null;
   var principal=st?st.principal:a.balance,payoff=st?st.payoff:null,pct=st?st.pct:(a.origBalance>0?Math.max(0,1-a.balance/a.origBalance):null);
-  var nextAmt=st&&st.next?st.next.payment:a.minPay,nextDate=st&&st.next?cDate(st.next.date):nd,days=nextDate?Math.round((new Date(nextDate.getFullYear(),nextDate.getMonth(),nextDate.getDate())-new Date(TODAY.getFullYear(),TODAY.getMonth(),TODAY.getDate()))/864e5):null;
+  var nextAmt=st&&st.next?st.next.payment:a.minPay,nextDate=st&&st.next?cDate(st.next.date):nd,early=null;
+  if(nextDate&&nextAmt>0){
+    var prevD=st&&st.lastDue?st.lastDue:iso(new Date(nextDate.getFullYear(),nextDate.getMonth()-1,Math.min(nextDate.getDate(),new Date(nextDate.getFullYear(),nextDate.getMonth(),0).getDate())));
+    early=paidAhead(paymentsSeen(S.txns,a),iso(nextDate),prevD,nextAmt,iso(TODAY));
+    if(early){
+      var after=st&&st.next?sch.rows[st.paidCount+1]:null;
+      early.due=iso(nextDate);
+      if(after){nextDate=cDate(after.date);nextAmt=after.payment}
+      else if(st&&st.next){nextDate=null;nextAmt=0}
+      else nextDate=new Date(nextDate.getFullYear(),nextDate.getMonth()+1,Math.min(nextDate.getDate(),new Date(nextDate.getFullYear(),nextDate.getMonth()+2,0).getDate()));
+    }
+  }
+  var days=nextDate?Math.round((new Date(nextDate.getFullYear(),nextDate.getMonth(),nextDate.getDate())-new Date(TODAY.getFullYear(),TODAY.getMonth(),TODAY.getDate()))/864e5):null;
   var maturity=st?st.maturity:(am&&am.ok?iso(addMonths(TODAY,am.months)):''),left=st?st.left:(am&&am.ok?am.months:null),term=c?c.count:null;
   var title=esc(c&&c.vehicle?c.vehicle:a.name),sub=[c&&c.condition?(c.condition==='new'?'New':'Used'):'',a.lender||(c&&c.lender)||''].filter(Boolean).join(' · ');
   var left1='<div class="herosec">'+(pct!==null?ringSVG(pct,{size:150,center:Math.round(pct*100)+'%',sub:'paid off',label:'Loan paid off'}):ringSVG(0,{size:150,center:'—',sub:'add the original amount'}))+'</div>';
   var mid='<div class="herosec" style="flex:1 1 220px"><div class="sub">'+(payoff!==null?'Payoff today (estimate)':'Current balance')+'</div><div class="num herobig">'+money(payoff!==null?payoff:principal)+'</div>'+(payoff!==null?'<div class="sub">Balance '+money(principal)+' + '+money(st.accrued)+' interest to date. Grows about '+money(st.perDiem)+' a day.</div>':'<div class="sub">Add the contract or a statement for a payoff figure.</div>')+
     (a.pastDue>0?'<div class="banner" style="margin-top:8px"><span><b class="bad">Past due '+money(a.pastDue)+'</b></span></div>':'')+'</div>';
-  var right='<div class="herosec" style="flex:1 1 200px"><div class="sub">Next payment</div><div class="num herobig">'+(nextAmt>0?money(nextAmt):'—')+'</div><div class="sub">'+(nextDate?'Due '+monthLabelDay(iso(nextDate))+(days!==null?' ('+(days<0?Math.abs(days)+' days ago':days===0?'today':'in '+days+' day'+(days===1?'':'s'))+')':''):'Set a due day on this loan')+'</div></div>';
+  var right='<div class="herosec" style="flex:1 1 200px"><div class="sub">Next payment</div><div class="num herobig">'+(nextAmt>0?money(nextAmt):'—')+'</div><div class="sub">'+(nextDate?'Due '+monthLabelDay(iso(nextDate))+(days!==null?' ('+(days<0?Math.abs(days)+' days ago':days===0?'today':'in '+days+' day'+(days===1?'':'s'))+')':''):(early&&!nextDate?'Paid off with your '+monthLabelDay(early.date)+' payment':'Set a due day on this loan'))+(early?'<div class="sub">Your '+monthLabelDay(early.due)+' payment of '+money(early.amount)+' was already made on '+monthLabelDay(early.date)+'.</div>':'')+'</div></div>';
   var chip=function(l,v){return v?'<div class="herochip"><div class="sub">'+l+'</div><div class="num" style="font-weight:700">'+v+'</div></div>':''};
   var chips='<div class="herochips">'+chip('Interest rate',a.apr>0?a.apr+'%':'')+chip('Term',term?term+' months':'')+chip('Payments left',left!==null?left:'')+chip('Last payment',maturity?monthLabelDay(maturity):'')+chip('Monthly payment',a.minPay>0?money(a.minPay):'')+chip('Interest still to pay',st?money0(st.remainingInterest):(am&&am.ok?money0(am.interest):''))+'</div>';
   var bar=pct!==null?'<div style="margin:10px 0 0"><div class="bar"><i style="width:'+Math.max(1,Math.round(pct*100))+'%"></i></div><div class="sub" style="margin-top:4px">'+(st?st.paidCount+' of '+(term||'?')+' payments made, '+money0(st.paidTotal)+' paid in all.':Math.round(pct*100)+'% of the original loan is paid off.')+'</div></div>':'';
