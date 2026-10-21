@@ -2491,16 +2491,23 @@ function applyStmt(a,r){
   return true;
 }
 function loanMatchRe(l){
-  var skip=/^(loan|loans|direct|federal|unsubsidized|subsidized|financial|services|service|auto|student|plus|stafford|consolidation|finance|account|payment|group|american|national)$/;
-  var words=(String(l.lender||'')+' '+String(l.name||'')).toLowerCase().replace(/[^a-z0-9 ]/g,' ').split(/\s+/).filter(function(w){return w.length>=4&&!skip.test(w)&&!/^\d+$/.test(w)});
+  var skip=/^(loan|loans|direct|federal|unsubsidized|subsidized|financial|services|service|auto|student|plus|stafford|consolidation|finance|account|payment|group|american|national|credit|union|bank|capital|personal|motor|motors|lending|servicing|mortgage|trust|funding)$/;
+  var wordsOf=function(a,min){return (String(a.lender||'')+' '+String(a.name||'')).toLowerCase().replace(/[^a-z0-9 ]/g,' ').split(/\s+/).filter(function(w){return w.length>=min&&!skip.test(w)&&!/^\d+$/.test(w)})};
+  var words=wordsOf(l,4);if(!words.length)words=wordsOf(l,3);   // a short lender name such as "Oak Credit Union" still counts
+  // A word another debt's lender or name also uses ("example", "first") would credit that debt's payments to this one, so it is left out unless nothing else is left.
+  var others={};((typeof S!=='undefined'&&S&&S.accounts)||[]).forEach(function(a){if(a.id!==l.id)wordsOf(a,3).forEach(function(w){others[w]=1})});
+  var own=words.filter(function(w){return !others[w]});if(own.length)words=own;
   if(l.type==='student')words.push('student ln');
   var seen={},u=[];words.forEach(function(w){if(!seen[w]){seen[w]=1;u.push(w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'))}});
   return u.length?new RegExp(u.join('|'),'i'):null;
 }
 // Payments to this lender that show up in your transactions (money out only), newest first.
+// Does this transaction read like a loan payment? A shop or landlord that shares a word with the lender ("Maple Court Rent", "Maple Auto Finance") must not count as one.
+var LOAN_PAYWORD=/pay|pmt|loan|\bach\b|installment|\bln\b|financ|finl|servic|svc|\bcorp\b|billpay|e-?pay/i;
+function loanPayLike(x){return x.cat==='Debt and loans'||LOAN_PAYWORD.test(x.name||'')}
 function paymentsSeen(txns,l){
   var re=loanMatchRe(l);if(!re)return [];
-  return txns.filter(function(x){return x.amount<0&&re.test(x.name)}).slice().sort(function(a,b){return a.date<b.date?1:-1}).slice(0,6).map(function(x){return {date:x.date,amount:-x.amount,name:x.name}});
+  return txns.filter(function(x){return x.amount<0&&re.test(x.name)&&loanPayLike(x)}).slice().sort(function(a,b){return a.date<b.date?1:-1}).slice(0,6).map(function(x){return {date:x.date,amount:-x.amount,name:x.name}});
 }
 /*LOAN-END*/
 /*EXTRAPAY-START*/
@@ -2954,6 +2961,7 @@ function dpMatches(groups,x){
   if(!(x.amount<0)||x.friend||x.cardPay===true||x.payTo==='none')return null;
   var P=-x.amount;
   if(x.payTo){for(var i=0;i<groups.length;i++)if(groups[i].loans.some(function(l){return l.id===x.payTo}))return groups[i];return null}
+  if(!loanPayLike(x))return null;
   var hits=groups.filter(function(g){return g.re&&g.re.test(x.name||'')});
   hits=hits.filter(function(g){var mn=g.loans.reduce(function(n,l){return n+(+l.minPay||0)},0);return !(mn>0)||(P>=mn*0.2&&P<=mn*5)});   // a $9 coffee at a lender-named shop is not a payment
   if(hits.length===1)return hits[0];
@@ -5928,6 +5936,7 @@ var HELP={
 };
 // What changed in each version, in plain words. A test makes sure the version in package.json has an entry, so a release cannot go out without it.
 var WHATSNEW=[
+ ['1.8.52',['Loans: a shop or landlord that shares a word with your lender (for example a landlord called Maple Court and a lender called Maple Auto Finance) is no longer counted as a loan payment, so it cannot lower a loan balance or show up as an extra payment. Only transactions that read like a payment are matched.','The car loan page\'s Last payment date now uses your due day instead of the 1st of the month.','Loans with the same word in the lender name (for example two credit unions) no longer pick up each other\'s payments when another word tells them apart.']],
  ['1.8.51',['Budgets: each category row has a Remove budget button. A bill you set up with a category and keyword (for example Rent in Housing) now also files payments the app could not sort, such as a Zelle to your landlord, so they count in that category\'s budget. A goal with a target of $0 no longer shows NaN% on the Overview and Goals pages. A car loan\'s Next payment no longer shows a payment you have already made. If you paid after the middle of the gap between the last due date and the next one (for example on Oct 20 for a Nov 2 due date), that installment counts as paid and the page shows the one after it, with a note saying when you paid.']],
  ['1.8.50',['If you pay more than a loan\'s payment due, the app now treats the difference as an extra payment toward what you owe instead of warning that your payment changed. The loan page shows how much sooner you would finish, and the Bills tab says how much extra you paid. Paying less still warns you.','What to update now also reminds you to import a credit card statement when the newest transaction you imported for that card is 40 or more days old, one task per card. Cards linked to a bank are left out because they update themselves.','Apple Card reminder. From the 2nd of each month, if your imported Apple Card transactions do not yet reach the end of last month, the Apple Card panel shows that last month\'s statement should be ready, and What to update lists it. Remind me next month hides it until the next statement. The old reminder only counted days since your last import.']],
  ['1.8.49',['Documents: every folder now has an Add button, and you can drag files from Finder or File Explorer onto a folder (or the drop box in Add documents) to file them there. Dropping a file on the window no longer tries to open it in place of the app.','Fixed the file counts that showed 0 / 0. The app only looked in year folders, so files you put straight into a folder, or into folders you made yourself, were missed. Every file in the folder is now counted, listed and can be opened or removed, hidden files like .DS_Store are ignored, and the counts refresh when you open the page or press Refresh.']],
@@ -6941,7 +6950,7 @@ function payCompareNote(pc,l){
   if(!pc||pc.kind==='normal')return '';
   var mo=new Date(pc.month+'-15T12:00:00').toLocaleDateString('en-US',{month:'long'});
   if(pc.kind==='extra'){
-    var ef=extraEffect(l.balance,l.apr,l.minPay,pc.extra,pc.repeat),fx=ef&&(ef.months>0||ef.interest>=1)?' Rough effect if you keep it up: about '+(ef.months>0?ef.months+' month'+(ef.months===1?'':'s')+' sooner and ':'')+money(ef.interest)+' less interest.':'';
+    var ef=extraEffect(l.balance,l.apr,l.minPay,pc.extra,pc.repeat),fx=ef&&(ef.months>0||ef.interest>=1)?' Rough effect if you keep it up: about '+(ef.months>0?ef.months+' month'+(ef.months===1?'':'s')+' sooner and ':'')+money0(ef.interest)+' less interest.':'';
     return '<p class="sub" style="margin:4px 0 0;color:var(--good,#2e7d32)">You paid '+money(pc.total)+' in '+mo+', which is '+money(pc.extra)+' more than the '+money(l.minPay)+' due. That counts as '+(pc.repeat?'extra payments':'an extra payment')+' toward what you owe, not a change to your payment.'+fx+'</p>';
   }
   return '<p class="sub warn" style="margin:4px 0 0">You paid '+money(pc.total)+' in '+mo+', which is '+money(pc.short)+' less than the '+money(l.minPay)+' due.'+(pc.kind==='lower'?' If your payment really went down, edit the loan.':' It may be a partial payment; check you are not behind.')+'</p>';
@@ -7262,7 +7271,7 @@ function autoHero(a){
     }
   }
   var days=nextDate?Math.round((new Date(nextDate.getFullYear(),nextDate.getMonth(),nextDate.getDate())-new Date(TODAY.getFullYear(),TODAY.getMonth(),TODAY.getDate()))/864e5):null;
-  var maturity=st?st.maturity:(am&&am.ok?iso(addMonths(TODAY,am.months)):''),left=st?st.left:(am&&am.ok?am.months:null),term=c?c.count:null;
+  var maturity=st?st.maturity:(am&&am.ok?(nextDate&&am.months>0?iso(addMonthsISO(iso(nextDate),am.months-1)):iso(addMonths(TODAY,am.months))):''),left=st?st.left:(am&&am.ok?am.months:null),term=c?c.count:null;
   var title=esc(c&&c.vehicle?c.vehicle:a.name),sub=[c&&c.condition?(c.condition==='new'?'New':'Used'):'',a.lender||(c&&c.lender)||''].filter(Boolean).join(' · ');
   var left1='<div class="herosec">'+(pct!==null?ringSVG(pct,{size:150,center:Math.round(pct*100)+'%',sub:'paid off',label:'Loan paid off'}):ringSVG(0,{size:150,center:'—',sub:'add the original amount'}))+'</div>';
   var mid='<div class="herosec" style="flex:1 1 220px"><div class="sub">'+(payoff!==null?'Payoff today (estimate)':'Current balance')+'</div><div class="num herobig">'+money(payoff!==null?payoff:principal)+'</div>'+(payoff!==null?'<div class="sub">Balance '+money(principal)+' + '+money(st.accrued)+' interest to date. Grows about '+money(st.perDiem)+' a day.</div>':'<div class="sub">Add the contract or a statement for a payoff figure.</div>')+

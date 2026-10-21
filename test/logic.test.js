@@ -1038,7 +1038,7 @@ test('loan statement details: a newer statement replaces old figures, an older o
 
 function planWorld() {
   return new Function(srcBlock('/*LOAN-START*/', '/*LOAN-END*/') + srcBlock('/*EXTRAPAY-START*/', '/*EXTRAPAY-END*/') + srcBlock('/*DEBTPLAN-START*/', '/*DEBTPLAN-END*/') + srcBlock('/*HOME-START*/', '/*HOME-END*/') +
-    '\nreturn {goalFrac, payCompare, extraEffect, paidAhead, amortize, separate, requiredPayment, payoffPlan, focusRows, monthlyForMonths, consolidationOffer, homeNorm, mortStep, homeMonthly, homeEquity, homeCompare, homeRentOut, homeSinceBuy, homeExtra, homeSim, homeRefi, growthPerMonth};')();
+    '\nreturn {loanMatchRe, loanPayLike, paymentsSeen, goalFrac, payCompare, extraEffect, paidAhead, amortize, separate, requiredPayment, payoffPlan, focusRows, monthlyForMonths, consolidationOffer, homeNorm, mortStep, homeMonthly, homeEquity, homeCompare, homeRentOut, homeSinceBuy, homeExtra, homeSim, homeRefi, growthPerMonth};')();
 }
 
 test('payoff plan: one debt matches the plain loan formula, and the money is all accounted for', () => {
@@ -3682,4 +3682,18 @@ test('a bill with a category files unsorted payments into that category for budg
   ]);
   assert.deepStrictEqual(out.map((x) => x.cat), ['Housing', 'Dining', 'Other']);
   assert.strictEqual(out[0].sub, 'Rent');
+});
+
+test('only transactions that read like a payment count toward a loan, and short lender names still match', () => {
+  const P = planWorld();
+  const car = { id: 'c', type: 'auto', name: 'Car Loan', lender: 'Maple Auto Finance' };
+  const cu = { id: 'u', type: 'loan', name: 'Personal Loan', lender: 'Oak Credit Union' };
+  const tx = [
+    { date: '2026-10-02', name: 'MAPLE AUTO FINANCE PAYMENT', amount: -846, cat: 'Debt and loans' },
+    { date: '2026-10-01', name: 'Maple Court Rent', amount: -1450, cat: 'Housing' },
+    { date: '2026-10-20', name: 'OAK CREDIT UNION LOAN PMT', amount: -260 }
+  ];
+  assert.deepStrictEqual(P.paymentsSeen(tx, car).map((x) => x.amount), [846]);
+  assert.deepStrictEqual(P.paymentsSeen(tx, cu).map((x) => x.amount), [260]);
+  assert.strictEqual(P.loanPayLike({ name: 'Maple Court Rent', cat: 'Housing' }), false);
 });
