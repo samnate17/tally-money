@@ -3328,7 +3328,7 @@ test('help: every release has a plain-words entry in What is new, and the help c
   ['dash', 'assets', 'docs', 'look'].forEach((k) => assert.ok(pages.includes(k)));
 });
 // ---- window layout ----
-function layWorld() { return new Function(srcBlock('/*LAYOUT-START*/', '/*LAYOUT-END*/') + '\nreturn {LAYOUT_VIEWS, WINSTYLES, winSlug, cleanLayout, winStyleOf};')(); }
+function layWorld() { return new Function(srcBlock('/*LAYOUT-START*/', '/*LAYOUT-END*/') + '\nreturn {LAYOUT_VIEWS, WINSTYLES, WIN_SPAN, winSlug, cleanLayout, winStyleOf};')(); }
 test('layout: window names become stable ids', () => {
   const L = layWorld();
   assert.equal(L.winSlug('Where it went'), 'where-it-went'); assert.equal(L.winSlug('  If you earned $100 '), 'if-you-earned-100');
@@ -3696,4 +3696,12 @@ test('only transactions that read like a payment count toward a loan, and short 
   assert.deepStrictEqual(P.paymentsSeen(tx, car).map((x) => x.amount), [846]);
   assert.deepStrictEqual(P.paymentsSeen(tx, cu).map((x) => x.amount), [260]);
   assert.strictEqual(P.loanPayLike({ name: 'Maple Court Rent', cat: 'Housing' }), false);
+});
+
+test('window widths and heights are cleaned', () => {
+  const L = layWorld();
+  const c = L.cleanLayout({ views: { budgets: { size: { a: 'third', b: 'twothirds', c: 'half', d: 'full', e: 'huge' }, height: { a: 300.4, b: 50, c: 5000, d: 'x', e: 120 } } } });
+  assert.deepStrictEqual(c.views.budgets.size, { a: 'third', b: 'twothirds', c: 'half', d: 'full' });
+  assert.deepStrictEqual(c.views.budgets.height, { a: 300, e: 120 });
+  ['transactions', 'mortgage', 'afford', 'carloan', 'student'].forEach((v) => assert.ok(L.LAYOUT_VIEWS[v], v));
 });

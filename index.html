@@ -477,9 +477,13 @@ body.reordering,body.reordering *{cursor:grabbing!important}
 .hubbar{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px}
 .hubpg{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:7px 14px;font:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:background .15s,transform .15s}
 .hubpg:hover{background:var(--surface2)}.hubpg.on{background:var(--accent);color:var(--accent-ink,#fff);border-color:var(--accent)}
-.winboard{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:0 0 14px;align-items:start}
-.win{min-width:0;position:relative}.win.full{grid-column:1/-1}.win>.panel{margin:0}.win>.grid.tiles{margin:0}
-@media (max-width:900px){.winboard{grid-template-columns:minmax(0,1fr)}.win.half{grid-column:1/-1}}
+.winboard{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:14px;margin:0 0 14px;align-items:start}
+.win{min-width:0;position:relative}.win.third{grid-column:span 2}.win.half{grid-column:span 3}.win.twothirds{grid-column:span 4}.win.full{grid-column:1/-1}.win>.panel{margin:0}.win>.grid.tiles{margin:0}
+.win[data-h]>.panel,.win[data-h]>.grid.tiles{height:var(--wh);overflow:auto}
+.wrz,.wrh{display:none;position:absolute;z-index:4;touch-action:none;background:var(--accent);opacity:.55;border-radius:6px}.wrz:hover,.wrh:hover,.wrz.on,.wrh.on{opacity:1}
+.layoutedit .wrz,.layoutedit .wrh{display:block}
+.wrz{right:-9px;top:50%;width:8px;height:56px;margin-top:-28px;cursor:ew-resize}.wrh{left:50%;bottom:-9px;height:8px;width:56px;margin-left:-28px;cursor:ns-resize}
+@media (max-width:900px){.winboard{grid-template-columns:minmax(0,1fr)}.win.third,.win.half,.win.twothirds{grid-column:1/-1}.wrz{display:none!important}}
 .win>h2.sechead{margin-top:6px}
 .win .panel h2{cursor:grab}.reordering .win .panel h2{cursor:grabbing}
 .winoff{display:none}.layoutedit .winoff{display:block;opacity:.45}
@@ -5911,7 +5915,7 @@ var billUI={edit:'',adding:false,adj:''};
 // What each tab is for and how to use it. Shown by the ? button on every tab and in the walkthrough (Settings, then Help).
 var HELP_START={t:'Welcome',what:'Agent X keeps your money in one place on this computer: accounts, spending, bills, pay, taxes, goals and more. Your data stays on this computer; nothing is sent anywhere unless you choose an AI feature and give it your own key.',how:['Bring in your data. On Transactions, import a bank or card statement (a CSV or a PDF). On Accounts, add your accounts and balances.','The example data you see at first is made up so you can try everything. Clear it when you are ready to use your own.','Press Ctrl+K (Cmd+K on a Mac) or / to search or ask anything, such as next paycheck, bills due or tax refund.','If you change something by mistake, use Undo at the top of the page. The ‹ › arrows at the top left of every page go back and forward through the pages you visited (Cmd+[ and Cmd+], or Alt with the left and right arrow keys).','Open Settings to change how the app looks, reorder or hide tabs, set a password or Touch ID, back up your data and update the app.','Tap the owl (it flies around the app) to ask for a change to how the app looks, such as dark mode, bigger text or a hidden tab, or press Help for this page inside it for a short guide to that tab.'],tip:'Nothing here moves money. The app only reads what you give it.'};
 var HELP={
-  overview:{t:'Overview',what:'A summary of the month: where your money went, income against spending over six months, your budgets and the bills coming up.',how:['The sky behind your net worth follows the real sun, from sunrise to sunset to stars. Press Customize to make the page yours: edit, add, move, resize and recolor the shortcuts, move and hide the cards under them, and move, resize or restyle the windows. Tap a window\'s title to fold it. Tap any number or the Open button on a window to go to its page.','Use the month arrows at the top to look at another month.','Read Where it went to see which categories took the most.','Budgets are listed most used first, so the ones you are close to overspending show at the top.','Bills coming up lists what is due in the next two weeks.','Your stocks shows what your investments are worth, how they moved today, a chart of their value over time (1M, 3M or 1Y), a bar of how your money is split between them and how each stock is doing. It refreshes about every minute while the market is open.','Recent transactions lists your latest activity.','The row at the top switches between this summary and the Live dashboard.','Press Customize at the top of this page (or any page with windows) to drag windows into a new order, make them half or full width, hide the ones you do not want and choose how some of them are drawn: spending as a donut, bars or a list, the six months as bars or lines, your stocks as a line graph, a pie or bars, budgets as bars or rings, net worth as a line or bars. You can also hold a window by its title and drag it.'],tip:'This is the page to glance at each morning. Open the other tabs for detail.'},
+  overview:{t:'Overview',what:'A summary of the month: where your money went, income against spending over six months, your budgets and the bills coming up.',how:['The sky behind your net worth follows the real sun, from sunrise to sunset to stars. Press Customize to make the page yours: edit, add, move, resize and recolor the shortcuts, move and hide the cards under them, and move, resize or restyle the windows. Tap a window\'s title to fold it. Tap any number or the Open button on a window to go to its page.','Use the month arrows at the top to look at another month.','Read Where it went to see which categories took the most.','Budgets are listed most used first, so the ones you are close to overspending show at the top.','Bills coming up lists what is due in the next two weeks.','Your stocks shows what your investments are worth, how they moved today, a chart of their value over time (1M, 3M or 1Y), a bar of how your money is split between them and how each stock is doing. It refreshes about every minute while the market is open.','Recent transactions lists your latest activity.','The row at the top switches between this summary and the Live dashboard.','Press Customize at the top of this page (or any page with windows) to drag windows into a new order, set their width (a third, half, two thirds or full, from the menu or by dragging the right edge) and height (drag the bottom edge), hide the ones you do not want and choose how some of them are drawn: spending as a donut, bars or a list, the six months as bars or lines, your stocks as a line graph, a pie or bars, budgets as bars or rings, net worth as a line or bars. You can also hold a window by its title and drag it.'],tip:'This is the page to glance at each morning. Open the other tabs for detail.'},
   dash:{t:'Dashboard',what:'A live view of your net worth, bills, loan payoff, goals and spending in one screen.',how:['Read the cards for your headline numbers.','Click a card to open the tab behind it.','Recent transactions shows your latest activity.','Leave it open: it updates on its own.'],tip:'Add accounts and balances first so the net worth card is accurate.'},
   accounts:{t:'Accounts',what:'Everything you own and owe, and your net worth (assets minus debts).',how:['Add an account with the form at the bottom: checking, savings, a card, a loan, a vehicle or a property.','Keep balances current: edit them, or import a statement on Transactions.','Assets and Debts show what adds to and what takes from your net worth.','The row at the top opens Assets (vehicles and valuables). Investments has its own tab in the sidebar.'],tip:'The more accounts you add, the more the rest of the app can connect (bills from loans, payoff plans, net worth).'},
   pay:{t:'My pay',what:'Your paychecks: when the next one arrives, what comes out of each one and what changed since the last.',how:['Press Add a pay statement and choose the PDF from your payroll site (such as ADP). The app reads it on your computer.','Check the numbers it found, then save. Or press Add by hand to type them in.','Where your paycheck goes splits each check into taxes, benefits, retirement and take-home, with a chart and notes.','Add a statement each pay period so What changed and the yearly projection stay accurate.','With more than one job, the app tells them apart by the employer on each statement and shows each one: what it pays, when the next check comes and how it is doing.','Other income at the bottom is for gigs, payments from friends and gifts.','Taxes is the other page, along the top of this tab.'],tip:'A copy of each statement is filed in Documents for you.'},
@@ -5937,6 +5941,7 @@ var HELP={
 };
 // What changed in each version, in plain words. A test makes sure the version in package.json has an entry, so a release cannot go out without it.
 var WHATSNEW=[
+ ['1.8.53',['Customize now lets you set a window\'s width to a third, half, two thirds or the whole page: pick it from the menu on the window\'s bar, or drag the handle on its right edge. Drag the handle on the bottom edge to set a height (double-click it for automatic height again), or press Auto height. Moving windows works as before.','Customize is now on Transactions, Mortgage, Can I afford it?, and the car loan and student loan pages as well. Mortgage and Can I afford it? show one window at a time, so on those pages you can resize a window but not reorder it. Energy is not included yet because its page is built differently.']],
  ['1.8.52',['Overview and Monthly report now compare this month so far with the same days of last month (it said "less than last month" early in the month because it was comparing against a whole month), and show "Same as" instead of "-$0 less" when they match. The Credit score page now uses the same 30% and 10% targets as the Credit cards page, so the amounts to pay down agree. Loans: a shop or landlord that shares a word with your lender (for example a landlord called Maple Court and a lender called Maple Auto Finance) is no longer counted as a loan payment, so it cannot lower a loan balance or show up as an extra payment. Only transactions that read like a payment are matched.','The car loan page\'s Last payment date now uses your due day instead of the 1st of the month.','Loans with the same word in the lender name (for example two credit unions) no longer pick up each other\'s payments when another word tells them apart.']],
  ['1.8.51',['Budgets: each category row has a Remove budget button. A bill you set up with a category and keyword (for example Rent in Housing) now also files payments the app could not sort, such as a Zelle to your landlord, so they count in that category\'s budget. A goal with a target of $0 no longer shows NaN% on the Overview and Goals pages. A car loan\'s Next payment no longer shows a payment you have already made. If you paid after the middle of the gap between the last due date and the next one (for example on Oct 20 for a Nov 2 due date), that installment counts as paid and the page shows the one after it, with a note saying when you paid.']],
  ['1.8.50',['If you pay more than a loan\'s payment due, the app now treats the difference as an extra payment toward what you owe instead of warning that your payment changed. The loan page shows how much sooner you would finish, and the Bills tab says how much extra you paid. Paying less still warns you.','What to update now also reminds you to import a credit card statement when the newest transaction you imported for that card is 40 or more days old, one task per card. Cards linked to a bank are left out because they update themselves.','Apple Card reminder. From the 2nd of each month, if your imported Apple Card transactions do not yet reach the end of last month, the Apple Card panel shows that last month\'s statement should be ready, and What to update lists it. Remind me next month hides it until the next statement. The old reminder only counted days since your last import.']],
@@ -10970,6 +10975,7 @@ document.addEventListener('click',function(e){
   else if(a==='look-tab'){lookSub(b.dataset.k)}
   else if(a==='lay-edit'){layoutEdit=!layoutEdit}
   else if(a==='lay-reset'){delete LAYOUT.views[view];saveLayout();toast('This page is back to its normal layout.')}
+  else if(a==='win-hauto'){delete layV(view).height[b.dataset.id];saveLayout()}
   else if(a==='win-size'){var lw=layV(view),cw=b.closest('.win'),cur=cw&&cw.classList.contains('full')?'full':'half';lw.size[b.dataset.id]=cur==='full'?'half':'full';saveLayout()}
   else if(a==='hc-left'||a==='hc-right'){var P0=hcPrefs(),ids0=P0.ids.slice(),i0=ids0.indexOf(b.dataset.id),j0=i0+(a==='hc-left'?-1:1);if(i0>-1&&j0>-1&&j0<ids0.length){var t0=ids0.splice(i0,1)[0];ids0.splice(j0,0,t0);P0.order=ids0;hcSave()}}
   else if(a==='hc-hide'){var P1=hcPrefs(),k1=P1.hidden.indexOf(b.dataset.id);if(k1<0)P1.hidden.push(b.dataset.id);else P1.hidden.splice(k1,1);hcSave()}
@@ -11195,9 +11201,38 @@ function carAiRun(id){
   }).catch(function(e){carAI.busy='';carAI.err=(e&&e.message)||'Could not draw the car.';render()});
 }
 document.addEventListener('change',function(e){
-  var t=e.target;if(!t||!t.classList||!t.classList.contains('winstyle'))return;
+  var t=e.target;if(t&&t.classList&&t.classList.contains('winwidth')){var lw=layV(t.dataset.v);if(WIN_SPAN[t.value]){lw.size[t.dataset.id]=t.value;saveLayout();render()}return}
+  if(!t||!t.classList||!t.classList.contains('winstyle'))return;
   var l=layV(t.dataset.v);l.style[t.dataset.id]=t.value;saveLayout();render();
 });
+// Dragging the edge handles while customizing: the right edge snaps the width to a third, half, two thirds or the full page; the bottom edge sets a height in pixels.
+(function(){
+  var st=null,SN=[['third',2],['half',3],['twothirds',4],['full',6]];
+  document.addEventListener('pointerdown',function(e){
+    var h=e.target.closest&&e.target.closest('.wrz,.wrh');if(!h||!layoutEdit)return;
+    var fr=h.closest('.win');if(!fr||!fr.parentNode)return;e.preventDefault();e.stopPropagation();
+    st={h:h,fr:fr,id:fr.dataset.wid,w:h.classList.contains('wrz'),board:fr.parentNode,panel:fr.querySelector(':scope > .panel, :scope > .grid.tiles')};
+    h.classList.add('on');try{h.setPointerCapture(e.pointerId)}catch(x){}
+  },true);
+  document.addEventListener('pointermove',function(e){
+    if(!st)return;
+    if(st.w){
+      var b=st.board.getBoundingClientRect(),r=st.fr.getBoundingClientRect(),ratio=(e.clientX-r.left)/b.width,best=SN[0];
+      SN.forEach(function(o){if(Math.abs(ratio-o[1]/6)<Math.abs(ratio-best[1]/6))best=o});
+      if(st.pick!==best[0]){st.pick=best[0];st.fr.classList.remove('third','half','twothirds','full');st.fr.classList.add(best[0])}
+    }else{
+      var top=(st.panel||st.fr).getBoundingClientRect().top;st.hpx=Math.max(120,Math.min(1500,Math.round(e.clientY-top)));
+      st.fr.dataset.h='1';st.fr.style.setProperty('--wh',st.hpx+'px');
+    }
+  });
+  function done(){
+    if(!st)return;var s=st;st=null;s.h.classList.remove('on');
+    var l=layV(view);if(s.w&&s.pick)l.size[s.id]=s.pick;if(!s.w&&s.hpx)l.height[s.id]=s.hpx;
+    saveLayout();render();
+  }
+  document.addEventListener('pointerup',done);document.addEventListener('pointercancel',done);
+  document.addEventListener('dblclick',function(e){var h=e.target.closest&&e.target.closest('.wrh');if(!h||!layoutEdit)return;var fr=h.closest('.win');if(fr){delete layV(view).height[fr.dataset.wid];saveLayout();render()}});
+})();
 function thClick(a,b){
   if(a==='th-nav-layout'){NAVP.layout=b.dataset.v==='top'||b.dataset.v==='bottom'?b.dataset.v:'side';saveNav();render();return true}
   if(a==='th-nav-up'||a==='th-nav-down'){NAVP.order=navStep(navIds(),b.dataset.id,a==='th-nav-up'?-1:1);saveNav();render();return true}
@@ -11230,7 +11265,9 @@ function ordMerge(full,vis){var set={},k=0;vis.forEach(function(v){set[v]=1});re
 /*REORDER-END*/
 /*LAYOUT-START*/
 // Windows (the panels on a page) can be moved, resized, hidden and shown as a different kind of graphic. Saved per user and per page.
-var LAYOUT_VIEWS={overview:1,dash:1,accounts:1,assets:1,invest:1,budgets:1,report:1,bills:1,subscriptions:1,pay:1,tax:1,loans:1,payoff:1,cards:1,credit:1,goals:1,docs:1};
+var LAYOUT_VIEWS={overview:1,dash:1,accounts:1,assets:1,invest:1,budgets:1,report:1,bills:1,subscriptions:1,pay:1,tax:1,loans:1,payoff:1,cards:1,credit:1,goals:1,docs:1,transactions:1,mortgage:1,afford:1,carloan:1,student:1};
+// Widths a window can have, in sixths of the page; height is a number of pixels (a window with none fits its content).
+var WIN_SPAN={third:2,half:3,twothirds:4,full:6};
 // The windows that can change what kind of graphic they draw: page/window id -> [[key,label],...] (the first is the default).
 var WINSTYLES={
   'overview/where-it-went':[['donut','Donut'],['bars','Bars'],['list','List']],
@@ -11252,10 +11289,11 @@ function cleanLayout(raw){
     if(!LAYOUT_VIEWS[v])return;var r=raw.views[v];if(!r||typeof r!=='object')return;
     var ids=function(a){var seen={},o=[];(Array.isArray(a)?a:[]).slice(0,60).forEach(function(x){if(typeof x==='string'&&idre.test(x)&&!seen[x]){seen[x]=1;o.push(x)}});return o};
     var size={},style={},fold={};
-    if(r.size&&typeof r.size==='object')Object.keys(r.size).slice(0,60).forEach(function(k){if(idre.test(k)&&(r.size[k]==='half'||r.size[k]==='full'))size[k]=r.size[k]});
+    if(r.size&&typeof r.size==='object')Object.keys(r.size).slice(0,60).forEach(function(k){if(idre.test(k)&&WIN_SPAN[r.size[k]])size[k]=r.size[k]});
+    var height={};if(r.height&&typeof r.height==='object')Object.keys(r.height).slice(0,60).forEach(function(k){var n=Math.round(+r.height[k]);if(idre.test(k)&&isFinite(n)&&n>=120&&n<=1500)height[k]=n});
     if(r.style&&typeof r.style==='object')Object.keys(r.style).slice(0,60).forEach(function(k){if(idre.test(k)&&/^[a-z]{2,10}$/.test(r.style[k]||''))style[k]=r.style[k]});
     if(r.fold&&typeof r.fold==='object')Object.keys(r.fold).slice(0,60).forEach(function(k){if(idre.test(k)&&typeof r.fold[k]==='boolean')fold[k]=r.fold[k]});
-    out.views[v]={order:ids(r.order),hidden:ids(r.hidden),size:size,style:style,fold:fold};
+    out.views[v]={order:ids(r.order),hidden:ids(r.hidden),size:size,height:height,style:style,fold:fold};
   });
   return out;
 }
@@ -11272,7 +11310,7 @@ function winFoldedOf(L,v,id){var r=L&&L.views&&L.views[v],f=r&&r.fold&&r.fold[id
 var LAYOUT=cleanLayout(null),layoutEdit=false;
 try{LAYOUT=cleanLayout(JSON.parse(localStorage.getItem(PK('tally-layout-v1'))||'null'))}catch(e){}
 function saveLayout(){try{localStorage.setItem(PK('tally-layout-v1'),JSON.stringify(LAYOUT))}catch(e){}}
-function layV(v){if(!LAYOUT.views[v])LAYOUT.views[v]={order:[],hidden:[],size:{},style:{},fold:{}};if(!LAYOUT.views[v].fold)LAYOUT.views[v].fold={};return LAYOUT.views[v]}
+function layV(v){if(!LAYOUT.views[v])LAYOUT.views[v]={order:[],hidden:[],size:{},height:{},style:{},fold:{}};if(!LAYOUT.views[v].fold)LAYOUT.views[v].fold={};if(!LAYOUT.views[v].height)LAYOUT.views[v].height={};return LAYOUT.views[v]}
 function winStyle(v,id){return winStyleOf(LAYOUT,v,id)}
 function layoutSetOrder(v,ids){layV(v).order=ids;saveLayout();render()}
 function layoutButtons(){
@@ -11303,13 +11341,18 @@ function layoutApply(){
   ordered.forEach(function(w){
     var size=L.size[w.id]||(w.half?'half':'full'),off=L.hidden.indexOf(w.id)>-1,fr=document.createElement('div');
     fr.className='win '+size+(off?' winoff':'');fr.dataset.wid=w.id;
+    if(L.height[w.id]){fr.dataset.h='1';fr.style.setProperty('--wh',L.height[w.id]+'px')}
     var opts=WINSTYLES[view+'/'+w.id],cur=winStyle(view,w.id);
     var cfg=document.createElement('div');cfg.className='wincfg';
     cfg.innerHTML='<span class="wgrip" title="Hold and drag to move this window" aria-label="Move this window">⋮⋮ Move</span><span class="grow"></span>'+
       (opts?'<select class="winstyle" data-v="'+view+'" data-id="'+w.id+'" aria-label="Kind of graphic">'+opts.map(function(o){return '<option value="'+o[0]+'"'+(o[0]===cur?' selected':'')+'>'+esc(o[1])+'</option>'}).join('')+'</select>':'')+
-      '<button type="button" class="btn small" data-act="win-size" data-id="'+w.id+'" title="Half width or full width">'+(size==='full'?'Make half':'Make full')+'</button>'+
+      '<select class="winwidth" data-v="'+view+'" data-id="'+w.id+'" aria-label="Width of this window">'+[['third','One third'],['half','Half'],['twothirds','Two thirds'],['full','Full width']].map(function(o){return '<option value="'+o[0]+'"'+(o[0]===size?' selected':'')+'>'+o[1]+'</option>'}).join('')+'</select>'+
+      (L.height[w.id]?'<button type="button" class="btn small" data-act="win-hauto" data-id="'+w.id+'" title="Let this window fit its content again">Auto height</button>':'')+
       '<button type="button" class="btn small" data-act="win-hide" data-id="'+w.id+'">'+(off?'Show':'Hide')+'</button>';
-    fr.appendChild(cfg);w.els.forEach(function(e){fr.appendChild(e)});board.appendChild(fr);
+    fr.appendChild(cfg);w.els.forEach(function(e){fr.appendChild(e)});
+    var rz=document.createElement('div');rz.className='wrz';rz.title='Drag to change the width';rz.setAttribute('aria-hidden','true');fr.appendChild(rz);
+    var rh=document.createElement('div');rh.className='wrh';rh.title='Drag to change the height (double-click for automatic)';rh.setAttribute('aria-hidden','true');fr.appendChild(rh);
+    board.appendChild(fr);
     if(w.core.matches('section.panel')&&!w.core.classList.contains('hero')){
       var fh=w.core.querySelector(':scope > h2');
       if(fh){var folded=winFoldedOf(LAYOUT,view,w.id);fh.classList.add('foldh');(function(fid){var tog=function(){var lf=layV(view);lf.fold[fid]=!winFoldedOf(LAYOUT,view,fid);saveLayout();render()};fh.addEventListener('click',function(e){if(e.target.closest('button,a,input,select,label'))return;tog()});fh.addEventListener('keydown',function(e){if((e.key==='Enter'||e.key===' ')&&e.target===fh){e.preventDefault();tog()}})})(w.id);fh.setAttribute('role','button');fh.setAttribute('tabindex','0');fh.setAttribute('aria-expanded',String(!folded));fh.insertAdjacentHTML('afterbegin','<span class="chev" aria-hidden="true">▾</span>');if(folded)fr.classList.add('folded')}
