@@ -745,6 +745,9 @@ On a loan's page, a payment bigger than the payment due is shown as an extra pay
 ### Paying early
 On a car loan page, a payment found in your transactions that falls after the middle of the gap between the last and next due dates counts toward the next due date, so Next payment moves on to the following one and says when you paid.
 
+### Budgets
+Budgets fill from your transactions by category. Press Remove budget on a row to drop one. A bill with a category and keyword also files unsorted payments (Other, Cash and transfers) into that category, so a Zelle to your landlord counts toward the Housing budget.
+
 ### Connect Gmail
 
 From email can also read Gmail directly over IMAP (`imap.gmail.com:993`) with a Google app password (2-Step Verification on, Security, App passwords). The code is `gmail.js`: it only sends LOGIN, EXAMINE (read-only), UID SEARCH, UID FETCH with BODY.PEEK (does not mark mail read) and LOGOUT, searches recent mail about payments and leaves out promotions and social, and returns up to 300 of the newest messages to the page in memory. The password is kept in the encrypted secret store, never goes back to the page, and Disconnect deletes it. Scanned messages go through the same duplicate-safe import as exported files. Tested against a fake IMAP server only; it has not been run against real Gmail.

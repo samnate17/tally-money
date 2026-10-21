@@ -3669,3 +3669,17 @@ test('a goal with no target never shows NaN', () => {
   assert.strictEqual(P.goalFrac({ target: 0, saved: 50 }), 1);
   assert.strictEqual(P.goalFrac({ target: 200, saved: 50 }), 0.25);
 });
+
+test('a bill with a category files unsorted payments into that category for budgets', () => {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const i = src.indexOf('function billLinked(txns){'), j = src.indexOf('function ledger(){');
+  const S = { bills: [{ id: 'b', name: 'Maple Court Rent', amount: 1300, cat: 'Housing', sub: 'Rent', match: 'maple court' }] };
+  const link = new Function('S', srcBlock('/*BILLS-START*/', '/*BILLS-END*/') + src.slice(i, j) + '\nreturn billLinked;')(S);
+  const out = link([
+    { id: 1, name: 'Zelle payment to Maple Court LLC', amount: -1300, cat: 'Cash and transfers' },
+    { id: 2, name: 'Maple Court coffee', amount: -5, cat: 'Dining' },
+    { id: 3, name: 'Maple Court refund', amount: 20, cat: 'Other' }
+  ]);
+  assert.deepStrictEqual(out.map((x) => x.cat), ['Housing', 'Dining', 'Other']);
+  assert.strictEqual(out[0].sub, 'Rent');
+});
