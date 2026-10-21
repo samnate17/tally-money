@@ -1038,7 +1038,7 @@ test('loan statement details: a newer statement replaces old figures, an older o
 
 function planWorld() {
   return new Function(srcBlock('/*LOAN-START*/', '/*LOAN-END*/') + srcBlock('/*EXTRAPAY-START*/', '/*EXTRAPAY-END*/') + srcBlock('/*DEBTPLAN-START*/', '/*DEBTPLAN-END*/') + srcBlock('/*HOME-START*/', '/*HOME-END*/') +
-    '\nreturn {payCompare, extraEffect, paidAhead, amortize, separate, requiredPayment, payoffPlan, focusRows, monthlyForMonths, consolidationOffer, homeNorm, mortStep, homeMonthly, homeEquity, homeCompare, homeRentOut, homeSinceBuy, homeExtra, homeSim, homeRefi, growthPerMonth};')();
+    '\nreturn {goalFrac, payCompare, extraEffect, paidAhead, amortize, separate, requiredPayment, payoffPlan, focusRows, monthlyForMonths, consolidationOffer, homeNorm, mortStep, homeMonthly, homeEquity, homeCompare, homeRentOut, homeSinceBuy, homeExtra, homeSim, homeRefi, growthPerMonth};')();
 }
 
 test('payoff plan: one debt matches the plain loan formula, and the money is all accounted for', () => {
@@ -3661,4 +3661,11 @@ test('a payment made after the middle of the gap counts toward the next due date
   assert.strictEqual(P.paidAhead([{ date: '2026-10-02', amount: 846 }], '2026-11-02', '2026-10-02', 846, '2026-10-21'), null, 'paid on the last due date');
   assert.strictEqual(P.paidAhead([{ date: '2026-10-12', amount: 846 }], '2026-11-02', '2026-10-02', 846, '2026-10-21'), null, 'a late payment of the last installment');
   assert.strictEqual(P.paidAhead([{ date: '2026-10-20', amount: 300 }], '2026-11-02', '2026-10-02', 846, '2026-10-21'), null, 'too small to cover it');
+});
+
+test('a goal with no target never shows NaN', () => {
+  const P = planWorld();
+  assert.strictEqual(P.goalFrac({ target: 0, saved: 0 }), 0);
+  assert.strictEqual(P.goalFrac({ target: 0, saved: 50 }), 1);
+  assert.strictEqual(P.goalFrac({ target: 200, saved: 50 }), 0.25);
 });
